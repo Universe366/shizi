@@ -11,6 +11,7 @@ import {
   normalizePetSize,
   petLayoutForState,
   petLayoutSize,
+  rubberBandRect,
   snapRectToEdges,
   windowRectFor
 } from './petGeometry';
@@ -191,5 +192,24 @@ describe('cornerBodyRect', () => {
     const rect = cornerBodyRect(180, tiny, 'bottom-right');
     expect(rect.x + rect.width).toBeLessThanOrEqual(200);
     expect(rect.y + rect.height).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('rubberBandRect', () => {
+  const area = { x: 0, y: 0, width: 1000, height: 800 };
+  const clamped = { x: 880, y: 680, width: 120, height: 120 };
+
+  it('没越界时不动', () => {
+    expect(rubberBandRect(clamped, clamped)).toEqual(clamped);
+  });
+
+  it('越界只露出 30%，松开后能被拉回', () => {
+    const target = { x: 980, y: 760, width: 120, height: 120 };
+    const soft = rubberBandRect(target, clamped, 0.3);
+    expect(soft.x).toBe(910);
+    expect(soft.y).toBe(704);
+    // 仍然越界但幅度更小
+    expect(soft.x + soft.width).toBeGreaterThan(area.width);
+    expect(soft.x + soft.width).toBeLessThan(target.x + target.width);
   });
 });

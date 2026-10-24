@@ -171,3 +171,15 @@ export function cornerBodyRect(petSize: number, area: Rect, corner: PetCorner, m
   const y = corner === 'top-left' || corner === 'top-right' ? top : bottom;
   return clampRectToArea({ x, y, width: size, height: size }, area);
 }
+
+/**
+ * 拖到屏幕外时的橡皮筋：允许露出一点点（手感 Q 弹），但不会真拖丢。
+ * factor 越大越"硬"，0.3 表示最多只能超出边界的 30%。
+ */
+export function rubberBandRect(target: Rect, clamped: Rect, factor = 0.3): Rect {
+  return {
+    ...clamped,
+    x: Math.round(clamped.x + (target.x - clamped.x) * factor),
+    y: Math.round(clamped.y + (target.y - clamped.y) * factor)
+  };
+}

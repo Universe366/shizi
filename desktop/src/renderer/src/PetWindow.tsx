@@ -152,6 +152,8 @@ export function PetWindow() {
   const [sleepMinutes, setSleepMinutes] = useState(5);
   const [volume, setVolume] = useState(60);
   const [speechRate, setSpeechRate] = useState(1);
+  const [pressing, setPressing] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const bubbleBody = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -508,22 +510,28 @@ export function PetWindow() {
   };
 
   const startDrag = (event: React.MouseEvent) => {
-    // 只响应左键；气泡里的输入框等元素不要触发拖动。
+    // 只响应左键；气泡里的输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest('input,textarea,button,.pet-bubble,.pet-widget,.pet-menu')) return;
+    if (target.closest('input,textarea,.pet-bubble,.pet-widget,.pet-menu,.mini-btn,.pet-close')) {
+      return;
+    }
     dragStarted.current = false;
+    setPressing(true);
     // 位移交给主进程跟随光标：指针移出窗口也不会掉。
     void window.bsub.beginPetDrag();
     const origin = { x: event.screenX, y: event.screenY };
     const move = (moveEvent: MouseEvent) => {
       if (Math.abs(moveEvent.screenX - origin.x) + Math.abs(moveEvent.screenY - origin.y) > 3) {
+        if (!dragStarted.current) setDragging(true);
         dragStarted.current = true;
       }
     };
     const up = () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
+      setPressing(false);
+      setDragging(false);
       void window.bsub.endPetDrag().then((result) => {
         if (result?.moved) dragStarted.current = true;
       });
@@ -536,7 +544,9 @@ export function PetWindow() {
     <div
       className={`pet-root pet-theme-${theme} emotion-${emotion}${open ? ' is-open' : ''}${
         playing ? ' is-playing' : ''
-      }${motion ? '' : ' no-motion'}`}
+      }${motion ? '' : ' no-motion'}${pressing ? ' is-pressing' : ''}${
+        dragging ? ' is-dragging' : ''
+      }`}
       style={{ ['--pet-size' as string]: `${petSize}px` }}
       onContextMenu={(event) => {
         event.preventDefault();

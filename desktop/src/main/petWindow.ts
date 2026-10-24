@@ -8,6 +8,7 @@ import {
   defaultBodyRect,
   nearestWorkArea,
   normalizePetSize,
+  rubberBandRect,
   snapRectToEdges,
   windowRectFor,
   type PetLayoutMode,
@@ -277,6 +278,7 @@ export function dropPet(x: number, y: number): { x: number; y: number } | null {
 let dragTimer: NodeJS.Timeout | null = null;
 let dragStart: { cursor: Electron.Point; body: Rect } | null = null;
 let dragMoved = false;
+let lastMoveAt = 0;
 
 function stopDragLoop(): void {
   if (dragTimer) {
@@ -290,14 +292,26 @@ export function beginPetDrag(): void {
   if (!petWindow || petWindow.isDestroyed() || dragTimer) return;
   dragStart = { cursor: screen.getCursorScreenPoint(), body: currentBody() };
   dragMoved = false;
+  lastMoveAt = Date.now();
+  let lastCursor = dragStart.cursor;
   dragTimer = setInterval(() => {
     if (!dragStart || !petWindow || petWindow.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
     const dx = cursor.x - dragStart.cursor.x;
     const dy = cursor.y - dragStart.cursor.y;
+    if (cursor.x !== lastCursor.x || cursor.y !== lastCursor.y) {
+      lastCursor = cursor;
+      lastMoveAt = Date.now();
+    }
     if (!dragMoved && Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
-    if (!dragMoved) return;
-    applyBody({ ...dragStart.body, x: dragStart.body.x + dx, y: dragStart.body.y + dy });
+    if (dragMoved) {
+      const target = { ...dragStart.body, x: dragStart.body.x + dx, y: dragStart.body.y + dy };
+      const clamped = clampBody(target);
+      // 越界时只露出一小截（橡皮筋），松手会被拉回。
+      applyBody(rubberBandRect(target, clamped));
+      // 指针移出窗口后可能收不到 mouseup：光标停住 1.2s 就自动收尾。
+      if (Date.now() - lastMoveAt > 1200) void endPetDrag();
+    }
   }, 16);
 }
 

@@ -494,6 +494,19 @@ try {
     if (Math.abs(bodyBack.x - bodyBefore.x) > 3 || Math.abs(bodyBack.y - bodyBefore.y) > 3) {
       throw new Error(`收起后本体位移：${bodyBefore.x},${bodyBefore.y} -> ${bodyBack.x},${bodyBack.y}`);
     }
+    // 位置范围：拖到屏幕外也只会在工作区内
+    const area = JSON.parse(
+      await evaluate(pet, 'JSON.stringify({ w: screen.width, h: screen.height })')
+    );
+    await evaluate(pet, 'window.bsub.movePet(99999, 99999).then(() => null)');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const far = await readBody();
+    if (far.x + far.width > area.w + 4 || far.y + far.height > area.h + 4) {
+      throw new Error(`越界未夹取：${far.x},${far.y} ${far.width}x${far.height} / ${area.w}x${area.h}`);
+    }
+    if (far.x < -4 || far.y < -4) throw new Error(`越界为负：${far.x},${far.y}`);
+    await evaluate(pet, 'window.bsub.movePet(700, 420).then(() => null)');
+
     // 即时问答依赖的两个通道：截图 + 选中文字
     // 截图要求主窗口在前台（被完全遮挡时 Chromium 会返回空图）
     await evaluate(ws, "window.bsub.focusMain().then(() => null)");

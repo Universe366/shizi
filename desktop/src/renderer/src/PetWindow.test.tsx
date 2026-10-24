@@ -558,3 +558,42 @@ describe('PetWindow DIY', () => {
     expect(document.querySelector('.pet-root.pet-theme-graphite')).toBeTruthy();
   });
 });
+
+describe('PetWindow 拖动与 Q 弹', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('在本体上按下会开始拖动，松开结束', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    const body = screen.getByTitle(/点击聊天/);
+    fireEvent.mouseDown(body, { button: 0, screenX: 100, screenY: 100 });
+    expect(api.beginPetDrag).toHaveBeenCalled();
+    expect(document.querySelector('.pet-root.is-pressing')).toBeTruthy();
+
+    fireEvent.mouseUp(window, { screenX: 104, screenY: 100 });
+    await waitFor(() => expect(api.endPetDrag).toHaveBeenCalled());
+    expect(document.querySelector('.pet-root.is-pressing')).toBeNull();
+  });
+
+  it('在气泡里按下不会触发拖动', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.mouseDown(input, { button: 0, screenX: 10, screenY: 10 });
+    expect(api.beginPetDrag).not.toHaveBeenCalled();
+  });
+
+  it('拖动超过阈值时进入拖动态（轻微倾斜）', async () => {
+    installBsub();
+    render(<PetWindow />);
+    const body = screen.getByTitle(/点击聊天/);
+    fireEvent.mouseDown(body, { button: 0, screenX: 100, screenY: 100 });
+    fireEvent.mouseMove(window, { screenX: 130, screenY: 140 });
+    await waitFor(() => expect(document.querySelector('.pet-root.is-dragging')).toBeTruthy());
+    fireEvent.mouseUp(window, { screenX: 130, screenY: 140 });
+  });
+});
