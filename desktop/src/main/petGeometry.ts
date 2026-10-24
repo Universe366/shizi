@@ -157,3 +157,17 @@ export function fitWithin(
   const scale = max / longest;
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
+
+export type PetCorner = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+
+/** 指定角落的本体矩形（Reset / 启动位置用）。 */
+export function cornerBodyRect(petSize: number, area: Rect, corner: PetCorner, margin = 24): Rect {
+  const size = normalizePetSize(petSize);
+  const left = area.x + margin;
+  const right = area.x + area.width - size - margin;
+  const top = area.y + margin;
+  const bottom = area.y + area.height - size - margin;
+  const x = corner === 'bottom-left' || corner === 'top-left' ? left : right;
+  const y = corner === 'top-left' || corner === 'top-right' ? top : bottom;
+  return clampRectToArea({ x, y, width: size, height: size }, area);
+}

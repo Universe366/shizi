@@ -12,7 +12,8 @@ export function registerPetShortcuts(): void {
   if (registered) return;
   try {
     const ok = globalShortcut.register(PET_SHOT_ACCELERATOR, () => {
-      if (!loadSettings().general.petEnabled) return;
+      const settings = loadSettings();
+      if (!settings.general.petEnabled || settings.general.petShortcut === false) return;
       openPetWindow();
       void (async () => {
         const result = await beginRegionCapture();

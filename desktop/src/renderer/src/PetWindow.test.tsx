@@ -22,7 +22,16 @@ function installBsub() {
             petOpacity: 1,
             petSound: true,
             petIdleTalk: true,
-            petAlwaysOnTop: true
+            petAlwaysOnTop: true,
+            petTheme: 'mint',
+            petMotion: true,
+            petName: '小拾',
+            petClickAction: 'chat',
+            petDoubleClickAction: 'main',
+            petIdleTalkMinutes: 3,
+            petSleepMinutes: 5,
+            petSoundVolume: 60,
+            petSpeechRate: 1
           },
           ai: { preProofread: false },
           search: { verify: true }
@@ -56,6 +65,7 @@ function installBsub() {
     beginPetDrag: vi.fn(async () => undefined),
     endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
     petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
+    onSettingsChanged: vi.fn(() => () => {}),
     readSelection: vi.fn(async () => ({
       ok: true as const,
       data: { title: '测试页', url: 'https://example.com', selection: '这段是被选中的文字' }
@@ -465,5 +475,86 @@ describe('PetWindow 回归', () => {
     handlers.error?.({ requestId: first.requestId, error: '没有可用的 Key' });
     fireEvent.click(await screen.findByText('打开设置'));
     expect(api.openSettings).toHaveBeenCalled();
+  });
+});
+
+describe('PetWindow DIY', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('应用配色主题与名字', async () => {
+    installBsub();
+    render(<PetWindow />);
+    await waitFor(() => expect(document.querySelector('.pet-root.pet-theme-mint')).toBeTruthy());
+    await openBubble();
+    expect(screen.getByText('小拾')).toBeTruthy();
+  });
+
+  it('单击动作可配置为截图', async () => {
+    const { api } = installBsub();
+    api.getSettings.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        settings: {
+          general: {
+            petSize: 96,
+            petSound: true,
+            petIdleTalk: true,
+            petAlwaysOnTop: true,
+            petTheme: 'sakura',
+            petMotion: true,
+            petName: '即时助手',
+            petClickAction: 'screenshot',
+            petDoubleClickAction: 'main',
+            petIdleTalkMinutes: 3,
+            petSleepMinutes: 5,
+            petSoundVolume: 60,
+            petSpeechRate: 1
+          },
+          ai: { preProofread: false },
+          search: { verify: true }
+        },
+        version: '0.38.11'
+      }
+    } as never);
+    render(<PetWindow />);
+    // 等设置加载完（apply 是异步的），否则单击动作还是默认值
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await vi.waitFor(() => expect(api.captureRegion).toHaveBeenCalled(), { timeout: 3000 });
+  });
+
+  it('关闭动效时不给动画类', async () => {
+    const { api } = installBsub();
+    api.getSettings.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        settings: {
+          general: {
+            petSize: 96,
+            petMotion: false,
+            petTheme: 'graphite',
+            petName: '即时助手',
+            petClickAction: 'chat',
+            petDoubleClickAction: 'main',
+            petIdleTalk: true,
+            petIdleTalkMinutes: 3,
+            petSleepMinutes: 5,
+            petSound: true,
+            petSoundVolume: 60,
+            petSpeechRate: 1,
+            petAlwaysOnTop: true
+          },
+          ai: { preProofread: false },
+          search: { verify: true }
+        },
+        version: '0.38.11'
+      }
+    } as never);
+    render(<PetWindow />);
+    await waitFor(() => expect(document.querySelector('.pet-root.no-motion')).toBeTruthy());
+    expect(document.querySelector('.pet-root.pet-theme-graphite')).toBeTruthy();
   });
 });

@@ -4,6 +4,7 @@ import { loadSettings, saveSettings } from './settings';
 import {
   bodyRectFor,
   clampRectToArea,
+  cornerBodyRect,
   defaultBodyRect,
   nearestWorkArea,
   normalizePetSize,
@@ -104,7 +105,7 @@ function onDisplaysChanged(): void {
 /* ---------------- 窗口生命周期 ---------------- */
 
 /** 桌宠窗口：透明、无边框、置顶、不进任务栏；尺寸随内容伸缩。 */
-export function openPetWindow(): void {
+export function openPetWindow(useStartCorner = false): void {
   if (petWindow && !petWindow.isDestroyed()) {
     petWindow.showInactive();
     return;
@@ -112,10 +113,17 @@ export function openPetWindow(): void {
   layoutMode = 'compact';
   const size = petSize();
   const settings = loadSettings();
+  const corner = settings.general.petStartCorner;
+  const primary = screen.getPrimaryDisplay().workArea;
+  const startRect =
+    useStartCorner && corner && corner !== 'remember'
+      ? cornerBodyRect(size, primary, corner)
+      : null;
   const saved =
-    settings.general.petX || settings.general.petY
+    startRect ||
+    (settings.general.petX || settings.general.petY
       ? { x: settings.general.petX, y: settings.general.petY, width: size, height: size }
-      : defaultBodyRect(size, screen.getPrimaryDisplay().workArea);
+      : defaultBodyRect(size, primary));
   const body = clampBody(saved);
   const rect = windowRectFor(body, layoutMode, size);
 
@@ -182,7 +190,7 @@ export function setPetEnabled(enabled: boolean): void {
 
 export function initPetWindow(): void {
   if (loadSettings().general.petEnabled) {
-    setTimeout(() => openPetWindow(), 1200);
+    setTimeout(() => openPetWindow(true), 1200);
   }
 }
 
@@ -238,8 +246,14 @@ export function petBodyRect(): Rect | null {
 
 export function resetPetPosition(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  const applied = applyBody(defaultBodyRect(petSize(), screen.getPrimaryDisplay().workArea));
-  persistBody(applied);
+  const settings = loadSettings();
+  const primary = screen.getPrimaryDisplay().workArea;
+  const corner = settings.general.petStartCorner;
+  const body =
+    corner && corner !== 'remember'
+      ? cornerBodyRect(petSize(), primary, corner)
+      : defaultBodyRect(petSize(), primary);
+  persistBody(applyBody(body));
 }
 
 /** 直接设置本体位置（程序化移动 / 兼容旧 IPC）。 */
@@ -252,7 +266,8 @@ export function movePet(x: number, y: number): void {
 export function dropPet(x: number, y: number): { x: number; y: number } | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
   const body = { x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() };
-  const applied = applyBody(snapRectToEdges(body, bodyArea(body)));
+  const snapped = loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
+  const applied = applyBody(snapped);
   persistBody(applied);
   return { x: applied.x, y: applied.y };
 }
@@ -289,7 +304,10 @@ export function beginPetDrag(): void {
 export function endPetDrag(): { x: number; y: number; moved: boolean } | null {
   stopDragLoop();
   if (!petWindow || petWindow.isDestroyed()) return null;
-  const applied = applyBody(snapRectToEdges(currentBody(), bodyArea(currentBody())));
+  const body = currentBody();
+  const snapped =
+    loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
+  const applied = applyBody(snapped);
   if (dragMoved) persistBody(applied);
   return { x: applied.x, y: applied.y, moved: dragMoved };
 }

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChatMessage, PageInfo } from '../../shared/types';
+import type {
+  ChatMessage,
+  PageInfo,
+  PetClickAction,
+  PetDoubleClickAction,
+  PetTheme
+} from '../../shared/types';
 
 function fallbackInfo(): PageInfo {
   return {
@@ -77,7 +83,7 @@ function readTodos(): PetTodo[] {
   }
 }
 
-function beep(): void {
+function beep(volume = 60): void {
   try {
     const AudioCtx =
       window.AudioContext ||
@@ -89,7 +95,7 @@ function beep(): void {
     oscillator.type = 'sine';
     oscillator.frequency.value = 660;
     gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, (volume / 100) * 0.12), ctx.currentTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
     oscillator.connect(gain).connect(ctx.destination);
     oscillator.start();
@@ -137,6 +143,15 @@ export function PetWindow() {
   const [soundOn, setSoundOn] = useState(true);
   const [idleTalkOn, setIdleTalkOn] = useState(true);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
+  const [theme, setTheme] = useState<PetTheme>('sakura');
+  const [motion, setMotion] = useState(true);
+  const [petName, setPetName] = useState('即时助手');
+  const [clickAction, setClickAction] = useState<PetClickAction>('chat');
+  const [dblAction, setDblAction] = useState<PetDoubleClickAction>('main');
+  const [idleTalkMinutes, setIdleTalkMinutes] = useState(3);
+  const [sleepMinutes, setSleepMinutes] = useState(5);
+  const [volume, setVolume] = useState(60);
+  const [speechRate, setSpeechRate] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const bubbleBody = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -144,13 +159,28 @@ export function PetWindow() {
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
 
   useEffect(() => {
-    void window.bsub.getSettings().then((response) => {
-      if (!response.ok) return;
-      const general = response.data.settings.general;
-      setPetSize(Math.min(180, Math.max(64, general.petSize || 96)));
+    const apply = (general: Record<string, unknown>) => {
+      setPetSize(Math.min(180, Math.max(64, Number(general.petSize) || 96)));
       setSoundOn(general.petSound !== false);
       setIdleTalkOn(general.petIdleTalk !== false);
       setAlwaysOnTop(general.petAlwaysOnTop !== false);
+      setTheme((general.petTheme as PetTheme) || 'sakura');
+      setMotion(general.petMotion !== false);
+      setPetName(String(general.petName || '即时助手').slice(0, 12));
+      setClickAction((general.petClickAction as PetClickAction) || 'chat');
+      setDblAction((general.petDoubleClickAction as PetDoubleClickAction) || 'main');
+      setIdleTalkMinutes(Number(general.petIdleTalkMinutes ?? 3));
+      setSleepMinutes(Number(general.petSleepMinutes ?? 5));
+      setVolume(Number(general.petSoundVolume ?? 60));
+      setSpeechRate(Number(general.petSpeechRate ?? 1));
+    };
+    void window.bsub.getSettings().then((response) => {
+      if (!response.ok) return;
+      apply(response.data.settings.general as unknown as Record<string, unknown>);
+    });
+    // 设置页保存后实时生效，不用重开桌宠
+    return window.bsub.onSettingsChanged((snapshot) => {
+      apply(snapshot.settings.general as unknown as Record<string, unknown>);
     });
   }, []);
 
@@ -225,6 +255,7 @@ export function PetWindow() {
         try {
           const utterance = new SpeechSynthesisUtterance(event.text.slice(0, 400));
           utterance.lang = 'zh-CN';
+          utterance.rate = speechRate;
           speechSynthesis.cancel();
           speechSynthesis.speak(utterance);
         } catch {
@@ -245,7 +276,7 @@ export function PetWindow() {
       offDone();
       offError();
     };
-  }, [speak]);
+  }, [speak, speechRate]);
 
   // 全局快捷键（Ctrl+Shift+S）截完的结果
   useEffect(() => window.bsub.onPetShot((result) => shotHandler.current(result)), []);
@@ -267,17 +298,17 @@ export function PetWindow() {
     const timer = window.setInterval(() => {
       const idleMs = Date.now() - lastActive.current;
       if (busy) return;
-      if (idleMs > 5 * 60_000) {
+      if (sleepMinutes > 0 && idleMs > sleepMinutes * 60_000) {
         setEmotion('sleeping');
         return;
       }
-      if (idleTalkOn && idleMs > 60_000) {
+      if (idleTalkOn && idleTalkMinutes > 0 && idleMs > idleTalkMinutes * 60_000) {
         setHint(SELF_TALK[Math.floor(Math.random() * SELF_TALK.length)]);
         window.setTimeout(() => setHint(''), 5000);
       }
     }, 45_000);
     return () => window.clearInterval(timer);
-  }, [busy, idleTalkOn]);
+  }, [busy, idleTalkOn, idleTalkMinutes, sleepMinutes]);
 
   const wake = () => {
     lastActive.current = Date.now();
@@ -503,7 +534,9 @@ export function PetWindow() {
 
   return (
     <div
-      className={`pet-root emotion-${emotion}${open ? ' is-open' : ''}${playing ? ' is-playing' : ''}`}
+      className={`pet-root pet-theme-${theme} emotion-${emotion}${open ? ' is-open' : ''}${
+        playing ? ' is-playing' : ''
+      }${motion ? '' : ' no-motion'}`}
       style={{ ['--pet-size' as string]: `${petSize}px` }}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -642,7 +675,7 @@ export function PetWindow() {
           <div className="pet-bubble-head">
             <span className="pet-bubble-title">
               <span className={`pet-dot${busy ? ' is-busy' : ''}`} />
-              即时助手
+              {petName}
             </span>
             <div className="pet-bubble-tools">
               <button
@@ -817,13 +850,15 @@ export function PetWindow() {
             dragStarted.current = false;
             return;
           }
-          // 双击的第二次 click 不再触发开合，交给 onDoubleClick。
+          // 双击的第二次 click 不再触发单击动作，交给 onDoubleClick。
           if (event.detail > 1) return;
           if (clickTimer.current) window.clearTimeout(clickTimer.current);
           clickTimer.current = window.setTimeout(() => {
             clickTimer.current = null;
-            if (soundOn) beep();
-            toggleOpen();
+            if (clickAction === 'none') return;
+            if (soundOn) beep(volume);
+            if (clickAction === 'screenshot') void takeRegionShot();
+            else toggleOpen();
           }, 180);
         }}
         onDoubleClick={() => {
@@ -831,7 +866,8 @@ export function PetWindow() {
             window.clearTimeout(clickTimer.current);
             clickTimer.current = null;
           }
-          void window.bsub.focusMain();
+          if (dblAction === 'main') void window.bsub.focusMain();
+          else if (dblAction === 'screenshot') void takeRegionShot();
         }}
       >
         <span className="pet-glow" />

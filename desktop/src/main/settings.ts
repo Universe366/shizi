@@ -104,6 +104,18 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petSound: true,
     petIdleTalk: true,
     petAlwaysOnTop: true,
+    petTheme: 'sakura',
+    petMotion: true,
+    petSnap: true,
+    petClickAction: 'chat',
+    petDoubleClickAction: 'main',
+    petIdleTalkMinutes: 3,
+    petSleepMinutes: 5,
+    petSoundVolume: 60,
+    petSpeechRate: 1,
+    petStartCorner: 'remember',
+    petShortcut: true,
+    petName: '即时助手',
     searchEngine: 'bilibili',
     searchEngineCustom: ''
   },
@@ -299,6 +311,49 @@ function normalize(input: unknown): AppSettings {
       base.general.petSound = raw.general.petSound !== false;
       base.general.petIdleTalk = raw.general.petIdleTalk !== false;
       base.general.petAlwaysOnTop = raw.general.petAlwaysOnTop !== false;
+      const petThemes = ['sakura', 'mint', 'sunset', 'midnight', 'graphite'] as const;
+      base.general.petTheme = petThemes.includes(raw.general.petTheme as never)
+        ? (raw.general.petTheme as (typeof petThemes)[number])
+        : 'sakura';
+      base.general.petMotion = raw.general.petMotion !== false;
+      base.general.petSnap = raw.general.petSnap !== false;
+      base.general.petClickAction = ['chat', 'screenshot', 'none'].includes(
+        raw.general.petClickAction as string
+      )
+        ? (raw.general.petClickAction as 'chat' | 'screenshot' | 'none')
+        : 'chat';
+      base.general.petDoubleClickAction = ['main', 'screenshot', 'none'].includes(
+        raw.general.petDoubleClickAction as string
+      )
+        ? (raw.general.petDoubleClickAction as 'main' | 'screenshot' | 'none')
+        : 'main';
+      base.general.petIdleTalkMinutes = [0, 1, 3, 5, 10, 30].includes(
+        Number(raw.general.petIdleTalkMinutes)
+      )
+        ? Number(raw.general.petIdleTalkMinutes)
+        : 3;
+      base.general.petSleepMinutes = [0, 5, 10, 15, 30, 60].includes(
+        Number(raw.general.petSleepMinutes)
+      )
+        ? Number(raw.general.petSleepMinutes)
+        : 5;
+      const volume = Number(raw.general.petSoundVolume);
+      base.general.petSoundVolume = Number.isFinite(volume)
+        ? Math.min(100, Math.max(0, Math.round(volume)))
+        : 60;
+      const rate = Number(raw.general.petSpeechRate);
+      base.general.petSpeechRate = Number.isFinite(rate)
+        ? Math.min(2, Math.max(0.6, Math.round(rate * 10) / 10))
+        : 1;
+      const corners = ['remember', 'bottom-right', 'bottom-left', 'top-right', 'top-left'];
+      base.general.petStartCorner = corners.includes(raw.general.petStartCorner as string)
+        ? (raw.general.petStartCorner as (typeof base.general.petStartCorner))
+        : 'remember';
+      base.general.petShortcut = raw.general.petShortcut !== false;
+      base.general.petName =
+        typeof raw.general.petName === 'string' && raw.general.petName.trim()
+          ? raw.general.petName.trim().slice(0, 12)
+          : '即时助手';
       base.general.petY = Number(raw.general.petY) || 0;
       const engine = raw.general.searchEngine;
       base.general.searchEngine = ['bilibili', 'bing', 'google', 'custom'].includes(engine as string)

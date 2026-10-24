@@ -3,6 +3,7 @@ import {
   PET_EDGE_SNAP,
   bodyRectFor,
   clampRectToArea,
+  cornerBodyRect,
   defaultBodyRect,
   defaultPetRect,
   fitWithin,
@@ -172,5 +173,23 @@ describe('fitWithin（截图压缩尺寸）', () => {
 
   it('非法尺寸给 1x1，避免除零', () => {
     expect(fitWithin(0, 0, 1600)).toEqual({ width: 1, height: 1 });
+  });
+});
+
+describe('cornerBodyRect', () => {
+  const area = { x: 0, y: 0, width: 1920, height: 1040 };
+
+  it('四个角落都能落位', () => {
+    expect(cornerBodyRect(96, area, 'bottom-right')).toEqual({ x: 1800, y: 920, width: 96, height: 96 });
+    expect(cornerBodyRect(96, area, 'bottom-left')).toEqual({ x: 24, y: 920, width: 96, height: 96 });
+    expect(cornerBodyRect(96, area, 'top-right')).toEqual({ x: 1800, y: 24, width: 96, height: 96 });
+    expect(cornerBodyRect(96, area, 'top-left')).toEqual({ x: 24, y: 24, width: 96, height: 96 });
+  });
+
+  it('小屏也不会越界', () => {
+    const tiny = { x: 0, y: 0, width: 200, height: 200 };
+    const rect = cornerBodyRect(180, tiny, 'bottom-right');
+    expect(rect.x + rect.width).toBeLessThanOrEqual(200);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(200);
   });
 });

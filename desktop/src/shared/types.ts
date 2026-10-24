@@ -698,6 +698,15 @@ export interface GlossaryTerm {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type PetTheme = 'sakura' | 'mint' | 'sunset' | 'midnight' | 'graphite';
+export type PetClickAction = 'chat' | 'screenshot' | 'none';
+export type PetDoubleClickAction = 'main' | 'screenshot' | 'none';
+export type PetStartCorner =
+  | 'remember'
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'top-right'
+  | 'top-left';
 
 export interface AppSettings {
   general: {
@@ -736,6 +745,30 @@ export interface AppSettings {
     petIdleTalk: boolean;
     /** 窗口置顶 */
     petAlwaysOnTop: boolean;
+    /** 桌宠配色主题 */
+    petTheme: PetTheme;
+    /** 呼吸/眨眼/浮动等动效 */
+    petMotion: boolean;
+    /** 拖拽松手吸附屏幕边缘 */
+    petSnap: boolean;
+    /** 单击本体 */
+    petClickAction: PetClickAction;
+    /** 双击本体 */
+    petDoubleClickAction: PetDoubleClickAction;
+    /** 空闲自言自语间隔（分钟，0 = 关闭） */
+    petIdleTalkMinutes: number;
+    /** 无操作后睡觉（分钟，0 = 不睡） */
+    petSleepMinutes: number;
+    /** 点击音效音量 0–100 */
+    petSoundVolume: number;
+    /** 朗读语速 0.6–2 */
+    petSpeechRate: number;
+    /** 启动时的位置 */
+    petStartCorner: PetStartCorner;
+    /** 全局截图快捷键 Ctrl+Shift+S */
+    petShortcut: boolean;
+    /** 气泡里显示的名字 */
+    petName: string;
     petY: number;
     /** 地址栏输入非网址时用哪个搜索引擎 */
     searchEngine: 'bilibili' | 'bing' | 'google' | 'custom';

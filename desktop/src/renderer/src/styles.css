@@ -3039,6 +3039,37 @@ button:disabled {
   border-radius: 5px;
 }
 
+/* 桌宠配色选择 */
+.pet-theme-row {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.pet-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.pet-swatch:hover {
+  transform: translateY(-1px);
+}
+
+.pet-swatch.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.pet-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .settings-hint {
   font-size: 10px;
   color: var(--faint);
@@ -5319,6 +5350,11 @@ button:disabled {
 
 /* ---------- 桌宠与 AI 悬浮球 ---------- */
 .pet-root {
+  --pet-a: #ffd3e2;
+  --pet-b: #ffa3c9;
+  --pet-c: #f57dab;
+  --pet-shade: rgba(208, 66, 118, 0.26);
+  --pet-cast: rgba(238, 96, 150, 0.32);
   --pet-glass: color-mix(in srgb, var(--surface) 94%, transparent);
   --pet-hairline: color-mix(in srgb, var(--border) 86%, transparent);
   --pet-shadow: 0 20px 44px rgba(12, 15, 22, 0.3), 0 2px 8px rgba(12, 15, 22, 0.14);
@@ -5378,12 +5414,12 @@ button:disabled {
   border-radius: 46% 46% 42% 42%;
   background:
     radial-gradient(120% 92% at 50% 10%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 48%),
-    radial-gradient(90% 70% at 50% 104%, rgba(238, 96, 150, 0.5) 0%, rgba(238, 96, 150, 0) 62%),
-    linear-gradient(168deg, #ffd3e2 0%, #ffa3c9 54%, #f57dab 100%);
+    radial-gradient(90% 70% at 50% 104%, var(--pet-shade) 0%, rgba(0, 0, 0, 0) 62%),
+    linear-gradient(168deg, var(--pet-a) 0%, var(--pet-b) 54%, var(--pet-c) 100%);
   box-shadow:
-    inset 0 -6px 14px rgba(208, 66, 118, 0.26),
+    inset 0 -6px 14px var(--pet-shade),
     inset 0 3px 10px rgba(255, 255, 255, 0.6),
-    0 14px 30px rgba(238, 96, 150, 0.32),
+    0 14px 30px var(--pet-cast),
     0 3px 8px rgba(24, 18, 26, 0.18);
   cursor: pointer;
   -webkit-app-region: no-drag;
@@ -5395,9 +5431,9 @@ button:disabled {
 .pet-body:hover {
   transform: translateY(-3px) scale(1.015);
   box-shadow:
-    inset 0 -6px 14px rgba(208, 66, 118, 0.24),
+    inset 0 -6px 14px var(--pet-shade),
     inset 0 3px 10px rgba(255, 255, 255, 0.62),
-    0 20px 38px rgba(238, 96, 150, 0.36),
+    0 20px 38px var(--pet-cast),
     0 4px 10px rgba(24, 18, 26, 0.2);
 }
 
@@ -6199,6 +6235,50 @@ button:disabled {
   height: 1px;
   margin: 4px 8px;
   background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* 桌宠配色主题（DIY） */
+.pet-theme-mint {
+  --pet-a: #d9f6e7;
+  --pet-b: #a5e6c8;
+  --pet-c: #6ccfa4;
+  --pet-shade: rgba(38, 132, 96, 0.22);
+  --pet-cast: rgba(92, 196, 153, 0.3);
+}
+
+.pet-theme-sunset {
+  --pet-a: #ffe4c7;
+  --pet-b: #ffb98a;
+  --pet-c: #f28a54;
+  --pet-shade: rgba(196, 104, 44, 0.22);
+  --pet-cast: rgba(242, 138, 84, 0.3);
+}
+
+.pet-theme-midnight {
+  --pet-a: #dfe2ff;
+  --pet-b: #b3baf8;
+  --pet-c: #858dd9;
+  --pet-shade: rgba(74, 84, 168, 0.24);
+  --pet-cast: rgba(133, 141, 217, 0.32);
+}
+
+.pet-theme-graphite {
+  --pet-a: #ececf1;
+  --pet-b: #cfcfd8;
+  --pet-c: #a9a9b4;
+  --pet-shade: rgba(90, 90, 104, 0.2);
+  --pet-cast: rgba(120, 120, 134, 0.28);
+}
+
+/* 关闭动效（设置项 / 系统偏好） */
+.pet-root.no-motion .pet-body,
+.pet-root.no-motion .pet-eye,
+.pet-root.no-motion .pet-mouth,
+.pet-root.no-motion .pet-status,
+.pet-root.no-motion .pet-music,
+.pet-root.no-motion .pet-zzz,
+.pet-root.no-motion .pet-dot {
+  animation: none !important;
 }
 
 /* 情绪与动效 */
