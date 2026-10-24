@@ -121,6 +121,7 @@
   "pet:set-always-on-top",
   "pet:set-enabled",
   "pet:set-layout",
+  "pet:shortcut-status",
   "platform:models",
   "platform:test",
   "podcast:import",

@@ -7,6 +7,7 @@ import { beginRegionCapture } from './shotOverlay';
 export const PET_SHOT_ACCELERATOR = 'Control+Shift+S';
 
 let registered = false;
+let lastError = '';
 
 export function registerPetShortcuts(): void {
   if (registered) return;
@@ -31,9 +32,12 @@ export function registerPetShortcuts(): void {
       })();
     });
     registered = ok;
+    lastError = ok ? '' : '被其他程序占用';
     if (!ok) console.warn('[pet] 快捷键注册失败（可能被其他程序占用）:', PET_SHOT_ACCELERATOR);
   } catch (error) {
-    console.warn('[pet] 快捷键注册异常:', (error as Error).message);
+    registered = false;
+    lastError = (error as Error).message;
+    console.warn('[pet] 快捷键注册异常:', lastError);
   }
 }
 
@@ -44,4 +48,13 @@ export function unregisterPetShortcuts(): void {
     // 忽略
   }
   registered = false;
+}
+
+/** 给设置页回显用：是否注册成功、失败原因。 */
+export function petShortcutStatus(): {
+  accelerator: string;
+  registered: boolean;
+  error: string;
+} {
+  return { accelerator: PET_SHOT_ACCELERATOR, registered, error: lastError };
 }

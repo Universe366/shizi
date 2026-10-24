@@ -66,6 +66,7 @@ function installBsub() {
     endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
     petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
     onSettingsChanged: vi.fn(() => () => {}),
+    saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     readSelection: vi.fn(async () => ({
       ok: true as const,
       data: { title: '测试页', url: 'https://example.com', selection: '这段是被选中的文字' }
@@ -595,5 +596,107 @@ describe('PetWindow 拖动与 Q 弹', () => {
     fireEvent.mouseMove(window, { screenX: 130, screenY: 140 });
     await waitFor(() => expect(document.querySelector('.pet-root.is-dragging')).toBeTruthy());
     fireEvent.mouseUp(window, { screenX: 130, screenY: 140 });
+  });
+});
+
+describe('PetWindow 操作优化', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('单击立即展开（不再等 180ms）', () => {
+    installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
+  });
+
+  it('草稿在重开/重启后还在', async () => {
+    installBsub();
+    const first = render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '没发出去的草稿' } });
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    first.unmount();
+
+    installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    expect((screen.getByPlaceholderText(/问点什么/) as HTMLInputElement).value).toBe(
+      '没发出去的草稿'
+    );
+  });
+
+  it('↑ 能翻出上一条问题', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '第一个问题' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect((input as HTMLInputElement).value).toBe('第一个问题');
+  });
+
+  it('「新对话」清空上下文与回答', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '旧问题' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    const id = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
+    handlers.done?.({ requestId: id, text: '旧回答', model: 'test' });
+    await screen.findByText('旧回答');
+
+    fireEvent.click(screen.getByText('新对话'));
+    expect(screen.queryByText('旧回答')).toBeNull();
+
+    fireEvent.change(input, { target: { value: '新问题' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalledTimes(2));
+    const payload = lastChatPayload(api);
+    expect(payload.messages).toHaveLength(1);
+    expect(payload.messages[0].content).toBe('新问题');
+  });
+
+  it('出错后可以重试上一条', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '会失败的问题' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalledTimes(1));
+    const id = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
+    handlers.error?.({ requestId: id, error: '网络错误' });
+    fireEvent.click(await screen.findByText('重试'));
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalledTimes(2));
+    expect(lastChatPayload(api).messages[0].content).toBe('会失败的问题');
+  });
+
+  it('待办会写进设置文件', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    fireEvent.click(screen.getByTitle(/桌面小挂件/));
+    const todo = screen.getByPlaceholderText(/加一条待办/);
+    fireEvent.change(todo, { target: { value: '写周报' } });
+    fireEvent.keyDown(todo, { key: 'Enter' });
+    await vi.waitFor(
+      () => {
+        const calls = (api.saveSettings as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+        const saved = calls.at(-1)?.[0] as { general?: { petTodos?: unknown[] } };
+        expect(saved?.general?.petTodos).toEqual([
+          expect.objectContaining({ text: '写周报', done: false })
+        ]);
+      },
+      { timeout: 3000 }
+    );
   });
 });

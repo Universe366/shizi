@@ -5582,6 +5582,29 @@ button:disabled {
   scrollbar-width: thin;
 }
 
+/* 新对话入口 */
+.pet-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+}
+
+.pet-reset {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: color-mix(in srgb, var(--text) 52%, transparent);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pet-reset:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
 .pet-bubble-input {
   display: flex;
   gap: 8px;

@@ -21,7 +21,7 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 88 个文件 / 467 个用例（主进程与 shared 28 文件 / 166 用例，渲染层 60 文件 / 301 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 88 个文件 / 474 个用例（主进程与 shared 28 文件 / 166 用例，渲染层 60 文件 / 308 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 14/14`（含诊断/权限/更新/桥状态只读通道、桌宠窗口与布局、框选截图、隐藏落设置） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
@@ -80,6 +80,7 @@
 - **全局快捷键**：`Ctrl+Shift+S` 直接框选，结果回送桌宠；页面未加载完会等 `did-finish-load` 再发。
 - **输入与拖拽**：输入法回车不再误发；拖拽改为主进程跟随光标（移出窗口不掉）；关闭桌宠会取消进行中的请求；双击不再开合两次。
 - **设置入口**：报错里的「打开设置」现在会切到设置页（新增 `app:open-settings` + `ui:open-settings`）。
+- **桌宠操作优化**：单击零延迟；草稿跨重启保留；「新对话」清上下文；↑/↓ 翻历史；错误可重试；提示计时统一；音效单例；设置页显示快捷键注册状态；待办改存 `general.petTodos`（不再用 localStorage）。
 - **拖动修复与 Q 弹**：本体不再被「按钮」守卫挡住，可从本体直接拖；拖动限制在当前显示器工作区，越界有橡皮筋阻尼并在松手吸回；按下压扁、拖动倾斜、松手弹回；指针丢失时 1.2 秒自动收尾。
 - **桌宠 DIY**：新增 `petTheme`（5 套配色）、`petName`、`petMotion`、`petSnap`、`petClickAction`、`petDoubleClickAction`、`petIdleTalkMinutes`、`petSleepMinutes`、`petSoundVolume`、`petSpeechRate`、`petStartCorner`、`petShortcut` 共 12 项设置，含迁移取值夹取；桌宠订阅 `settings:changed` 实时生效。
 

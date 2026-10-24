@@ -101,6 +101,8 @@ export interface BsubApi {
   /** 主进程跟随光标拖拽（指针移出窗口也不会掉）。 */
   beginPetDrag(): Promise<void>;
   endPetDrag(): Promise<{ x: number; y: number; moved: boolean } | null>;
+  /** 全局截图快捷键的注册状态。 */
+  petShortcutStatus(): Promise<{ accelerator: string; registered: boolean; error: string }>;
   /** 桌宠本体矩形（跨布局稳定，用于位置断言/调试）。 */
   petBodyRect(): Promise<{ x: number; y: number; width: number; height: number } | null>;
   /** 全局快捷键框选后的结果（已裁剪压缩）。 */

@@ -31,7 +31,12 @@ function general(overrides: Record<string, unknown> = {}) {
 function installBsub() {
   const api = {
     setPetEnabled: vi.fn(async () => undefined),
-    resetPetPosition: vi.fn(async () => undefined)
+    resetPetPosition: vi.fn(async () => undefined),
+    petShortcutStatus: vi.fn(async () => ({
+      accelerator: 'Control+Shift+S',
+      registered: true,
+      error: ''
+    }))
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -84,5 +89,29 @@ describe('PetSection', () => {
     fireEvent.click(screen.getByText('立即显示'));
     expect(onChange).toHaveBeenCalledWith({ petEnabled: true });
     expect(api.setPetEnabled).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('PetSection 快捷键状态', () => {
+  afterEach(cleanup);
+
+  it('注册成功与失败都会回显', async () => {
+    const api = installBsub();
+    api.petShortcutStatus.mockResolvedValueOnce({
+      accelerator: 'Control+Shift+S',
+      registered: false,
+      error: '被其他程序占用'
+    });
+    const { unmount } = render(<PetSection value={general()} onChange={vi.fn()} />);
+    expect(await screen.findByText(/快捷键注册失败/)).toBeTruthy();
+    unmount();
+
+    api.petShortcutStatus.mockResolvedValueOnce({
+      accelerator: 'Control+Shift+S',
+      registered: true,
+      error: ''
+    });
+    render(<PetSection value={general()} onChange={vi.fn()} />);
+    expect(await screen.findByText(/快捷键已注册/)).toBeTruthy();
   });
 });

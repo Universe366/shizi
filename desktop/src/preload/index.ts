@@ -118,6 +118,12 @@ const api: BsubApi = {
   beginPetDrag: () => ipcRenderer.invoke('pet:begin-drag') as Promise<void>,
   endPetDrag: () =>
     ipcRenderer.invoke('pet:end-drag') as Promise<{ x: number; y: number; moved: boolean } | null>,
+  petShortcutStatus: () =>
+    ipcRenderer.invoke('pet:shortcut-status') as Promise<{
+      accelerator: string;
+      registered: boolean;
+      error: string;
+    }>,
   petBodyRect: () =>
     ipcRenderer.invoke('pet:body-rect') as Promise<{
       x: number;

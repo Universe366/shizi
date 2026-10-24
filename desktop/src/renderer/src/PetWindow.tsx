@@ -74,33 +74,37 @@ interface PetTodo {
   done: boolean;
 }
 
-function readTodos(): PetTodo[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem('pet-todos') || '[]') as PetTodo[];
-    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.text === 'string') : [];
-  } catch {
-    return [];
-  }
-}
+let audioContext: AudioContext | null = null;
 
+/** 复用同一个 AudioContext：快速连点不会因为上下文数量上限而吞音。 */
 function beep(volume = 60): void {
   try {
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    if (!audioContext || audioContext.state === 'closed') audioContext = new AudioCtx();
+    if (audioContext.state === 'suspended') void audioContext.resume().catch(() => undefined);
+    const ctx = audioContext;
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
     oscillator.type = 'sine';
     oscillator.frequency.value = 660;
+    const level = Math.max(0.0001, (volume / 100) * 0.12);
     gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, (volume / 100) * 0.12), ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(level, ctx.currentTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
     oscillator.connect(gain).connect(ctx.destination);
     oscillator.start();
     oscillator.stop(ctx.currentTime + 0.18);
-    setTimeout(() => void ctx.close().catch(() => undefined), 400);
+    oscillator.onended = () => {
+      try {
+        oscillator.disconnect();
+        gain.disconnect();
+      } catch {
+        // ignore
+      }
+    };
   } catch {
     // 音频不可用时静默
   }
@@ -117,7 +121,13 @@ function visionHint(raw: string): string {
 /** 桌宠窗口：情绪、拖动、气泡对话、截图识图、问选中、联网检索。 */
 export function PetWindow() {
   const [open, setOpen] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => {
+    try {
+      return localStorage.getItem('pet-draft') || '';
+    } catch {
+      return '';
+    }
+  });
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -129,7 +139,7 @@ export function PetWindow() {
   const [playing, setPlaying] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(() => localStorage.getItem('pet-widget') === '1');
   const [now, setNow] = useState(() => new Date());
-  const [todos, setTodos] = useState<PetTodo[]>(readTodos);
+  const [todos, setTodos] = useState<PetTodo[]>([]);
   const [copied, setCopied] = useState(false);
   const [shot, setShot] = useState<string | null>(null);
   const [shotBusy, setShotBusy] = useState(false);
@@ -157,7 +167,13 @@ export function PetWindow() {
   const [menuOpen, setMenuOpen] = useState(false);
   const bubbleBody = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const clickTimer = useRef<number | null>(null);
+  const hintTimer = useRef<number | null>(null);
+  const todoTimer = useRef<number | null>(null);
+  const lastAsk = useRef<{ text: string; selection?: string; image?: string } | null>(null);
+  const sentMessages = useRef<string[]>([]);
+  const recallIndex = useRef(-1);
+  const openedByClick = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
 
   useEffect(() => {
@@ -175,9 +191,19 @@ export function PetWindow() {
       setSleepMinutes(Number(general.petSleepMinutes ?? 5));
       setVolume(Number(general.petSoundVolume ?? 60));
       setSpeechRate(Number(general.petSpeechRate ?? 1));
+      if (Array.isArray(general.petTodos)) {
+        const incoming = JSON.stringify(general.petTodos);
+        setTodos((current) =>
+          JSON.stringify(current) === incoming ? current : (general.petTodos as PetTodo[])
+        );
+      }
+      setHydrated(true);
     };
     void window.bsub.getSettings().then((response) => {
-      if (!response.ok) return;
+      if (!response.ok) {
+        setHydrated(true);
+        return;
+      }
       apply(response.data.settings.general as unknown as Record<string, unknown>);
     });
     // 设置页保存后实时生效，不用重开桌宠
@@ -195,6 +221,37 @@ export function PetWindow() {
     localStorage.setItem('pet-widget', widgetOpen ? '1' : '0');
   }, [widgetOpen]);
 
+  // 草稿跨重启保留
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        if (input.trim()) localStorage.setItem('pet-draft', input);
+        else localStorage.removeItem('pet-draft');
+      } catch {
+        // ignore
+      }
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [input]);
+
+  // 待办写进设置文件（清缓存/换数据目录不丢）
+  useEffect(() => {
+    if (!hydrated) return;
+    if (todoTimer.current) window.clearTimeout(todoTimer.current);
+    todoTimer.current = window.setTimeout(() => {
+      void (async () => {
+        const snapshot = await window.bsub.getSettings();
+        if (!snapshot.ok) return;
+        const next = snapshot.data.settings;
+        next.general.petTodos = todos;
+        await window.bsub.saveSettings(next);
+      })();
+    }, 400);
+    return () => {
+      if (todoTimer.current) window.clearTimeout(todoTimer.current);
+    };
+  }, [todos, hydrated]);
+
   useEffect(() => {
     localStorage.setItem('pet-web', webOn ? '1' : '0');
   }, [webOn]);
@@ -203,10 +260,6 @@ export function PetWindow() {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('pet-todos', JSON.stringify(todos));
-  }, [todos]);
 
   // 媒体播放联动
   useEffect(() => {
@@ -290,7 +343,8 @@ export function PetWindow() {
   useEffect(
     () => () => {
       if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
-      if (clickTimer.current) window.clearTimeout(clickTimer.current);
+      if (hintTimer.current) window.clearTimeout(hintTimer.current);
+      if (todoTimer.current) window.clearTimeout(todoTimer.current);
     },
     []
   );
@@ -305,8 +359,7 @@ export function PetWindow() {
         return;
       }
       if (idleTalkOn && idleTalkMinutes > 0 && idleMs > idleTalkMinutes * 60_000) {
-        setHint(SELF_TALK[Math.floor(Math.random() * SELF_TALK.length)]);
-        window.setTimeout(() => setHint(''), 5000);
+        flash(SELF_TALK[Math.floor(Math.random() * SELF_TALK.length)], 5000);
       }
     }, 45_000);
     return () => window.clearInterval(timer);
@@ -317,9 +370,13 @@ export function PetWindow() {
     if (emotion === 'sleeping') setEmotion('idle');
   };
 
-  const flash = (text: string) => {
+  const flash = (text: string, ms = 2600) => {
+    if (hintTimer.current) window.clearTimeout(hintTimer.current);
     setHint(text);
-    window.setTimeout(() => setHint(''), 2600);
+    hintTimer.current = window.setTimeout(() => {
+      setHint('');
+      hintTimer.current = null;
+    }, ms);
   };
 
   const toggleSpeak = () => {
@@ -345,7 +402,7 @@ export function PetWindow() {
    * 即时问答：默认不抽整页正文（那是主窗口的总结流程），
    * 只有明确附带的截图 / 选中文字才作为上下文。
    */
-  const ask = async (text: string, context?: { selection?: string; image?: string }) => {
+  const ask = async (text: string, context?: { selection?: string; image?: string | null }) => {
     const value = text.trim();
     if (!value || busy) return;
     wake();
@@ -354,13 +411,23 @@ export function PetWindow() {
     setAnswer('');
     setEmotion('thinking');
     setInput('');
-    const attachment = context?.image || shot;
+    const attachment = context?.image === null ? null : context?.image || shot;
     withImageRef.current = Boolean(attachment);
 
     const quoted = (context?.selection || selection?.text || '').trim().slice(0, 2000);
     const content = quoted
       ? `${value}\n\n我选中的内容：\n"""\n${quoted}\n"""`
       : value;
+
+    // 记下这次请求：出错可原样重试，也用于 ↑ 翻历史
+    lastAsk.current = { text: value, selection: quoted || undefined, image: attachment || undefined };
+    sentMessages.current = [...sentMessages.current.slice(-19), value];
+    recallIndex.current = -1;
+    try {
+      localStorage.removeItem('pet-draft');
+    } catch {
+      // ignore
+    }
 
     // 多轮上下文：把最近几条对话一起发过去，追问「再详细点」才有意义。
     const contextMessages: ChatMessage[] = history
@@ -473,6 +540,48 @@ export function PetWindow() {
     setSelection({ text, title: response.data.title });
     setOpen(true);
     await ask(prompt, { selection: text });
+  };
+
+  /** 新对话：清掉上下文与回答，附件保留（想继续问图就不用重截）。 */
+  const resetChat = () => {
+    if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
+    requestRef.current = '';
+    setHistory([]);
+    setAnswer('');
+    setError('');
+    setBusy(false);
+    setEmotion('idle');
+    sentMessages.current = [];
+    recallIndex.current = -1;
+    lastAsk.current = null;
+    flash('已开始新对话');
+  };
+
+  const retry = () => {
+    const last = lastAsk.current;
+    if (!last || busy) return;
+    void ask(last.text, { selection: last.selection, image: last.image ?? null });
+  };
+
+  /** ↑/↓ 翻最近发过的问题。 */
+  const recall = (direction: 1 | -1) => {
+    const list = sentMessages.current;
+    if (!list.length) return;
+    if (direction < 0) {
+      const next = recallIndex.current < 0 ? list.length - 1 : Math.max(0, recallIndex.current - 1);
+      recallIndex.current = next;
+      setInput(list[next]);
+      return;
+    }
+    if (recallIndex.current < 0) return;
+    const next = recallIndex.current + 1;
+    if (next >= list.length) {
+      recallIndex.current = -1;
+      setInput('');
+    } else {
+      recallIndex.current = next;
+      setInput(list[next]);
+    }
   };
 
   const stop = () => {
@@ -740,9 +849,12 @@ export function PetWindow() {
             {error && (
               <div className="pet-line is-error">
                 {error}
+                <button className="mini-btn" style={{ marginLeft: 6 }} onClick={retry}>
+                  重试
+                </button>
                 <button
                   className="mini-btn"
-                  style={{ marginLeft: 6 }}
+                  style={{ marginLeft: 4 }}
                   onClick={() => void window.bsub.openSettings()}
                 >
                   打开设置
@@ -829,6 +941,14 @@ export function PetWindow() {
             </button>
           </div>
 
+          {history.length > 0 && (
+            <div className="pet-reset-row">
+              <button className="pet-reset" onClick={resetChat} title="清空上下文，重新开始">
+                新对话
+              </button>
+            </div>
+          )}
+
           <div className="pet-bubble-input">
             <input
               ref={inputRef}
@@ -838,6 +958,14 @@ export function PetWindow() {
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.nativeEvent.isComposing) void ask(input);
                 if (event.key === 'Escape') setOpen(false);
+                if (event.key === 'ArrowUp' && event.currentTarget.selectionStart === 0) {
+                  event.preventDefault();
+                  recall(-1);
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  recall(1);
+                }
               }}
             />
             <button
@@ -862,19 +990,21 @@ export function PetWindow() {
           }
           // 双击的第二次 click 不再触发单击动作，交给 onDoubleClick。
           if (event.detail > 1) return;
-          if (clickTimer.current) window.clearTimeout(clickTimer.current);
-          clickTimer.current = window.setTimeout(() => {
-            clickTimer.current = null;
-            if (clickAction === 'none') return;
-            if (soundOn) beep(volume);
-            if (clickAction === 'screenshot') void takeRegionShot();
-            else toggleOpen();
-          }, 180);
+          if (clickAction === 'none') return;
+          if (soundOn) beep(volume);
+          if (clickAction === 'screenshot') {
+            void takeRegionShot();
+            return;
+          }
+          // 单击零延迟：立即开合；若是双击，onDoubleClick 再把这次开合撤掉。
+          openedByClick.current = !open;
+          toggleOpen();
         }}
         onDoubleClick={() => {
-          if (clickTimer.current) {
-            window.clearTimeout(clickTimer.current);
-            clickTimer.current = null;
+          // 双击的第一下已经把气泡打开了（或关掉了），这里恢复原状再执行双击动作
+          if (openedByClick.current) {
+            setOpen(false);
+            openedByClick.current = false;
           }
           if (dblAction === 'main') void window.bsub.focusMain();
           else if (dblAction === 'screenshot') void takeRegionShot();

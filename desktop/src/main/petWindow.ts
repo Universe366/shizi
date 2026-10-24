@@ -17,6 +17,8 @@ import {
 
 let petWindow: BrowserWindow | null = null;
 let layoutMode: PetLayoutMode = 'compact';
+/** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
+let desiredBody: Rect | null = null;
 
 /* ---------------- 位置：内部一律以「桌宠本体」为准 ---------------- */
 
@@ -65,32 +67,28 @@ function persistedBody(): Rect | null {
 }
 
 /** 把本体放到指定位置：窗口按当前布局围绕本体展开（本体屏幕坐标不变）。 */
-function applyBody(target: Rect): Rect {
+function applyBody(target: Rect, remember = false): Rect {
   const body = clampBody(target);
-  if (!petWindow || petWindow.isDestroyed()) return body;
+  if (!petWindow || petWindow.isDestroyed()) {
+    if (remember) desiredBody = body;
+    return body;
+  }
   const windowRect = windowRectFor(body, layoutMode, body.width);
   const area = bodyArea(body);
   const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
   // 窗口被屏幕边缘推回时，本体以实际窗口为准。
-  return bodyRectFor(bounded, body.width);
+  const applied = bodyRectFor(bounded, body.width);
+  if (remember) desiredBody = applied;
+  return applied;
 }
 
 function persistBody(body: Rect): void {
+  desiredBody = body;
   const settings = loadSettings();
   settings.general.petX = body.x;
   settings.general.petY = body.y;
   saveSettings(settings);
-}
-
-let persistTimer: NodeJS.Timeout | null = null;
-
-function schedulePersist(delay = 400): void {
-  if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    persistBody(clampBody(currentBody()));
-  }, delay);
 }
 
 function onDisplaysChanged(): void {
@@ -98,7 +96,7 @@ function onDisplaysChanged(): void {
   const body = currentBody();
   const bounded = clampBody(body);
   if (bounded.x !== body.x || bounded.y !== body.y) {
-    applyBody(bounded);
+    applyBody(bounded, true);
     persistBody(bounded);
   }
 }
@@ -126,6 +124,7 @@ export function openPetWindow(useStartCorner = false): void {
       ? { x: settings.general.petX, y: settings.general.petY, width: size, height: size }
       : defaultBodyRect(size, primary));
   const body = clampBody(saved);
+  desiredBody = body;
   const rect = windowRectFor(body, layoutMode, size);
 
   petWindow = new BrowserWindow({
@@ -155,11 +154,6 @@ export function openPetWindow(useStartCorner = false): void {
   }
   petWindow.once('ready-to-show', () => petWindow?.showInactive());
 
-  // 系统级移动结束后保存；渲染层拖拽走 pet:end-drag。
-  petWindow.on('moved', () => {
-    if (!petWindow || petWindow.isDestroyed()) return;
-    schedulePersist();
-  });
   petWindow.on('closed', () => {
     petWindow = null;
     stopDragLoop();
@@ -174,10 +168,6 @@ export function openPetWindow(useStartCorner = false): void {
 }
 
 export function closePetWindow(): void {
-  if (persistTimer) {
-    clearTimeout(persistTimer);
-    persistTimer = null;
-  }
   stopDragLoop();
   if (petWindow && !petWindow.isDestroyed()) petWindow.close();
   petWindow = null;
@@ -201,7 +191,9 @@ export function layoutPetWindow(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
   // 展开时窗口可能被屏幕边缘推回（本体暂时让位）；收回时回到用户放下的位置。
   const body =
-    layoutMode === 'compact' ? persistedBody() || currentBody() : currentBody();
+    layoutMode === 'compact'
+      ? desiredBody || persistedBody() || currentBody()
+      : currentBody();
   const windowRect = windowRectFor(body, layoutMode, petSize());
   const bounded = clampRectToArea(windowRect, bodyArea(body));
   petWindow.setBounds(bounded);
@@ -260,7 +252,7 @@ export function resetPetPosition(): void {
 /** 直接设置本体位置（程序化移动 / 兼容旧 IPC）。 */
 export function movePet(x: number, y: number): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  applyBody({ x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() });
+  applyBody({ x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() }, true);
 }
 
 /** 松手：吸附屏幕边缘 + 立即保存。返回吸附后的本体位置。 */
@@ -268,7 +260,7 @@ export function dropPet(x: number, y: number): { x: number; y: number } | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
   const body = { x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() };
   const snapped = loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
-  const applied = applyBody(snapped);
+  const applied = applyBody(snapped, true);
   persistBody(applied);
   return { x: applied.x, y: applied.y };
 }

@@ -116,6 +116,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petStartCorner: 'remember',
     petShortcut: true,
     petName: '即时助手',
+    petTodos: [],
     searchEngine: 'bilibili',
     searchEngineCustom: ''
   },
@@ -354,6 +355,21 @@ function normalize(input: unknown): AppSettings {
         typeof raw.general.petName === 'string' && raw.general.petName.trim()
           ? raw.general.petName.trim().slice(0, 12)
           : '即时助手';
+      base.general.petTodos = Array.isArray(raw.general.petTodos)
+        ? (raw.general.petTodos as unknown[])
+            .filter(
+              (item): item is { id: number; text: string; done: boolean } =>
+                Boolean(item) &&
+                typeof item === 'object' &&
+                typeof (item as { text?: unknown }).text === 'string'
+            )
+            .slice(0, 200)
+            .map((item) => ({
+              id: Number(item.id) || Date.now(),
+              text: String(item.text).slice(0, 200),
+              done: item.done === true
+            }))
+        : [];
       base.general.petY = Number(raw.general.petY) || 0;
       const engine = raw.general.searchEngine;
       base.general.searchEngine = ['bilibili', 'bing', 'google', 'custom'].includes(engine as string)

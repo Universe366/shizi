@@ -52,6 +52,7 @@ import {
   setPetLayout
 } from '../petWindow';
 import type { PetLayoutMode } from '../petGeometry';
+import { petShortcutStatus } from '../petShortcuts';
 
 /** 设置 / 更新 / 桥 / 权限 / 数据目录 / 诊断 相关 IPC。 */
 export function registerSettingsIpc(ctx: IpcContext): void {
@@ -87,6 +88,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     }
     setPetEnabled(next);
   });
+  ipcMain.handle('pet:shortcut-status', () => petShortcutStatus());
   ipcMain.handle('app:open-settings', () => {
     ctx.win.show();
     ctx.win.focus();

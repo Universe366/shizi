@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { AppSettings, PetTheme } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
 
@@ -20,6 +21,24 @@ const THEMES: Array<{ id: PetTheme; label: string; colors: [string, string] }> =
 export function PetSection({ value, onChange }: PetSectionProps) {
   const idleMinutes = value.petIdleTalkMinutes ?? 3;
   const sleepMinutes = value.petSleepMinutes ?? 5;
+  const [shortcut, setShortcut] = useState<{
+    accelerator: string;
+    registered: boolean;
+    error: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void window.bsub
+      .petShortcutStatus?.()
+      .then((status) => {
+        if (alive) setShortcut(status);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <>
@@ -164,6 +183,13 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           />
           启用全局截图快捷键 Ctrl+Shift+S
         </label>
+        {value.petShortcut !== false && shortcut && (
+          <div className="settings-hint">
+            {shortcut.registered
+              ? `快捷键已注册：${shortcut.accelerator}`
+              : `快捷键注册失败（${shortcut.error || '可能被其他程序占用'}），可关闭上面的开关或改用桌宠里的「截图」按钮`}
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection title="声音与状态">

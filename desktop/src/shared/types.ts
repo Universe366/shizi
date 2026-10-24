@@ -698,6 +698,12 @@ export interface GlossaryTerm {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export interface PetTodo {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
 export type PetTheme = 'sakura' | 'mint' | 'sunset' | 'midnight' | 'graphite';
 export type PetClickAction = 'chat' | 'screenshot' | 'none';
 export type PetDoubleClickAction = 'main' | 'screenshot' | 'none';
@@ -769,6 +775,8 @@ export interface AppSettings {
     petShortcut: boolean;
     /** 气泡里显示的名字 */
     petName: string;
+    /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
+    petTodos: PetTodo[];
     petY: number;
     /** 地址栏输入非网址时用哪个搜索引擎 */
     searchEngine: 'bilibili' | 'bing' | 'google' | 'custom';
