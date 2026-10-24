@@ -463,11 +463,25 @@ try {
     );
     if (!position || typeof position.x !== 'number') throw new Error('pet:get-position 异常');
 
+    const readBody = async () =>
+      JSON.parse(
+        await evaluate(pet, '(async () => JSON.stringify(await window.bsub.petBodyRect()))()')
+      );
+    // 放到屏幕中间再验证，避免“贴边时窗口被推回”干扰断言
+    await evaluate(pet, 'window.bsub.movePet(700, 420).then(() => null)');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const bodyBefore = await readBody();
+
     await evaluate(pet, 'window.bsub.setPetLayout("bubble").then(() => null)');
     await new Promise((resolve) => setTimeout(resolve, 400));
     const bubble = await read();
     if (Math.abs(bubble.w - 264) > 2 || Math.abs(bubble.h - 450) > 2) {
       throw new Error(`bubble 尺寸异常：${bubble.w}x${bubble.h}`);
+    }
+    // 展开气泡只能向上长，桌宠本体在屏幕上不能动
+    const bodyOpen = await readBody();
+    if (Math.abs(bodyOpen.x - bodyBefore.x) > 3 || Math.abs(bodyOpen.y - bodyBefore.y) > 3) {
+      throw new Error(`展开后本体位移：${bodyBefore.x},${bodyBefore.y} -> ${bodyOpen.x},${bodyOpen.y}`);
     }
 
     await evaluate(pet, 'window.bsub.setPetLayout("compact").then(() => null)');
@@ -475,6 +489,10 @@ try {
     const back = await read();
     if (Math.abs(back.w - compact.w) > 2 || Math.abs(back.h - compact.h) > 2) {
       throw new Error(`收回尺寸异常：${back.w}x${back.h}`);
+    }
+    const bodyBack = await readBody();
+    if (Math.abs(bodyBack.x - bodyBefore.x) > 3 || Math.abs(bodyBack.y - bodyBefore.y) > 3) {
+      throw new Error(`收起后本体位移：${bodyBefore.x},${bodyBefore.y} -> ${bodyBack.x},${bodyBack.y}`);
     }
     // 即时问答依赖的两个通道：截图 + 选中文字
     // 截图要求主窗口在前台（被完全遮挡时 Chromium 会返回空图）
@@ -487,7 +505,7 @@ try {
         '(async () => { const r = await window.bsub.capturePage(); return JSON.stringify({ ok: r.ok, prefix: r.ok ? String(r.data.dataUrl).slice(0, 24) : r.error }); })()'
       )
     );
-    if (!shot.ok || !shot.prefix.startsWith('data:image/png;base64,')) {
+    if (!shot.ok || !shot.prefix.startsWith('data:image/jpeg;base64,')) {
       throw new Error(`截图通道异常：${shot.prefix}`);
     }
     const picked = JSON.parse(
@@ -537,7 +555,7 @@ try {
         window.__shotResult = undefined;
         window.bsub.captureRegion().then((result) => {
           window.__shotResult = result
-            ? { action: result.action, prefix: String(result.dataUrl).slice(0, 22), width: result.width, height: result.height }
+            ? { action: result.action, prefix: String(result.dataUrl).slice(0, 24), width: result.width, height: result.height }
             : null;
         }).catch((error) => { window.__shotResult = { error: String(error && error.message) }; });
         return 'started';
@@ -621,10 +639,41 @@ try {
     if (!result) throw new Error('框选截图没有回传结果');
     if (result.error) throw new Error(`框选失败：${result.error}`);
     if (result.action !== 'chat') throw new Error(`动作异常：${result.action}`);
-    if (!String(result.prefix).startsWith('data:image/png;base64,')) {
+    if (!String(result.prefix).startsWith('data:image/jpeg;base64,')) {
       throw new Error(`裁剪图异常：${result.prefix}`);
     }
     return `${result.width}x${result.height} ${result.action}`;
+  });
+
+  // 14. 从桌宠里隐藏要落设置（否则重启又冒出来）
+  await step('隐藏落设置', async () => {
+    await run(
+      ws,
+      `
+      const snap = await window.bsub.getSettings();
+      const next = snap.data.settings;
+      next.general.petEnabled = true;
+      await window.bsub.saveSettings(next);
+      return JSON.stringify({ ok: true });
+      `
+    );
+    const petTarget = await waitForPetTarget();
+    const pet = await connectTarget(petTarget);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    // 不能 await：窗口会在 IPC 返回前关闭，invoke 永远不 resolve
+    await evaluate(pet, '(() => { window.bsub.setPetEnabled(false); return "ok"; })()');
+    const deadline = Date.now() + 5000;
+    let enabled = true;
+    while (Date.now() < deadline) {
+      const snap = JSON.parse(
+        await evaluate(ws, '(async () => JSON.stringify(await window.bsub.getSettings()))()')
+      );
+      enabled = snap.data.settings.general.petEnabled;
+      if (!enabled) break;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (enabled) throw new Error('隐藏后 settings.petEnabled 仍为 true');
+    return 'petEnabled=false';
   });
 
   ws.close();

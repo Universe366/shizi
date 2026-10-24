@@ -115,6 +115,19 @@ const api: BsubApi = {
     ipcRenderer.invoke('pet:set-layout', mode) as Promise<void>,
   setPetAlwaysOnTop: (enabled: boolean) =>
     ipcRenderer.invoke('pet:set-always-on-top', enabled) as Promise<boolean>,
+  beginPetDrag: () => ipcRenderer.invoke('pet:begin-drag') as Promise<void>,
+  endPetDrag: () =>
+    ipcRenderer.invoke('pet:end-drag') as Promise<{ x: number; y: number; moved: boolean } | null>,
+  petBodyRect: () =>
+    ipcRenderer.invoke('pet:body-rect') as Promise<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>,
+  onPetShot: (cb) => on<{ action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }>('pet:shot', cb),
+  openSettings: () => ipcRenderer.invoke('app:open-settings') as Promise<void>,
+  onOpenSettings: (cb: () => void) => on<null>('ui:open-settings', () => cb()),
   isMediaPlaying: () =>
     ipcRenderer.invoke('media:playing') as Promise<{ ok: true; data: boolean }>,
   toggleMedia: () =>

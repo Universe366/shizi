@@ -5910,6 +5910,22 @@ button:disabled {
   font-size: 10.5px;
 }
 
+/* 截图后的追问建议 */
+.pet-followups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  flex: none;
+}
+
+.pet-followups .mini-btn {
+  width: 100%;
+  min-height: 28px;
+  padding: 0 6px;
+  font-size: 11.5px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+}
+
 /* 快捷动作：2×2 网格，点按面积更大、排列更整齐 */
 .pet-quick {
   display: grid;

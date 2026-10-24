@@ -2,76 +2,106 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { loadSettings, saveSettings } from './settings';
 import {
+  bodyRectFor,
   clampRectToArea,
-  defaultPetRect,
+  defaultBodyRect,
   nearestWorkArea,
   normalizePetSize,
-  petLayoutSize,
   snapRectToEdges,
+  windowRectFor,
   type PetLayoutMode,
   type Rect
 } from './petGeometry';
 
 let petWindow: BrowserWindow | null = null;
-let saveTimer: NodeJS.Timeout | null = null;
 let layoutMode: PetLayoutMode = 'compact';
+
+/* ---------------- 位置：内部一律以「桌宠本体」为准 ---------------- */
 
 function workAreas(): Rect[] {
   return screen.getAllDisplays().map((display) => display.workArea);
 }
 
-function areaFor(point: { x: number; y: number } | null): Rect {
-  const primary = screen.getPrimaryDisplay().workArea;
-  return nearestWorkArea(point, workAreas()) || primary;
+function bodyArea(body: Rect): Rect {
+  const center = {
+    x: body.x + Math.round(body.width / 2),
+    y: body.y + Math.round(body.height / 2)
+  };
+  return nearestWorkArea(center, workAreas()) || screen.getPrimaryDisplay().workArea;
 }
 
-/** 当前窗口矩形；窗口不存在时用默认右下角位置兜底。 */
-function currentRect(): Rect {
-  const petSize = normalizePetSize(loadSettings().general.petSize);
+function petSize(): number {
+  return normalizePetSize(loadSettings().general.petSize);
+}
+
+/** 当前本体矩形；窗口不存在时用默认右下角兜底。 */
+function currentBody(): Rect {
+  const size = petSize();
   if (!petWindow || petWindow.isDestroyed()) {
-    return defaultPetRect(petSize, screen.getPrimaryDisplay().workArea, layoutMode);
+    return defaultBodyRect(size, screen.getPrimaryDisplay().workArea);
   }
   const [x, y] = petWindow.getPosition();
   const [width, height] = petWindow.getSize();
-  return { x, y, width, height };
+  return bodyRectFor({ x, y, width, height }, size);
 }
 
-/** 保存位置（写设置前先夹到可见区域，避免拔掉副屏后桌宠“消失”）。 */
-function persistPosition(): void {
-  const rect = currentRect();
-  const area = areaFor({ x: rect.x + Math.round(rect.width / 2), y: rect.y + Math.round(rect.height / 2) });
-  const bounded = clampRectToArea(rect, area);
-  if (bounded.x !== rect.x || bounded.y !== rect.y) {
-    petWindow?.setPosition(bounded.x, bounded.y);
-  }
+function clampBody(body: Rect): Rect {
+  return clampRectToArea(body, bodyArea(body));
+}
+
+/** 用户上次放下的位置（设置里存的是本体坐标）。 */
+function persistedBody(): Rect | null {
   const settings = loadSettings();
-  settings.general.petX = bounded.x;
-  settings.general.petY = bounded.y;
+  if (!settings.general.petX && !settings.general.petY) return null;
+  const size = petSize();
+  return clampBody({
+    x: settings.general.petX,
+    y: settings.general.petY,
+    width: size,
+    height: size
+  });
+}
+
+/** 把本体放到指定位置：窗口按当前布局围绕本体展开（本体屏幕坐标不变）。 */
+function applyBody(target: Rect): Rect {
+  const body = clampBody(target);
+  if (!petWindow || petWindow.isDestroyed()) return body;
+  const windowRect = windowRectFor(body, layoutMode, body.width);
+  const area = bodyArea(body);
+  const bounded = clampRectToArea(windowRect, area);
+  petWindow.setBounds(bounded);
+  // 窗口被屏幕边缘推回时，本体以实际窗口为准。
+  return bodyRectFor(bounded, body.width);
+}
+
+function persistBody(body: Rect): void {
+  const settings = loadSettings();
+  settings.general.petX = body.x;
+  settings.general.petY = body.y;
   saveSettings(settings);
 }
 
+let persistTimer: NodeJS.Timeout | null = null;
+
 function schedulePersist(delay = 400): void {
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    persistPosition();
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistBody(clampBody(currentBody()));
   }, delay);
 }
 
-function initialRect(): Rect {
-  const settings = loadSettings();
-  const petSize = normalizePetSize(settings.general.petSize);
-  const saved =
-    settings.general.petX || settings.general.petY
-      ? { x: settings.general.petX, y: settings.general.petY }
-      : null;
-  const area = areaFor(saved);
-  const size_ = petLayoutSize(layoutMode, petSize);
-  if (saved) {
-    return clampRectToArea({ ...size_, x: saved.x, y: saved.y }, area);
+function onDisplaysChanged(): void {
+  // 拔掉副屏 / 改分辨率后把本体拉回可见区域。
+  const body = currentBody();
+  const bounded = clampBody(body);
+  if (bounded.x !== body.x || bounded.y !== body.y) {
+    applyBody(bounded);
+    persistBody(bounded);
   }
-  return defaultPetRect(petSize, area, layoutMode);
 }
+
+/* ---------------- 窗口生命周期 ---------------- */
 
 /** 桌宠窗口：透明、无边框、置顶、不进任务栏；尺寸随内容伸缩。 */
 export function openPetWindow(): void {
@@ -79,7 +109,16 @@ export function openPetWindow(): void {
     petWindow.showInactive();
     return;
   }
-  const rect = initialRect();
+  layoutMode = 'compact';
+  const size = petSize();
+  const settings = loadSettings();
+  const saved =
+    settings.general.petX || settings.general.petY
+      ? { x: settings.general.petX, y: settings.general.petY, width: size, height: size }
+      : defaultBodyRect(size, screen.getPrimaryDisplay().workArea);
+  const body = clampBody(saved);
+  const rect = windowRectFor(body, layoutMode, size);
+
   petWindow = new BrowserWindow({
     ...rect,
     transparent: true,
@@ -106,38 +145,37 @@ export function openPetWindow(): void {
     });
   }
   petWindow.once('ready-to-show', () => petWindow?.showInactive());
-  // 用系统拖拽（-webkit-app-region: drag）移动时也要落盘；渲染层主动拖拽会走 pet:drop。
+
+  // 系统级移动结束后保存；渲染层拖拽走 pet:end-drag。
   petWindow.on('moved', () => {
     if (!petWindow || petWindow.isDestroyed()) return;
     schedulePersist();
   });
   petWindow.on('closed', () => {
     petWindow = null;
-  });
-  const onDisplaysChanged = () => layoutPetWindow();
-  screen.on('display-metrics-changed', onDisplaysChanged);
-  screen.on('display-added', onDisplaysChanged);
-  screen.on('display-removed', onDisplaysChanged);
-  petWindow.on('closed', () => {
+    stopDragLoop();
     screen.removeListener('display-metrics-changed', onDisplaysChanged);
     screen.removeListener('display-added', onDisplaysChanged);
     screen.removeListener('display-removed', onDisplaysChanged);
   });
+  screen.on('display-metrics-changed', onDisplaysChanged);
+  screen.on('display-added', onDisplaysChanged);
+  screen.on('display-removed', onDisplaysChanged);
   console.log('[pet] window opened', `${rect.width}x${rect.height}`, layoutMode);
 }
 
 export function closePetWindow(): void {
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
   }
+  stopDragLoop();
   if (petWindow && !petWindow.isDestroyed()) petWindow.close();
   petWindow = null;
 }
 
-/** 设置里切换开关时调用：创建/销毁窗口并写回设置。 */
+/** 设置里切换开关时调用：创建/销毁窗口；开关值由调用方写设置。 */
 export function setPetEnabled(enabled: boolean): void {
-  // 只负责窗口生命周期；开关值由 settings:set 统一保存，避免两处写设置互相覆盖。
   if (enabled) openPetWindow();
   else closePetWindow();
 }
@@ -148,15 +186,15 @@ export function initPetWindow(): void {
   }
 }
 
-/** 按当前布局模式重排窗口：保持左上角，尺寸随内容变化，并夹在可见区域内。 */
+/* ---------------- 布局 ---------------- */
+
 export function layoutPetWindow(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  const settings = loadSettings();
-  const petSize = normalizePetSize(settings.general.petSize);
-  const size = petLayoutSize(layoutMode, petSize);
-  const [x, y] = petWindow.getPosition();
-  const area = areaFor({ x: x + Math.round(size.width / 2), y: y + Math.round(size.height / 2) });
-  const bounded = clampRectToArea({ x, y, ...size }, area);
+  // 展开时窗口可能被屏幕边缘推回（本体暂时让位）；收回时回到用户放下的位置。
+  const body =
+    layoutMode === 'compact' ? persistedBody() || currentBody() : currentBody();
+  const windowRect = windowRectFor(body, layoutMode, petSize());
+  const bounded = clampRectToArea(windowRect, bodyArea(body));
   petWindow.setBounds(bounded);
 }
 
@@ -184,39 +222,95 @@ export function applyPetSettings(): void {
   applyWindowStyle();
 }
 
+/* ---------------- 查询与操作 ---------------- */
+
 export function petPosition(): { x: number; y: number } | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
   const [x, y] = petWindow.getPosition();
   return { x, y };
 }
 
+/** 桌宠本体在屏幕上的矩形（跨布局稳定）。 */
+export function petBodyRect(): Rect | null {
+  if (!petWindow || petWindow.isDestroyed()) return null;
+  return currentBody();
+}
+
 export function resetPetPosition(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  const petSize = normalizePetSize(loadSettings().general.petSize);
-  const area = screen.getPrimaryDisplay().workArea;
-  const rect = defaultPetRect(petSize, area, layoutMode);
-  petWindow.setBounds(rect);
-  persistPosition();
+  const applied = applyBody(defaultBodyRect(petSize(), screen.getPrimaryDisplay().workArea));
+  persistBody(applied);
 }
 
-/** 拖拽过程中的实时移动：夹在当前显示器工作区内，防止拖出屏幕。 */
+/** 直接设置本体位置（程序化移动 / 兼容旧 IPC）。 */
 export function movePet(x: number, y: number): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  const [width, height] = petWindow.getSize();
-  const area = areaFor({ x, y });
-  const bounded = clampRectToArea({ x: Math.round(x), y: Math.round(y), width, height }, area);
-  petWindow.setPosition(bounded.x, bounded.y);
+  applyBody({ x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() });
 }
 
-/** 松手：吸附屏幕边缘 + 立即保存位置。 */
+/** 松手：吸附屏幕边缘 + 立即保存。返回吸附后的本体位置。 */
 export function dropPet(x: number, y: number): { x: number; y: number } | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
-  const [width, height] = petWindow.getSize();
-  const area = areaFor({ x, y });
-  const snapped = snapRectToEdges({ x: Math.round(x), y: Math.round(y), width, height }, area);
-  petWindow.setPosition(snapped.x, snapped.y);
-  persistPosition();
-  return { x: snapped.x, y: snapped.y };
+  const body = { x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() };
+  const applied = applyBody(snapRectToEdges(body, bodyArea(body)));
+  persistBody(applied);
+  return { x: applied.x, y: applied.y };
+}
+
+/* ---------------- 拖拽：主进程跟随光标（指针移出窗口也不掉） ---------------- */
+
+let dragTimer: NodeJS.Timeout | null = null;
+let dragStart: { cursor: Electron.Point; body: Rect } | null = null;
+let dragMoved = false;
+
+function stopDragLoop(): void {
+  if (dragTimer) {
+    clearInterval(dragTimer);
+    dragTimer = null;
+  }
+  dragStart = null;
+}
+
+export function beginPetDrag(): void {
+  if (!petWindow || petWindow.isDestroyed() || dragTimer) return;
+  dragStart = { cursor: screen.getCursorScreenPoint(), body: currentBody() };
+  dragMoved = false;
+  dragTimer = setInterval(() => {
+    if (!dragStart || !petWindow || petWindow.isDestroyed()) return;
+    const cursor = screen.getCursorScreenPoint();
+    const dx = cursor.x - dragStart.cursor.x;
+    const dy = cursor.y - dragStart.cursor.y;
+    if (!dragMoved && Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+    if (!dragMoved) return;
+    applyBody({ ...dragStart.body, x: dragStart.body.x + dx, y: dragStart.body.y + dy });
+  }, 16);
+}
+
+export function endPetDrag(): { x: number; y: number; moved: boolean } | null {
+  stopDragLoop();
+  if (!petWindow || petWindow.isDestroyed()) return null;
+  const applied = applyBody(snapRectToEdges(currentBody(), bodyArea(currentBody())));
+  if (dragMoved) persistBody(applied);
+  return { x: applied.x, y: applied.y, moved: dragMoved };
+}
+
+/* ---------------- 截图时临时隐藏（避免把桌宠自己拍进去） ---------------- */
+
+export function petWebContents(): Electron.WebContents | null {
+  if (!petWindow || petWindow.isDestroyed()) return null;
+  return petWindow.webContents;
+}
+
+export async function withPetHidden<T>(run: () => Promise<T>): Promise<T> {
+  const win = petWindow;
+  const visible = Boolean(win && !win.isDestroyed() && win.isVisible());
+  if (visible && win) win.hide();
+  try {
+    if (visible) await new Promise((resolve) => setTimeout(resolve, 90));
+    return await run();
+  } finally {
+    if (visible && petWindow && !petWindow.isDestroyed()) petWindow.showInactive();
+  }
 }
 
 /** 右键菜单里的「置顶」开关：立即生效并写回设置。 */

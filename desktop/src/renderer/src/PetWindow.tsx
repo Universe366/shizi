@@ -132,12 +132,7 @@ export function PetWindow() {
   const withImageRef = useRef(false);
   const happyTimer = useRef<number | null>(null);
   const lastActive = useRef(Date.now());
-  const dragRef = useRef<{ sx: number; sy: number; wx: number; wy: number; moved: boolean } | null>(
-    null
-  );
   const dragStarted = useRef(false);
-  const dragFrame = useRef<number | null>(null);
-  const dragTarget = useRef<{ x: number; y: number } | null>(null);
   const [petSize, setPetSize] = useState(96);
   const [soundOn, setSoundOn] = useState(true);
   const [idleTalkOn, setIdleTalkOn] = useState(true);
@@ -145,6 +140,8 @@ export function PetWindow() {
   const [menuOpen, setMenuOpen] = useState(false);
   const bubbleBody = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const clickTimer = useRef<number | null>(null);
+  const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
 
   useEffect(() => {
     void window.bsub.getSettings().then((response) => {
@@ -250,6 +247,21 @@ export function PetWindow() {
     };
   }, [speak]);
 
+  // 全局快捷键（Ctrl+Shift+S）截完的结果
+  useEffect(() => window.bsub.onPetShot((result) => shotHandler.current(result)), []);
+  shotHandler.current = (result) => {
+    void handleShotResult(result);
+  };
+
+  // 关掉桌宠时别让请求继续烧 token
+  useEffect(
+    () => () => {
+      if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
+      if (clickTimer.current) window.clearTimeout(clickTimer.current);
+    },
+    []
+  );
+
   // 空闲：睡觉 + 自言自语
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -317,6 +329,10 @@ export function PetWindow() {
       ? `${value}\n\n我选中的内容：\n"""\n${quoted}\n"""`
       : value;
 
+    // 多轮上下文：把最近几条对话一起发过去，追问「再详细点」才有意义。
+    const contextMessages: ChatMessage[] = history
+      .slice(-6)
+      .map((item) => ({ role: item.role, content: item.text.slice(0, 2000) }));
     setHistory((items) => [
       ...items,
       { role: 'user', text: quoted ? `${value}（含选中内容）` : value }
@@ -336,7 +352,7 @@ export function PetWindow() {
         requestId,
         info,
         lines: [],
-        messages: [message],
+        messages: [...contextMessages, message],
         // 桌宠只处理即时问题：不把整页正文塞给模型。
         includePage: false,
         web: webOn
@@ -347,31 +363,42 @@ export function PetWindow() {
       setEmotion('idle');
       const message = (caught as Error).message || '请求失败';
       setError(withImageRef.current ? visionHint(message) : message);
-    } finally {
-      // 截图只在这一次提问里有效，避免追问时被重复带上。
-      if (attachment) setShot(null);
     }
+  };
+
+  /** 统一处理「框选结果」：本地按钮和全局快捷键共用。 */
+  const handleShotResult = async (result: {
+    action: 'image' | 'chat' | 'ocr';
+    dataUrl: string;
+    width: number;
+    height: number;
+  }) => {
+    setOpen(true);
+    if (result.action === 'image') {
+      setShot(result.dataUrl);
+      flash('截图已就绪，接着问就行');
+      inputRef.current?.focus();
+      return;
+    }
+    setShot(result.dataUrl);
+    await ask(result.action === 'ocr' ? OCR_PROMPT : SHOT_PROMPT, { image: result.dataUrl });
   };
 
   /** 框选截图：动作条里选「识别图片 / 对话 / 提取文字」。 */
   const takeRegionShot = async () => {
-    if (shotBusy || busy) return;
+    if (shotBusy || busy) {
+      flash('等当前回答结束再截图');
+      return;
+    }
     wake();
     setShotBusy(true);
     try {
       const result = await window.bsub.captureRegion();
-      if (!result) return; // 用户取消
-      const { action, dataUrl } = result;
-      setOpen(true);
-      if (action === 'image') {
-        // 只把图挂上去，让用户接着问。
-        setShot(dataUrl);
-        flash('截图已就绪，接着问就行');
-        inputRef.current?.focus();
+      if (!result) {
+        flash('已取消截图');
         return;
       }
-      setShot(dataUrl);
-      await ask(action === 'ocr' ? OCR_PROMPT : SHOT_PROMPT, { image: dataUrl });
+      await handleShotResult(result);
     } catch {
       flash('截图失败，请重试');
     } finally {
@@ -391,9 +418,7 @@ export function PetWindow() {
         return;
       }
       const dataUrl = response.data.dataUrl;
-      setShot(dataUrl);
-      setOpen(true);
-      await ask(SHOT_PROMPT, { image: dataUrl });
+      await handleShotResult({ action: 'chat', dataUrl, width: 0, height: 0 });
     } finally {
       setShotBusy(false);
     }
@@ -457,50 +482,20 @@ export function PetWindow() {
     const target = event.target as HTMLElement;
     if (target.closest('input,textarea,button,.pet-bubble,.pet-widget,.pet-menu')) return;
     dragStarted.current = false;
-    dragTarget.current = null;
-    void window.bsub.petPosition().then((position) => {
-      if (!position) return;
-      dragRef.current = {
-        sx: event.screenX,
-        sy: event.screenY,
-        wx: position.x,
-        wy: position.y,
-        moved: false
-      };
-    });
-    const flush = () => {
-      dragFrame.current = null;
-      const point = dragTarget.current;
-      if (!point) return;
-      void window.bsub.movePet(point.x, point.y);
-    };
+    // 位移交给主进程跟随光标：指针移出窗口也不会掉。
+    void window.bsub.beginPetDrag();
+    const origin = { x: event.screenX, y: event.screenY };
     const move = (moveEvent: MouseEvent) => {
-      const state = dragRef.current;
-      if (!state) return;
-      const dx = moveEvent.screenX - state.sx;
-      const dy = moveEvent.screenY - state.sy;
-      if (!state.moved && Math.abs(dx) + Math.abs(dy) > 4) {
-        state.moved = true;
+      if (Math.abs(moveEvent.screenX - origin.x) + Math.abs(moveEvent.screenY - origin.y) > 3) {
         dragStarted.current = true;
       }
-      if (!state.moved) return;
-      dragTarget.current = { x: state.wx + dx, y: state.wy + dy };
-      if (dragFrame.current == null) dragFrame.current = window.requestAnimationFrame(flush);
     };
     const up = () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
-      if (dragFrame.current != null) {
-        window.cancelAnimationFrame(dragFrame.current);
-        dragFrame.current = null;
-      }
-      const point = dragTarget.current;
-      dragRef.current = null;
-      dragTarget.current = null;
-      // 松手时吸附边缘并落盘，拖动过程中不写设置。
-      if (point && dragStarted.current) {
-        void window.bsub.dropPet(point.x, point.y);
-      }
+      void window.bsub.endPetDrag().then((result) => {
+        if (result?.moved) dragStarted.current = true;
+      });
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
@@ -605,7 +600,8 @@ export function PetWindow() {
             className="pet-widget-input"
             placeholder="加一条待办，Enter 保存"
             onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
+              // 中文输入法按 Enter 只是确认候选词，不能当成提交。
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
               const text = event.currentTarget.value.trim();
               if (!text) return;
               setTodos((items) => [...items, { id: Date.now(), text, done: false }]);
@@ -704,7 +700,7 @@ export function PetWindow() {
                 <button
                   className="mini-btn"
                   style={{ marginLeft: 6 }}
-                  onClick={() => void window.bsub.focusMain()}
+                  onClick={() => void window.bsub.openSettings()}
                 >
                   打开设置
                 </button>
@@ -749,6 +745,23 @@ export function PetWindow() {
             </div>
           )}
 
+          {shot && !busy && (
+            <div className="pet-followups">
+              <button className="mini-btn" onClick={() => void ask('这张图里是什么？', { image: shot })}>
+                这是什么
+              </button>
+              <button className="mini-btn" onClick={() => void ask(OCR_PROMPT, { image: shot })}>
+                提取文字
+              </button>
+              <button
+                className="mini-btn"
+                onClick={() => void ask('把这张图里的文字翻译成中文，保留原文结构。', { image: shot })}
+              >
+                翻译文字
+              </button>
+            </div>
+          )}
+
           <div className="pet-quick">
             <button
               className="mini-btn"
@@ -780,7 +793,7 @@ export function PetWindow() {
               placeholder={webOn ? '问点什么（本轮会联网）' : '问点什么，Enter 发送'}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') void ask(input);
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing) void ask(input);
                 if (event.key === 'Escape') setOpen(false);
               }}
             />
@@ -799,15 +812,27 @@ export function PetWindow() {
         className={`pet-body${busy ? ' is-busy' : ''}`}
         title="点击聊天，拖动移动，双击打开主窗口"
         onMouseDown={startDrag}
-        onClick={() => {
+        onClick={(event) => {
           if (dragStarted.current) {
             dragStarted.current = false;
             return;
           }
-          if (soundOn) beep();
-          toggleOpen();
+          // 双击的第二次 click 不再触发开合，交给 onDoubleClick。
+          if (event.detail > 1) return;
+          if (clickTimer.current) window.clearTimeout(clickTimer.current);
+          clickTimer.current = window.setTimeout(() => {
+            clickTimer.current = null;
+            if (soundOn) beep();
+            toggleOpen();
+          }, 180);
         }}
-        onDoubleClick={() => void window.bsub.focusMain()}
+        onDoubleClick={() => {
+          if (clickTimer.current) {
+            window.clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+          void window.bsub.focusMain();
+        }}
       >
         <span className="pet-glow" />
         <span className="pet-eye left" />

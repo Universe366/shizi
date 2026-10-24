@@ -2,6 +2,8 @@ import { BrowserWindow, desktopCapturer, screen } from 'electron';
 import path from 'node:path';
 import type { NativeImage } from 'electron';
 import { toImageRect, type Rect } from '../shared/shotGeometry';
+import { compressImage } from './imageData';
+import { withPetHidden } from './petWindow';
 
 /**
  * 框选截图：全屏覆盖窗 + 拖拽选框 + 选框旁的三个动作。
@@ -77,15 +79,22 @@ export function completeRegionCapture(input: ShotSelection | null): void {
   const { image, cssSize } = pending;
   const size = image.getSize();
   const rect = toImageRect(input.selection, cssSize, size);
-  let dataUrl = '';
+  let compressed: { dataUrl: string; width: number; height: number } | null = null;
   try {
-    dataUrl = image.crop(rect).toDataURL();
+    compressed = compressImage(image.crop(rect));
   } catch (error) {
     console.warn('[shot] crop failed:', (error as Error).message);
+  }
+  if (!compressed) {
     settle(null);
     return;
   }
-  settle({ action: input.action, dataUrl, width: rect.width, height: rect.height });
+  settle({
+    action: input.action,
+    dataUrl: compressed.dataUrl,
+    width: compressed.width,
+    height: compressed.height
+  });
 }
 
 /** 桌宠发起框选；用户取消返回 null。 */
@@ -101,7 +110,10 @@ export async function beginRegionCapture(): Promise<ShotResult | null> {
 
   let image: NativeImage | null = null;
   try {
-    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize });
+    // 先藏桌宠再截屏，避免把桌宠自己拍进选区。
+    const sources = await withPetHidden(() =>
+      desktopCapturer.getSources({ types: ['screen'], thumbnailSize })
+    );
     const source =
       sources.find((item) => String(item.display_id) === String(display.id)) || sources[0];
     if (source && !source.thumbnail.isEmpty()) image = source.thumbnail;

@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   PET_EDGE_SNAP,
+  bodyRectFor,
   clampRectToArea,
+  defaultBodyRect,
   defaultPetRect,
+  fitWithin,
   nearestWorkArea,
   normalizePetSize,
   petLayoutForState,
   petLayoutSize,
-  snapRectToEdges
+  snapRectToEdges,
+  windowRectFor
 } from './petGeometry';
 
 const HD = { x: 0, y: 0, width: 1920, height: 1040 };
@@ -123,5 +127,50 @@ describe('nearestWorkArea', () => {
   it('没有显示器时返回 null，没有坐标时取第一块', () => {
     expect(nearestWorkArea({ x: 0, y: 0 }, [])).toBeNull();
     expect(nearestWorkArea(null, [HD, LEFT])).toBe(HD);
+  });
+});
+
+describe('本体与窗口坐标互转', () => {
+  it('任意布局下本体都在窗口底部居中', () => {
+    for (const mode of ['compact', 'bubble', 'widget', 'menu'] as const) {
+      const body = { x: 500, y: 400, width: 120, height: 120 };
+      const win = windowRectFor(body, mode, 120);
+      expect(win.width).toBe(petLayoutSize(mode, 120).width);
+      expect(win.height).toBe(petLayoutSize(mode, 120).height);
+      expect(bodyRectFor(win, 120)).toEqual(body);
+    }
+  });
+
+  it('切换布局时本体位置（屏幕坐标）不变', () => {
+    const body = { x: 800, y: 300, width: 120, height: 120 };
+    const compact = windowRectFor(body, 'compact', 120);
+    const bubble = windowRectFor(body, 'bubble', 120);
+    expect(bodyRectFor(compact, 120)).toEqual(body);
+    expect(bodyRectFor(bubble, 120)).toEqual(body);
+    // 气泡是向上长的：窗口顶边更高，底边保持不变
+    expect(bubble.y).toBeLessThan(compact.y);
+    expect(bubble.y + bubble.height).toBe(compact.y + compact.height);
+  });
+
+  it('默认本体位置留 24px 边距', () => {
+    const area = { x: 0, y: 0, width: 1920, height: 1040 };
+    const body = defaultBodyRect(96, area);
+    expect(body.x + body.width).toBe(1920 - 24);
+    expect(body.y + body.height).toBe(1040 - 24);
+  });
+});
+
+describe('fitWithin（截图压缩尺寸）', () => {
+  it('超过上限时等比缩小', () => {
+    expect(fitWithin(3200, 1800, 1600)).toEqual({ width: 1600, height: 900 });
+    expect(fitWithin(1000, 2400, 1600)).toEqual({ width: 667, height: 1600 });
+  });
+
+  it('不放大', () => {
+    expect(fitWithin(800, 600, 1600)).toEqual({ width: 800, height: 600 });
+  });
+
+  it('非法尺寸给 1x1，避免除零', () => {
+    expect(fitWithin(0, 0, 1600)).toEqual({ width: 1, height: 1 });
   });
 });

@@ -40,8 +40,11 @@ import { listLibrary } from '../library';
 import { failure, type IpcContext } from './shared';
 import {
   applyPetSettings,
+  beginPetDrag,
   dropPet,
+  endPetDrag,
   movePet,
+  petBodyRect,
   petPosition,
   resetPetPosition,
   setPetAlwaysOnTop,
@@ -68,8 +71,26 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     ctx.win.show();
     ctx.win.focus();
   });
+  ipcMain.handle('pet:begin-drag', () => {
+    beginPetDrag();
+  });
+  ipcMain.handle('pet:end-drag', () => endPetDrag());
+  ipcMain.handle('pet:body-rect', () => petBodyRect());
   ipcMain.handle('pet:set-enabled', (_event, enabled: boolean) => {
-    setPetEnabled(enabled === true);
+    const next = enabled === true;
+    // 从桌宠里点「隐藏」也要落设置，否则重启又冒出来。
+    const settings = loadSettings();
+    if (settings.general.petEnabled !== next) {
+      settings.general.petEnabled = next;
+      saveSettings(settings);
+      ctx.send('settings:changed', settingsSnapshot());
+    }
+    setPetEnabled(next);
+  });
+  ipcMain.handle('app:open-settings', () => {
+    ctx.win.show();
+    ctx.win.focus();
+    ctx.send('ui:open-settings', null);
   });
 
 

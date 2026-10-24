@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PetWindow } from './PetWindow';
 
 const SHOT = 'data:image/png;base64,AAAA';
@@ -10,6 +10,7 @@ function installBsub() {
     delta?: (event: unknown) => void;
     done?: (event: unknown) => void;
     error?: (event: unknown) => void;
+    shot?: (result: unknown) => void;
   } = {};
   const api = {
     getSettings: vi.fn(async () => ({
@@ -47,6 +48,14 @@ function installBsub() {
     dropPet: vi.fn(async () => ({ x: 10, y: 10 })),
     capturePage: vi.fn(async () => ({ ok: true as const, data: { dataUrl: SHOT } })),
     captureRegion: vi.fn(async () => ({ action: 'chat' as const, dataUrl: SHOT, width: 200, height: 120 })),
+    onPetShot: vi.fn((cb: (result: unknown) => void) => {
+      handlers.shot = cb;
+      return () => {};
+    }),
+    openSettings: vi.fn(async () => undefined),
+    beginPetDrag: vi.fn(async () => undefined),
+    endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
+    petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
     readSelection: vi.fn(async () => ({
       ok: true as const,
       data: { title: '测试页', url: 'https://example.com', selection: '这段是被选中的文字' }
@@ -68,8 +77,9 @@ function installBsub() {
   return { api, handlers };
 }
 
-function openBubble() {
+async function openBubble() {
   fireEvent.click(screen.getByTitle(/点击聊天/));
+  await waitFor(() => expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy());
 }
 
 function lastChatPayload(api: ReturnType<typeof installBsub>['api']) {
@@ -89,28 +99,28 @@ describe('PetWindow', () => {
     localStorage.clear();
   });
 
-  it('默认只有桌宠，点击展开气泡', () => {
+  it('默认只有桌宠，点击展开气泡', async () => {
     installBsub();
     render(<PetWindow />);
     expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
-    openBubble();
+    await openBubble();
     expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
   });
 
-  it('按内容切换窗口布局：compact → bubble → compact', () => {
+  it('按内容切换窗口布局：compact → bubble → compact', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
     expect(api.setPetLayout).toHaveBeenLastCalledWith('compact');
-    openBubble();
+    await openBubble();
     expect(api.setPetLayout).toHaveBeenLastCalledWith('bubble');
-    openBubble();
-    expect(api.setPetLayout).toHaveBeenLastCalledWith('compact');
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('compact'));
   });
 
-  it('打开挂件时窗口变宽，挂件状态会记住', () => {
+  it('打开挂件时窗口变宽，挂件状态会记住', async () => {
     const { api } = installBsub();
     const first = render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle(/桌面小挂件/));
     // 气泡与挂件互斥：打开挂件会收起气泡
     expect(api.setPetLayout).toHaveBeenLastCalledWith('widget');
@@ -126,7 +136,7 @@ describe('PetWindow', () => {
   it('框选截图选「对话」：带裁剪图提问，且不把整页正文塞进去', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
 
     await vi.waitFor(() => expect(api.captureRegion).toHaveBeenCalled(), { timeout: 5000 });
@@ -147,7 +157,7 @@ describe('PetWindow', () => {
       height: 120
     } as never);
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
     await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
     const payload = lastChatPayload(api);
@@ -164,7 +174,7 @@ describe('PetWindow', () => {
       height: 120
     } as never);
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
     await vi.waitFor(() => expect(screen.getByAltText('当前页面截图')).toBeTruthy());
     expect(api.chat).not.toHaveBeenCalled();
@@ -177,7 +187,7 @@ describe('PetWindow', () => {
     const { api } = installBsub();
     api.captureRegion.mockResolvedValueOnce(null as never);
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
     await vi.waitFor(() => expect(api.captureRegion).toHaveBeenCalled());
     expect(api.chat).not.toHaveBeenCalled();
@@ -195,7 +205,7 @@ describe('PetWindow', () => {
   it('联网开关会带 web:true，并记住状态', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('打开联网检索'));
     expect(localStorage.getItem('pet-web')).toBe('1');
     expect(screen.getByPlaceholderText(/本轮会联网/)).toBeTruthy();
@@ -210,7 +220,7 @@ describe('PetWindow', () => {
   it('解释选中：把选中文字作为上下文发出去', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByText('解释选中'));
     await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
     const payload = lastChatPayload(api);
@@ -225,7 +235,7 @@ describe('PetWindow', () => {
       data: { title: '测试页', url: 'https://example.com', selection: '' }
     } as never);
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByText('解释选中'));
     await vi.waitFor(() => expect(screen.getByText('先在网页里选中一段文字')).toBeTruthy());
     expect(api.chat).not.toHaveBeenCalled();
@@ -235,7 +245,7 @@ describe('PetWindow', () => {
     const { api, handlers } = installBsub();
     api.chat.mockResolvedValueOnce({ ok: true, data: { requestId: 'pet-shot' } } as never);
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
     await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
     const first = (api.chat.mock.calls as unknown as Array<[{ requestId: string }]>)[0][0];
@@ -246,7 +256,7 @@ describe('PetWindow', () => {
   it('发送问题后，完成事件显示回答', async () => {
     const { api, handlers } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '这个版本号什么时候发的' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -260,7 +270,7 @@ describe('PetWindow', () => {
   it('生成中可点「停止」，会取消这次请求', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '慢慢想' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -278,7 +288,7 @@ describe('PetWindow', () => {
     });
     const { api, handlers } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '要点' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -307,7 +317,7 @@ describe('PetWindow', () => {
     await vi.waitFor(() => expect(api.toggleMedia).toHaveBeenCalled());
   });
 
-  it('右键菜单可以重置位置和隐藏', () => {
+  it('右键菜单可以重置位置和隐藏', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
@@ -319,7 +329,7 @@ describe('PetWindow', () => {
     expect(api.setPetEnabled).toHaveBeenCalledWith(false);
   });
 
-  it('Esc 先关菜单，再关气泡', () => {
+  it('Esc 先关菜单，再关气泡', async () => {
     installBsub();
     render(<PetWindow />);
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
@@ -327,16 +337,16 @@ describe('PetWindow', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByText('截图（框选）')).toBeNull();
 
-    openBubble();
+    await openBubble();
     expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
   });
 
-  it('挂件显示时钟并可加待办', () => {
+  it('挂件显示时钟并可加待办', async () => {
     installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle(/桌面小挂件/));
     const input = screen.getByPlaceholderText(/加一条待办/);
     fireEvent.change(input, { target: { value: '写周报' } });
@@ -344,18 +354,116 @@ describe('PetWindow', () => {
     expect(screen.getByText('写周报')).toBeTruthy();
   });
 
-  it('双击桌宠打开主窗口', () => {
+  it('双击桌宠打开主窗口（不触发展开/收起）', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    fireEvent.doubleClick(screen.getByTitle(/点击聊天/));
-    expect(api.focusMain).toHaveBeenCalled();
+    const body = screen.getByTitle(/点击聊天/);
+    fireEvent.click(body);
+    fireEvent.click(body);
+    fireEvent.doubleClick(body);
+    await waitFor(() => expect(api.focusMain).toHaveBeenCalled());
+    expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
   });
 
-  it('气泡里的隐藏按钮关闭桌宠', () => {
+  it('气泡里的隐藏按钮关闭桌宠', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    openBubble();
+    await openBubble();
     fireEvent.click(screen.getByTitle(/隐藏桌宠/));
     expect(api.setPetEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('PetWindow 回归', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('多轮对话会把上一轮问答带上', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '第一问' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalledTimes(1));
+    const first = (api.chat.mock.calls as unknown as Array<[{ requestId: string }]>)[0][0];
+    handlers.done?.({ requestId: first.requestId, text: '第一答', model: 'test' });
+    await screen.findByText('第一答');
+
+    fireEvent.change(input, { target: { value: '再详细点' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalledTimes(2));
+
+    const payload = lastChatPayload(api);
+    const contents = payload.messages.map((item) => item.content);
+    expect(contents).toContain('第一问');
+    expect(contents).toContain('第一答');
+    expect(payload.messages.at(-1)?.content).toBe('再详细点');
+  });
+
+  it('输入法确认候选词的回车不会发送', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '拼音' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true } as never);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(api.chat).not.toHaveBeenCalled();
+  });
+
+  it('全局快捷键截完的图会直接发问', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    handlers.shot?.({ action: 'ocr', dataUrl: SHOT, width: 100, height: 50 });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
+    const payload = lastChatPayload(api);
+    expect(payload.messages.at(-1)?.images).toEqual([SHOT]);
+    expect(payload.messages.at(-1)?.content).toContain('提取');
+  });
+
+  it('取消截图会给出提示', async () => {
+    const { api } = installBsub();
+    api.captureRegion.mockResolvedValueOnce(null as never);
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
+    expect(await screen.findByText('已取消截图')).toBeTruthy();
+  });
+
+  it('截图后可以点追问建议继续问，图片保留在附件里', async () => {
+    const { api } = installBsub();
+    api.captureRegion.mockResolvedValueOnce({
+      action: 'image',
+      dataUrl: SHOT,
+      width: 200,
+      height: 120
+    } as never);
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
+    await vi.waitFor(() => expect(screen.getByAltText('当前页面截图')).toBeTruthy());
+    fireEvent.click(screen.getByText('提取文字'));
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
+    expect(lastChatPayload(api).messages.at(-1)?.images).toEqual([SHOT]);
+    // 发完仍保留截图，方便继续追问
+    expect(screen.getByAltText('当前页面截图')).toBeTruthy();
+  });
+
+  it('报错框里的「打开设置」调用 openSettings', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '问点什么' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    const first = (api.chat.mock.calls as unknown as Array<[{ requestId: string }]>)[0][0];
+    handlers.error?.({ requestId: first.requestId, error: '没有可用的 Key' });
+    fireEvent.click(await screen.findByText('打开设置'));
+    expect(api.openSettings).toHaveBeenCalled();
   });
 });

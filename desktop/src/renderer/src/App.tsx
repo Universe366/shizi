@@ -165,6 +165,8 @@ export default function App() {
 
   useEffect(() => window.bsub.onTabSearchRequest(() => setHub('tabs')), []);
   useEffect(() => window.bsub.onReaderRequest(() => setReaderOpen(true)), []);
+  // 桌宠里的「打开设置」：主进程把窗口叫到前台后，这里负责真的切到设置页。
+  useEffect(() => window.bsub.onOpenSettings(() => setSettingsOpen(true)), []);
 
   useEffect(
     () =>

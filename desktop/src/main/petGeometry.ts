@@ -109,3 +109,51 @@ export function nearestWorkArea(
     distanceToArea(point, area) < distanceToArea(point, best) ? area : best
   );
 }
+
+/** 窗口内边距（与 styles.css 的 .pet-root padding 保持一致）。 */
+export const PET_PADDING = 6;
+
+/** 窗口矩形 → 桌宠本体矩形（水平居中、贴底部）。 */
+export function bodyRectFor(windowRect: Rect, petSize: number): Rect {
+  const size = normalizePetSize(petSize);
+  return {
+    x: windowRect.x + Math.round((windowRect.width - size) / 2),
+    y: windowRect.y + windowRect.height - PET_PADDING - size,
+    width: size,
+    height: size
+  };
+}
+
+/** 桌宠本体矩形 + 布局模式 → 窗口矩形（窗口向上、向两侧长，本体位置不变）。 */
+export function windowRectFor(bodyRect: Rect, mode: PetLayoutMode, petSize: number): Rect {
+  const size = normalizePetSize(petSize);
+  const windowSize = petLayoutSize(mode, size);
+  return {
+    x: bodyRect.x - Math.round((windowSize.width - size) / 2),
+    y: bodyRect.y + size + PET_PADDING - windowSize.height,
+    width: windowSize.width,
+    height: windowSize.height
+  };
+}
+
+/** 默认本体位置：右下角，距工作区边缘 24px。 */
+export function defaultBodyRect(petSize: number, area: Rect): Rect {
+  const size = normalizePetSize(petSize);
+  return clampRectToArea(
+    { x: area.x + area.width - size - 24, y: area.y + area.height - size - 24, width: size, height: size },
+    area
+  );
+}
+
+/** 图片缩放：等比缩到最长边不超过 max（不放大）。 */
+export function fitWithin(
+  width: number,
+  height: number,
+  max = 1600
+): { width: number; height: number } {
+  const longest = Math.max(width, height);
+  if (!Number.isFinite(longest) || longest <= 0) return { width: 1, height: 1 };
+  if (longest <= max) return { width: Math.round(width), height: Math.round(height) };
+  const scale = max / longest;
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}

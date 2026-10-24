@@ -98,6 +98,22 @@ export interface BsubApi {
   /** 桌宠窗口随气泡/挂件/菜单伸缩，避免透明区域挡住桌面点击。 */
   setPetLayout(mode: 'compact' | 'bubble' | 'widget' | 'menu'): Promise<void>;
   setPetAlwaysOnTop(enabled: boolean): Promise<boolean>;
+  /** 主进程跟随光标拖拽（指针移出窗口也不会掉）。 */
+  beginPetDrag(): Promise<void>;
+  endPetDrag(): Promise<{ x: number; y: number; moved: boolean } | null>;
+  /** 桌宠本体矩形（跨布局稳定，用于位置断言/调试）。 */
+  petBodyRect(): Promise<{ x: number; y: number; width: number; height: number } | null>;
+  /** 全局快捷键框选后的结果（已裁剪压缩）。 */
+  onPetShot(
+    cb: (result: {
+      action: 'image' | 'chat' | 'ocr';
+      dataUrl: string;
+      width: number;
+      height: number;
+    }) => void
+  ): () => void;
+  openSettings(): Promise<void>;
+  onOpenSettings(cb: () => void): () => void;
   isMediaPlaying(): Promise<{ ok: true; data: boolean }>;
   /** 播放/暂停当前标签页的媒体。 */
   toggleMedia(): Promise<{ ok: true; data: { playing: boolean } }>;

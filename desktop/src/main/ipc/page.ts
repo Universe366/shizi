@@ -19,6 +19,7 @@ import { resolveBilibiliCollection } from '../biliCollection';
 import { applyCorrectionToLines } from '../correction';
 import { loadSettings } from '../settings';
 import { failure, type IpcContext } from './shared';
+import { compressDataUrl } from '../imageData';
 
 /** 当前页面（正文 / 视频信息 / 字幕 / 播放进度）相关 IPC。 */
 export function registerPageIpc(ctx: IpcContext): void {
@@ -85,7 +86,8 @@ export function registerPageIpc(ctx: IpcContext): void {
             : '主窗口当前没有显示网页（在起始页或设置里），先打开一个网页再截图'
         };
       }
-      return { ok: true as const, data: { dataUrl } };
+      const compressed = compressDataUrl(dataUrl);
+      return { ok: true as const, data: { dataUrl: compressed?.dataUrl || dataUrl } };
     } catch (error) {
       return failure(error);
     }

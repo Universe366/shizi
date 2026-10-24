@@ -28,6 +28,7 @@ import { loadSession } from './session';
 import { createSessionPersister, createTray as createTrayShell } from './shell';
 import { APP_NAME } from '../shared/brand';
 import { installDownloadHook } from './downloadsHook';
+import { registerPetShortcuts, unregisterPetShortcuts } from './petShortcuts';
 import {
   buildUserAgent,
   resolveStartUrl,
@@ -305,6 +306,7 @@ app
     writeLog('startup.log', 'window created');
     createTray();
     initPetWindow();
+    registerPetShortcuts();
     if (mainWindow) {
       void startBridge(mainWindow);
       initUpdater(mainWindow);
@@ -327,6 +329,7 @@ app.on('before-quit', () => {
   writeLog('startup.log', 'before-quit');
   isQuitting = true;
   sessionPersister.persist();
+  unregisterPetShortcuts();
   disposeUpdater();
   stopBridge();
   closeLibrary();
