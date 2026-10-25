@@ -209,6 +209,7 @@ const api: BsubApi = {
   onFindResult: (cb: (result: FindResult) => void) => on<FindResult>('find:result', cb),
   setLayout: (rect: LayoutRect) => ipcRenderer.send('layout:set', rect),
   exitFullscreen: () => ipcRenderer.send('tabs:exit-fullscreen'),
+  refreshView: () => ipcRenderer.send('tabs:refresh-view'),
   onTabs: (cb: (tabs: TabInfo[]) => void) => on<TabInfo[]>('tabs:changed', cb),
   setTabMuted: (id: string, muted: boolean) =>
     ipcRenderer.invoke('tab:set-muted', id, muted) as Promise<void>,
@@ -454,6 +455,7 @@ const api: BsubApi = {
   popupMenu: (items: unknown) => ipcRenderer.invoke('ui:popup-menu', items),
   requestClose: () => ipcRenderer.invoke('app:close-window') as Promise<void>,
   onCloseRequest: (cb: () => void) => on<void>('app:close-request', cb),
+  onCloseCancel: (cb: () => void) => on<void>('app:close-cancel', cb),
   closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>
     ipcRenderer.send('app:close-decision', { choice, remember }),
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),

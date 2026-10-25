@@ -46,6 +46,12 @@ export function BrowserStage({
     };
   }, []);
 
+  useEffect(() => {
+    const refresh = () => reportRef.current();
+    window.addEventListener('bsub:layout-refresh', refresh);
+    return () => window.removeEventListener('bsub:layout-refresh', refresh);
+  }, []);
+
   // 侧栏换边只改变位置、不改变尺寸，ResizeObserver 不会触发；
   // 这里在位置/折叠/宽度变化后强制重报一次，避免 WebContentsView 留在旧坐标。
   useEffect(() => {

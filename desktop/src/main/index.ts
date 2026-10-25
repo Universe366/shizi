@@ -276,6 +276,14 @@ function createWindow(): void {
         settled = true;
         clearTimeout(timer);
         setCloseDecisionHandler(null);
+        if (!value) {
+          // 自定义关闭框超时/被打断：通知渲染层收起模糊遮罩，再走原生兜底。
+          try {
+            if (!target.webContents.isDestroyed()) target.webContents.send('app:close-cancel');
+          } catch {
+            // ignore
+          }
+        }
         resolve(value);
       };
       const timer = setTimeout(() => finish(null), 15000);

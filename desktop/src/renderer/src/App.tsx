@@ -66,6 +66,7 @@ export default function App() {
   // 向导/全局搜索是 renderer 里的全屏遮罩，不隐藏页面就会出现
   // 「卡片被页面挡住、只剩左侧点不了」的情况。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
+  useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
   useBrowserOverlayAuto();
 
@@ -128,6 +129,10 @@ export default function App() {
     void window.bsub.setSidebarLayout({ collapsed }).then((response) => {
       if (response.ok) applyLayout(response.data);
     });
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('bsub:layout-refresh'));
+      window.bsub.refreshView();
+    }, 80);
   };
 
   const active = useMemo(() => tabs.find((tab) => tab.active) ?? null, [tabs]);
@@ -399,9 +404,9 @@ export default function App() {
   }, [active, findOpen, findQuery, hub, readerOpen, tabs]);
 
   useEffect(() => {
-    const pageOpen = startOpen || settingsOpen || tabs.length === 0;
+    const pageOpen = startOpen || settingsOpen || tabs.length === 0 || closeOpen;
     void window.bsub.setActiveViewVisible(!pageOpen);
-  }, [startOpen, settingsOpen, tabs.length]);
+  }, [startOpen, settingsOpen, tabs.length, closeOpen]);
 
   const handleSectionSelect = (next: Section) => {
     void window.bsub.exitFullscreen();
@@ -410,6 +415,10 @@ export default function App() {
       setSidebarCollapsed(false);
       void persistGeneral({ sidebarCollapsed: false });
     }
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('bsub:layout-refresh'));
+      window.bsub.refreshView();
+    }, 80);
   };
 
   const persistGeneral = async (patch: Record<string, unknown>) => {

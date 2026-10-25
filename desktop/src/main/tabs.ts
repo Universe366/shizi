@@ -950,6 +950,17 @@ export class TabManager {
     if (win?.isFullScreen()) win.setFullScreen(false);
   }
 
+  /** 强制重绘当前页面；全屏/侧栏切换后原生视图偶尔会留下白底。 */
+  refreshActiveView(): void {
+    const record = this.activeRecord();
+    if (!record?.view || record.view.webContents.isDestroyed()) return;
+    try {
+      record.view.webContents.invalidate();
+    } catch {
+      // ignore
+    }
+  }
+
   setLayout(rect: LayoutRect): void {    const hadSize = this.bounds.width > 0 && this.bounds.height > 0;
     this.bounds = {
       x: Math.max(0, Math.round(rect.x)),

@@ -257,6 +257,10 @@ export function AiSection({
     />
     思维链默认展开（推理模型会显示思考过程）
   </label>
+  <div className="settings-hint">
+    「展开」只控制显示，不控制模型是否思考。是否产生思考由模型/平台决定；推理模型的思考 token 也会计入等待，
+    长视频总结会明显变慢。介意速度可在上方切换到非推理模型（如 deepseek-flash）。
+  </div>
 
   <label className="settings-check">
     <input

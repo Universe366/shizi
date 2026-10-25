@@ -195,6 +195,7 @@
   "tabs:exit-fullscreen",
   "tabs:groups",
   "tabs:list",
+  "tabs:refresh-view",
   "tabs:reopen-at",
   "translate:cancel",
   "translate:start",

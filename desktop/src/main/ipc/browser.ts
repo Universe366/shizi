@@ -330,4 +330,7 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.on('tabs:exit-fullscreen', () => {
     ctx.tabs.exitFullscreen();
   });
+  ipcMain.on('tabs:refresh-view', () => {
+    ctx.tabs.refreshActiveView();
+  });
 }

@@ -165,6 +165,11 @@ export function SummaryPanel({
       setUpdatedAt(Date.now());
       setStreaming(false);
       setStreamText('');
+      // 总结面板变化后原生页面偶尔留白；主动重报布局 + 重绘一次。
+      window.setTimeout(() => {
+        window.dispatchEvent(new Event('bsub:layout-refresh'));
+        window.bsub.refreshView();
+      }, 80);
     });
     const offError = window.bsub.onAiError((event) => {
       if (event.requestId !== requestRef.current) return;

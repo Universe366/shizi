@@ -153,6 +153,7 @@ export interface BsubApi {
   stop(): Promise<void>;
   setLayout(rect: LayoutRect): void;
   exitFullscreen(): void;
+  refreshView(): void;
   onTabs(cb: (tabs: TabInfo[]) => void): () => void;
   reopenClosedTab(): Promise<string | null>;
 
@@ -330,6 +331,8 @@ export interface BsubApi {
   requestClose(): Promise<void>;
   /** 关闭窗口时主进程询问：最小化到托盘 / 退出 / 取消。 */
   onCloseRequest(cb: () => void): () => void;
+  /** 自定义关闭框超时/被放弃时，主进程通知渲染层收起遮罩 */
+  onCloseCancel(cb: () => void): () => void;
   closeDecision(choice: 'tray' | 'quit' | 'cancel', remember: boolean): void;
   /** 起始页天气（Open-Meteo） */
   startWeather(city: string): Promise<
