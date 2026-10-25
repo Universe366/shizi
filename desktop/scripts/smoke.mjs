@@ -417,7 +417,64 @@ try {
     return files.join(' + ');
   });
 
-  // 12. 设置页全宽 / 起始页结构
+  // 12. 标签增强：休眠/唤醒、静音、最近关闭
+  await step('标签增强', async () => {
+    const result = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const original = (await window.bsub.listTabs()).find((tab) => tab.active);
+          const id = await window.bsub.newTab('https://example.com');
+          await new Promise((r) => setTimeout(r, 600));
+          if (original) await window.bsub.activateTab(original.id);
+          await new Promise((r) => setTimeout(r, 400));
+          const slept = await window.bsub.sleepTab(id);
+          await new Promise((r) => setTimeout(r, 250));
+          const asleep = (await window.bsub.listTabs()).find((tab) => tab.id === id);
+          const woke = await window.bsub.wakeTab(id);
+          await new Promise((r) => setTimeout(r, 400));
+          await window.bsub.setTabMuted(id, true);
+          await new Promise((r) => setTimeout(r, 300));
+          const mutedIcon = Boolean(
+            document.querySelector('.tab-audio.is-muted, .tab-audio[title="取消静音"]')
+          );
+          const muteButton = document.querySelector('.tab-audio[title="取消静音"]');
+          muteButton?.click();
+          await new Promise((r) => setTimeout(r, 300));
+          const unmuted = !document.querySelector('.tab-audio.is-muted');
+          await window.bsub.closeTab(id);
+          await new Promise((r) => setTimeout(r, 400));
+          document.querySelector('.tab-actions-wrap > button')?.click();
+          await new Promise((r) => setTimeout(r, 300));
+          const recent = document.querySelector('.tab-actions-menu button[title*="example.com"]');
+          const hasRecent = Boolean(recent);
+          recent?.click();
+          await new Promise((r) => setTimeout(r, 700));
+          const reopened = (await window.bsub.listTabs()).find(
+            (tab) => tab.url.includes('example.com')
+          );
+          if (reopened) await window.bsub.closeTab(reopened.id);
+          if (original) await window.bsub.activateTab(original.id);
+          return JSON.stringify({
+            slept,
+            suspended: asleep?.suspended === true,
+            woke,
+            mutedIcon,
+            unmuted,
+            hasRecent
+          });
+        })()`
+      )
+    );
+    if (!result.slept || !result.suspended || !result.woke) {
+      throw new Error(`休眠/唤醒异常：${JSON.stringify(result)}`);
+    }
+    if (!result.mutedIcon || !result.unmuted) throw new Error('静音状态没有反映到 UI');
+    if (!result.hasRecent) throw new Error('最近关闭里没有刚关掉的标签');
+    return `sleep/wake mute recent ${JSON.stringify(result)}`;
+  });
+
+  // 13. 设置页全宽 / 起始页结构
   await step('设置页与起始页', async () => {
     const settingsInfo = JSON.parse(
       await evaluate(

@@ -170,6 +170,13 @@ const api: BsubApi = {
   onFindResult: (cb: (result: FindResult) => void) => on<FindResult>('find:result', cb),
   setLayout: (rect: LayoutRect) => ipcRenderer.send('layout:set', rect),
   onTabs: (cb: (tabs: TabInfo[]) => void) => on<TabInfo[]>('tabs:changed', cb),
+  setTabMuted: (id: string, muted: boolean) =>
+    ipcRenderer.invoke('tab:set-muted', id, muted) as Promise<void>,
+  sleepTab: (id: string) => ipcRenderer.invoke('tab:sleep', id) as Promise<boolean>,
+  wakeTab: (id: string) => ipcRenderer.invoke('tab:wake', id) as Promise<boolean>,
+  listClosedTabs: () => ipcRenderer.invoke('tabs:closed') as Promise<Array<{ url: string; title: string }>>,
+  reopenClosedAt: (index: number) =>
+    ipcRenderer.invoke('tabs:reopen-at', index) as Promise<string | null>,
   reopenClosedTab: () => ipcRenderer.invoke('tab:reopen-closed') as Promise<string | null>,
 
   listBrowseHistory: (query?: string, limit?: number) =>

@@ -26,6 +26,15 @@ import { failure, withStartParam, type IpcContext } from './shared';
 export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tabs:list', () => ctx.tabs.list());
   ipcMain.handle('tab:new', (_event, url?: string) => ctx.tabs.create(url));
+  ipcMain.handle('tab:set-muted', (_event, id: string, muted: boolean) => {
+    ctx.tabs.setMuted(String(id), muted === true);
+  });
+  ipcMain.handle('tab:sleep', async (_event, id: string) => ctx.tabs.sleepTab(String(id)));
+  ipcMain.handle('tab:wake', async (_event, id: string) => ctx.tabs.wakeTab(String(id)));
+  ipcMain.handle('tabs:closed', () => ctx.tabs.closedTabs());
+  ipcMain.handle('tabs:reopen-at', async (_event, index: number) =>
+    ctx.tabs.reopenClosedAt(Number(index))
+  );
   ipcMain.handle('tab:open', async (_event, url: string, start?: number) => {
     const time = Number(start);
     const safeTime = Number.isFinite(time) && time > 0 ? Math.floor(time) : 0;

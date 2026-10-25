@@ -289,6 +289,11 @@ export interface BsubApi {
   popupMenu(
     items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>
   ): Promise<string | null>;
+  setTabMuted(id: string, muted: boolean): Promise<void>;
+  sleepTab(id: string): Promise<boolean>;
+  wakeTab(id: string): Promise<boolean>;
+  listClosedTabs(): Promise<Array<{ url: string; title: string }>>;
+  reopenClosedAt(index: number): Promise<string | null>;
   /** 请求关闭主窗口（走应用内确认弹窗）。 */
   requestClose(): Promise<void>;
   /** 关闭窗口时主进程询问：最小化到托盘 / 退出 / 取消。 */

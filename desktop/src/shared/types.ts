@@ -11,6 +11,10 @@ export interface TabInfo {
   zoom: number;
   /** 固定后排在普通标签之前 */
   pinned?: boolean;
+  /** 正在出声 */
+  audible?: boolean;
+  /** 已静音 */
+  muted?: boolean;
 }
 
 export interface FindResult {
@@ -735,6 +739,8 @@ export interface AppSettings {
     sidebarPosition: 'left' | 'right';
     /** 标签栏放左侧（纵向） */
     verticalTabs: boolean;
+    verticalTabsWidth: number;
+    verticalTabsCollapsed: boolean;
     sidebarCollapsed: boolean;
     autoFollow: boolean;
     /** 首次使用向导是否已完成 */

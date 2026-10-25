@@ -47,7 +47,14 @@ function installBsub() {
     moveTab: vi.fn(async () => undefined),
     newTab: vi.fn(),
     writeClipboard: vi.fn(async () => ({ ok: true })),
-    pinTab: vi.fn(async () => undefined)
+    pinTab: vi.fn(async () => undefined),
+    setTabMuted: vi.fn(async () => undefined),
+    sleepTab: vi.fn(async () => true),
+    wakeTab: vi.fn(async () => true),
+    listClosedTabs: vi.fn(async () => [
+      { url: 'https://example.com/a', title: '刚关掉的页面' }
+    ]),
+    reopenClosedAt: vi.fn(async () => 'new-id')
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -143,5 +150,55 @@ describe('TabStrip', () => {
     expect(api.newTab).toHaveBeenCalled();
     fireEvent.click(screen.getByTitle(/全局搜索/));
     expect(onSearch).toHaveBeenCalled();
+  });
+});
+
+describe('TabStrip 增强', () => {
+  afterEach(cleanup);
+
+  it('Ctrl+点击多选，右键批量关闭', () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByText('B 站首页'), { ctrlKey: true });
+    fireEvent.click(screen.getByText('第三个'), { ctrlKey: true });
+    fireEvent.contextMenu(screen.getByText('第三个'));
+    fireEvent.click(screen.getByText('关闭所选（2）'));
+    expect(api.closeTab).toHaveBeenCalledWith('t1');
+    expect(api.closeTab).toHaveBeenCalledWith('t3');
+    expect(api.activateTab).not.toHaveBeenCalled();
+  });
+
+  it('出声标签可以静音', () => {
+    const api = installBsub();
+    render(<TabStrip tabs={[{ ...tabs[0], audible: true }]} />);
+    fireEvent.click(screen.getByTitle('静音此标签'));
+    expect(api.setTabMuted).toHaveBeenCalledWith('t1', true);
+    expect(api.activateTab).not.toHaveBeenCalled();
+  });
+
+  it('右键可以手动休眠', () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} />);
+    fireEvent.contextMenu(screen.getByText('第三个'));
+    fireEvent.click(screen.getByText('休眠标签'));
+    expect(api.sleepTab).toHaveBeenCalledWith('t3');
+  });
+
+  it('键盘上下切换标签', () => {
+    const api = installBsub();
+    const { container } = render(<TabStrip tabs={tabs} />);
+    fireEvent.keyDown(container.querySelector('.tab-strip-list') as HTMLElement, {
+      key: 'ArrowDown'
+    });
+    expect(api.activateTab).toHaveBeenCalledWith('t2');
+  });
+
+  it('标签操作菜单列出最近关闭并可恢复', async () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('标签操作'));
+    const item = await screen.findByTitle('https://example.com/a');
+    fireEvent.click(item);
+    expect(api.reopenClosedAt).toHaveBeenCalledWith(0);
   });
 });

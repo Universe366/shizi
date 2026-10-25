@@ -90,6 +90,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sidebarWidth: 320,
     sidebarPosition: 'left',
     verticalTabs: true,
+    verticalTabsWidth: 220,
+    verticalTabsCollapsed: false,
     sidebarCollapsed: false,
     autoFollow: true,
     wizardDone: false,
@@ -315,6 +317,11 @@ function normalize(input: unknown): AppSettings {
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
       base.general.verticalTabs = raw.general.verticalTabs !== false;
+      const paneWidth = Number(raw.general.verticalTabsWidth);
+      base.general.verticalTabsWidth = Number.isFinite(paneWidth)
+        ? Math.min(360, Math.max(160, Math.round(paneWidth)))
+        : 220;
+      base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
       base.general.petEnabled = raw.general.petEnabled === true;
       base.general.assistantEnabled = raw.general.assistantEnabled === true;
       base.general.petX = Number(raw.general.petX) || 0;

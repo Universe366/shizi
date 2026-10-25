@@ -24,6 +24,8 @@ interface TabRecord {
   lastActiveAt: number;
   zoom: number;
   pinned?: boolean;
+  audible?: boolean;
+  muted?: boolean;
   loadPromise?: Promise<void>;
 }
 
@@ -73,6 +75,7 @@ export class TabManager {
   private bounds: LayoutRect = { x: 0, y: 0, width: 0, height: 0 };
   private suspendAfterMs = ENV_SUSPEND_MS > 0 ? Math.max(2000, ENV_SUSPEND_MS) : DEFAULT_SUSPEND_MS;
   private suspendTimer: NodeJS.Timeout | null = null;
+  private audioTimer: NodeJS.Timeout | null = null;
   // Ctrl+Shift+T 用：最近关掉的标签（最多 20 个）。
   private readonly closedStack: Array<{ url: string; title: string }> = [];
 
@@ -83,6 +86,29 @@ export class TabManager {
     private readonly onVisited?: (visit: { url: string; title: string; favicon?: string }) => void
   ) {
     this.startSuspendTimer();
+    this.audioTimer = setInterval(() => this.refreshAudioState(), 1000);
+    this.audioTimer.unref?.();
+  }
+
+  private refreshAudioState(): void {
+    let changed = false;
+    for (const record of this.tabs.values()) {
+      if (!record.view || record.suspended) continue;
+      try {
+        const wc = record.view.webContents;
+        if (wc.isDestroyed()) continue;
+        const audible = wc.isCurrentlyAudible();
+        const muted = wc.isAudioMuted();
+        if (record.audible !== audible || record.muted !== muted) {
+          record.audible = audible;
+          record.muted = muted;
+          changed = true;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (changed) this.emit();
   }
 
   private startSuspendTimer(): void {
@@ -112,6 +138,8 @@ export class TabManager {
       url,
       loading: true,
       suspended: false,
+      audible: false,
+      muted: false,
       lastActiveAt: Date.now(),
       zoom: 1
     };
@@ -541,6 +569,48 @@ export class TabManager {
   }
 
   /** 拖拽排序：把标签移动到最后一次落点，Map 的插入顺序就是展示顺序。 */
+  setMuted(id: string, muted: boolean): void {
+    const record = this.tabs.get(id);
+    if (!record) return;
+    record.muted = muted === true;
+    try {
+      record.view?.webContents.setAudioMuted(record.muted);
+    } catch {
+      // ignore
+    }
+    this.emit();
+  }
+
+  async sleepTab(id: string): Promise<boolean> {
+    const record = this.tabs.get(id);
+    if (!record || record.suspended || id === this.activeId) return false;
+    this.suspend(record);
+    return true;
+  }
+
+  async wakeTab(id: string): Promise<boolean> {
+    const record = this.tabs.get(id);
+    if (!record) return false;
+    if (record.suspended) {
+      await this.ensureView(record);
+      record.suspended = false;
+      this.emit();
+    }
+    await this.activate(id);
+    return true;
+  }
+
+  closedTabs(): Array<{ url: string; title: string }> {
+    return [...this.closedStack].reverse().slice(0, 8);
+  }
+
+  reopenClosedAt(index: number): Promise<string> | null {
+    const position = this.closedStack.length - 1 - index;
+    if (position < 0 || position >= this.closedStack.length) return null;
+    const [entry] = this.closedStack.splice(position, 1);
+    return this.create(entry.url);
+  }
+
   pin(id: string, pinned: boolean): void {
     const record = this.tabs.get(id);
     if (!record) return;
@@ -801,7 +871,17 @@ export class TabManager {
         favicon: record.favicon,
         suspended: record.suspended,
         zoom: record.zoom || 1,
-        pinned: record.pinned === true
+        pinned: record.pinned === true,
+        audible: (() => {
+          try {
+            return record.view && !record.suspended
+              ? record.view.webContents.isCurrentlyAudible()
+              : record.audible === true;
+          } catch {
+            return record.audible === true;
+          }
+        })(),
+        muted: record.muted === true
       };
     });
   }
@@ -809,6 +889,8 @@ export class TabManager {
   dispose(): void {
     if (this.suspendTimer) clearInterval(this.suspendTimer);
     this.suspendTimer = null;
+    if (this.audioTimer) clearInterval(this.audioTimer);
+    this.audioTimer = null;
     for (const record of this.tabs.values()) {
       this.releaseView(record);
     }
