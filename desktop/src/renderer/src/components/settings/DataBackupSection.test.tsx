@@ -26,7 +26,21 @@ describe('DataBackupSection', () => {
     localStorage.clear();
     Object.defineProperty(window, 'bsub', {
       configurable: true,
-      value: { openDataDir: vi.fn(async () => undefined) }
+      value: {
+        openDataDir: vi.fn(async () => undefined),
+        getSettings: vi.fn(async () => ({
+          ok: true as const,
+          data: {
+            settings: { general: { syncFolder: '' } },
+            version: '0.38.13'
+          }
+        })),
+        saveSettings: vi.fn(async () => ({ ok: true as const, data: {} })),
+        syncStatus: vi.fn(async () => ({ ok: true as const, data: { exists: false, path: '' } })),
+        chooseSyncFolder: vi.fn(async () => ({ ok: true as const, data: null })),
+        syncPush: vi.fn(async () => ({ ok: true as const, data: { path: 'x' } })),
+        syncPull: vi.fn(async () => ({ ok: true as const, data: { path: 'x' } }))
+      }
     });
   });
   afterEach(cleanup);

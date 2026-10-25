@@ -285,6 +285,21 @@ export interface BsubApi {
     position?: 'left' | 'right';
     collapsed?: boolean;
   }): Promise<Result<SettingsSnapshot>>;
+  /** 起始页天气（Open-Meteo） */
+  startWeather(city: string): Promise<
+    Result<{ city: string; temperature: number; description: string; high: number; low: number }>
+  >;
+  /** 起始页 B 站热搜 */
+  startHotSearch(): Promise<Result<string[]>>;
+  /** 云同步：选择文件夹 */
+  chooseSyncFolder(): Promise<Result<string | null>>;
+  syncStatus(folder: string): Promise<
+    Result<{ exists: boolean; modifiedAt?: number; path: string }>
+  >;
+  syncPush(folder: string): Promise<Result<{ path: string }>>;
+  syncPull(folder: string): Promise<
+    Result<{ settings: AppSettings; path: string }>
+  >;
   exportSettings(): Promise<Result<{ canceled: boolean; path?: string }>>;
   importSettings(): Promise<Result<{ canceled: boolean; snapshot?: SettingsSnapshot }>>;
   onSettingsChanged(cb: (snapshot: SettingsSnapshot) => void): () => void;

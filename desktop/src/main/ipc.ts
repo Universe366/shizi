@@ -11,6 +11,8 @@ import { registerJobsIpc } from './ipc/jobs';
 import { registerLibraryIpc } from './ipc/library';
 import { registerMediaIpc } from './ipc/media';
 import { registerShotIpc } from './ipc/shot';
+import { registerStartIpc } from './ipc/start';
+import { registerSyncIpc } from './ipc/sync';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -34,6 +36,10 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerMediaIpc(ctx);
 
   registerShotIpc();
+
+  registerStartIpc();
+
+  registerSyncIpc(ctx);
 
   registerToolsIpc(ctx);
 

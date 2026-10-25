@@ -698,6 +698,12 @@ export interface GlossaryTerm {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export interface StartShortcut {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface PetTodo {
   id: number;
   text: string;
@@ -790,6 +796,18 @@ export interface AppSettings {
     searchEngine: 'bilibili' | 'bing' | 'google' | 'custom';
     /** 老配置的搜索引擎默认值迁移标记 */
     searchEngineMigrated: boolean;
+    /** 起始页自定义快捷方式 */
+    startShortcuts: StartShortcut[];
+    /** 起始页壁纸主题 */
+    startWallpaper: 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
+    /** 起始页天气小组件 */
+    startWeather: boolean;
+    /** 天气城市 */
+    startCity: string;
+    /** 起始页热搜小组件 */
+    startHotSearch: boolean;
+    /** 云同步文件夹（OneDrive/坚果云等本地同步目录） */
+    syncFolder: string;
     /** searchEngine=custom 时的 URL 模板，必须包含 {q} */
     searchEngineCustom: string;
   };

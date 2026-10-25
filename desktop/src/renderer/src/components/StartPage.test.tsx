@@ -8,8 +8,28 @@ function installBsub() {
     listBrowseHistory: vi.fn(async () => ({ ok: true as const, data: [] })),
     getSettings: vi.fn(async () => ({
       ok: true as const,
-      data: { settings: { general: { searchEngine: 'bing', petTodos: [] } }, version: '0.38.13' }
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [],
+            startShortcuts: [],
+            startWallpaper: 'aurora',
+            startWeather: true,
+            startCity: '上海',
+            startHotSearch: true
+          }
+        },
+        version: '0.38.13'
+      }
     })),
+    startWeather: vi.fn(async () => ({
+      ok: true as const,
+      data: { city: '上海', temperature: 22, description: '多云', high: 25, low: 18 }
+    })),
+    startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
+    exportSettings: vi.fn(async () => ({ ok: true as const, data: { canceled: true } })),
+    importSettings: vi.fn(async () => ({ ok: true as const, data: { canceled: true } })),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     listLibrary: vi.fn(async () => ({
       ok: true as const,
@@ -118,5 +138,53 @@ describe('StartPage v2', () => {
         })
       )
     );
+  });
+});
+
+describe('StartPage 自定义快捷方式与壁纸', () => {
+  afterEach(cleanup);
+
+  it('可以添加快捷方式并写设置', async () => {
+    const api = installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    fireEvent.click(screen.getByTitle('添加快捷方式'));
+    fireEvent.change(screen.getByPlaceholderText('例如：知乎'), { target: { value: '知乎' } });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
+      target: { value: 'zhihu.com' }
+    });
+    fireEvent.click(screen.getByText('保存'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: [expect.objectContaining({ label: '知乎', url: 'https://zhihu.com' })]
+          })
+        })
+      )
+    );
+  });
+
+  it('可以切换壁纸并写设置', async () => {
+    const api = installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    fireEvent.click(screen.getByTitle('薄荷'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ startWallpaper: 'mint' })
+        })
+      )
+    );
+  });
+
+  it('天气与热搜来自 IPC', async () => {
+    installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    expect(await screen.findByText('22°')).toBeTruthy();
+    expect(await screen.findByText('热搜一')).toBeTruthy();
   });
 });

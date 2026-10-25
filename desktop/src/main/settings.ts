@@ -123,6 +123,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
+    startShortcuts: [
+      { id: 'bilibili', label: '哔哩哔哩', url: 'https://www.bilibili.com' },
+      { id: 'bing', label: '必应', url: 'https://www.bing.com' }
+    ],
+    startWallpaper: 'aurora',
+    startWeather: true,
+    startCity: '上海',
+    startHotSearch: true,
+    syncFolder: '',
     searchEngineCustom: ''
   },
   ai: {
@@ -415,6 +424,32 @@ function normalize(input: unknown): AppSettings {
         typeof raw.general.searchEngineCustom === 'string'
           ? raw.general.searchEngineCustom.slice(0, 300)
           : '';
+      base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
+        ? (raw.general.startShortcuts as unknown[])
+            .filter(
+              (item): item is { id?: unknown; label?: unknown; url?: unknown } =>
+                Boolean(item) && typeof item === 'object'
+            )
+            .map((item) => ({
+              id: String(item.id || `s-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
+              label: String(item.label || '').trim().slice(0, 20),
+              url: String(item.url || '').trim().slice(0, 500)
+            }))
+            .filter((item) => item.label && /^https?:\/\//i.test(item.url))
+            .slice(0, 24)
+        : base.general.startShortcuts;
+      const wallpapers = ['aurora', 'midnight', 'paper', 'mint', 'peach'] as const;
+      base.general.startWallpaper = wallpapers.includes(raw.general.startWallpaper as never)
+        ? (raw.general.startWallpaper as (typeof wallpapers)[number])
+        : 'aurora';
+      base.general.startWeather = raw.general.startWeather !== false;
+      base.general.startCity =
+        typeof raw.general.startCity === 'string' && raw.general.startCity.trim()
+          ? raw.general.startCity.trim().slice(0, 20)
+          : '上海';
+      base.general.startHotSearch = raw.general.startHotSearch !== false;
+      base.general.syncFolder =
+        typeof raw.general.syncFolder === 'string' ? raw.general.syncFolder.slice(0, 500) : '';
       base.general.autoFollow = raw.general.autoFollow !== false;
       base.general.wizardDone = raw.general.wizardDone === true;
       base.general.restoreSession = raw.general.restoreSession !== false;

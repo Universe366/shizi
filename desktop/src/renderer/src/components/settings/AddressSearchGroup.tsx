@@ -15,7 +15,7 @@ export function AddressSearchGroup({ value, onChange }: Props) {
       <div className="settings-label">地址栏搜索</div>
       <select
         className="settings-input"
-        value={value.searchEngine || 'bilibili'}
+        value={value.searchEngine || 'bing'}
         onChange={(event) =>
           onChange({ searchEngine: event.target.value as 'bilibili' | 'bing' | 'google' | 'custom' })
         }

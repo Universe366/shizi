@@ -7346,3 +7346,269 @@ button:disabled {
 .app-shell.vertical-tabs .tab-resize:hover {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+/* 起始页：壁纸、天气、热搜、快捷方式编辑 */
+.start-hero-actions {
+  margin-left: auto;
+  position: relative;
+}
+
+.start-icon-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.start-icon-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+.start-wallpaper-pop {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+}
+
+.start-wallpaper-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.start-wallpaper-dot.is-active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.start-wallpaper-aurora {
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(255, 122, 162, 0.32), transparent 60%),
+    radial-gradient(90% 70% at 92% 8%, rgba(120, 140, 255, 0.3), transparent 62%),
+    #f7f5f2;
+}
+
+.start-wallpaper-midnight {
+  background:
+    radial-gradient(90% 60% at 20% 0%, rgba(86, 96, 180, 0.5), transparent 60%),
+    radial-gradient(80% 60% at 90% 10%, rgba(40, 120, 130, 0.4), transparent 60%),
+    #10131a;
+  color: #e8ecf4;
+}
+
+.start-wallpaper-paper {
+  background: #f6f4ef;
+}
+
+.start-wallpaper-mint {
+  background:
+    radial-gradient(80% 60% at 15% 0%, rgba(140, 220, 190, 0.4), transparent 60%),
+    radial-gradient(70% 60% at 90% 10%, rgba(190, 230, 220, 0.5), transparent 60%),
+    #f3f8f5;
+}
+
+.start-wallpaper-peach {
+  background:
+    radial-gradient(80% 60% at 12% 0%, rgba(255, 180, 170, 0.45), transparent 60%),
+    radial-gradient(70% 60% at 90% 8%, rgba(255, 210, 190, 0.5), transparent 60%),
+    #fdf6f2;
+}
+
+.start-wallpaper-midnight .start-search-v2,
+.start-wallpaper-midnight .start-widget-card,
+.start-wallpaper-midnight .start-shortcut {
+  background: rgba(24, 28, 38, 0.72);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.start-wallpaper-midnight .start-clock-v2,
+.start-wallpaper-midnight .start-greeting {
+  color: #eef2f9;
+}
+
+.start-weather-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px;
+}
+
+.start-weather-temp {
+  font-size: 44px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-weather-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+
+.start-hot-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.start-hot-rank {
+  width: 17px;
+  flex: none;
+  text-align: center;
+  font-size: 11px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.start-hot-rank.is-top {
+  color: #ff5d73;
+  font-weight: 700;
+}
+
+.start-shortcut-custom {
+  position: relative;
+}
+
+.start-shortcut-favicon {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.start-shortcut-add {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  background: transparent;
+  color: var(--faint);
+}
+
+.start-shortcut-add .start-shortcut-icon {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--border) 90%, transparent);
+  color: var(--faint);
+}
+
+.start-foot-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.start-foot-link:disabled {
+  opacity: 0.5;
+}
+
+.start-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(8, 10, 16, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.start-modal {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35);
+}
+
+.start-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.start-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.start-modal-field input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+}
+
+.start-modal-field input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.start-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.start-shortcut-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 118px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.start-shortcut-menu button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-shortcut-menu button:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.start-shortcut-menu button.is-danger {
+  color: #e5484d;
+}

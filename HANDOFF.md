@@ -21,7 +21,7 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 88 个文件 / 503 个用例（主进程与 shared 28 文件 / 177 用例，渲染层 60 文件 / 326 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 89 个文件 / 511 个用例（主进程与 shared 29 文件 / 185 用例，渲染层 60 文件 / 326 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 15/15`（含诊断/权限/更新/桥状态只读通道、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
@@ -70,6 +70,13 @@
 - 移除废弃样式：独立设置窗口、图片桌宠相关 CSS。
 - `.gitignore` 补充 `desktop/release`、`desktop/out`、`desktop/resources/extension`、`artifacts/`。
 - 工作区构建产物统一放到 `artifacts/`；`desktop/release`（3.1GB）与 `out` 已删除，需要时用 `npm run pack` 重建。
+
+### 未发布（2026-10-25，起始页进阶与云同步）
+
+- **自定义快捷方式**：起始页新增/编辑/删除/拖拽排序，存 `general.startShortcuts`；冒烟覆盖新增→删除全流程。
+- **小组件**：天气（Open-Meteo，`startWeather/startCity`）、B 站热搜（`startHotSearch`）、5 套壁纸（`startWallpaper`）。
+- **云同步（文件夹版）**：`general.syncFolder` + `sync:*` 通道，把 `shizi-settings.json` 写进网盘同步目录；不含 Key。
+- 新增 `main/ipc/start.ts`、`main/ipc/sync.ts`、`main/sync.ts` 与 5 条 sync 测试。
 
 ### 未发布（2026-10-25，界面与搜索）
 

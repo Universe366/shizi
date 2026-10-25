@@ -401,6 +401,12 @@ const api: BsubApi = {
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>
     ipcRenderer.invoke('settings:wizard', !visible) as Promise<Result<SettingsSnapshot>>,
+  startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
+  startHotSearch: () => ipcRenderer.invoke('start:hot'),
+  chooseSyncFolder: () => ipcRenderer.invoke('sync:choose'),
+  syncStatus: (folder: string) => ipcRenderer.invoke('sync:status', folder),
+  syncPush: (folder: string) => ipcRenderer.invoke('sync:push', folder),
+  syncPull: (folder: string) => ipcRenderer.invoke('sync:pull', folder),
   exportSettings: () =>
     ipcRenderer.invoke('settings:export') as Promise<Result<{ canceled: boolean; path?: string }>>,
   importSettings: () =>

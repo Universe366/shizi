@@ -76,6 +76,53 @@ export function AppearanceGroup({ value, onChange }: Props) {
         />
         垂直标签栏（标签放在左侧）
       </label>
+
+      <div className="settings-label">起始页壁纸</div>
+      <select
+        className="settings-input"
+        value={value.startWallpaper || 'aurora'}
+        onChange={(event) =>
+          onChange({
+            startWallpaper: event.target.value as
+              | 'aurora'
+              | 'midnight'
+              | 'paper'
+              | 'mint'
+              | 'peach'
+          })
+        }
+      >
+        <option value="aurora">极光</option>
+        <option value="midnight">夜空</option>
+        <option value="paper">纸白</option>
+        <option value="mint">薄荷</option>
+        <option value="peach">蜜桃</option>
+      </select>
+
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.startWeather !== false}
+          onChange={(event) => onChange({ startWeather: event.target.checked })}
+        />
+        起始页显示天气（Open-Meteo）
+      </label>
+      <input
+        className="settings-input"
+        value={value.startCity || '上海'}
+        maxLength={20}
+        placeholder="城市，例如 上海"
+        onChange={(event) => onChange({ startCity: event.target.value })}
+      />
+
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.startHotSearch !== false}
+          onChange={(event) => onChange({ startHotSearch: event.target.checked })}
+        />
+        起始页显示 B 站热搜
+      </label>
     </SettingsSection>
   );
 }

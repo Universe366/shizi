@@ -459,7 +459,8 @@ try {
           page: Boolean(document.querySelector('.start-page-v2')),
           vertical: Boolean(document.querySelector('.tab-strip.is-vertical')),
           shortcuts: document.querySelectorAll('.start-shortcut').length,
-          widgets: document.querySelectorAll('.start-widget-card').length
+          widgets: document.querySelectorAll('.start-widget-card').length,
+          custom: document.querySelectorAll('.start-shortcut-custom').length
         })`
       )
     );
@@ -467,6 +468,59 @@ try {
     if (!startInfo.vertical) throw new Error('垂直标签栏未默认开启');
     if (startInfo.shortcuts < 8) throw new Error(`快捷入口不足：${startInfo.shortcuts}`);
     if (startInfo.widgets < 3) throw new Error(`小组件不足：${startInfo.widgets}`);
+    if (startInfo.custom < 2) throw new Error(`自定义快捷方式不足：${startInfo.custom}`);
+
+    // 自定义快捷方式：新增一条，再右键删掉
+    const added = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          document.querySelector('.start-shortcut-add')?.click();
+          await new Promise((r) => setTimeout(r, 120));
+          const inputs = document.querySelectorAll('.start-modal-field input');
+          const setValue = (el, value) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(el, value);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          };
+          setValue(inputs[0], '冒烟站点');
+          setValue(inputs[1], 'https://example.com/smoke');
+          await new Promise((r) => setTimeout(r, 80));
+          document.querySelector('.start-modal-actions .primary')?.click();
+          await new Promise((r) => setTimeout(r, 500));
+          const snapshot = await window.bsub.getSettings();
+          return JSON.stringify({
+            saved: snapshot.data.settings.general.startShortcuts,
+            tiles: document.querySelectorAll('.start-shortcut-custom').length
+          });
+        })()`
+      )
+    );
+    if (!added.saved.some((item) => item.label === '冒烟站点')) {
+      throw new Error('新增快捷方式没有写进设置');
+    }
+    const removed = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const tile = [...document.querySelectorAll('.start-shortcut-custom')].find((el) =>
+            el.title.includes('example.com/smoke')
+          );
+          tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+          await new Promise((r) => setTimeout(r, 120));
+          const button = [...document.querySelectorAll('.start-shortcut-menu button')].find((item) =>
+            item.textContent.includes('删除')
+          );
+          button?.click();
+          await new Promise((r) => setTimeout(r, 400));
+          const snapshot = await window.bsub.getSettings();
+          return JSON.stringify(snapshot.data.settings.general.startShortcuts);
+        })()`
+      )
+    );
+    if (removed.some((item) => item.label === '冒烟站点')) {
+      throw new Error('删除快捷方式没有生效');
+    }
     await evaluate(
       ws,
       `(() => {

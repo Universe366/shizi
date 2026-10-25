@@ -2,26 +2,44 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
   BookOpen,
-  Clock,
-  Compass,
+  CloudSun,
   Download,
+  Flame,
   History,
   Library,
   ListChecks,
+  MapPin,
+  Palette,
+  Pencil,
   Plus,
   Search,
   Settings,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
-import type { HistoryEntry, LibraryVideo, PetTodo } from '../../../shared/types';
+import type {
+  HistoryEntry,
+  LibraryVideo,
+  PetTodo,
+  StartShortcut
+} from '../../../shared/types';
 
 type SearchEngineId = 'bilibili' | 'bing' | 'google' | 'custom';
+type WallpaperId = 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
 
 const ENGINES: Array<{ id: SearchEngineId; label: string }> = [
   { id: 'bing', label: '必应' },
   { id: 'google', label: 'Google' },
   { id: 'bilibili', label: 'B 站' },
   { id: 'custom', label: '自定义' }
+];
+
+const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [
+  { id: 'aurora', label: '极光' },
+  { id: 'midnight', label: '夜空' },
+  { id: 'paper', label: '纸白' },
+  { id: 'mint', label: '薄荷' },
+  { id: 'peach', label: '蜜桃' }
 ];
 
 interface StartPageProps {
@@ -44,7 +62,15 @@ function greeting(now: Date): string {
   return '晚上好';
 }
 
-/** 新标签起始页：iTab 风格 —— 大搜索框 + 小组件卡片 + 快捷图标。 */
+interface Weather {
+  city: string;
+  temperature: number;
+  description: string;
+  high: number;
+  low: number;
+}
+
+/** 新标签起始页：iTab 风格工作台（搜索 / 小组件 / 自定义快捷方式 / 壁纸）。 */
 export function StartPage({
   onNavigate,
   onOpenLibrary,
@@ -63,12 +89,36 @@ export function StartPage({
   const [engineOpen, setEngineOpen] = useState(false);
   const [todos, setTodos] = useState<PetTodo[]>([]);
   const [todoDraft, setTodoDraft] = useState('');
+  const [shortcuts, setShortcuts] = useState<StartShortcut[]>([]);
+  const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
+  const [wallpaperOpen, setWallpaperOpen] = useState(false);
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [weatherOn, setWeatherOn] = useState(true);
+  const [city, setCity] = useState('上海');
+  const [hot, setHot] = useState<string[]>([]);
+  const [hotOn, setHotOn] = useState(true);
+  const [editing, setEditing] = useState<{ id?: string; label: string; url: string } | null>(null);
+  const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dragId = useRef<string | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  const applySettings = (general: Record<string, unknown>) => {
+    setEngine((general.searchEngine as SearchEngineId) || 'bing');
+    setTodos(Array.isArray(general.petTodos) ? (general.petTodos as PetTodo[]) : []);
+    setShortcuts(
+      Array.isArray(general.startShortcuts) ? (general.startShortcuts as StartShortcut[]) : []
+    );
+    setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
+    setWeatherOn(general.startWeather !== false);
+    setCity(String(general.startCity || '上海'));
+    setHotOn(general.startHotSearch !== false);
+  };
 
   useEffect(() => {
     void window.bsub.listLibrary().then((response) => {
@@ -78,22 +128,56 @@ export function StartPage({
       if (response.ok) setHistory(response.data.slice(0, 5));
     });
     void window.bsub.getSettings().then((response) => {
-      if (!response.ok) return;
-      setEngine(response.data.settings.general.searchEngine || 'bing');
-      setTodos(response.data.settings.general.petTodos || []);
+      if (response.ok) {
+        applySettings(response.data.settings.general as unknown as Record<string, unknown>);
+      }
     });
   }, []);
 
+  useEffect(() => {
+    if (!weatherOn) return;
+    let alive = true;
+    void window.bsub.startWeather(city).then((response) => {
+      if (!alive) return;
+      setWeather(response.ok ? response.data : null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [weatherOn, city]);
+
+  useEffect(() => {
+    if (!hotOn) return;
+    let alive = true;
+    void window.bsub.startHotSearch().then((response) => {
+      if (alive && response.ok) setHot(response.data.slice(0, 8));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [hotOn]);
+
+  useEffect(() => {
+    if (!shortcutMenu) return;
+    const close = () => setShortcutMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [shortcutMenu]);
+
   const engineLabel = ENGINES.find((item) => item.id === engine)?.label || '必应';
+
+  const patchGeneral = async (patch: Record<string, unknown>) => {
+    const snapshot = await window.bsub.getSettings();
+    if (!snapshot.ok) return;
+    const settings = snapshot.data.settings;
+    Object.assign(settings.general, patch);
+    await window.bsub.saveSettings(settings);
+  };
 
   const pickEngine = async (next: SearchEngineId) => {
     setEngine(next);
     setEngineOpen(false);
-    const snapshot = await window.bsub.getSettings();
-    if (!snapshot.ok) return;
-    const settings = snapshot.data.settings;
-    settings.general.searchEngine = next;
-    await window.bsub.saveSettings(settings);
+    await patchGeneral({ searchEngine: next });
   };
 
   const submit = () => {
@@ -105,11 +189,7 @@ export function StartPage({
 
   const persistTodos = async (next: PetTodo[]) => {
     setTodos(next);
-    const snapshot = await window.bsub.getSettings();
-    if (!snapshot.ok) return;
-    const settings = snapshot.data.settings;
-    settings.general.petTodos = next;
-    await window.bsub.saveSettings(settings);
+    await patchGeneral({ petTodos: next });
   };
 
   const addTodo = () => {
@@ -119,24 +199,55 @@ export function StartPage({
     setTodoDraft('');
   };
 
-  const shortcuts = useMemo(
+  const persistShortcuts = async (next: StartShortcut[]) => {
+    setShortcuts(next);
+    await patchGeneral({ startShortcuts: next });
+  };
+
+  const saveShortcut = () => {
+    if (!editing) return;
+    const label = editing.label.trim();
+    let url = editing.url.trim();
+    if (!label || !url) return;
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    if (!/^https?:\/\/[^\s]+$/i.test(url)) return;
+    const id = editing.id || `s-${Date.now().toString(36)}`;
+    const next = editing.id
+      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, label, url } : item))
+      : [...shortcuts, { id, label, url }];
+    setEditing(null);
+    void persistShortcuts(next);
+  };
+
+  const removeShortcut = (id: string) => {
+    void persistShortcuts(shortcuts.filter((item) => item.id !== id));
+  };
+
+  const moveShortcut = (id: string, delta: number) => {
+    const index = shortcuts.findIndex((item) => item.id === id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= shortcuts.length) return;
+    const next = [...shortcuts];
+    [next[index], next[target]] = [next[target], next[index]];
+    void persistShortcuts(next);
+  };
+
+  const builtIn = useMemo(
     () => [
-      { id: 'bilibili', label: '哔哩哔哩', icon: Compass, run: () => onNavigate('https://www.bilibili.com') },
       { id: 'library', label: '字幕库', icon: Library, run: onOpenLibrary },
       { id: 'history', label: '历史记录', icon: History, run: onOpenHistory },
       { id: 'tasks', label: '任务中心', icon: ListChecks, run: onOpenTasks },
       { id: 'bookmarks', label: '书签', icon: Bookmark, run: onOpenBookmarks },
       { id: 'downloads', label: '下载', icon: Download, run: onOpenDownloads },
-      { id: 'search', label: '搜索', icon: Search, run: () => searchRef.current?.focus() },
       { id: 'settings', label: '设置', icon: Settings, run: onOpenSettings }
     ],
-    [onNavigate, onOpenLibrary, onOpenHistory, onOpenTasks, onOpenBookmarks, onOpenDownloads, onOpenSettings]
+    [onOpenLibrary, onOpenHistory, onOpenTasks, onOpenBookmarks, onOpenDownloads, onOpenSettings]
   );
 
   const doneCount = todos.filter((todo) => todo.done).length;
 
   return (
-    <div className="start-page start-page-v2">
+    <div className={`start-page start-page-v2 start-wallpaper-${wallpaper}`}>
       <div className="start-aurora" aria-hidden="true">
         <span className="start-blob start-blob-a" />
         <span className="start-blob start-blob-b" />
@@ -150,8 +261,36 @@ export function StartPage({
               {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
             </span>
             <span className="start-greeting">
-              {greeting(now)}，{now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
+              {greeting(now)}，
+              {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
             </span>
+            <div className="start-hero-actions">
+              <button
+                className="start-icon-btn"
+                title="更换壁纸"
+                onClick={() => setWallpaperOpen((value) => !value)}
+              >
+                <Palette size={15} />
+              </button>
+              {wallpaperOpen && (
+                <div className="start-wallpaper-pop">
+                  {WALLPAPERS.map((item) => (
+                    <button
+                      key={item.id}
+                      className={`start-wallpaper-dot start-wallpaper-${item.id}${
+                        wallpaper === item.id ? ' is-active' : ''
+                      }`}
+                      title={item.label}
+                      onClick={() => {
+                        setWallpaper(item.id);
+                        setWallpaperOpen(false);
+                        void patchGeneral({ startWallpaper: item.id });
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="start-search-v2">
@@ -214,6 +353,31 @@ export function StartPage({
         </section>
 
         <section className="start-widget-grid">
+          {weatherOn && (
+            <article className="start-widget-card start-weather-widget">
+              <header>
+                <CloudSun size={14} />
+                <span>天气</span>
+                <span className="start-widget-meta">
+                  <MapPin size={10} /> {weather?.city || city}
+                </span>
+              </header>
+              {weather ? (
+                <div className="start-weather-body">
+                  <span className="start-weather-temp">{Math.round(weather.temperature)}°</span>
+                  <div className="start-weather-desc">
+                    <span>{weather.description}</span>
+                    <span className="start-widget-meta">
+                      {Math.round(weather.low)}° ~ {Math.round(weather.high)}°
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="start-widget-empty">天气获取失败，稍后重试</div>
+              )}
+            </article>
+          )}
+
           <article className="start-widget-card start-todo-widget">
             <header>
               <ListChecks size={14} />
@@ -256,6 +420,42 @@ export function StartPage({
             </div>
           </article>
 
+          {hotOn && (
+            <article className="start-widget-card">
+              <header>
+                <Flame size={14} />
+                <span>B 站热搜</span>
+                <button
+                  className="start-widget-link"
+                  onClick={() => onNavigate('https://www.bilibili.com')}
+                >
+                  去 B 站
+                </button>
+              </header>
+              <div className="start-list">
+                {hot.map((word, index) => (
+                  <button
+                    key={word}
+                    className="start-list-item start-hot-item"
+                    title={word}
+                    onClick={() => {
+                      onClose();
+                      onNavigate(
+                        `https://search.bilibili.com/all?keyword=${encodeURIComponent(word)}`
+                      );
+                    }}
+                  >
+                    <span className={`start-hot-rank${index < 3 ? ' is-top' : ''}`}>
+                      {index + 1}
+                    </span>
+                    <span className="start-list-title">{word}</span>
+                  </button>
+                ))}
+                {!hot.length && <div className="start-widget-empty">热搜加载中…</div>}
+              </div>
+            </article>
+          )}
+
           <article className="start-widget-card">
             <header>
               <BookOpen size={14} />
@@ -285,7 +485,7 @@ export function StartPage({
 
           <article className="start-widget-card">
             <header>
-              <Clock size={14} />
+              <History size={14} />
               <span>最近访问</span>
               <button className="start-widget-link" onClick={onOpenHistory}>
                 全部
@@ -314,7 +514,7 @@ export function StartPage({
         </section>
 
         <section className="start-shortcut-grid">
-          {shortcuts.map((item) => {
+          {builtIn.map((item) => {
             const Icon = item.icon;
             return (
               <button key={item.id} className="start-shortcut" onClick={item.run}>
@@ -325,12 +525,177 @@ export function StartPage({
               </button>
             );
           })}
+
+          {shortcuts.map((item) => (
+            <button
+              key={item.id}
+              className="start-shortcut start-shortcut-custom"
+              title={item.url}
+              draggable
+              onDragStart={() => {
+                dragId.current = item.id;
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                const from = dragId.current;
+                dragId.current = null;
+                if (!from || from === item.id) return;
+                const next = [...shortcuts];
+                const fromIndex = next.findIndex((entry) => entry.id === from);
+                const toIndex = next.findIndex((entry) => entry.id === item.id);
+                if (fromIndex < 0 || toIndex < 0) return;
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                void persistShortcuts(next);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setShortcutMenu({ x: event.clientX, y: event.clientY, id: item.id });
+              }}
+              onClick={() => {
+                onClose();
+                onNavigate(item.url);
+              }}
+            >
+              <span className="start-shortcut-icon start-shortcut-favicon">
+                {item.label.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="start-shortcut-label">{item.label}</span>
+            </button>
+          ))}
+
+          <button
+            className="start-shortcut start-shortcut-add"
+            title="添加快捷方式"
+            onClick={() => setEditing({ label: '', url: '' })}
+          >
+            <span className="start-shortcut-icon">
+              <Plus size={18} />
+            </span>
+            <span className="start-shortcut-label">添加</span>
+          </button>
         </section>
 
         <div className="start-footnote">
-          <Sparkles size={12} /> 搜索跟随右上角引擎；BV 号 / 链接会直接打开
+          <Sparkles size={12} />
+          右键自定义图标可编辑/删除；拖拽可排序；设置会跟随导出/导入一起备份
+          <button
+            className="start-foot-link"
+            onClick={async () => {
+              setBusy(true);
+              await window.bsub.exportSettings();
+              setBusy(false);
+            }}
+            disabled={busy}
+          >
+            导出设置
+          </button>
+          <button
+            className="start-foot-link"
+            onClick={async () => {
+              setBusy(true);
+              const result = await window.bsub.importSettings();
+              if (result.ok) {
+                const snapshot = await window.bsub.getSettings();
+                if (snapshot.ok) {
+                  applySettings(
+                    snapshot.data.settings.general as unknown as Record<string, unknown>
+                  );
+                }
+              }
+              setBusy(false);
+            }}
+            disabled={busy}
+          >
+            导入设置
+          </button>
         </div>
       </div>
+
+      {editing && (
+        <div className="start-modal-backdrop" onClick={() => setEditing(null)}>
+          <div className="start-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="start-modal-title">{editing.id ? '编辑快捷方式' : '添加快捷方式'}</div>
+            <label className="start-modal-field">
+              <span>名称</span>
+              <input
+                autoFocus
+                maxLength={20}
+                value={editing.label}
+                placeholder="例如：知乎"
+                onChange={(event) => setEditing({ ...editing, label: event.target.value })}
+              />
+            </label>
+            <label className="start-modal-field">
+              <span>网址</span>
+              <input
+                maxLength={500}
+                value={editing.url}
+                placeholder="https://example.com"
+                onChange={(event) => setEditing({ ...editing, url: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') saveShortcut();
+                }}
+              />
+            </label>
+            <div className="start-modal-actions">
+              <button className="mini-btn" onClick={() => setEditing(null)}>
+                取消
+              </button>
+              <button
+                className="mini-btn primary"
+                disabled={!editing.label.trim() || !editing.url.trim()}
+                onClick={saveShortcut}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shortcutMenu && (
+        <div
+          className="start-shortcut-menu"
+          style={{ left: shortcutMenu.x, top: shortcutMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              const item = shortcuts.find((entry) => entry.id === shortcutMenu.id);
+              if (item) setEditing({ id: item.id, label: item.label, url: item.url });
+              setShortcutMenu(null);
+            }}
+          >
+            <Pencil size={12} /> 编辑
+          </button>
+          <button
+            onClick={() => {
+              moveShortcut(shortcutMenu.id, -1);
+              setShortcutMenu(null);
+            }}
+          >
+            左移
+          </button>
+          <button
+            onClick={() => {
+              moveShortcut(shortcutMenu.id, 1);
+              setShortcutMenu(null);
+            }}
+          >
+            右移
+          </button>
+          <button
+            className="is-danger"
+            onClick={() => {
+              removeShortcut(shortcutMenu.id);
+              setShortcutMenu(null);
+            }}
+          >
+            <Trash2 size={12} /> 删除
+          </button>
+        </div>
+      )}
     </div>
   );
 }
