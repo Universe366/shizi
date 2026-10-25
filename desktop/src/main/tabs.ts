@@ -63,7 +63,7 @@ function bridgeSource(): string {
 
 function searchPref(): { engine: 'bilibili' | 'bing' | 'google' | 'custom'; customUrl: string } {
   const general = loadSettings().general;
-  return { engine: general.searchEngine || 'bilibili', customUrl: general.searchEngineCustom || '' };
+  return { engine: general.searchEngine || 'bing', customUrl: general.searchEngineCustom || '' };
 }
 
 export class TabManager {

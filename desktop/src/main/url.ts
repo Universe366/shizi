@@ -11,13 +11,13 @@ const SEARCH_TEMPLATES: Record<Exclude<SearchEngine, 'custom'>, string> = {
   google: 'https://www.google.com/search?q='
 };
 
-/** 自定义模板必须含 {q}；否则退回 B 站站内搜索。 */
+/** 自定义模板必须含 {q}；否则退回必应搜索。 */
 function searchUrl(raw: string, pref?: SearchPreference): string {
-  const engine = pref?.engine || 'bilibili';
+  const engine = pref?.engine || 'bing';
   if (engine === 'custom') {
     const template = String(pref?.customUrl || '').trim();
     if (template.includes('{q}')) return template.replace('{q}', encodeURIComponent(raw));
-    return `${SEARCH_TEMPLATES.bilibili}${encodeURIComponent(raw)}`;
+    return `${SEARCH_TEMPLATES.bing}${encodeURIComponent(raw)}`;
   }
   return `${SEARCH_TEMPLATES[engine]}${encodeURIComponent(raw)}`;
 }

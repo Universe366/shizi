@@ -38,7 +38,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [verticalTabs, setVerticalTabs] = useState(false);
+  const [verticalTabs, setVerticalTabs] = useState(true);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
   const [dragSnapshot, setDragSnapshot] = useState<string | null>(null);
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -446,7 +446,14 @@ export default function App() {
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${startOpen || settingsOpen || tabs.length === 0 ? ' is-page' : ''}`}
       {...drop.handlers}
     >
-      <TabStrip tabs={tabs} vertical={verticalTabs} onSearch={() => setSearchOpen(true)} onNewTab={() => setStartOpen(true)} />
+      {!settingsOpen && (
+        <TabStrip
+          tabs={tabs}
+          vertical={verticalTabs}
+          onSearch={() => setSearchOpen(true)}
+          onNewTab={() => setStartOpen(true)}
+        />
+      )}
       <div className="app-main">
       <AddressBar
         tab={active}
@@ -521,6 +528,14 @@ export default function App() {
               onOpenHistory={() => {
                 setStartOpen(false);
                 setHub('history');
+              }}
+              onOpenBookmarks={() => {
+                setStartOpen(false);
+                setHub('bookmarks');
+              }}
+              onOpenDownloads={() => {
+                setStartOpen(false);
+                setHub('downloads');
               }}
               onOpenTasks={() => {
                 setStartOpen(false);

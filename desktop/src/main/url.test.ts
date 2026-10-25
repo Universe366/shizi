@@ -22,7 +22,7 @@ describe('normalizeUrl', () => {
 
   it('普通关键词走搜索', () => {
     expect(normalizeUrl('深度 学习')).toBe(
-      'https://search.bilibili.com/all?keyword=%E6%B7%B1%E5%BA%A6%20%E5%AD%A6%E4%B9%A0'
+      'https://www.bing.com/search?q=%E6%B7%B1%E5%BA%A6%20%E5%AD%A6%E4%B9%A0'
     );
   });
 
@@ -35,12 +35,12 @@ describe('normalizeUrl', () => {
     );
   });
 
-  it('自定义模板替换 {q}，缺 {q} 时退回 B 站', () => {
+  it('自定义模板替换 {q}，缺 {q} 时退回必应', () => {
     expect(
       normalizeUrl('拾字', { engine: 'custom', customUrl: 'https://s.example/?q={q}&lang=zh' })
     ).toBe('https://s.example/?q=%E6%8B%BE%E5%AD%97&lang=zh');
     expect(normalizeUrl('abc', { engine: 'custom', customUrl: 'https://s.example/' })).toBe(
-      'https://search.bilibili.com/all?keyword=abc'
+      'https://www.bing.com/search?q=abc'
     );
   });
 });

@@ -22,8 +22,11 @@ export function TabStrip({
 }) {
   const [menu, setMenu] = useState<TabMenuState | null>(null);
   const [filter, setFilter] = useState('');
-  const [collapsed, setCollapsed] = useState(false);
-  const [width, setWidth] = useState(220);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tabs.collapsed') === '1');
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('tabs.width'));
+    return Number.isFinite(saved) && saved >= 160 ? Math.min(360, saved) : 220;
+  });
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const visibleTabs = filter.trim()
     ? tabs.filter((tab) =>
@@ -32,6 +35,14 @@ export function TabStrip({
     : tabs;
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('tabs.collapsed', collapsed ? '1' : '0');
+  }, [collapsed]);
+
+  useEffect(() => {
+    localStorage.setItem('tabs.width', String(width));
+  }, [width]);
 
   useEffect(() => {
     if (!menu) return;
@@ -74,7 +85,20 @@ export function TabStrip({
           >
             {collapsed ? '»' : '«'}
           </button>
-          {!collapsed && <span className="tab-vertical-title">标签</span>}
+          {!collapsed && (
+            <span className="tab-vertical-title">
+              标签<span className="tab-count">{tabs.length}</span>
+            </span>
+          )}
+          {!collapsed && (
+            <button
+              className="tab-head-new"
+              title="新建标签页（Ctrl+T）"
+              onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
+            >
+              <Plus size={14} />
+            </button>
+          )}
         </div>
       )}
       {vertical && !collapsed && (
@@ -109,7 +133,12 @@ export function TabStrip({
           }}
         />
       )}
-      <div className="tab-strip-list">
+      <div
+        className="tab-strip-list"
+        onDoubleClick={(event) => {
+          if (event.target === event.currentTarget) onNewTab?.();
+        }}
+      >
         {visibleTabs.map((tab) => (
           <div
             key={tab.id}
@@ -231,6 +260,25 @@ export function TabStrip({
             }}
           >
             复制链接
+          </button>
+          <div className="tab-menu-sep" />
+          <button
+            className="tab-menu-item"
+            onClick={() => {
+              setMenu(null);
+              onNewTab?.();
+            }}
+          >
+            新建标签页
+          </button>
+          <button
+            className="tab-menu-item"
+            onClick={() => {
+              setMenu(null);
+              void window.bsub.reopenClosedTab();
+            }}
+          >
+            重新打开关闭的标签
           </button>
         </div>
       )}

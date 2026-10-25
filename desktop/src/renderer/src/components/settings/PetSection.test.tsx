@@ -24,6 +24,7 @@ function general(overrides: Record<string, unknown> = {}) {
     petStartCorner: 'remember',
     petShortcut: true,
     petName: '即时助手',
+    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat'],
     ...overrides
   } as never;
 }
@@ -113,5 +114,19 @@ describe('PetSection 快捷键状态', () => {
     });
     render(<PetSection value={general()} onChange={vi.fn()} />);
     expect(await screen.findByText(/快捷键已注册/)).toBeTruthy();
+  });
+});
+
+describe('PetSection 气泡按钮', () => {
+  afterEach(cleanup);
+
+  it('取消勾选会从 petButtons 移除', () => {
+    installBsub();
+    const onChange = vi.fn();
+    render(<PetSection value={general()} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText('解释选中'));
+    expect(onChange).toHaveBeenCalledWith({
+      petButtons: ['web', 'read', 'widget', 'screenshot', 'translate', 'copy', 'newChat']
+    });
   });
 });

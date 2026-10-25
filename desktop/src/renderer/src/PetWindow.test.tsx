@@ -129,7 +129,7 @@ describe('PetWindow', () => {
     expect(api.setPetLayout).toHaveBeenLastCalledWith('compact');
     await openBubble();
     expect(api.setPetLayout).toHaveBeenLastCalledWith('bubble');
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByTitle('关闭对话（Esc）'));
     await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('compact'), {
       timeout: 2000
     });
@@ -904,5 +904,52 @@ describe('PetWindow 对话独立与 OCR 清理', () => {
     });
     expect(await screen.findByText(/你好世界/)).toBeTruthy();
     expect(screen.queryByText(/以下是从图片中提取的文字/)).toBeNull();
+  });
+});
+
+describe('PetWindow 按钮可配置', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('只渲染设置里勾选的按钮', async () => {
+    const { api } = installBsub();
+    api.getSettings.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        settings: {
+          general: {
+            petSize: 96,
+            petSound: true,
+            petIdleTalk: true,
+            petAlwaysOnTop: true,
+            petTheme: 'sakura',
+            petMotion: true,
+            petName: '即时助手',
+            petClickAction: 'chat',
+            petDoubleClickAction: 'main',
+            petIdleTalkMinutes: 3,
+            petSleepMinutes: 5,
+            petSoundVolume: 60,
+            petSpeechRate: 1,
+            petButtons: ['screenshot', 'web']
+          },
+          ai: { preProofread: false },
+          search: { verify: true }
+        },
+        version: '0.38.13'
+      }
+    } as never);
+    render(<PetWindow />);
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    await openBubble();
+    expect(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字')).toBeTruthy();
+    expect(screen.getByTitle(/联网/)).toBeTruthy();
+    expect(screen.queryByText('解释选中')).toBeNull();
+    expect(screen.queryByText('翻译选中')).toBeNull();
+    expect(screen.queryByTitle('把回答复制到剪贴板')).toBeNull();
+    expect(screen.queryByTitle(/朗读回答/)).toBeNull();
+    expect(screen.queryByTitle(/桌面小挂件/)).toBeNull();
   });
 });

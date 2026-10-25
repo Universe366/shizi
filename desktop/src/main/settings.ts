@@ -89,7 +89,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fontScale: 1,
     sidebarWidth: 320,
     sidebarPosition: 'left',
-    verticalTabs: false,
+    verticalTabs: true,
     sidebarCollapsed: false,
     autoFollow: true,
     wizardDone: false,
@@ -119,8 +119,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petBubbleWidth: 440,
     petBubbleHeight: 480,
     petThrow: true,
+    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat'],
     petTodos: [],
-    searchEngine: 'bilibili',
+    searchEngine: 'bing',
+    searchEngineMigrated: false,
     searchEngineCustom: ''
   },
   ai: {
@@ -300,7 +302,7 @@ function normalize(input: unknown): AppSettings {
       }
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
-      base.general.verticalTabs = raw.general.verticalTabs === true;
+      base.general.verticalTabs = raw.general.verticalTabs !== false;
       base.general.petEnabled = raw.general.petEnabled === true;
       base.general.assistantEnabled = raw.general.assistantEnabled === true;
       base.general.petX = Number(raw.general.petX) || 0;
@@ -367,6 +369,21 @@ function normalize(input: unknown): AppSettings {
         ? Math.min(820, Math.max(260, Math.round(bubbleHeight)))
         : 480;
       base.general.petThrow = raw.general.petThrow !== false;
+      const allowedButtons = [
+        'web',
+        'read',
+        'widget',
+        'screenshot',
+        'explain',
+        'translate',
+        'copy',
+        'newChat'
+      ];
+      base.general.petButtons = Array.isArray(raw.general.petButtons)
+        ? (raw.general.petButtons as unknown[])
+            .map((item) => String(item))
+            .filter((item, index, list) => allowedButtons.includes(item) && list.indexOf(item) === index)
+        : allowedButtons;
       base.general.petTodos = Array.isArray(raw.general.petTodos)
         ? (raw.general.petTodos as unknown[])
             .filter(
@@ -384,9 +401,16 @@ function normalize(input: unknown): AppSettings {
         : [];
       base.general.petY = Number(raw.general.petY) || 0;
       const engine = raw.general.searchEngine;
-      base.general.searchEngine = ['bilibili', 'bing', 'google', 'custom'].includes(engine as string)
+      let nextEngine = ['bilibili', 'bing', 'google', 'custom'].includes(engine as string)
         ? (engine as 'bilibili' | 'bing' | 'google' | 'custom')
-        : 'bilibili';
+        : 'bing';
+      // 老版本默认是 B 站站内搜索；没迁移过的配置统一换成浏览器式默认（必应），
+      // 之后用户显式选的引擎不再被覆盖。
+      if (raw.general.searchEngineMigrated !== true) {
+        if (nextEngine === 'bilibili') nextEngine = 'bing';
+        base.general.searchEngineMigrated = true;
+      }
+      base.general.searchEngine = nextEngine;
       base.general.searchEngineCustom =
         typeof raw.general.searchEngineCustom === 'string'
           ? raw.general.searchEngineCustom.slice(0, 300)

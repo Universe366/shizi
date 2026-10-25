@@ -417,7 +417,68 @@ try {
     return files.join(' + ');
   });
 
-  // 12. 桌宠窗口：设置里启用后应出现独立窗口，并能按内容伸缩
+  // 12. 设置页全宽 / 起始页结构
+  await step('设置页与起始页', async () => {
+    const settingsInfo = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          document.querySelector('.settings-entry')?.click();
+          await new Promise((r) => setTimeout(r, 450));
+          const host = document.querySelector('.page-host');
+          const strip = document.querySelector('.tab-strip');
+          return JSON.stringify({
+            settings: Boolean(document.querySelector('.settings-page')),
+            tabStrip: Boolean(strip),
+            width: host ? Math.round(host.getBoundingClientRect().width) : 0,
+            win: innerWidth
+          });
+        })()`
+      )
+    );
+    if (!settingsInfo.settings) throw new Error('设置页没有打开');
+    if (settingsInfo.tabStrip) throw new Error('设置页打开时垂直标签栏仍在');
+    if (settingsInfo.width < settingsInfo.win - 4) {
+      throw new Error(`设置页没有占满宽度：${settingsInfo.width}/${settingsInfo.win}`);
+    }
+
+    await evaluate(
+      ws,
+      `(async () => {
+        document.querySelector('.settings-page-head .mini-btn')?.click();
+        await new Promise((r) => setTimeout(r, 250));
+        document.querySelector('button[title="起始页"]')?.click();
+        await new Promise((r) => setTimeout(r, 450));
+        return 'ok';
+      })()`
+    );
+    const startInfo = JSON.parse(
+      await evaluate(
+        ws,
+        `JSON.stringify({
+          page: Boolean(document.querySelector('.start-page-v2')),
+          vertical: Boolean(document.querySelector('.tab-strip.is-vertical')),
+          shortcuts: document.querySelectorAll('.start-shortcut').length,
+          widgets: document.querySelectorAll('.start-widget-card').length
+        })`
+      )
+    );
+    if (!startInfo.page) throw new Error('起始页没有打开');
+    if (!startInfo.vertical) throw new Error('垂直标签栏未默认开启');
+    if (startInfo.shortcuts < 8) throw new Error(`快捷入口不足：${startInfo.shortcuts}`);
+    if (startInfo.widgets < 3) throw new Error(`小组件不足：${startInfo.widgets}`);
+    await evaluate(
+      ws,
+      `(() => {
+        const input = document.querySelector('.start-search-v2 input');
+        input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return 'ok';
+      })()`
+    );
+    return `settings=${settingsInfo.width} vertical shortcuts=${startInfo.shortcuts} widgets=${startInfo.widgets}`;
+  });
+
+  // 13. 桌宠窗口：设置里启用后应出现独立窗口，并能按内容伸缩
   await step('桌宠窗口与布局', async () => {
     await run(
       ws,

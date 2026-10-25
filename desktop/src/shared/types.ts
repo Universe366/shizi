@@ -781,11 +781,15 @@ export interface AppSettings {
     petBubbleHeight: number;
     /** 拖动松手后带惯性（甩出去会滑一段） */
     petThrow: boolean;
+    /** 气泡里显示哪些按钮（见 PET_BUTTONS） */
+    petButtons: string[];
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
-    /** 地址栏输入非网址时用哪个搜索引擎 */
+    /** 地址栏/起始页搜索用哪个引擎（默认必应，浏览器式） */
     searchEngine: 'bilibili' | 'bing' | 'google' | 'custom';
+    /** 老配置的搜索引擎默认值迁移标记 */
+    searchEngineMigrated: boolean;
     /** searchEngine=custom 时的 URL 模板，必须包含 {q} */
     searchEngineCustom: string;
   };

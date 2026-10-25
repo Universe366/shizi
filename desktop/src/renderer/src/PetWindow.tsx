@@ -193,6 +193,16 @@ export function PetWindow() {
   const [bubbleW, setBubbleW] = useState(440);
   const [bubbleH, setBubbleH] = useState(480);
   const [below, setBelow] = useState(false);
+  const [buttons, setButtons] = useState<string[]>([
+    'web',
+    'read',
+    'widget',
+    'screenshot',
+    'explain',
+    'translate',
+    'copy',
+    'newChat'
+  ]);
   const tapTimer = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
@@ -214,6 +224,7 @@ export function PetWindow() {
       setSpeechRate(Number(general.petSpeechRate ?? 1));
       setBubbleW(Number(general.petBubbleWidth) || 440);
       setBubbleH(Number(general.petBubbleHeight) || 480);
+      if (Array.isArray(general.petButtons)) setButtons(general.petButtons.map(String));
       if (Array.isArray(general.petTodos)) {
         const incoming = JSON.stringify(general.petTodos);
         setTodos((current) =>
@@ -457,6 +468,8 @@ export function PetWindow() {
     lastActive.current = Date.now();
     if (emotion === 'sleeping') setEmotion('idle');
   };
+
+  const has = (id: string) => buttons.includes(id);
 
   const flash = (text: string, ms = 2600) => {
     if (hintTimer.current) window.clearTimeout(hintTimer.current);
@@ -963,30 +976,36 @@ export function PetWindow() {
               {petName}
             </span>
             <div className="pet-bubble-tools">
-              <button
-                className={`mini-btn${webOn ? ' is-active' : ''}`}
-                title={webOn ? '关闭联网（本轮）' : '打开联网检索'}
-                onClick={() => setWebOn((value) => !value)}
-              >
-                联网
-              </button>
-              <button
-                className={`mini-btn${speak ? ' is-active' : ''}`}
-                title={speak ? '关闭朗读' : '朗读回答'}
-                onClick={toggleSpeak}
-              >
-                朗读
-              </button>
-              <button
-                className={`mini-btn${widgetOpen ? ' is-active' : ''}`}
-                title="桌面小挂件（时钟 / 待办）"
-                onClick={() => {
-                  setOpen(false);
-                  setWidgetOpen((value) => !value);
-                }}
-              >
-                挂件
-              </button>
+              {has('web') && (
+                <button
+                  className={`mini-btn${webOn ? ' is-active' : ''}`}
+                  title={webOn ? '关闭联网（本轮）' : '打开联网检索'}
+                  onClick={() => setWebOn((value) => !value)}
+                >
+                  联网
+                </button>
+              )}
+              {has('read') && (
+                <button
+                  className={`mini-btn${speak ? ' is-active' : ''}`}
+                  title={speak ? '关闭朗读' : '朗读回答'}
+                  onClick={toggleSpeak}
+                >
+                  朗读
+                </button>
+              )}
+              {has('widget') && (
+                <button
+                  className={`mini-btn${widgetOpen ? ' is-active' : ''}`}
+                  title="桌面小挂件（时钟 / 待办）"
+                  onClick={() => {
+                    setOpen(false);
+                    setWidgetOpen((value) => !value);
+                  }}
+                >
+                  挂件
+                </button>
+              )}
               <button
                 className="pet-close"
                 title="关闭对话（Esc）"
@@ -1087,35 +1106,47 @@ export function PetWindow() {
           )}
 
           <div className="pet-quick">
-            <button
-              className="mini-btn primary"
-              title="框选屏幕区域，再选识别图片 / 对话 / 提取文字"
-              disabled={busy || shotBusy}
-              onClick={() => void takeRegionShot()}
-            >
-              {shotBusy ? '截图中…' : '截图'}
-            </button>
-            {SELECTION_ACTIONS.map((action) => (
+            {has('screenshot') && (
               <button
-                key={action.id}
+                className="mini-btn primary"
+                title="框选屏幕区域，再选识别图片 / 对话 / 提取文字"
+                disabled={busy || shotBusy}
+                onClick={() => void takeRegionShot()}
+              >
+                {shotBusy ? '截图中…' : '截图'}
+              </button>
+            )}
+            {has('explain') && (
+              <button
                 className="mini-btn"
                 disabled={busy}
-                onClick={() => void askSelection(action.prompt)}
+                onClick={() => void askSelection(SELECTION_ACTIONS[0].prompt)}
               >
-                {action.label}
+                解释选中
               </button>
-            ))}
-            <button
-              className="mini-btn"
-              title="把回答复制到剪贴板"
-              disabled={!answer && !history.some((item) => item.role === 'assistant')}
-              onClick={() => void copyAnswer()}
-            >
-              {copied ? '已复制' : '复制'}
-            </button>
+            )}
+            {has('translate') && (
+              <button
+                className="mini-btn"
+                disabled={busy}
+                onClick={() => void askSelection(SELECTION_ACTIONS[1].prompt)}
+              >
+                翻译选中
+              </button>
+            )}
+            {has('copy') && (
+              <button
+                className="mini-btn"
+                title="把回答复制到剪贴板"
+                disabled={!answer && !history.some((item) => item.role === 'assistant')}
+                onClick={() => void copyAnswer()}
+              >
+                {copied ? '已复制' : '复制'}
+              </button>
+            )}
           </div>
 
-          {history.length > 0 && (
+          {has('newChat') && history.length > 0 && (
             <div className="pet-reset-row">
               <button className="pet-reset" onClick={resetChat} title="清空上下文，重新开始">
                 新对话

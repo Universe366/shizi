@@ -3,6 +3,15 @@ import { ArrowLeft, ArrowRight, Globe, Home, MoreHorizontal, RotateCw, Settings,
 import type { HistoryEntry, TabInfo } from '../../../shared/types';
 import type { HubSection } from './BrowserHub';
 
+type SearchEngineId = 'bilibili' | 'bing' | 'google' | 'custom';
+
+const ENGINES: Array<{ id: SearchEngineId; label: string }> = [
+  { id: 'bing', label: '必应' },
+  { id: 'google', label: 'Google' },
+  { id: 'bilibili', label: 'B 站' },
+  { id: 'custom', label: '自定义' }
+];
+
 export function AddressBar({
   tab,
   focusSignal = 0,
@@ -31,6 +40,9 @@ export function AddressBar({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [engine, setEngine] = useState<SearchEngineId>('bing');
+  const [engineOpen, setEngineOpen] = useState(false);
+  const engineRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +64,33 @@ export function AddressBar({
   useEffect(() => {
     if (!editing) setValue(tab?.url ?? '');
   }, [tab?.url, editing]);
+
+  useEffect(() => {
+    void window.bsub.getSettings().then((response) => {
+      if (response.ok) setEngine(response.data.settings.general.searchEngine || 'bing');
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!engineOpen) return;
+    const close = (event: MouseEvent) => {
+      if (engineRef.current && !engineRef.current.contains(event.target as Node)) setEngineOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [engineOpen]);
+
+  const pickEngine = async (next: SearchEngineId) => {
+    setEngine(next);
+    setEngineOpen(false);
+    const snapshot = await window.bsub.getSettings();
+    if (!snapshot.ok) return;
+    const settings = snapshot.data.settings;
+    settings.general.searchEngine = next;
+    await window.bsub.saveSettings(settings);
+  };
+
+  const engineLabel = ENGINES.find((item) => item.id === engine)?.label || '必应';
 
   useEffect(() => {
     if (!suggestOpen) return;
@@ -123,12 +162,35 @@ export function AddressBar({
         </button>
       </div>
 
+      <div className="address-engine" ref={engineRef}>
+        <button
+          className={`address-engine-btn${engineOpen ? ' is-active' : ''}`}
+          title="切换搜索引擎"
+          onClick={() => setEngineOpen((value) => !value)}
+        >
+          {engineLabel}
+        </button>
+        {engineOpen && (
+          <div className="address-engine-menu" role="menu">
+            {ENGINES.map((item) => (
+              <button
+                key={item.id}
+                className={item.id === engine ? 'is-active' : ''}
+                onClick={() => void pickEngine(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="address-field">
         <Globe size={13} />
         <input
           ref={inputRef}
           value={editing ? value : tab?.url ?? ''}
-          placeholder="输入 BV 号、链接或搜索词"
+          placeholder={`在${engineLabel}搜索，或输入网址 / BV 号`}
           spellCheck={false}
           onChange={(event) => {
             setEditing(true);
@@ -170,6 +232,22 @@ export function AddressBar({
           }}
         />
       </div>
+
+      {suggestOpen && value.trim() && !/^https?:\/\//i.test(value) && !/^BV[0-9A-Za-z]{10}$/i.test(value.trim()) && (
+        <div className="address-suggest">
+          <button
+            className="address-suggest-item is-search"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              setSuggestOpen(false);
+              submit();
+            }}
+          >
+            <span className="address-suggest-title">用{engineLabel}搜索「{value.trim()}」</span>
+            <span className="address-suggest-url">Enter</span>
+          </button>
+        </div>
+      )}
 
       {suggestOpen && suggestions.length > 0 && (
         <div className="address-suggest" role="listbox">

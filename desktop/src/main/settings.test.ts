@@ -53,14 +53,14 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
-  it('非法搜索引擎回退 B 站，坐标非法归零', () => {
+  it('非法搜索引擎回退必应，坐标非法归零', () => {
     const settings = loadSettings();
     settings.general.searchEngine = 'nonsense' as unknown as 'bilibili';
     settings.general.petX = Number.NaN;
     settings.general.petY = -1;
     saveSettings(settings);
     const reloaded = loadSettings();
-    expect(reloaded.general.searchEngine).toBe('bilibili');
+    expect(reloaded.general.searchEngine).toBe('bing');
     expect(reloaded.general.petX).toBe(0);
     expect(reloaded.general.petY).toBe(-1);
   });

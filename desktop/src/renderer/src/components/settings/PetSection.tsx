@@ -247,6 +247,39 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           />
           启用全局截图快捷键 Ctrl+Shift+S
         </label>
+
+        <div className="settings-label">气泡里显示这些按钮</div>
+        <div className="pet-buttons-grid">
+          {[
+            { id: 'screenshot', label: '截图' },
+            { id: 'explain', label: '解释选中' },
+            { id: 'translate', label: '翻译选中' },
+            { id: 'copy', label: '复制回答' },
+            { id: 'newChat', label: '新对话' },
+            { id: 'web', label: '联网' },
+            { id: 'read', label: '朗读' },
+            { id: 'widget', label: '挂件' }
+          ].map((item) => {
+            const list = value.petButtons || [];
+            const checked = list.includes(item.id);
+            return (
+              <label key={item.id} className="settings-check">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) =>
+                    onChange({
+                      petButtons: event.target.checked
+                        ? [...list, item.id]
+                        : list.filter((id) => id !== item.id)
+                    })
+                  }
+                />
+                {item.label}
+              </label>
+            );
+          })}
+        </div>
         {value.petShortcut !== false && shortcut && (
           <div className="settings-hint">
             {shortcut.registered

@@ -18,6 +18,11 @@ const tab = {
 
 function installBsub() {
   const api = {
+    getSettings: vi.fn(async () => ({
+      ok: true as const,
+      data: { settings: { general: { searchEngine: 'bing' } }, version: '0.38.13' }
+    })),
+    saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     navigate: vi.fn(async () => ({ ok: true as const, data: null })),
     back: vi.fn(),
     forward: vi.fn(),
@@ -146,3 +151,19 @@ describe('AddressBar', () => {
   });
 });
 
+
+describe('AddressBar 搜索引擎', () => {
+  it('可以切换并写回设置', async () => {
+    const api = installBsub();
+    render(<AddressBar {...props()} />);
+    fireEvent.click(screen.getByTitle('切换搜索引擎'));
+    fireEvent.click(screen.getByText('Google'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ searchEngine: 'google' })
+        })
+      )
+    );
+  });
+});

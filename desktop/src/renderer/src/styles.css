@@ -6803,3 +6803,546 @@ button:disabled {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
+
+/* ---------- 起始页 v2（iTab 风格） ---------- */
+.start-page-v2 {
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+  background:
+    radial-gradient(120% 80% at 12% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 92% 8%, color-mix(in srgb, #ff6aa6 14%, transparent), transparent 62%),
+    var(--bg);
+  position: relative;
+}
+
+.start-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.start-blob {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.start-blob-a {
+  left: -80px;
+  top: -60px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.start-blob-b {
+  right: -60px;
+  top: 40px;
+  background: rgba(255, 106, 166, 0.4);
+}
+
+.start-blob-c {
+  left: 40%;
+  bottom: -140px;
+  background: rgba(120, 200, 180, 0.32);
+}
+
+.start-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(1080px, 92vw);
+  margin: 0 auto;
+  padding: 6vh 0 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.start-hero-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.start-clock-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.start-clock-v2 {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-greeting {
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  font-size: 13px;
+}
+
+.start-search-v2 {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 8px 0 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.1);
+  box-shadow: 0 18px 40px rgba(12, 15, 22, 0.16), 0 2px 8px rgba(12, 15, 22, 0.06);
+}
+
+.start-search-v2:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 18px 44px rgba(12, 15, 22, 0.2),
+    0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.start-search-icon {
+  color: color-mix(in srgb, var(--text) 45%, transparent);
+  flex: none;
+}
+
+.start-engine {
+  position: relative;
+  flex: none;
+}
+
+.start-engine-btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.start-engine-menu {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  z-index: 5;
+  min-width: 120px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.start-engine-menu button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-engine-menu button:hover,
+.start-engine-menu button.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.start-search-v2 input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.start-search-go {
+  flex: none;
+  height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start-search-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.start-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.start-chip-label {
+  color: color-mix(in srgb, var(--text) 50%, transparent);
+  font-size: 11.5px;
+}
+
+.start-chip {
+  padding: 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.start-chip:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--text);
+}
+
+.start-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.start-widget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: blur(18px) saturate(1.05);
+  box-shadow: 0 12px 30px rgba(12, 15, 22, 0.08);
+  min-height: 168px;
+}
+
+.start-widget-card header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text) 76%, transparent);
+}
+
+.start-widget-meta {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.start-widget-link {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.start-widget-empty {
+  color: var(--faint);
+  font-size: 11.5px;
+  padding: 8px 0;
+}
+
+.start-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.start-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-list-item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.start-list-title {
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-list-meta {
+  color: var(--faint);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.start-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.start-todo-item input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.start-todo-item .is-done {
+  text-decoration: line-through;
+  color: var(--faint);
+}
+
+.start-todo-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.start-todo-add input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.start-todo-add button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.start-todo-add button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.start-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.start-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 6px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+}
+
+.start-shortcut:hover {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  transform: translateY(-2px);
+}
+
+.start-shortcut-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  color: var(--accent);
+}
+
+.start-shortcut-label {
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+  white-space: nowrap;
+}
+
+.start-footnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11px;
+  justify-content: center;
+}
+
+/* 地址栏搜索引擎切换 */
+.address-engine {
+  position: relative;
+  flex: none;
+}
+
+.address-engine-btn {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.address-engine-btn:hover,
+.address-engine-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  color: var(--text);
+}
+
+.address-engine-menu {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  z-index: 30;
+  min-width: 108px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.address-engine-menu button {
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.address-engine-menu button:hover,
+.address-engine-menu button.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.address-suggest-item.is-search .address-suggest-title {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 垂直标签栏补充 */
+.tab-vertical-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  font-size: 10.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-head-new {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tab-head-new:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.tab-menu-sep {
+  height: 1px;
+  margin: 3px 6px;
+  background: var(--border);
+}
+
+.pet-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 10px;
+  margin: 4px 0 8px;
+}
+
+.tab-resize {
+  width: 10px;
+  right: -5px;
+  z-index: 3;
+}
+
+.tab-resize {
+  width: 10px;
+  right: -5px;
+  z-index: 3;
+}
+
+.app-shell.vertical-tabs .tab-resize:hover {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
