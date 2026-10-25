@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minimize2, Power, X } from 'lucide-react';
 
 /** 关闭窗口确认：与应用内弹窗风格一致，替代系统原生对话框。 */
@@ -10,11 +10,26 @@ export function CloseDialog({
   onChoose: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) => void;
 }) {
   const [remember, setRemember] = useState(false);
+  const sent = useRef(false);
+
+  useEffect(() => {
+    if (open) sent.current = false;
+  }, [open]);
+
+  const choose = (choice: 'tray' | 'quit' | 'cancel') => {
+    if (sent.current) return;
+    sent.current = true;
+    try {
+      onChoose(choice, remember);
+    } catch {
+      sent.current = false;
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onChoose('cancel', remember);
+      if (event.key === 'Escape') choose('cancel');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -27,7 +42,7 @@ export function CloseDialog({
       className="confirm-backdrop close-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onChoose('cancel', remember);
+        if (event.target === event.currentTarget) choose('cancel');
       }}
     >
       <div className="confirm-card close-card" role="dialog" aria-modal="true" aria-label="关闭拾字">
@@ -51,14 +66,14 @@ export function CloseDialog({
         </label>
 
         <div className="close-actions">
-          <button className="close-action" onClick={() => onChoose('tray', remember)}>
+          <button className="close-action" onClick={() => choose('tray')}>
             <Minimize2 size={15} />
             <span>
               <strong>最小化到托盘</strong>
               <small>后台继续运行，保留标签与任务</small>
             </span>
           </button>
-          <button className="close-action is-danger" onClick={() => onChoose('quit', remember)}>
+          <button className="close-action is-danger" onClick={() => choose('quit')}>
             <Power size={15} />
             <span>
               <strong>退出应用</strong>
@@ -68,7 +83,7 @@ export function CloseDialog({
         </div>
 
         <div className="close-card-foot">
-          <button className="mini-btn" onClick={() => onChoose('cancel', remember)}>
+          <button className="mini-btn" onClick={() => choose('cancel')}>
             取消
           </button>
         </div>

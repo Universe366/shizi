@@ -24,6 +24,10 @@ let petWindow: BrowserWindow | null = null;
 let layoutMode: PetLayoutMode = 'compact';
 let layoutBelow = false;
 let transientBubble: BubbleSize | null = null;
+let peekHidden = false;
+let peekFullBody: Rect | null = null;
+let peekTimer: NodeJS.Timeout | null = null;
+let peekInsideAt = 0;
 let notifiedBelow: boolean | null = null;
 /** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
 let desiredBody: Rect | null = null;
@@ -56,6 +60,74 @@ function dockAlign(): 'center' | 'left' | 'right' {
   if (dock === 'left') return 'left';
   if (dock === 'right') return 'right';
   return 'center';
+}
+
+/** 停靠后的边缘探出：藏到只剩一条，光标移上去再展开。 */
+function peekTick(): void {
+  if (!petWindow || petWindow.isDestroyed()) return;
+  const settings = loadSettings();
+  const dock = settings.general.petDock;
+  if (settings.general.petPeek === false || dock === 'none' || layoutMode !== 'compact' || dragTimer) {
+    if (peekHidden) revealPeek();
+    return;
+  }
+  const full = peekHidden ? peekFullBody : currentBody();
+  if (!full) return;
+  const area = bodyArea(full);
+  const size = full.width;
+  const cursor = screen.getCursorScreenPoint();
+  const strip =
+    dock === 'left'
+      ? { x: area.x, y: full.y, width: 18, height: size }
+      : { x: area.x + area.width - 18, y: full.y, width: 18, height: size };
+  const insideStrip =
+    cursor.x >= strip.x &&
+    cursor.x <= strip.x + strip.width &&
+    cursor.y >= strip.y &&
+    cursor.y <= strip.y + strip.height;
+
+  if (peekHidden) {
+    if (insideStrip) revealPeek();
+    return;
+  }
+
+  const body = currentBody();
+  const insideBody =
+    cursor.x >= body.x &&
+    cursor.x <= body.x + body.width &&
+    cursor.y >= body.y &&
+    cursor.y <= body.y + body.height;
+  if (insideBody) {
+    peekInsideAt = Date.now();
+    return;
+  }
+  if (Date.now() - peekInsideAt < 900) return;
+
+  peekFullBody = body;
+  const hiddenX = dock === 'left' ? area.x - size + 14 : area.x + area.width - 14;
+  const target = { ...body, x: hiddenX };
+  const align = dock === 'left' ? 'left' : 'right';
+  const windowRect = windowRectFor(target, 'compact', size, bubbleSize(), false, align);
+  try {
+    petWindow.setBounds({
+      x: Math.round(windowRect.x),
+      y: Math.round(windowRect.y),
+      width: Math.round(windowRect.width),
+      height: Math.round(windowRect.height)
+    });
+    peekHidden = true;
+  } catch {
+    peekHidden = false;
+  }
+}
+
+function revealPeek(): void {
+  if (!peekHidden) return;
+  peekHidden = false;
+  const target = peekFullBody || currentBody();
+  peekFullBody = null;
+  applyBody(target);
+  peekInsideAt = Date.now();
 }
 
 /** 松手时离左右边缘足够近就停靠，否则取消停靠。 */
@@ -197,6 +269,12 @@ export function openPetWindow(useStartCorner = false): void {
   layoutBelow = false;
   notifiedBelow = false;
   startFocusTracking();
+  peekHidden = false;
+  peekFullBody = null;
+  peekInsideAt = Date.now();
+  if (peekTimer) clearInterval(peekTimer);
+  peekTimer = setInterval(peekTick, 220);
+  peekTimer.unref?.();
   const size = petSize();
   const settings = loadSettings();
   const corner = settings.general.petStartCorner;
@@ -257,6 +335,11 @@ export function openPetWindow(useStartCorner = false): void {
 export function closePetWindow(): void {
   stopDragLoop();
   stopInertia();
+  if (peekTimer) {
+    clearInterval(peekTimer);
+    peekTimer = null;
+  }
+  peekHidden = false;
   if (petWindow && !petWindow.isDestroyed()) petWindow.close();
   petWindow = null;
 }
@@ -366,6 +449,7 @@ export function movePet(x: number, y: number): void {
     height: petSize()
   };
   updateDockFromBody(clampBody(target), bodyArea(target));
+  peekInsideAt = Date.now();
   applyBody(target, true);
 }
 
@@ -402,6 +486,7 @@ function stopDragLoop(): void {
 export function beginPetDrag(): void {
   if (!petWindow || petWindow.isDestroyed() || dragTimer) return;
   stopInertia();
+  if (peekHidden) revealPeek();
   dragStart = { cursor: screen.getCursorScreenPoint(), body: currentBody() };
   dragMoved = false;
   dragVelocity = { vx: 0, vy: 0 };
@@ -505,6 +590,7 @@ export function endPetDrag(): { x: number; y: number; moved: boolean } | null {
   const snapped =
     loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
   if (wasDrag) updateDockFromBody(snapped, bodyArea(snapped));
+  peekInsideAt = Date.now();
   const applied = applyBody(snapped);
   if (wasDrag) persistBody(applied);
   return { x: applied.x, y: applied.y, moved: wasDrag };

@@ -388,6 +388,15 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           <option value="right">靠右（气泡向左展开）</option>
         </select>
 
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.petPeek !== false}
+            onChange={(event) => onChange({ petPeek: event.target.checked })}
+          />
+          靠边自动隐藏（悬停探出）
+        </label>
+
         <div className="toolbar-actions">
           <button
             className="mini-btn"

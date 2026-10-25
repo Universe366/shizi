@@ -220,3 +220,17 @@ describe('handleCloseRequest（渲染进程弹窗）', () => {
     expect(deps.setChoicePending).toHaveBeenLastCalledWith(false);
   });
 });
+
+describe('handleCloseRequest 重复关闭', () => {
+  it('已有确认在等待时不再弹第二个框', async () => {
+    const askClose = vi.fn(async () => ({ choice: 'cancel' as const, remember: false }));
+    const { deps } = closeDeps({ askClose });
+    const e = event();
+    expect(
+      handleCloseRequest(e, { isQuitting: false, choicePending: true }, deps)
+    ).toBe('asked');
+    expect(e.preventDefault).toHaveBeenCalled();
+    await Promise.resolve();
+    expect(askClose).not.toHaveBeenCalled();
+  });
+});

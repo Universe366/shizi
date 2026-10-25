@@ -121,6 +121,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petThrow: true,
     petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat'],
     petDock: 'none',
+    petPeek: true,
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -392,6 +393,7 @@ function normalize(input: unknown): AppSettings {
       ];
       const dock = raw.general.petDock;
       base.general.petDock = dock === 'left' || dock === 'right' ? dock : 'none';
+      base.general.petPeek = raw.general.petPeek !== false;
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))

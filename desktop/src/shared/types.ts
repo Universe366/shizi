@@ -793,6 +793,8 @@ export interface AppSettings {
     petButtons: string[];
     /** 贴边停靠：none / 左 / 右 */
     petDock: 'none' | 'left' | 'right';
+    /** 停靠后自动藏到屏幕边缘，悬停探出 */
+    petPeek: boolean;
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;

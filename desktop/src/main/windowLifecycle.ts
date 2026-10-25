@@ -59,6 +59,11 @@ export function handleCloseRequest<S extends { general: { closeToTray?: boolean 
     choicePending: state.choicePending
   });
   if (decision === 'allow') return 'allowed';
+  if (decision === 'pending') {
+    // 已经有一个关闭确认在等用户选择：拦下这次，避免重复弹窗/直接关窗。
+    event.preventDefault();
+    return 'asked';
+  }
 
   event.preventDefault();
   deps.setChoicePending(true);
@@ -82,25 +87,28 @@ export function handleCloseRequest<S extends { general: { closeToTray?: boolean 
         remember: result.checkboxChecked === true
       }));
 
-  void (deps.askClose ? deps.askClose() : native())
-    .then((result) => {
-      deps.setChoicePending(false);
-      if (!result || result.choice === 'cancel') return;
-      if (result.remember) {
-        const settings = deps.loadSettings();
-        settings.general.closeToTray = result.choice === 'tray';
-        deps.saveSettings(settings);
-      }
-      if (result.choice === 'tray') {
-        deps.hideWindow();
-      } else {
-        deps.setQuitting(true);
-        deps.quit();
-      }
-    })
-    .catch(() => {
-      deps.setChoicePending(false);
-    });
+  const applyChoice = (result: CloseChoice | null) => {
+    deps.setChoicePending(false);
+    if (!result || result.choice === 'cancel') return;
+    if (result.remember) {
+      const settings = deps.loadSettings();
+      settings.general.closeToTray = result.choice === 'tray';
+      deps.saveSettings(settings);
+    }
+    if (result.choice === 'tray') {
+      deps.hideWindow();
+    } else {
+      deps.setQuitting(true);
+      deps.quit();
+    }
+  };
+
+  const pending = deps.askClose
+    ? deps.askClose().then((result) => result ?? native())
+    : native();
+  void pending.then(applyChoice).catch(() => {
+    deps.setChoicePending(false);
+  });
   return 'asked';
 }
 

@@ -280,7 +280,11 @@ function createWindow(): void {
         if (choice !== 'tray' && choice !== 'quit' && choice !== 'cancel') return;
         finish({ choice, remember: payload?.remember === true });
       });
-      target.webContents.send('app:close-request');
+      try {
+        target.webContents.send('app:close-request');
+      } catch {
+        finish(null);
+      }
     });
   };
 

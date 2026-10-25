@@ -95,7 +95,7 @@ describe('关闭窗口策略', () => {
   it('退出中 / 关掉关闭到托盘 / 对话框等待中都不再询问', () => {
     expect(closeAction({ isQuitting: true, choicePending: false })).toBe('allow');
     expect(closeAction({ isQuitting: false, closeToTray: false, choicePending: false })).toBe('allow');
-    expect(closeAction({ isQuitting: false, choicePending: true })).toBe('allow');
+    expect(closeAction({ isQuitting: false, choicePending: true })).toBe('pending');
   });
 
   it('默认询问最小化还是退出', () => {

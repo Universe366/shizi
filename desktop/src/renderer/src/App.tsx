@@ -17,6 +17,7 @@ const SettingsPage = lazy(() =>
 );
 import { nextTabId, tabIdByNumber } from './lib/tabs';
 import { useDropImport } from './lib/dropImport';
+import { useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
 
@@ -58,9 +59,7 @@ export default function App() {
   // 「卡片被页面挡住、只剩左侧点不了」的情况。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
 
-  useEffect(() => {
-    void window.bsub.setBrowserVisible(!wizard && !searchOpen && !hub && !readerOpen);
-  }, [wizard, searchOpen, hub, readerOpen]);
+  useBrowserOverlayAuto();
 
   const applyLayout = (snapshot: {
     settings: {

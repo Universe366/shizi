@@ -928,6 +928,19 @@ try {
       )
     );
     if (!opened.card || !opened.tray) throw new Error('没有出现应用内关闭弹窗');
+    const repeated = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          await window.bsub.requestClose();
+          await new Promise((r) => setTimeout(r, 400));
+          return JSON.stringify({ card: Boolean(document.querySelector('.close-card')), alive: 1 + 1 });
+        })()`
+      )
+    );
+    if (!repeated.card || repeated.alive !== 2) {
+      throw new Error('重复关闭时窗口/弹窗状态异常');
+    }
     await evaluate(
       ws,
       `(async () => {

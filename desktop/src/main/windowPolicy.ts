@@ -85,7 +85,7 @@ export function shouldRestoreSession(
   return settings?.general?.restoreSession !== false;
 }
 
-export type CloseAction = 'allow' | 'ask';
+export type CloseAction = 'allow' | 'ask' | 'pending';
 
 /**
  * 关闭窗口时：'ask' 表示要 preventDefault 并弹「最小化/退出」对话框，
@@ -98,7 +98,7 @@ export function closeAction(input: {
 }): CloseAction {
   if (input.isQuitting) return 'allow';
   if (input.closeToTray === false) return 'allow';
-  if (input.choicePending) return 'allow';
+  if (input.choicePending) return 'pending';
   return 'ask';
 }
 

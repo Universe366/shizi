@@ -236,6 +236,11 @@ export function ChatPanel({
     setImages(next.slice(0, 2));
   };
 
+  // 切换页面后必须重新取上下文，不能沿用上一个视频的字幕。
+  useEffect(() => {
+    contextRef.current = null;
+  }, [activeTab?.id, activeTab?.url, pageContext?.url]);
+
   const ensureContext = async () => {
     if (contextRef.current) return contextRef.current;
     const infoResponse = await window.bsub.getPageInfo();

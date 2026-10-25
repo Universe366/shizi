@@ -22,7 +22,8 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     contentRef.current?.scrollTo({ top: 0 });
   }, [group]);
 
-  const jumpToSection = (title: string) => {
+  const jumpToSection = (title: string, index: number) => {
+    setActiveToc(index);
     const host = contentRef.current;
     if (!host) return;
     const section = Array.from(
@@ -66,7 +67,8 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     });
     const onScroll = () => {
       const sections = visibleSections();
-      const top = host.getBoundingClientRect().top + 64;
+      const sticky = host.querySelector<HTMLElement>('.settings-sticky');
+      const top = host.getBoundingClientRect().top + (sticky?.getBoundingClientRect().height || 0) + 28;
       let active = 0;
       sections.forEach((section, index) => {
         if (section.getBoundingClientRect().top <= top) active = index;
@@ -138,7 +140,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                 key={`${item.title}-${index}`}
                 className={`settings-toc-item${activeToc === index ? ' is-active' : ''}`}
                 title={item.title}
-                onClick={() => jumpToSection(item.title)}
+                onClick={() => jumpToSection(item.title, index)}
               >
                 {item.title}
               </button>
