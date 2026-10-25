@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
-> 更新时间：2026-10-25  
+> 更新日期：2026-10-25
 > 适用版本：桌面 **0.38.20** / 插件 **2.18.7**
-> 当前发布基线：待打 tag `v0.38.20`
-> 最新 Release：`v0.38.20`（发布后确认）
+> 当前发布基线：tag `v0.38.20`（`ae62a87`）
+> 最新 Release：`v0.38.20`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.19` 通过 |
+| 发布 CI | `v0.38.20` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.19，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.20，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -82,6 +82,7 @@
 - 总结核对每个检索项 15 秒截止，超时/取消也会中止请求。
 - 历史来源在渲染前过滤成 http(s)、补齐标题/摘要字段，坏 localStorage 不会让侧栏/桌宠崩溃。
 - 测试 95 文件 588 用例（新增 `search.test.ts` 15 项、`async.test.ts` 5 项、核对失败提示 1 项、总结核对设置回归 1 项、桌宠来源 1 项），真实 Electron + mock AI 验证状态/来源/失败/未启用/override 测试。
+- 发布：GitHub Release `v0.38.20`（setup / green / extension zip / latest.yml），桌面 checks 通过，`/releases/latest` 已指向该版本。
 
 ### 0.38.19（2026-10-25，播放倍速 + 垂直标签栏）
 
@@ -308,9 +309,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.19 测试/冒烟通过
+- [x] 0.38.20 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.19`
+- [x] 最新 Release 指向 `v0.38.20`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
