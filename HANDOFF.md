@@ -2,10 +2,10 @@
 
 > 更新日期：2026-10-26
 > 适用版本：桌面 **0.38.21** / 插件 **2.18.8**
-> 当前发布基线：待打 tag `v0.38.21`
-> 最新 Release：`v0.38.21`（发布后确认）
+> 当前发布基线：tag `v0.38.21`（`dc23d1b`）
+> 最新 Release：`v0.38.21`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
-> 工作区：clean（发版提交前）
+> 工作区：clean
 
 这份文件回答三个问题：
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.20` 通过 |
+| 发布 CI | `v0.38.21` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.20，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.21，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -67,7 +67,7 @@
 - **总结与网页**：无字幕/未登录时给出「登录 B 站」「转写后总结」；ASR 完成后自动生成总结；旧核对数据缺字段不再白屏；新增 React ErrorBoundary；WebContentsView 尺寸变化后主动 invalidate。
 - **插件 2.18.8**：`parseSearchQueries` 兼容 JSON 前后解释。
 - 测试：桌面 **96 文件 596 用例**、插件 **520 项**；新增 `verify.test.ts` 6 项、SummaryPanel 登录/转写 1 项、VerifyCard 旧数据 1 项。
-- 发布：GitHub Release `v0.38.21`（发布后确认）。
+- 发布：GitHub Release `v0.38.21`（setup / green / extension zip / latest.yml），桌面与插件 checks 通过，`/releases/latest` 已指向该版本。
 
 ### 0.38.20（2026-10-25，桌宠 + 侧栏联网）
 
@@ -317,9 +317,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.20 测试/冒烟通过
+- [x] 0.38.21 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.20`
+- [x] 最新 Release 指向 `v0.38.21`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
