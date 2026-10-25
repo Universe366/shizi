@@ -603,3 +603,33 @@ node panel-test.js     # 至少跑这个
 - `npm run smoke` 启动真实 Electron（临时 userData + CDP），验证窗口标题、
   preload API、版本号和标签页；
 - 脚本提交在 `scripts/smoke.mjs`；Linux CI 需要 xvfb，目前只在本地/Windows 跑。
+
+### 13.18 播放倍速
+
+- `shared/media.ts` 定义倍速区间（0.25–16）、步进、预设、站点键与站点规则解析，主进程和渲染层共用；
+- `TabManager` 每个标签独立保存 `rate`，`TabInfo.playbackRate` 暴露给地址栏倍速按钮；
+- `mediaControl.ts` 注入到每个 frame：Shadow DOM 面板（预设 / 步进 / 数值 / 滑块 / 音调 / 站点记忆）、
+  顶部 OSD、右下角倍速角标、`Alt+Shift+↑/↓/0/S` 快捷键，以及可选的 A / S / D 单键调速；
+- 面板动作经 CDP `Runtime.addBinding('__bsubMediaAction')` 回传主进程；
+  主进程用 `WebFrameMain.executeJavaScript` 把状态下发到所有 frame，iframe 里的播放器也能套用；
+- 站点记忆 / 默认倍速存在 `general.mediaRate`、`general.mediaSiteRates`，导航时由
+  `resolveMediaRate()` 重新解析；`mediaRememberSite` 关闭时只更新全局默认倍速；
+- 倍速落盘有 350ms 节流，范围 0.25–16；`preservesPitch` 由“保持音调”开关控制。
+
+### 13.19 垂直标签栏
+
+- `TabStrip.tsx` 负责折叠 / 悬停展开、宽度拖动、分组、预览、多选与键盘导航；
+  折叠时标签栏是绝对定位的 52px 图标轨道，`.app-shell` 用 `padding-left: 52px` 让位；
+- 悬停展开（peek）不再用 `leftInset` 单独挪网页视图，而是由 `App` 把整个 `.app-main`
+  的 `padding-left` 设成标签栏宽度，地址栏 / 侧栏 / 网页一起让位，原生视图不会被标签栏盖住；
+  140ms 悬停意图 + 原生 `mousemove` 监听，避免 React enter/leave 在折叠后过期；
+- 折叠 / 宽度通过 `settings:tabs-layout` 单独落盘（`setTabsLayout`），不走 `settings:set`，
+  不会重启插件桥；350ms 合并写入，范围 160–360；
+- 视觉顺序由 `pinned → ungrouped → groups` 派生（`visualTabs`），键盘上下 / Home/End /
+  “关闭右侧”按这个顺序走；关闭单个标签时把视觉邻居传给主进程，`TabManager.close(id, nextId)`
+  优先采用它，否则用 `neighborAfterClose()`（右邻居优先）；
+- 分组数据未到达时，带 `groupId` 的标签先按普通标签显示，避免闪一下消失；
+- 预览由主进程在标签切走 / 加载完成时 `capturePage()` 缓存成 360px JPEG（最多 40 个），
+  后台视图取不到画面也能预览；打开右键菜单、搜索、折叠、滚动都会清掉预览；
+- 长标签列表必须能滚动：垂直 `.tab` 设 `flex: 0 0 34px`，不要让它被 flex 压扁；
+  折叠轨道隐藏固定/分组标题，分组头在组内含当前标签时高亮。

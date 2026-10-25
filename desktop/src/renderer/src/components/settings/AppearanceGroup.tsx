@@ -76,6 +76,22 @@ export function AppearanceGroup({ value, onChange }: Props) {
         />
         垂直标签栏（标签放在左侧）
       </label>
+      {value.verticalTabs === true && (
+        <div className="settings-field">
+          <div className="settings-label">
+            标签栏宽度（{value.verticalTabsWidth ?? 220}px，也可直接拖标签栏右边缘）
+          </div>
+          <input
+            className="settings-range"
+            type="range"
+            min={160}
+            max={360}
+            step={10}
+            value={Math.min(360, Math.max(160, value.verticalTabsWidth ?? 220))}
+            onChange={(event) => onChange({ verticalTabsWidth: Number(event.target.value) })}
+          />
+        </div>
+      )}
 
       <div className="settings-label">起始页壁纸</div>
       <select

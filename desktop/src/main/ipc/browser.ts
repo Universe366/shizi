@@ -27,13 +27,16 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tabs:list', () => ctx.tabs.list());
   ipcMain.handle('tabs:groups', () => ctx.tabs.groupsList());
   ipcMain.handle('tab:preview', async (_event, id: string) => {
-    const wc = ctx.tabs.webContentsOf(String(id));
-    if (!wc || wc.isDestroyed()) return null;
     try {
-      const image = await wc.capturePage();
-      if (image.isEmpty()) return null;
-      const resized = image.resize({ width: 360 });
-      return { dataUrl: resized.toDataURL(), title: wc.getTitle(), url: wc.getURL() };
+      const preview = await ctx.tabs.previewOf(String(id));
+      if (!preview) return null;
+      const wc = ctx.tabs.webContentsOf(String(id));
+      const alive = wc && !wc.isDestroyed();
+      return {
+        dataUrl: preview.dataUrl,
+        title: (alive && wc.getTitle()) || preview.title,
+        url: (alive && wc.getURL()) || preview.url
+      };
     } catch {
       return null;
     }
@@ -121,6 +124,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('media:set-rate', async (_event, rate: number) => {
     return { ok: true as const, data: await ctx.tabs.setPlaybackRate(rate) };
   });
+  ipcMain.handle('media:toggle-panel', async () => {
+    await ctx.tabs.toggleMediaPanel();
+  });
   ipcMain.handle('tab:set-visible', (_event, visible: boolean) => {
     ctx.tabs.setActiveViewVisible(visible !== false);
   });
@@ -130,8 +136,8 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:move', (_event, id: string, index: number) => {
     ctx.tabs.move(id, index);
   });
-  ipcMain.handle('tab:close', (_event, id: string) => {
-    ctx.tabs.close(id);
+  ipcMain.handle('tab:close', (_event, id: string, nextId?: string) => {
+    ctx.tabs.close(id, nextId ? String(nextId) : undefined);
   });
   ipcMain.handle('tab:activate', async (_event, id: string) => {
     await ctx.tabs.activate(id);

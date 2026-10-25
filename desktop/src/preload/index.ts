@@ -180,11 +180,13 @@ const api: BsubApi = {
     ipcRenderer.invoke('pet:set-enabled', enabled) as Promise<void>,
   setPlaybackRate: (rate: number) =>
     ipcRenderer.invoke('media:set-rate', rate) as Promise<{ ok: true; data: number }>,
+  toggleMediaPanel: () => ipcRenderer.invoke('media:toggle-panel') as Promise<void>,
   setActiveViewVisible: (visible: boolean) =>
     ipcRenderer.invoke('tab:set-visible', visible) as Promise<void>,
   pinTab: (id: string, pinned: boolean) =>
     ipcRenderer.invoke('tab:pin', id, pinned) as Promise<void>,
-  closeTab: (id: string) => ipcRenderer.invoke('tab:close', id) as Promise<void>,
+  closeTab: (id: string, nextId?: string) =>
+    ipcRenderer.invoke('tab:close', id, nextId) as Promise<void>,
   activateTab: (id: string) => ipcRenderer.invoke('tab:activate', id) as Promise<void>,
   navigate: (url: string) => ipcRenderer.invoke('tab:navigate', url) as Promise<void>,
   back: () => ipcRenderer.invoke('tab:back') as Promise<void>,
@@ -424,6 +426,8 @@ const api: BsubApi = {
   endSidebarDrag: () => ipcRenderer.invoke('browser:end-drag') as Promise<void>,
   setBrowserVisible: (visible: boolean) =>
     ipcRenderer.invoke('browser:set-visible', visible) as Promise<void>,
+  setTabsLayout: (patch: { width?: number; collapsed?: boolean }) =>
+    ipcRenderer.invoke('settings:tabs-layout', patch) as Promise<Result<SettingsSnapshot>>,
   setSidebarLayout: (patch: {
     width?: number;
     position?: 'left' | 'right';

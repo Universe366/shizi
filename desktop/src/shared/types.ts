@@ -9,6 +9,8 @@ export interface TabInfo {
   favicon?: string;
   suspended: boolean;
   zoom: number;
+  /** 该标签当前的播放倍速 */
+  playbackRate?: number;
   /** 固定后排在普通标签之前 */
   pinned?: boolean;
   /** 正在出声 */
@@ -756,6 +758,18 @@ export interface AppSettings {
     verticalTabsCollapsed: boolean;
     sidebarCollapsed: boolean;
     autoFollow: boolean;
+    /** 默认播放倍速（没有站点规则时使用） */
+    mediaRate: number;
+    /** 按站点记住倍速 */
+    mediaRememberSite: boolean;
+    /** 已记住的站点倍速：hostname -> rate */
+    mediaSiteRates: Record<string, number>;
+    /** 变速不变调（preservesPitch） */
+    mediaPreservePitch: boolean;
+    /** 单键调速 A / S / D（默认关闭，避免和 B 站 D 键冲突） */
+    mediaSingleKey: boolean;
+    /** 网页内显示悬浮倍速角标 */
+    mediaWidget: boolean;
     /** 首次使用向导是否已完成 */
     wizardDone: boolean;
     /** 退出时记住标签页，下次启动恢复 */

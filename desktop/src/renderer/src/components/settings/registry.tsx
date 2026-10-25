@@ -31,7 +31,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'reading',
     label: '页面与阅读',
-    description: '选区工具条、字幕跟随与缓存',
+    description: '选区工具条、字幕跟随、播放倍速',
     icon: BookOpen
   },
   { id: 'efficiency', label: '效率工具', description: 'AI 悬浮球与桌面宠物', icon: Sparkles },

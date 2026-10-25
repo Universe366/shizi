@@ -28,6 +28,7 @@ import {
   saveSettings,
   setSidebarLayout,
   setSidebarWidth,
+  setTabsLayout,
   settingsForExport,
   settingsSnapshot,
   testPlatform
@@ -162,6 +163,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         const saved = saveSettings(next);
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
+        ctx.tabs.refreshMediaState();
         setPetEnabled(saved.general.petEnabled === true);
         applyAutoStart(saved.general.autoStart === true);
         registerPetShortcuts();
@@ -350,6 +352,18 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         const snapshot = settingsSnapshot();
         ctx.send('settings:changed', snapshot);
         return { ok: true, data: snapshot };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'settings:tabs-layout',
+    (_event, patch: { width?: number; collapsed?: boolean }) => {
+      try {
+        setTabsLayout(patch || {});
+        return { ok: true, data: settingsSnapshot() };
       } catch (error) {
         return failure(error);
       }

@@ -52,9 +52,13 @@ export default function App() {
   const [startOpen, setStartOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
-  const [pageLeftInset, setPageLeftInset] = useState(0);
+  // 垂直标签栏折叠后悬停展开时，地址栏和网页一起让位，避免标签栏盖住前进/后退按钮。
+  const [tabPeek, setTabPeek] = useState<{ open: boolean; width: number }>({
+    open: false,
+    width: 220
+  });
   const handlePeekChange = useCallback((peek: boolean, width: number) => {
-    setPageLeftInset(peek ? Math.max(0, width - 52) : 0);
+    setTabPeek({ open: peek, width });
   }, []);
   const [bookmarked, setBookmarked] = useState(false);
 
@@ -465,6 +469,15 @@ export default function App() {
         setSidebarPosition(next);
         void persistGeneral({ sidebarPosition: next });
       }
+    },
+    {
+      id: 'toggle-vertical-tabs',
+      label: verticalTabs ? '切换为水平标签栏' : '切换为垂直标签栏',
+      run: () => {
+        const next = !verticalTabs;
+        setVerticalTabs(next);
+        void persistGeneral({ verticalTabs: next });
+      }
     }
   ];
 
@@ -478,7 +491,10 @@ export default function App() {
 
   return (
     <div
-      className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${startOpen || settingsOpen || tabs.length === 0 ? ' is-page' : ''}`}
+      className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
+        tabPeek.open ? ' is-tab-peek' : ''
+      }${startOpen || settingsOpen || tabs.length === 0 ? ' is-page' : ''}`}
+      style={tabPeek.open ? { paddingLeft: Math.max(52, tabPeek.width) } : undefined}
       {...drop.handlers}
     >
       {!settingsOpen && (
@@ -545,7 +561,6 @@ export default function App() {
           sidebarPosition={sidebarPosition}
           sidebarCollapsed={sidebarCollapsed}
           sidebarWidth={sidebarWidth}
-          leftInset={pageLeftInset}
           snapshot={dragSnapshot}
         />
       </div>

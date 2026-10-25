@@ -12,6 +12,7 @@ import type {
   ThemeMode
 } from '../shared/types';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
+import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 
@@ -94,6 +95,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     verticalTabsCollapsed: false,
     sidebarCollapsed: false,
     autoFollow: true,
+    mediaRate: 1,
+    mediaRememberSite: true,
+    mediaSiteRates: {},
+    mediaPreservePitch: true,
+    mediaSingleKey: false,
+    mediaWidget: true,
     wizardDone: false,
     restoreSession: true,
     selectionToolbar: true,
@@ -495,6 +502,12 @@ function normalize(input: unknown): AppSettings {
       base.general.wizardDone = raw.general.wizardDone === true;
       base.general.restoreSession = raw.general.restoreSession !== false;
       base.general.selectionToolbar = raw.general.selectionToolbar !== false;
+      base.general.mediaRate = clampMediaRate(raw.general.mediaRate, 1);
+      base.general.mediaRememberSite = raw.general.mediaRememberSite !== false;
+      base.general.mediaSiteRates = sanitizeMediaSiteRates(raw.general.mediaSiteRates);
+      base.general.mediaPreservePitch = raw.general.mediaPreservePitch !== false;
+      base.general.mediaSingleKey = raw.general.mediaSingleKey === true;
+      base.general.mediaWidget = raw.general.mediaWidget !== false;
       const minutes = Number(raw.general.suspendMinutes);
       if (Number.isFinite(minutes)) {
         base.general.suspendMinutes = Math.min(120, Math.max(1, Math.round(minutes)));
@@ -1037,6 +1050,19 @@ function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
 
 export function setSidebarWidth(width: number): AppSettings {
   return setSidebarLayout({ width });
+}
+
+/** 垂直标签栏的宽度/折叠状态：高频写入，不重启插件桥。 */
+export function setTabsLayout(patch: { width?: number; collapsed?: boolean }): AppSettings {
+  const settings = loadSettings();
+  const width = Number(patch.width);
+  if (Number.isFinite(width)) {
+    settings.general.verticalTabsWidth = Math.min(360, Math.max(160, Math.round(width)));
+  }
+  if (typeof patch.collapsed === 'boolean') {
+    settings.general.verticalTabsCollapsed = patch.collapsed;
+  }
+  return saveSettings(settings);
 }
 
 export function setSidebarLayout(patch: {

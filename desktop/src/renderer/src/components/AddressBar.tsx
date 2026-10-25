@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Globe, Home, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
 import type { HistoryEntry, TabInfo } from '../../../shared/types';
+import { formatMediaRate } from '../../../shared/media';
 import type { HubSection } from './BrowserHub';
 
 type SearchEngineId = 'bilibili' | 'bing' | 'google' | 'custom';
@@ -143,7 +144,6 @@ export function AddressBar({
     else if (choice === 'reader') onOpenReader();
     else if (choice === 'zoom') void window.bsub.zoomReset();
     else if (choice === 'start') onOpenStart();
-    else if (choice.startsWith('rate-')) void window.bsub.setPlaybackRate(Number(choice.slice(5)));
   };
 
   const openMenu = async () => {
@@ -161,12 +161,7 @@ export function AddressBar({
       { type: 'separator' },
       { id: 'reader', label: '阅读模式（Alt+R）' },
       { id: 'zoom', label: `重置缩放（${Math.round((tab?.zoom ?? 1) * 100)}%）` },
-      { id: 'start', label: '起始页' },
-      { type: 'separator' },
-      ...[0.5, 1, 1.25, 1.5, 2, 3].map((rate) => ({
-        id: `rate-${rate}`,
-        label: `倍速 ${rate}×`
-      }))
+      { id: 'start', label: '起始页' }
     ]);
     runMenuChoice(choice);
   };
@@ -305,6 +300,15 @@ export function AddressBar({
       )}
 
       <button
+        className="nav-btn speed-btn"
+        title={`播放速度 ${formatMediaRate(tab?.playbackRate ?? 1)}（Alt+Shift+S）`}
+        disabled={!tab}
+        onClick={() => void window.bsub.toggleMediaPanel()}
+      >
+        {formatMediaRate(tab?.playbackRate ?? 1)}
+      </button>
+
+      <button
         className={`nav-btn${bookmarked ? ' is-active' : ''}`}
         title={bookmarked ? '取消书签（Ctrl+D）' : '收藏此页（Ctrl+D）'}
         disabled={!tab}
@@ -342,18 +346,6 @@ export function AddressBar({
               重置缩放（{Math.round((tab?.zoom ?? 1) * 100)}%）
             </button>
             <button onClick={() => { setMenuOpen(false); onOpenStart(); }}>起始页</button>
-            <div className="address-menu-sep" />
-            {[0.5, 1, 1.25, 1.5, 2, 3].map((rate) => (
-              <button
-                key={rate}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void window.bsub.setPlaybackRate(rate);
-                }}
-              >
-                倍速 {rate}×
-              </button>
-            ))}
           </div>
         )}
       </div>

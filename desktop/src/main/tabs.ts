@@ -1,13 +1,20 @@
 import { app, BrowserWindow, Menu, clipboard, nativeTheme, session, WebContentsView } from 'electron';
-import type { MenuItemConstructorOptions, WebContents } from 'electron';
+import type { MenuItemConstructorOptions, WebContents, WebFrameMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { FindResult, LayoutRect, TabGroup, TabInfo } from '../shared/types';
 import { normalizeUrl } from './url';
+import { neighborAfterClose } from './tabOrder';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
-import { loadSettings } from './settings';
+import { loadSettings, saveSettings } from './settings';
+import {
+  clampMediaRate,
+  mediaSiteKey,
+  resolveMediaRate,
+  sanitizeMediaSiteRates
+} from '../shared/media';
 
 // 后台标签闲置多久后释放渲染进程。环境变量用于测试覆盖。
 const ENV_SUSPEND_MS = Number(process.env.BSUB_SUSPEND_MS) || 0;
@@ -23,12 +30,20 @@ interface TabRecord {
   suspended: boolean;
   lastActiveAt: number;
   zoom: number;
+  /** 该标签的播放倍速（每个标签独立，便于按站点记忆） */
+  rate: number;
   pinned?: boolean;
   audible?: boolean;
   muted?: boolean;
   groupId?: string;
   lastHttpUrl?: string;
   loadPromise?: Promise<void>;
+}
+
+/** 后台标签的 WebContentsView 不可见时 capturePage 取不到画面，切走前先留一张缩略图。 */
+interface TabPreviewShot {
+  dataUrl: string;
+  at: number;
 }
 
 let bridgeCache: string | null = null;
@@ -81,6 +96,10 @@ export class TabManager {
   // Ctrl+Shift+T 用：最近关掉的标签（最多 20 个）。
   private readonly closedStack: Array<{ url: string; title: string }> = [];
   private readonly groups = new Map<string, TabGroup>();
+  private readonly previewShots = new Map<string, TabPreviewShot>();
+  /** 倍速落盘节流：拖动滑块/长按快捷键时只保留最后一次。 */
+  private pendingRateSave: { site: string; rate: number } | null = null;
+  private rateSaveTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly win: BrowserWindow,
@@ -145,7 +164,8 @@ export class TabManager {
       audible: false,
       muted: false,
       lastActiveAt: Date.now(),
-      zoom: 1
+      zoom: 1,
+      rate: resolveMediaRate(loadSettings().general, url)
     };
     this.tabs.set(id, record);
 
@@ -244,11 +264,15 @@ export class TabManager {
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: MEDIA_CONTROL_SCRIPT
       });
+      // 页内倍速面板 / 快捷键通过 binding 把动作送回主进程。
+      await wc.debugger.sendCommand('Runtime.enable');
+      await wc.debugger.sendCommand('Runtime.addBinding', {
+        name: '__bsubMediaAction'
+      });
       if (loadSettings().general.selectionToolbar !== false) {
         await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
           source: SELECTION_TOOLBAR_SCRIPT
         });
-        await wc.debugger.sendCommand('Runtime.enable');
         await wc.debugger.sendCommand('Runtime.addBinding', {
           name: '__bsubSelectionAction'
         });
@@ -283,6 +307,18 @@ export class TabManager {
     const wc = view.webContents;
     const touch = () => this.emit();
     const ownerWindow = () => BrowserWindow.fromWebContents(wc);
+
+    wc.debugger.on('message', (_event, method, params) => {
+      if (method !== 'Runtime.bindingCalled' || params?.name !== '__bsubMediaAction') return;
+      this.handleMediaAction(record, String(params?.payload || ''));
+    });
+
+    wc.on('dom-ready', () => {
+      void this.pushMediaState(record);
+    });
+    wc.on('did-frame-finish-load', () => {
+      void this.pushMediaState(record);
+    });
 
     wc.on('enter-html-full-screen', () => {
       const win = ownerWindow();
@@ -384,6 +420,9 @@ export class TabManager {
       if (/^https?:/i.test(url)) {
         this.onVisited?.({ url, title: record.title, favicon: record.favicon });
       }
+      // 新页面沿用站点记忆 / 默认倍速；真正的下发在 dom-ready 之后。
+      record.rate = this.resolveRateFor(url);
+      this.previewShots.delete(record.id);
       touch();
     });
     wc.on('did-navigate-in-page', (_event, url) => {
@@ -401,6 +440,13 @@ export class TabManager {
     });
     wc.on('did-stop-loading', () => {
       record.loading = false;
+      void this.pushMediaState(record);
+      if (this.activeId === record.id) {
+        const timer = setTimeout(() => {
+          void this.capturePreview(record);
+        }, 350);
+        timer.unref?.();
+      }
       touch();
     });
     wc.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
@@ -498,6 +544,12 @@ export class TabManager {
   }
 
   private setActive(id: string): void {
+    const previousId = this.activeId;
+    if (previousId && previousId !== id) {
+      // 必须赶在 setVisible(false) 之前抓，否则后台视图取不到画面。
+      const previous = this.tabs.get(previousId);
+      if (previous?.view) void this.capturePreview(previous);
+    }
     this.activeId = id;
     const active = this.tabs.get(id);
     if (active) active.lastActiveAt = Date.now();
@@ -511,6 +563,12 @@ export class TabManager {
       }
     }
     if (active && active.view) active.view.setBounds(this.bounds);
+    if (active?.view && !active.suspended) {
+      const timer = setTimeout(() => {
+        void this.capturePreview(active);
+      }, 500);
+      timer.unref?.();
+    }
     this.emit();
   }
 
@@ -543,9 +601,10 @@ export class TabManager {
     return { id, reused: false, ready: true };
   }
 
-  close(id: string): void {
+  close(id: string, nextId?: string): void {
     const record = this.tabs.get(id);
     if (!record) return;
+    const order = [...this.tabs.keys()];
 
     const closeUrl = /^https?:/i.test(record.url) ? record.url : record.lastHttpUrl || '';
     if (closeUrl) {
@@ -554,6 +613,7 @@ export class TabManager {
     }
 
     this.tabs.delete(id);
+    this.previewShots.delete(id);
     if (record.groupId) {
       const group = this.groups.get(record.groupId);
       if (group && ![...this.tabs.values()].some((item) => item.groupId === group.id)) {
@@ -563,7 +623,10 @@ export class TabManager {
     this.releaseView(record);
 
     if (this.activeId === id) {
-      const next = [...this.tabs.keys()].pop() ?? null;
+      // 渲染层知道固定/分组后的真实显示顺序，优先采用它给的邻居。
+      const preferred =
+        nextId && nextId !== id && this.tabs.has(nextId) ? nextId : null;
+      const next = preferred ?? neighborAfterClose(order, id);
       this.activeId = next;
       if (next) {
         const nextRecord = this.tabs.get(next);
@@ -900,25 +963,181 @@ export class TabManager {
   // 拖拽侧栏时暂时隐藏页面，避免鼠标进入 WebContentsView 后
   // 渲染层收不到 mousemove / mouseup。
   private activeViewVisible = true;
-  private playbackRate = 1;
 
-  /** 对当前页面应用播放倍速（页面里由注入脚本执行）。 */
+  /** 对当前标签应用播放倍速（页面里由注入脚本执行）。 */
   async setPlaybackRate(rate: number): Promise<number> {
-    const clamped = Math.min(4, Math.max(0.25, Number(rate) || 1));
-    this.playbackRate = clamped;
-    const wc = this.activeRecord()?.view?.webContents;
-    if (wc) {
-      try {
-        await wc.executeJavaScript(`window.__shiziSetRate && window.__shiziSetRate(${clamped})`);
-      } catch {
-        // 页面还没加载好时忽略，加载完成后再应用
-      }
-    }
+    const record = this.activeRecord();
+    const clamped = clampMediaRate(rate);
+    if (!record) return clamped;
+    record.rate = clamped;
+    await this.pushMediaState(record);
+    this.queueRateSave(record, clamped);
+    this.emit();
     return clamped;
   }
 
   getPlaybackRate(): number {
-    return this.playbackRate;
+    return this.activeRecord()?.rate ?? 1;
+  }
+
+  /** 工具栏倍速按钮：打开/收起网页里的速度面板。 */
+  async toggleMediaPanel(): Promise<void> {
+    const record = this.activeRecord();
+    const wc = record?.view?.webContents;
+    if (!record || !wc) return;
+    // 先把当前状态同步进去，避免面板显示旧值。
+    await this.pushMediaState(record);
+    try {
+      await wc.executeJavaScript(
+        'window.__shiziMedia && window.__shiziMedia.togglePanel()'
+      );
+    } catch {
+      // 页面还没加载好时忽略。
+    }
+  }
+
+  /** 设置页保存后调用：重新解析每个标签的倍速并下发。 */
+  refreshMediaState(): void {
+    this.flushRateSave();
+    const general = loadSettings().general;
+    for (const record of this.tabs.values()) {
+      record.rate = resolveMediaRate(general, record.url);
+      void this.pushMediaState(record);
+    }
+    this.emit();
+  }
+
+  /** 页内面板 / 快捷键通过 CDP binding 回传的动作。 */
+  private handleMediaAction(record: TabRecord, raw: string): void {
+    let data: { action?: string; rate?: number; value?: boolean; commit?: boolean };
+    try {
+      data = JSON.parse(raw || '{}');
+    } catch {
+      return;
+    }
+    if (data.action === 'rate') {
+      const next = clampMediaRate(data.rate);
+      record.rate = next;
+      void this.pushMediaState(record);
+      if (data.commit !== false) this.queueRateSave(record, next);
+      this.emit();
+      return;
+    }
+    if (data.action === 'pitch' || data.action === 'remember') {
+      const settings = loadSettings();
+      if (data.action === 'pitch') {
+        settings.general.mediaPreservePitch = data.value !== false;
+      } else {
+        settings.general.mediaRememberSite = data.value !== false;
+      }
+      saveSettings(settings);
+      this.pushMediaStateToAll();
+    }
+  }
+
+  private mediaState(record: TabRecord): {
+    rate: number;
+    pitch: boolean;
+    remember: boolean;
+    singleKey: boolean;
+    widget: boolean;
+    site: string;
+  } {
+    const general = loadSettings().general;
+    return {
+      rate: record.rate,
+      pitch: general.mediaPreservePitch !== false,
+      remember: general.mediaRememberSite !== false,
+      singleKey: general.mediaSingleKey === true,
+      widget: general.mediaWidget !== false,
+      site: mediaSiteKey(record.url)
+    };
+  }
+
+  /** 把状态下发到该标签的所有 frame（含 iframe），Set/State 保持一致。 */
+  private async pushMediaState(record: TabRecord): Promise<void> {
+    const wc = record.view?.webContents;
+    if (!wc || wc.isDestroyed()) return;
+    const code =
+      'window.__shiziMedia && window.__shiziMedia.setState(' +
+      JSON.stringify(this.mediaState(record)) +
+      ')';
+    const frames: WebFrameMain[] = [];
+    const seen = new Set<WebFrameMain>();
+    const add = (frame: WebFrameMain | null | undefined) => {
+      if (!frame || seen.has(frame)) return;
+      seen.add(frame);
+      frames.push(frame);
+    };
+    try {
+      add(wc.mainFrame);
+      for (const frame of wc.mainFrame.framesInSubtree) add(frame);
+    } catch {
+      // ignore
+    }
+    if (!frames.length) {
+      try {
+        await wc.executeJavaScript(code);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    await Promise.allSettled(
+      frames.map((frame) => {
+        try {
+          return frame.executeJavaScript(code);
+        } catch (error) {
+          return Promise.reject(error);
+        }
+      })
+    );
+  }
+
+  private pushMediaStateToAll(): void {
+    for (const record of this.tabs.values()) void this.pushMediaState(record);
+  }
+
+  /** 导航时优先采用尚未落盘的倍速（用户改完立刻刷新也不回退）。 */
+  private resolveRateFor(url: string): number {
+    const pending = this.pendingRateSave;
+    const general = loadSettings().general;
+    const site = mediaSiteKey(url);
+    if (pending) {
+      if (pending.site && pending.site === site) return pending.rate;
+      if (!pending.site && !site) return pending.rate;
+      if (general.mediaRememberSite === false) return pending.rate;
+    }
+    return resolveMediaRate(general, url);
+  }
+
+  /** 倍速写入设置：按站点记忆或更新全局默认值。 */
+  private queueRateSave(record: TabRecord, rate: number): void {
+    this.pendingRateSave = { site: mediaSiteKey(record.url), rate };
+    if (this.rateSaveTimer) return;
+    this.rateSaveTimer = setTimeout(() => this.flushRateSave(), 350);
+    this.rateSaveTimer.unref?.();
+  }
+
+  private flushRateSave(): void {
+    if (this.rateSaveTimer) {
+      clearTimeout(this.rateSaveTimer);
+      this.rateSaveTimer = null;
+    }
+    const pending = this.pendingRateSave;
+    this.pendingRateSave = null;
+    if (!pending) return;
+    const settings = loadSettings();
+    if (pending.site && settings.general.mediaRememberSite !== false) {
+      settings.general.mediaSiteRates = sanitizeMediaSiteRates({
+        ...settings.general.mediaSiteRates,
+        [pending.site]: pending.rate
+      });
+    } else {
+      // 非 http(s) 页面（起始页/about:blank）没有站点可记，直接当默认倍速。
+      settings.general.mediaRate = pending.rate;
+    }
+    saveSettings(settings);
   }
 
   setActiveViewVisible(visible: boolean): void {
@@ -950,6 +1169,42 @@ export class TabManager {
     }
   }
 
+  /** 标签悬停预览：优先实时抓当前标签，后台标签用切走前缓存的缩略图。 */
+  async previewOf(id: string): Promise<{ dataUrl: string; title: string; url: string } | null> {
+    const record = this.tabs.get(id);
+    if (!record) return null;
+    if (id === this.activeId && record.view && !record.suspended) {
+      await this.capturePreview(record);
+    }
+    const shot = this.previewShots.get(id);
+    if (!shot) return null;
+    return { dataUrl: shot.dataUrl, title: record.title || '新标签页', url: record.url };
+  }
+
+  private async capturePreview(record: TabRecord): Promise<void> {
+    const wc = record.view?.webContents;
+    if (!wc || wc.isDestroyed()) return;
+    try {
+      const image = await wc.capturePage();
+      if (image.isEmpty()) return;
+      const resized = image.resize({ width: 360 });
+      const encoded = resized.toJPEG(78).toString('base64');
+      this.previewShots.delete(record.id);
+      this.previewShots.set(record.id, {
+        dataUrl: `data:image/jpeg;base64,${encoded}`,
+        at: Date.now()
+      });
+      // 只保留最近活跃的一批，避免长期占用内存。
+      while (this.previewShots.size > 40) {
+        const oldest = this.previewShots.keys().next().value;
+        if (!oldest) break;
+        this.previewShots.delete(oldest);
+      }
+    } catch {
+      // 页面还没画出第一帧时忽略。
+    }
+  }
+
   list(): TabInfo[] {
     return [...this.tabs.values()]
       .sort((a, b) => Number(b.pinned === true) - Number(a.pinned === true))
@@ -976,6 +1231,7 @@ export class TabManager {
         favicon: record.favicon,
         suspended: record.suspended,
         zoom: record.zoom || 1,
+        playbackRate: record.rate,
         pinned: record.pinned === true,
         groupId: record.groupId,
         audible: (() => {
@@ -993,6 +1249,7 @@ export class TabManager {
   }
 
   dispose(): void {
+    this.flushRateSave();
     if (this.suspendTimer) clearInterval(this.suspendTimer);
     this.suspendTimer = null;
     if (this.audioTimer) clearInterval(this.audioTimer);
@@ -1001,6 +1258,7 @@ export class TabManager {
       this.releaseView(record);
     }
     this.tabs.clear();
+    this.previewShots.clear();
     this.activeId = null;
   }
 

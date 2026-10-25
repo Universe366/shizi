@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { TabInfo } from '../../../shared/types';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { TabGroup, TabInfo } from '../../../shared/types';
 import { TabStrip } from './TabStrip';
 
 const tabs: TabInfo[] = [
@@ -54,7 +54,15 @@ function installBsub() {
     listClosedTabs: vi.fn(async () => [
       { url: 'https://example.com/a', title: '刚关掉的页面' }
     ]),
-    reopenClosedAt: vi.fn(async () => 'new-id')
+    reopenClosedAt: vi.fn(async () => 'new-id'),
+    getTabGroups: vi.fn(async () => [] as TabGroup[]),
+    onTabGroups: vi.fn(() => () => undefined),
+    toggleTabGroupCollapsed: vi.fn(async () => undefined),
+    tabPreview: vi.fn(async (_id: string) => ({
+      dataUrl: 'data:image/png;base64,AAAA',
+      title: '预览',
+      url: 'https://example.com'
+    }))
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -78,7 +86,8 @@ describe('TabStrip', () => {
 
     const closeButtons = screen.getAllByTitle('关闭标签页');
     fireEvent.click(closeButtons[1]);
-    expect(api.closeTab).toHaveBeenCalledWith('t2');
+    // 关闭时带上视觉上的右邻居，主进程不会跳到固定区/分组里的标签。
+    expect(api.closeTab).toHaveBeenCalledWith('t2', 't3');
     expect(api.activateTab).toHaveBeenCalledTimes(1);
   });
 
@@ -86,7 +95,7 @@ describe('TabStrip', () => {
     const api = installBsub();
     render(<TabStrip tabs={tabs} />);
     fireEvent(screen.getByText('B 站首页'), new MouseEvent('auxclick', { bubbles: true, button: 1 }));
-    expect(api.closeTab).toHaveBeenCalledWith('t1');
+    expect(api.closeTab).toHaveBeenCalledWith('t1', 't2');
   });
 
   it('右键菜单可关闭其他与复制链接', () => {
@@ -200,5 +209,115 @@ describe('TabStrip 增强', () => {
     const item = await screen.findByTitle('https://example.com/a');
     fireEvent.click(item);
     expect(api.reopenClosedAt).toHaveBeenCalledWith(0);
+  });
+});
+
+describe('TabStrip 垂直栏回归', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installBsub();
+  });
+  afterEach(cleanup);
+
+  it('分组数据未到时，带 groupId 的标签仍然显示', async () => {
+    const grouped = [{ ...tabs[0], groupId: 'g1' }, tabs[1]];
+    render(<TabStrip tabs={grouped} vertical />);
+    expect(screen.getByText('B 站首页')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('新标签页')).toBeTruthy());
+  });
+
+  it('搜索时自动展开折叠分组，清空搜索后恢复', async () => {
+    const api = installBsub();
+    const group = { id: 'g1', name: '研究', color: 'purple', collapsed: true } as TabGroup;
+    api.getTabGroups.mockResolvedValue([group]);
+    render(<TabStrip tabs={[{ ...tabs[0], groupId: 'g1' }, tabs[2]]} vertical />);
+    await waitFor(() => expect(screen.getByText('研究')).toBeTruthy());
+    expect(screen.queryByText('B 站首页')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('搜索标签'));
+    fireEvent.change(screen.getByPlaceholderText('搜索标签…'), { target: { value: 'B 站' } });
+    expect(screen.getByText('B 站首页')).toBeTruthy();
+  });
+
+  it('键盘按视觉顺序走：分组标签排在普通标签之后', async () => {
+    const api = installBsub();
+    api.getTabGroups.mockResolvedValue([
+      { id: 'g1', name: '研究', color: 'blue', collapsed: false } as TabGroup
+    ]);
+    const grouped = [{ ...tabs[0] }, { ...tabs[1], groupId: 'g1' }, { ...tabs[2] }];
+    const { container } = render(<TabStrip tabs={grouped} vertical />);
+    await waitFor(() => expect(screen.getByText('研究')).toBeTruthy());
+
+    fireEvent.keyDown(container.querySelector('.tab-strip-list') as HTMLElement, {
+      key: 'ArrowDown'
+    });
+    // 视觉顺序是 B 站首页 → 第三个 →（分组）新标签页，不是后端数组顺序。
+    expect(api.activateTab).toHaveBeenCalledWith('t3');
+  });
+
+  it('关闭标签时把视觉上的下一个标签传给主进程', async () => {
+    const api = installBsub();
+    api.getTabGroups.mockResolvedValue([
+      { id: 'g1', name: '研究', color: 'blue', collapsed: false } as TabGroup
+    ]);
+    const grouped = [{ ...tabs[0] }, { ...tabs[1], groupId: 'g1' }, { ...tabs[2] }];
+    render(<TabStrip tabs={grouped} vertical />);
+    await waitFor(() => expect(screen.getByText('研究')).toBeTruthy());
+
+    const third = screen.getByText('第三个').closest('.tab') as HTMLElement;
+    fireEvent.click(third.querySelector('.tab-close') as HTMLElement);
+    expect(api.closeTab).toHaveBeenCalledWith('t3', 't2');
+  });
+
+  it('折叠栏悬停 140ms 后展开，移出收起', async () => {
+    localStorage.setItem('tabs.collapsed', '1');
+    const onPeekChange = vi.fn();
+    const { container } = render(
+      <TabStrip tabs={tabs} vertical onPeekChange={onPeekChange} />
+    );
+    const strip = container.querySelector('.tab-strip') as HTMLElement;
+    expect(strip.classList.contains('is-peeking')).toBe(false);
+
+    fireEvent.mouseEnter(strip);
+    await new Promise((resolve) => setTimeout(resolve, 240));
+    expect(strip.classList.contains('is-peeking')).toBe(true);
+    expect(onPeekChange).toHaveBeenCalledWith(true, expect.any(Number));
+
+    fireEvent.mouseLeave(strip);
+    expect(strip.classList.contains('is-peeking')).toBe(false);
+  });
+
+  it('悬停显示预览，快速移出不会残留预览', async () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    const first = screen.getByText('B 站首页').closest('.tab') as HTMLElement;
+
+    fireEvent.mouseEnter(first);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(document.querySelector('.tab-preview')).toBeTruthy();
+    expect(api.tabPreview).toHaveBeenCalledWith('t1');
+
+    fireEvent.mouseLeave(first);
+    expect(document.querySelector('.tab-preview')).toBeNull();
+
+    // 450ms 的预览定时器在鼠标移出时必须被取消。
+    fireEvent.mouseEnter(first);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    fireEvent.mouseLeave(first);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(document.querySelector('.tab-preview')).toBeNull();
+  });
+
+  it('关闭搜索会清掉过滤条件', () => {
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('搜索标签'));
+    fireEvent.change(screen.getByPlaceholderText('搜索标签…'), {
+      target: { value: '第三个' }
+    });
+    expect(screen.queryByText('B 站首页')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('搜索标签'));
+    expect(screen.getByText('B 站首页')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('搜索标签…')).toBeNull();
   });
 });

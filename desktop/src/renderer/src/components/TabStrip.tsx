@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -6,6 +6,8 @@ import {
   Loader2,
   Moon,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Volume2,
@@ -74,6 +76,7 @@ export function TabStrip({
   const [groups, setGroups] = useState<TabGroup[]>([]);
   const [peekOpen, setPeekOpen] = useState(false);
   const [groupMenu, setGroupMenu] = useState<{ x: number; y: number; group: TabGroup } | null>(null);
+  const pendingPane = useRef<{ width?: number; collapsed?: boolean }>({});
   const [groupDialog, setGroupDialog] = useState<{
     mode: 'create' | 'rename';
     id?: string;
@@ -89,10 +92,30 @@ export function TabStrip({
     top: number;
   } | null>(null);
   const previewTimer = useRef<number | null>(null);
+  const previewSeq = useRef(0);
+  const peekTimer = useRef<number | null>(null);
+  const peekSuppressed = useRef(false);
+  const lastPeekReport = useRef<{ open: boolean; width: number }>({ open: false, width: 0 });
+  const lastActiveId = useRef<string | null>(null);
+  const groupMenuRef = useRef<HTMLDivElement>(null);
+  /** 原生 mouse 事件走 ref，避免折叠过程中 React 的 enter/leave 状态过期。 */
+  const peekApi = useRef<{ open: () => void; close: () => void }>({
+    open: () => undefined,
+    close: () => undefined
+  });
   const previewCache = useRef<Map<string, { at: number; dataUrl: string; title: string; url: string }>>(
     new Map()
   );
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const clearPreview = () => {
+    previewSeq.current += 1;
+    if (previewTimer.current) {
+      window.clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    setPreview(null);
+  };
 
   const query = filter.trim().toLowerCase();
   const matches = (tab: TabInfo) => {
@@ -106,24 +129,123 @@ export function TabStrip({
     return `${tab.title} ${tab.url} ${host}`.toLowerCase().includes(query);
   };
   const visibleTabs = tabs.filter(matches);
-  const expanded = !collapsed || peekOpen;
-
-  useEffect(() => {
-    onPeekChange?.(collapsed && peekOpen, width);
-    return () => onPeekChange?.(false, width);
-  }, [collapsed, peekOpen, width, onPeekChange]);
+  // 横向模式下总是展开；折叠状态只对垂直标签栏生效。
+  const expanded = !vertical || !collapsed || peekOpen;
+  const knownGroupIds = new Set(groups.map((group) => group.id));
   const pinnedTabs = visibleTabs.filter((tab) => tab.pinned);
   const normalTabs = visibleTabs.filter((tab) => !tab.pinned);
-  const ungroupedTabs = normalTabs.filter((tab) => !tab.groupId);
+  // 分组数据还没到时，先把带 groupId 的标签当普通标签显示，避免闪一下消失。
+  const ungroupedTabs = normalTabs.filter(
+    (tab) => !tab.groupId || !knownGroupIds.has(tab.groupId)
+  );
+  // 键盘导航 / “关闭右侧”按界面上真正的显示顺序走：固定区 → 普通区 → 各分组。
+  const visualTabs: TabInfo[] = [...pinnedTabs, ...ungroupedTabs];
+  const groupTabs = new Map<string, TabInfo[]>();
+  for (const group of groups) {
+    const items = normalTabs.filter((tab) => tab.groupId === group.id);
+    groupTabs.set(group.id, items);
+    if (!group.collapsed || Boolean(query)) visualTabs.push(...items);
+  }
+
+  useLayoutEffect(() => {
+    // 只上报“展开/收起/展开宽度”的变化；拖宽度时不要每帧都让 App 重渲染。
+    // 用 layout effect：在浏览器绘制前就让地址栏/网页一起让位，避免一帧错位。
+    const open = Boolean(vertical && collapsed && peekOpen);
+    const last = lastPeekReport.current;
+    if (open === last.open && (!open || width === last.width)) return;
+    lastPeekReport.current = { open, width };
+    onPeekChange?.(open, width);
+  }, [vertical, collapsed, peekOpen, width, onPeekChange]);
+
+  const widthRef = useRef(width);
+  useEffect(() => {
+    widthRef.current = width;
+  }, [width]);
+
+  useLayoutEffect(() => {
+    return () => {
+      if (lastPeekReport.current.open) onPeekChange?.(false, widthRef.current);
+    };
+  }, [onPeekChange]);
+
+  // 折叠 / 横向模式下收起预览和搜索，避免隐藏状态残留。
+  useEffect(() => {
+    if (!expanded) {
+      clearPreview();
+      setSearchOpen(false);
+      setFilter('');
+      setActionsOpen(false);
+    }
+    if (!vertical) {
+      setPeekOpen(false);
+    }
+    if (!collapsed) {
+      // 展开后清掉悬停态；否则下次点折叠会直接以“悬停展开”的样子弹出。
+      setPeekOpen(false);
+      peekSuppressed.current = false;
+    }
+  }, [expanded, vertical, collapsed]);
+
+  // 只在“当前标签变了”时滚动，页面标题/声音更新不再把列表拽回去。
+  useEffect(() => {
+    const activeId = tabs.find((tab) => tab.active)?.id ?? null;
+    if (!activeId || activeId === lastActiveId.current) return;
+    lastActiveId.current = activeId;
+    listRef.current?.querySelector('.tab.is-active')?.scrollIntoView?.({ block: 'nearest' });
+  }, [tabs]);
+
+  // 标签被外部关掉后，清掉已经不存在的多选项 / 预览缓存。
+  useEffect(() => {
+    const ids = new Set(tabs.map((tab) => tab.id));
+    setSelected((current) => {
+      const next = current.filter((id) => ids.has(id));
+      return next.length === current.length ? current : next;
+    });
+    setAnchorId((current) => (current && ids.has(current) ? current : null));
+    for (const key of previewCache.current.keys()) {
+      if (!ids.has(key)) previewCache.current.delete(key);
+    }
+    while (previewCache.current.size > 40) {
+      const oldest = previewCache.current.keys().next().value;
+      if (!oldest) break;
+      previewCache.current.delete(oldest);
+    }
+  }, [tabs]);
+
+  // 预览对应的标签被关掉 / 被搜索过滤掉时，收起预览。
+  useEffect(() => {
+    if (!preview) return;
+    if (!tabs.some((tab) => tab.id === preview.tabId)) clearPreview();
+  }, [tabs, preview]);
+
+  useEffect(() => {
+    clearPreview();
+  }, [filter]);
+
+  useLayoutEffect(() => {
+    if (!menu || !menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const x = Math.max(8, Math.min(menu.x, window.innerWidth - rect.width - 8));
+    const y = Math.max(8, Math.min(menu.y, window.innerHeight - rect.height - 8));
+    if (x !== menu.x || y !== menu.y) setMenu({ ...menu, x, y });
+  }, [menu]);
+
+  useLayoutEffect(() => {
+    if (!groupMenu || !groupMenuRef.current) return;
+    const rect = groupMenuRef.current.getBoundingClientRect();
+    const x = Math.max(8, Math.min(groupMenu.x, window.innerWidth - rect.width - 8));
+    const y = Math.max(8, Math.min(groupMenu.y, window.innerHeight - rect.height - 8));
+    if (x !== groupMenu.x || y !== groupMenu.y) setGroupMenu({ ...groupMenu, x, y });
+  }, [groupMenu]);
 
   useEffect(() => {
     localStorage.setItem('tabs.collapsed', collapsed ? '1' : '0');
-    persistPane({ verticalTabsCollapsed: collapsed });
+    persistPane({ collapsed });
   }, [collapsed]);
 
   useEffect(() => {
     localStorage.setItem('tabs.width', String(width));
-    persistPane({ verticalTabsWidth: width });
+    persistPane({ width });
   }, [width]);
 
   useEffect(() => {
@@ -161,10 +283,6 @@ export function TabStrip({
   }, [searchOpen]);
 
   useEffect(() => {
-    listRef.current?.querySelector('.tab.is-active')?.scrollIntoView?.({ block: 'nearest' });
-  }, [tabs]);
-
-  useEffect(() => {
     if (!actionsOpen) return;
     void (async () => {
       const listClosedTabs = window.bsub?.listClosedTabs;
@@ -191,8 +309,15 @@ export function TabStrip({
   useEffect(() => {
     if (!groupMenu) return;
     const close = () => setGroupMenu(null);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGroupMenu(null);
+    };
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [groupMenu]);
 
   useEffect(() => {
@@ -211,29 +336,34 @@ export function TabStrip({
     };
   }, [menu]);
 
-  const persistPane = (patch: Record<string, unknown>) => {
+  const persistPane = (patch: { width?: number; collapsed?: boolean }) => {
+    pendingPane.current = { ...pendingPane.current, ...patch };
     if (persistTimer.current) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
-      void (async () => {
-        const getSettings = window.bsub?.getSettings;
-        const saveSettings = window.bsub?.saveSettings;
-        if (typeof getSettings !== 'function' || typeof saveSettings !== 'function') return;
-        const snapshot = await getSettings();
-        if (!snapshot.ok) return;
-        const settings = snapshot.data.settings;
-        Object.assign(settings.general, patch);
-        await saveSettings(settings);
-      })();
+      persistTimer.current = null;
+      const pending = pendingPane.current;
+      pendingPane.current = {};
+      // 专用通道：拖宽度/折叠时不重启插件桥，也不覆盖设置页的其他改动。
+      void window.bsub?.setTabsLayout?.(pending);
     }, 350);
   };
 
-  const activate = (id: string) => {
+  const activate = (id: string, fromClick = false) => {
     setSelected([]);
     setAnchorId(id);
+    clearPreview();
     void window.bsub.activateTab(id);
+    // 点击折叠态里的标签后收起飞出层，避免它一直悬在网页上。
+    if (fromClick && vertical && collapsed) {
+      peekSuppressed.current = true;
+      setPeekOpen(false);
+    }
+    // 让方向键/Delete 在点过标签后立即可用；鼠标聚焦不会出现 focus 轮廓。
+    listRef.current?.focus({ preventScroll: true });
   };
 
   const clickTab = (event: React.MouseEvent, tab: TabInfo) => {
+    listRef.current?.focus({ preventScroll: true });
     if (event.ctrlKey || event.metaKey) {
       setSelected((current) =>
         current.includes(tab.id) ? current.filter((id) => id !== tab.id) : [...current, tab.id]
@@ -242,15 +372,28 @@ export function TabStrip({
       return;
     }
     if (event.shiftKey && anchorId) {
-      const from = tabs.findIndex((item) => item.id === anchorId);
-      const to = tabs.findIndex((item) => item.id === tab.id);
+      const from = visualTabs.findIndex((item) => item.id === anchorId);
+      const to = visualTabs.findIndex((item) => item.id === tab.id);
       if (from >= 0 && to >= 0) {
         const [start, end] = from < to ? [from, to] : [to, from];
-        setSelected(tabs.slice(start, end + 1).map((item) => item.id));
+        setSelected(visualTabs.slice(start, end + 1).map((item) => item.id));
         return;
       }
     }
-    activate(tab.id);
+    activate(tab.id, true);
+  };
+
+  const visualNeighbor = (id: string): string | undefined => {
+    const index = visualTabs.findIndex((tab) => tab.id === id);
+    if (index < 0) return undefined;
+    return visualTabs[index + 1]?.id ?? visualTabs[index - 1]?.id;
+  };
+
+  /** 关闭单个标签时把“视觉上的下一个”告诉主进程，避免跳到固定区/分组里的标签。 */
+  const closeOne = (id: string) => {
+    const next = visualNeighbor(id);
+    if (next) void window.bsub.closeTab(id, next);
+    else void window.bsub.closeTab(id);
   };
 
   const closeTabs = (ids: string[]) => {
@@ -269,8 +412,9 @@ export function TabStrip({
   };
 
   const closeToRight = (id: string) => {
-    const index = tabs.findIndex((tab) => tab.id === id);
-    for (const tab of tabs.slice(index + 1)) void window.bsub.closeTab(tab.id);
+    const index = visualTabs.findIndex((tab) => tab.id === id);
+    if (index < 0) return;
+    for (const tab of visualTabs.slice(index + 1)) void window.bsub.closeTab(tab.id);
   };
 
   const dropIndex = (fromId: string, targetId: string, after: boolean): number => {
@@ -285,6 +429,7 @@ export function TabStrip({
     const rect = event.currentTarget.getBoundingClientRect();
     const after = rect.height === 0 ? true : event.clientY > rect.top + rect.height / 2;
     setDropTarget({ id: tab.id, after });
+    clearPreview();
     const list = listRef.current;
     if (list) {
       const box = list.getBoundingClientRect();
@@ -308,49 +453,56 @@ export function TabStrip({
   };
 
   const onListKeyDown = (event: React.KeyboardEvent) => {
-    const activeIndex = tabs.findIndex((tab) => tab.active);
+    const activeIndex = visualTabs.findIndex((tab) => tab.active);
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
+      if (!visualTabs.length) return;
       const delta = event.key === 'ArrowDown' ? 1 : -1;
-      const next = (activeIndex + delta + tabs.length) % tabs.length;
-      if (tabs[next]) activate(tabs[next].id);
+      const next = (activeIndex + delta + visualTabs.length) % visualTabs.length;
+      activate(visualTabs[next].id);
     } else if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
-      const target = event.key === 'Home' ? tabs[0] : tabs[tabs.length - 1];
+      const target = event.key === 'Home' ? visualTabs[0] : visualTabs[visualTabs.length - 1];
       if (target) activate(target.id);
     } else if (event.key === 'Delete') {
       event.preventDefault();
-      const ids = selected.length ? selected : activeIndex >= 0 ? [tabs[activeIndex].id] : [];
+      const ids = selected.length
+        ? selected
+        : activeIndex >= 0
+          ? [visualTabs[activeIndex].id]
+          : [];
       closeTabs(ids);
     } else if (event.key === 'Escape') {
       setSelected([]);
+      clearPreview();
     }
   };
 
   const batchIds = (tab: TabInfo) => (selected.includes(tab.id) ? selected : [tab.id]);
 
-  const hidePreview = () => {
-    if (previewTimer.current) window.clearTimeout(previewTimer.current);
-    previewTimer.current = null;
-    setPreview(null);
-  };
-
   const showPreview = (tab: TabInfo, element: HTMLElement) => {
     if (!vertical || !expanded || draggingId) return;
-    if (previewTimer.current) window.clearTimeout(previewTimer.current);
+    clearPreview();
+    const seq = previewSeq.current;
     previewTimer.current = window.setTimeout(() => {
       void (async () => {
+        if (seq !== previewSeq.current || !element.isConnected) return;
         const cached = previewCache.current.get(tab.id);
-        let data = cached && Date.now() - cached.at < 15000 ? cached : null;
+        let data =
+          cached && Date.now() - cached.at < 15000 && cached.url === tab.url ? cached : null;
         if (!data) {
           const result = await window.bsub.tabPreview?.(tab.id);
-          if (!result) return;
+          if (seq !== previewSeq.current || !element.isConnected || !result) return;
           data = { at: Date.now(), ...result };
           previewCache.current.set(tab.id, data);
         }
         const strip = stripRef.current?.getBoundingClientRect();
         const box = element.getBoundingClientRect();
-        const top = strip ? Math.max(6, box.top - strip.top) : 6;
+        if (!strip) return;
+        const previewHeight = Math.max(120, (strip.width - 16) * (10 / 16) + 52);
+        let top = box.top - strip.top - previewHeight - 6;
+        if (top < 6) top = box.bottom - strip.top + 6;
+        top = Math.max(6, Math.min(top, strip.height - previewHeight - 8));
         setPreview({
           tabId: tab.id,
           title: data.title || tab.title,
@@ -393,9 +545,10 @@ export function TabStrip({
           drop ? (dropTarget.after ? ' is-drop-after' : ' is-drop-before') : ''
         }`}
         title={`${tab.title || '新标签页'}${tab.suspended ? '（已休眠，点击恢复）' : ''}`}
-        draggable={!collapsed || peekOpen}
+        draggable={vertical ? !collapsed || peekOpen : true}
         onDragStart={(event) => {
           setDraggingId(tab.id);
+          clearPreview();
           event.dataTransfer?.setData('text/plain', tab.id);
         }}
         onDragEnd={() => {
@@ -405,19 +558,21 @@ export function TabStrip({
         onDragOver={(event) => onDragOverTab(event, tab)}
         onDrop={(event) => {
           event.preventDefault();
+          event.stopPropagation();
           finishDrop(tab);
         }}
         onMouseEnter={(event) => showPreview(tab, event.currentTarget)}
-        onMouseLeave={hidePreview}
+        onMouseLeave={clearPreview}
         onAuxClick={(event) => {
           if (event.button === 1) {
             event.preventDefault();
-            void window.bsub.closeTab(tab.id);
+            closeOne(tab.id);
           }
         }}
         onClick={(event) => clickTab(event, tab)}
         onContextMenu={(event) => {
           event.preventDefault();
+          clearPreview();
           setMenu({ x: event.clientX, y: event.clientY, tab });
         }}
       >
@@ -435,6 +590,9 @@ export function TabStrip({
               onError={(event) => {
                 event.currentTarget.style.visibility = 'hidden';
               }}
+              onLoad={(event) => {
+                event.currentTarget.style.visibility = 'visible';
+              }}
             />
           ) : (
             <Globe size={13} />
@@ -445,6 +603,7 @@ export function TabStrip({
             ★
           </span>
         )}
+        {tab.muted && <span className="tab-muted-dot" aria-hidden="true" />}
         {expanded && <span className="tab-title">{tab.title || '新标签页'}</span>}
         {(tab.audible || tab.muted) && (
           <button
@@ -464,7 +623,7 @@ export function TabStrip({
           title="关闭标签页"
           onClick={(event) => {
             event.stopPropagation();
-            void window.bsub.closeTab(tab.id);
+            closeOne(tab.id);
           }}
         >
           <X size={13} />
@@ -473,33 +632,89 @@ export function TabStrip({
     );
   };
 
+  const toggleSearch = () => {
+    if (searchOpen) {
+      setSearchOpen(false);
+      setFilter('');
+    } else {
+      setSearchOpen(true);
+    }
+  };
+
+  const openPeekSoon = () => {
+    if (!vertical || !collapsed || peekOpen || peekSuppressed.current || peekTimer.current) return;
+    // 悬停意图：停留 ~140ms 才展开，避免鼠标路过左侧时整页跟着跳。
+    peekTimer.current = window.setTimeout(() => {
+      peekTimer.current = null;
+      setPeekOpen(true);
+    }, 140);
+  };
+
+  const closePeek = () => {
+    peekSuppressed.current = false;
+    if (peekTimer.current) {
+      window.clearTimeout(peekTimer.current);
+      peekTimer.current = null;
+    }
+    setPeekOpen(false);
+    clearPreview();
+  };
+
+  useEffect(() => {
+    peekApi.current = { open: openPeekSoon, close: closePeek };
+  });
+
+  useEffect(() => {
+    return () => {
+      if (peekTimer.current) window.clearTimeout(peekTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const onMove = () => peekApi.current.open();
+    const onLeave = () => peekApi.current.close();
+    strip.addEventListener('mousemove', onMove, { passive: true });
+    strip.addEventListener('mouseleave', onLeave);
+    return () => {
+      strip.removeEventListener('mousemove', onMove);
+      strip.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+
   return (
     <div
       ref={stripRef}
       className={`tab-strip${vertical ? ' is-vertical' : ''}${
-        collapsed ? ' is-collapsed' : ''
-      }${collapsed && peekOpen ? ' is-peeking' : ''}`}
+        vertical && collapsed ? ' is-collapsed' : ''
+      }${vertical && collapsed && peekOpen ? ' is-peeking' : ''}${
+        vertical && width < 190 ? ' is-narrow' : ''
+      }`}
       style={vertical ? { width: collapsed && !peekOpen ? 52 : width } : undefined}
       onMouseEnter={() => {
-        if (collapsed) setPeekOpen(true);
+        if (vertical && collapsed) openPeekSoon();
       }}
-      onMouseLeave={() => {
-        setPeekOpen(false);
-        setPreview(null);
+      onMouseMove={() => {
+        if (vertical && collapsed) openPeekSoon();
       }}
+      onMouseLeave={closePeek}
     >
       {vertical && (
         <div
           className="tab-vertical-head"
-          onDoubleClick={() => setCollapsed((value) => !value)}
+          onDoubleClick={(event) => {
+            if (event.target === event.currentTarget) setCollapsed((value) => !value);
+          }}
           title="双击折叠/展开"
         >
           <button
             className="tab-collapse"
             title={collapsed ? '展开标签栏' : '折叠标签栏'}
+            aria-label={collapsed ? '展开标签栏' : '折叠标签栏'}
             onClick={() => setCollapsed((value) => !value)}
           >
-            {collapsed ? '»' : '«'}
+            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           </button>
           {expanded && (
             <span className="tab-vertical-title">
@@ -511,7 +726,7 @@ export function TabStrip({
               <button
                 className={`tab-head-new${searchOpen ? ' is-active' : ''}`}
                 title="搜索标签"
-                onClick={() => setSearchOpen((value) => !value)}
+                onClick={toggleSearch}
               >
                 <Search size={13} />
               </button>
@@ -612,8 +827,17 @@ export function TabStrip({
             onChange={(event) => setFilter(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
-                setFilter('');
-                setSearchOpen(false);
+                event.stopPropagation();
+                toggleSearch();
+              } else if (event.key === 'Enter') {
+                const first = visualTabs[0];
+                if (!first) return;
+                event.preventDefault();
+                toggleSearch();
+                activate(first.id, true);
+              } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                listRef.current?.focus();
               }
             }}
           />
@@ -630,7 +854,10 @@ export function TabStrip({
           title="拖动调整宽度（双击恢复默认）"
           onDoubleClick={() => setWidth(DEFAULT_WIDTH)}
           onMouseDown={(event) => {
+            event.preventDefault();
+            clearPreview();
             dragRef.current = { startX: event.clientX, startWidth: width };
+            document.body.classList.add('is-resizing-tabs');
             const move = (moveEvent: MouseEvent) => {
               const state = dragRef.current;
               if (!state) return;
@@ -640,11 +867,14 @@ export function TabStrip({
             };
             const up = () => {
               dragRef.current = null;
+              document.body.classList.remove('is-resizing-tabs');
               window.removeEventListener('mousemove', move);
               window.removeEventListener('mouseup', up);
+              window.removeEventListener('blur', up);
             };
             window.addEventListener('mousemove', move);
             window.addEventListener('mouseup', up);
+            window.addEventListener('blur', up);
           }}
         />
       )}
@@ -655,8 +885,24 @@ export function TabStrip({
         aria-orientation={vertical ? 'vertical' : 'horizontal'}
         tabIndex={0}
         onKeyDown={onListKeyDown}
+        onScroll={clearPreview}
         onDoubleClick={(event) => {
           if (event.target === event.currentTarget) onNewTab?.();
+        }}
+        onDragOver={(event) => {
+          if (!draggingId || event.target !== event.currentTarget) return;
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!draggingId || event.target !== event.currentTarget) return;
+          event.preventDefault();
+          const from = draggingId;
+          const dragged = tabs.find((tab) => tab.id === from);
+          setDraggingId(null);
+          setDropTarget(null);
+          // 拖到列表空白处 = 移出分组并放到普通标签末尾。
+          if (dragged?.groupId) void window.bsub.assignTabGroup?.(from, null);
+          void window.bsub.moveTab(from, tabs.length - 1);
         }}
       >
         {pinnedTabs.length > 0 && (
@@ -668,23 +914,33 @@ export function TabStrip({
         {pinnedTabs.length > 0 && normalTabs.length > 0 && <div className="tab-section-sep" />}
         {ungroupedTabs.map(renderTab)}
         {groups.map((group) => {
-          const items = normalTabs.filter((tab) => tab.groupId === group.id);
-          if (query && !items.length) return null;
+          const items = groupTabs.get(group.id) || [];
+          if (!items.length) return null;
+          const showItems = !group.collapsed || Boolean(query);
           return (
             <div className={`tab-group is-${group.color}`} key={group.id}>
               <div
-                className="tab-group-head"
+                className={`tab-group-head${
+                  group.collapsed && items.some((item) => item.active) ? ' is-active' : ''
+                }`}
                 title={`${group.name}（${items.length}）`}
-                onClick={() => void window.bsub.toggleTabGroupCollapsed?.(group.id)}
+                onClick={() => {
+                  clearPreview();
+                  void window.bsub.toggleTabGroupCollapsed?.(group.id);
+                }}
                 onContextMenu={(event) => {
                   event.preventDefault();
+                  clearPreview();
                   setGroupMenu({ x: event.clientX, y: event.clientY, group });
                 }}
                 onDragOver={(event) => {
+                  if (!draggingId) return;
                   event.preventDefault();
+                  event.stopPropagation();
                 }}
                 onDrop={(event) => {
                   event.preventDefault();
+                  event.stopPropagation();
                   const from = draggingId || event.dataTransfer?.getData('text/plain');
                   setDraggingId(null);
                   setDropTarget(null);
@@ -693,12 +949,12 @@ export function TabStrip({
                   void window.bsub.moveTab(from, tabs.length - 1);
                 }}
               >
-                {group.collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                {group.collapsed && !query ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                 <span className="tab-group-dot" />
                 <span className="tab-group-name">{group.name}</span>
                 <span className="tab-group-count">{items.length}</span>
               </div>
-              {!group.collapsed && items.map(renderTab)}
+              {showItems && items.map(renderTab)}
             </div>
           );
         })}
@@ -740,7 +996,8 @@ export function TabStrip({
             <button
               className="tab-menu-item"
               onClick={() => {
-                closeTabs(ids);
+                if (ids.length === 1) closeOne(ids[0]);
+                else closeTabs(ids);
                 setMenu(null);
               }}
             >
@@ -879,6 +1136,7 @@ export function TabStrip({
 
       {groupMenu && (
         <div
+          ref={groupMenuRef}
           className="tab-actions-menu tab-group-menu"
           style={{ position: 'fixed', left: groupMenu.x, top: groupMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}

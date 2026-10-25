@@ -139,9 +139,11 @@ export interface BsubApi {
   setPetEnabled(enabled: boolean): Promise<void>;
   focusMain(): Promise<void>;
   setPlaybackRate(rate: number): Promise<{ ok: true; data: number }>;
+  /** 打开/收起当前页面里的倍速面板 */
+  toggleMediaPanel(): Promise<void>;
   setActiveViewVisible(visible: boolean): Promise<void>;
   pinTab(id: string, pinned: boolean): Promise<void>;
-  closeTab(id: string): Promise<void>;
+  closeTab(id: string, nextId?: string): Promise<void>;
   activateTab(id: string): Promise<void>;
   navigate(url: string): Promise<void>;
   back(): Promise<void>;
@@ -287,6 +289,8 @@ export interface BsubApi {
   setBrowserVisible(visible: boolean): Promise<void>;
   beginSidebarDrag(): Promise<Result<string | null>>;
   endSidebarDrag(): Promise<void>;
+  /** 垂直标签栏宽度/折叠状态（高频，不触发设置全量副作用） */
+  setTabsLayout(patch: { width?: number; collapsed?: boolean }): Promise<Result<SettingsSnapshot>>;
   setSidebarLayout(patch: {
     width?: number;
     position?: 'left' | 'right';

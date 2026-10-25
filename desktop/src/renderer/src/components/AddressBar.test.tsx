@@ -37,7 +37,8 @@ function installBsub() {
       ]
     })),
     newTab: vi.fn(),
-    setPlaybackRate: vi.fn(async () => ({ ok: true as const, data: 1.5 }))
+    setPlaybackRate: vi.fn(async () => ({ ok: true as const, data: 1.5 })),
+    toggleMediaPanel: vi.fn(async () => undefined)
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -112,10 +113,14 @@ describe('AddressBar', () => {
 
     fireEvent.click(screen.getByTitle('设置'));
     expect(p.onOpenSettings).toHaveBeenCalled();
+  });
 
-    fireEvent.click(screen.getByTitle('菜单'));
-    fireEvent.click(screen.getByText('倍速 1.5×'));
-    expect(window.bsub.setPlaybackRate).toHaveBeenCalledWith(1.5);
+  it('倍速按钮展示当前倍速并打开页内面板', () => {
+    const api = installBsub();
+    render(<AddressBar {...props({ tab: { ...tab, playbackRate: 1.5 } })} />);
+    const button = screen.getByTitle(/播放速度 1\.5×/);
+    fireEvent.click(button);
+    expect(api.toggleMediaPanel).toHaveBeenCalled();
   });
 
   it('没有标签页时阅读模式与书签禁用', () => {

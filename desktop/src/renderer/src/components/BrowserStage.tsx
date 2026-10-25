@@ -9,15 +9,12 @@ export function BrowserStage({
   sidebarPosition = 'left',
   sidebarCollapsed = false,
   sidebarWidth = 320,
-  leftInset = 0,
   snapshot = null
 }: {
   hasTab: boolean;
   sidebarPosition?: 'left' | 'right';
   sidebarCollapsed?: boolean;
   sidebarWidth?: number;
-  /** 垂直标签栏悬停展开时，网页视图要给左侧让出的宽度 */
-  leftInset?: number;
   snapshot?: string | null;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -30,9 +27,9 @@ export function BrowserStage({
     const report = () => {
       const rect = element.getBoundingClientRect();
       window.bsub.setLayout({
-        x: Math.round(rect.left) + PAGE_INSET + leftInset,
+        x: Math.round(rect.left) + PAGE_INSET,
         y: Math.round(rect.top) + PAGE_INSET,
-        width: Math.max(0, Math.round(rect.width) - PAGE_INSET * 2 - leftInset),
+        width: Math.max(0, Math.round(rect.width) - PAGE_INSET * 2),
         height: Math.max(0, Math.round(rect.height) - PAGE_INSET * 2)
       });
     };
@@ -47,14 +44,14 @@ export function BrowserStage({
       observer.disconnect();
       window.removeEventListener('resize', report);
     };
-  }, [leftInset]);
+  }, []);
 
   // 侧栏换边只改变位置、不改变尺寸，ResizeObserver 不会触发；
   // 这里在位置/折叠/宽度变化后强制重报一次，避免 WebContentsView 留在旧坐标。
   useEffect(() => {
     const frame = requestAnimationFrame(() => reportRef.current());
     return () => cancelAnimationFrame(frame);
-  }, [sidebarPosition, sidebarCollapsed, sidebarWidth, leftInset]);
+  }, [sidebarPosition, sidebarCollapsed, sidebarWidth]);
 
   return (
     <section ref={ref} className="browser-stage">
