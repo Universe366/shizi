@@ -12,7 +12,7 @@ import { Markdown } from './Markdown';
 import { VerifyCard } from './VerifyCard';
 import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
-import { getAsrResult } from '../lib/asrStore';
+import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
 
 function newRequestId(): string {
@@ -53,12 +53,20 @@ export function SummaryPanel({
   const [copied, setCopied] = useState(false);
   const [preProofread, setPreProofread] = useState(false);
   const [reasoning, setReasoning] = useState('');
+  const [asrRunning, setAsrRunning] = useState(false);
+  const [asrProgress, setAsrProgress] = useState(0);
+  const [asrMessage, setAsrMessage] = useState('');
   const requestRef = useRef('');
   const streamingRef = useRef(false);
   const liveRef = useRef<HTMLPreElement>(null);
+  const asrRequestRef = useRef('');
+  const asrInfoRef = useRef<PageInfo | null>(null);
+  const asrKeyRef = useRef('');
+  const videoKeyRef = useRef('');
 
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
+  videoKeyRef.current = videoKey;
 
   useEffect(() => {
     if (streamingRef.current) return;
@@ -81,6 +89,13 @@ export function SummaryPanel({
     setChaptersOpen(false);
     setChaptersLoading(false);
     setChapterError(null);
+    setAsrRunning(false);
+    setAsrProgress(0);
+    setAsrMessage('');
+    if (asrRequestRef.current) {
+      void window.bsub.cancelTranscribe(asrRequestRef.current);
+      asrRequestRef.current = '';
+    }
   }, [activeTab?.id, videoKey]);
 
   useEffect(() => {
@@ -201,10 +216,11 @@ export function SummaryPanel({
 
     const subtitles = await window.bsub.getSubtitles(currentInfo.signature);
     if (!subtitles.ok) throw new Error(subtitles.error);
+    const needLogin = subtitles.data.needLogin === true;
 
     const chosen = pickTrack(subtitles.data.tracks, currentInfo);
     const fallback = () => {
-      const cached = getAsrResult(videoKey);
+      const cached = getAsrResult(videoKeyRef.current);
       if (!cached) return null;
       const asrTrack: SubtitleTrack = {
         lan: 'asr',
@@ -223,7 +239,10 @@ export function SummaryPanel({
     if (!chosen) {
       const cached = fallback();
       if (cached) return cached;
-      throw new Error('没有找到字幕轨');
+      if (needLogin) {
+        throw new Error('需要登录 B 站才能获取 AI 字幕；请先点「登录 B 站」，或点「转写」用音轨生成字幕后重试');
+      }
+      throw new Error('该视频没有官方字幕；请点「转写」用音轨生成字幕后重试');
     }
 
     const body = await window.bsub.getTrackBody(chosen.url);
@@ -274,6 +293,63 @@ export function SummaryPanel({
     if (requestRef.current) void window.bsub.cancelSummary(requestRef.current);
   };
 
+  const startAsr = async () => {
+    if (asrRunning || streaming || !isVideoPage) return;
+    setError(null);
+    setAsrProgress(0);
+    setAsrMessage('准备音轨…');
+    try {
+      const response = await window.bsub.getPageInfo();
+      if (!response.ok) throw new Error(response.error);
+      const requestId = newRequestId();
+      asrRequestRef.current = requestId;
+      asrKeyRef.current = videoKeyRef.current;
+      asrInfoRef.current = response.data;
+      setAsrRunning(true);
+      const started = await window.bsub.transcribe(requestId);
+      if (!started.ok) throw new Error(started.error);
+    } catch (caught) {
+      asrRequestRef.current = '';
+      setAsrRunning(false);
+      setAsrMessage('');
+      setError((caught as Error)?.message || String(caught));
+    }
+  };
+
+  useEffect(() => {
+    const offProgress = window.bsub.onAsrProgress((event) => {
+      if (event.requestId !== asrRequestRef.current) return;
+      setAsrProgress(Math.max(0, Math.min(100, Number(event.percent) || 0)));
+      setAsrMessage(event.message || '转写中…');
+    });
+    const offDone = window.bsub.onAsrDone((event) => {
+      if (event.requestId !== asrRequestRef.current) return;
+      asrRequestRef.current = '';
+      setAsrRunning(false);
+      setAsrProgress(100);
+      setAsrMessage(`转写完成 · ${event.lines.length} 行`);
+      const key = asrKeyRef.current;
+      const info = asrInfoRef.current;
+      if (info) setAsrResult(key, info, event.lines);
+      // 等 asrStore 写入后，复用现有的 summary-request 入口触发生成。
+      if (key && key === videoKeyRef.current) {
+        window.setTimeout(() => window.dispatchEvent(new Event('bsub:summary-request')), 0);
+      }
+    });
+    const offError = window.bsub.onAsrError((event) => {
+      if (event.requestId !== asrRequestRef.current) return;
+      asrRequestRef.current = '';
+      setAsrRunning(false);
+      setAsrMessage('');
+      setError(event.error);
+    });
+    return () => {
+      offProgress();
+      offDone();
+      offError();
+    };
+  }, []);
+
   useEffect(() => {
     const handler = () => {
       void generate();
@@ -318,6 +394,14 @@ export function SummaryPanel({
       <div className="panel-toolbar">
         <div className="panel-title">总结</div>
         <div className="toolbar-actions">
+          <button
+            className="mini-btn"
+            disabled={!isVideoPage || loading || streaming || asrRunning}
+            title="没有官方字幕时，用视频音轨转写后再总结"
+            onClick={() => void startAsr()}
+          >
+            {asrRunning ? <Loader2 size={12} className="spin" /> : '转写'}
+          </button>
           <button
             className="mini-btn"
             disabled={!isVideoPage || loading || chaptersLoading || streaming}
@@ -374,6 +458,14 @@ export function SummaryPanel({
           )}
         </div>
       </div>
+
+      {asrRunning && (
+        <div className="status-line">
+          <Loader2 size={13} className="spin" />
+          {asrMessage || '正在转写…'}
+          {asrProgress > 0 ? ` · ${Math.round(asrProgress)}%` : ''}
+        </div>
+      )}
 
       {!activeTab && <div className="panel-empty">打开一个视频页后生成总结</div>}
       {activeTab && !isVideoPage && <div className="panel-empty">当前页面不是视频页</div>}
@@ -432,6 +524,19 @@ export function SummaryPanel({
             {showSettingsHint && (
               <button className="warn-btn" onClick={onOpenSettings}>
                 去设置
+              </button>
+            )}
+            {/没有.*字幕|字幕轨|AI 字幕/.test(error) && !asrRunning && (
+              <button className="warn-btn" onClick={() => void startAsr()}>
+                转写后总结
+              </button>
+            )}
+            {/登录 B 站/.test(error) && (
+              <button
+                className="warn-btn"
+                onClick={() => void window.bsub.newTab('https://passport.bilibili.com/login')}
+              >
+                登录 B 站
               </button>
             )}
           </div>

@@ -84,4 +84,9 @@ describe('VerifyCard', () => {
     render(<VerifyCard verification={summary({ failed: 3 })} />);
     expect(screen.getByText(/有 3 项检索失败/)).toBeTruthy();
   });
+
+  it('旧数据缺字段时只显示空状态，不崩溃', () => {
+    render(<VerifyCard verification={{ } as never} />);
+    expect(screen.getByText(/本次没有取得可用证据/)).toBeTruthy();
+  });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { PageInfo, TabInfo, VerificationSummary } from '../../../shared/types';
 import { SummaryPanel } from './SummaryPanel';
 
@@ -44,6 +44,17 @@ function installBsub(options: { saved?: boolean; pageError?: string } = {}) {
         ? { ok: false as const, error: options.pageError }
         : { ok: true as const, data: info }
     ),
+    getSubtitles: vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        needLogin: false,
+        tracks: [],
+        lines: [],
+        sources: [],
+        errors: [],
+        diagnostics: {}
+      }
+    })),
     getSummary: vi.fn(async () =>
       options.saved
         ? { ok: true as const, data: { content: '# 已保存的总结', model: 'deepseek', updatedAt: 0 } }
@@ -72,6 +83,12 @@ function installBsub(options: { saved?: boolean; pageError?: string } = {}) {
     }),
     onAiStatus: vi.fn(() => () => {}),
     onAiReasoning: vi.fn(() => () => {}),
+    onAsrProgress: vi.fn(() => () => {}),
+    onAsrDone: vi.fn(() => () => {}),
+    onAsrError: vi.fn(() => () => {}),
+    transcribe: vi.fn(async () => ({ ok: true as const, data: { requestId: 'asr-1' } })),
+    cancelTranscribe: vi.fn(async () => undefined),
+    newTab: vi.fn(async () => ({ id: 't2', reused: false, ready: true })),
     cancelSummary: vi.fn(async () => undefined)
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
@@ -114,6 +131,29 @@ describe('SummaryPanel', () => {
     render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);
     expect(await screen.findByText('还没有总结')).toBeTruthy();
     expect(screen.getByText('生成总结')).toBeTruthy();
+  });
+
+  it('需要登录 B 站时给出登录/转写入口', async () => {
+    const { api } = installBsub();
+    api.getSubtitles.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        needLogin: true,
+        tracks: [],
+        lines: [],
+        sources: [],
+        errors: [],
+        diagnostics: {}
+      }
+    } as never);
+    render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);
+    await screen.findByText('还没有总结');
+    fireEvent.click(screen.getByText('生成总结'));
+    expect(await screen.findByText(/需要登录 B 站/)).toBeTruthy();
+    fireEvent.click(screen.getByText('登录 B 站'));
+    expect(api.newTab).toHaveBeenCalledWith('https://passport.bilibili.com/login');
+    fireEvent.click(screen.getByText('转写后总结'));
+    await waitFor(() => expect(api.transcribe).toHaveBeenCalled());
   });
 
   it('页面信息读取失败时显示错误', async () => {

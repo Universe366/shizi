@@ -1017,12 +1017,27 @@ export function parseSearchQueries(text, max = 6) {
     .trim();
   if (!raw) return [];
   let arr = [];
-  try {
-    const json = JSON.parse(raw);
-    if (Array.isArray(json)) arr = json;
-    else if (json && Array.isArray(json.queries)) arr = json.queries;
-  } catch (err) {
-    /* 不是 JSON，按行解析 */
+  const parse = (candidate) => {
+    try {
+      const json = JSON.parse(candidate);
+      if (Array.isArray(json)) return json;
+      if (json && Array.isArray(json.queries)) return json.queries;
+    } catch (err) {
+      /* 不是 JSON */
+    }
+    return null;
+  };
+  arr = parse(raw) || [];
+  if (!arr.length) {
+    // 模型偶尔会在 JSON 前后加解释；取最外层数组/对象再试。
+    const start = raw.indexOf('[');
+    const end = raw.lastIndexOf(']');
+    if (start >= 0 && end > start) arr = parse(raw.slice(start, end + 1)) || [];
+  }
+  if (!arr.length) {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) arr = parse(raw.slice(start, end + 1)) || [];
   }
   if (!arr.length) arr = raw.split(/\n+/);
   const out = [];

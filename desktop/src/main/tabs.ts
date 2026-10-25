@@ -949,7 +949,17 @@ export class TabManager {
       console.log('[m0] layout set', JSON.stringify(this.bounds));
     }
     const view = this.activeRecord()?.view;
-    if (view) view.setBounds(this.bounds);
+    if (view) {
+      const changed =
+        view.getBounds().width !== this.bounds.width ||
+        view.getBounds().height !== this.bounds.height ||
+        view.getBounds().x !== this.bounds.x ||
+        view.getBounds().y !== this.bounds.y;
+      view.setBounds(this.bounds);
+      // 侧栏展开/收起会改变 WebContentsView 尺寸；Electron 偶尔会先显示一帧白底。
+      // 主动 invalidate 让页面立刻重绘，避免用户看到“网页变白”。
+      if (changed) view.webContents.invalidate();
+    }
   }
 
   activeWebContents(): WebContents | null {

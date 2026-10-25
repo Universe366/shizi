@@ -243,11 +243,44 @@ function evidenceText(reference: WebReference): string {
   return clean(`${reference.title} ${reference.snippet}`);
 }
 
-function trimQuote(text: string): string {
+function trimQuote(text: unknown): string {
   return String(text || '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
+}
+
+/** 判定 quote 是否逐字落在证据里：忽略标点、空白、大小写和全半角差异。 */
+function normalizeQuoteText(text: unknown): string {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+export function quoteMatches(quote: string, text: string): boolean {
+  const normalizedQuote = normalizeQuoteText(quote);
+  const normalizedText = normalizeQuoteText(text);
+  return normalizedQuote.length >= 4 && normalizedText.includes(normalizedQuote);
+}
+
+export function parseJudgeJson(text: string): Record<string, unknown> | null {
+  const raw = String(text || '')
+    .replace(/```(?:json)?/gi, '')
+    .trim();
+  if (!raw) return null;
+  const candidates = [raw];
+  const first = raw.indexOf('{');
+  const last = raw.lastIndexOf('}');
+  if (first >= 0 && last > first) candidates.push(raw.slice(first, last + 1));
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
+    } catch {
+      // 试下一个候选
+    }
+  }
+  return null;
 }
 
 interface EvidenceRow {
@@ -305,7 +338,7 @@ async function judgeEvidence(
   ].join('\n');
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('证据判定超时')), 45000);
+  const timer = setTimeout(() => controller.abort(new Error('证据判定超时')), 120000);
   const forward = () => controller.abort();
   signal?.addEventListener('abort', forward, { once: true });
   try {
@@ -318,33 +351,54 @@ async function judgeEvidence(
         },
         { role: 'user', content: prompt }
       ],
-      { temperature: 0, maxTokens: 3000, signal: controller.signal, timeoutMs: 45000 }
+      { temperature: 0, maxTokens: 3000, signal: controller.signal, timeoutMs: 120000 }
     );
-    const content = result.text;
-    const start = content.indexOf('{');
-    const end = content.lastIndexOf('}');
-    if (start < 0 || end <= start) throw new Error('判定结果不是 JSON');
-    const parsed = JSON.parse(content.slice(start, end + 1));
+    // 部分推理模型只把 JSON 放在 reasoning 里，content 为空；两边都试。
+    const parsed = parseJudgeJson(result.text || result.reasoning || '');
+    if (!parsed) throw new Error('判定结果不是 JSON');
 
     const evidenceById = new Map(evidence.map((row) => [row.id, row]));
+    const evidenceByIndex = new Map(
+      evidence.map((row) => [`${row.itemIndex}:${row.refIndex}`, row])
+    );
     const drop = new Set<string>();
     const verdicts = new Map<string, VerifyVerdict>();
-    for (const judgment of Array.isArray(parsed.judgments) ? parsed.judgments : []) {
-      const row = evidenceById.get(String(judgment?.id || ''));
+    const alias: Record<string, VerifyVerdict> = {
+      支持: 'support',
+      反驳: 'refute',
+      矛盾: 'refute',
+      无关: 'irrelevant',
+      不相关: 'irrelevant'
+    };
+    const rawRows = Array.isArray(parsed)
+      ? parsed
+      : (parsed.judgments ?? parsed.verdicts ?? parsed.items ?? parsed.data ?? []);
+    let valid = 0;
+    for (const rawRow of Array.isArray(rawRows) ? rawRows : []) {
+      const judgment = (rawRow || {}) as Record<string, unknown>;
+      let row: EvidenceRow | undefined;
+      if (judgment.id) {
+        row = evidenceById.get(String(judgment.id));
+      } else if (judgment.claim != null && judgment.evidence != null) {
+        row = evidenceByIndex.get(
+          `${Number(judgment.claim) - 1}:${Number(judgment.evidence) - 1}`
+        );
+      }
       if (!row) continue;
-      const verdict = String(judgment?.verdict || '').toLowerCase();
-      const quote = trimQuote(judgment?.quote);
-      const source = evidenceText(row.reference);
-      if (!quote || quote.length < 4 || !source.toLowerCase().includes(quote.toLowerCase())) {
+      const rawVerdict = String(judgment.verdict || '').toLowerCase();
+      const verdict = alias[rawVerdict] || rawVerdict;
+      if (verdict === 'irrelevant') {
         drop.add(row.id);
         continue;
       }
-      if (verdict === 'irrelevant') {
-        drop.add(row.id);
-      } else if (verdict === 'support' || verdict === 'refute') {
-        verdicts.set(row.id, verdict);
-      }
+      if (verdict !== 'support' && verdict !== 'refute') continue;
+      const quote = trimQuote(judgment.quote);
+      // 标点/空白不参与比对；对不上只降级为 unknown，不把证据整条丢掉。
+      if (!quoteMatches(quote, evidenceText(row.reference))) continue;
+      verdicts.set(row.id, verdict);
+      valid += 1;
     }
+    if (!valid && !drop.size) return null;
 
     const kept = items.map((item, itemIndex) => ({
       ...item,
@@ -387,18 +441,40 @@ function sampleSubtitleText(lines: SubtitleLine[], maxChars = 3600): string {
     .join('\n…\n');
 }
 
-function parseSearchQueries(text: string, max = 6): string[] {
+export function parseSearchQueries(text: string, max = 6): string[] {
   const raw = String(text || '')
     .replace(/```(?:json)?/gi, '')
     .trim();
   if (!raw) return [];
   let rows: unknown[] = [];
-  try {
-    const json = JSON.parse(raw);
-    if (Array.isArray(json)) rows = json;
-    else if (json && Array.isArray(json.queries)) rows = json.queries;
-  } catch {
-    // 不是 JSON，按行解析
+  const parseCandidate = (candidate: string): boolean => {
+    try {
+      const json = JSON.parse(candidate);
+      if (Array.isArray(json)) {
+        rows = json;
+        return true;
+      }
+      if (json && Array.isArray(json.queries)) {
+        rows = json.queries;
+        return true;
+      }
+    } catch {
+      // 继续尝试
+    }
+    return false;
+  };
+  if (!parseCandidate(raw)) {
+    // 模型偶尔会在 JSON 前后加一句解释；取出最外层的数组/对象再试。
+    const arrayStart = raw.indexOf('[');
+    const arrayEnd = raw.lastIndexOf(']');
+    if (arrayStart >= 0 && arrayEnd > arrayStart) parseCandidate(raw.slice(arrayStart, arrayEnd + 1));
+    if (!rows.length) {
+      const objectStart = raw.indexOf('{');
+      const objectEnd = raw.lastIndexOf('}');
+      if (objectStart >= 0 && objectEnd > objectStart) {
+        parseCandidate(raw.slice(objectStart, objectEnd + 1));
+      }
+    }
   }
   if (!rows.length) rows = raw.split(/\n+/);
   const out: string[] = [];
@@ -478,18 +554,23 @@ async function buildAiQueries(
   const candidates = extractItems(lines, 16);
   const candidateBlock = candidates.length
     ? `全文里值得核实的候选（可直接改写，不要另编）：\n${candidates
-        .map((item) => `- ${item.term}：${clean(item.line).slice(0, 80)}`)
+        .map((item) => {
+          const context = contextWindowFor(lines, item.line);
+          return `- ${item.term}：${clean(context || item.line).slice(0, 100)}`;
+        })
         .join('\n')}`
     : '';
 
   const system = [
     '你是检索词生成助手。根据视频标题、字幕节选与候选句，生成 3~6 条适合外部事实验证的搜索查询。',
     '要求：',
-    '1. 每条查询都要还原字幕里的一个具体说法：实体 + 要核实的限定（时间 / 数字 / 版本 / 因果）；',
-    '2. 不要只输出实体名，也不要写行业空话；',
-    '3. 实体必须在视频里真实出现过，不要编造视频没提过的公司 / 产品 / 人物；',
+    '1. 每条查询都要还原字幕里的一个具体说法：实体 + 要核实的限定（时间 / 数字 / 版本 / 因果），',
+    '   例如「DeepSeek V4 2026 年 3 月发布」「DeepSeek V4 6710 亿参数」；',
+    '2. 不要只输出实体名（「DeepSeek」），也不要写行业空话（「AI 行业趋势」「最新进展」）；',
+    '3. 实体必须在视频里真实出现过，不要编造视频没提过的公司 / 产品 / 人物，也不要把两个视频外的概念拼在一起；',
     '4. 每条 8~30 字，不要解释，不要编号；',
-    '5. 只输出 JSON 字符串数组，例如 ["DeepSeek V4 发布时间", "6710 亿参数量"]。'
+    '5. 优先基于下面给出的候选句来写，保留候选里的实体与具体说法；',
+    '6. 只输出 JSON 字符串数组，例如 ["DeepSeek V4 发布时间", "6710 亿参数量"]。'
   ].join('\n');
   const user = [
     `视频标题：${info.title || ''}${info.partTitle ? ` · ${info.partTitle}` : ''}`,
@@ -508,8 +589,11 @@ async function buildAiQueries(
       ],
       { temperature: 0.2, maxTokens: 400, timeoutMs: 120000, signal }
     );
-    const parsed = parseSearchQueries(result.text, 6);
-    if (!parsed.length) return [];
+    const parsed = parseSearchQueries(result.text || result.reasoning || '', 6);
+    if (!parsed.length) {
+      console.warn('[verify] AI 检索词生成返回空/无法解析');
+      return [];
+    }
 
     const source = [
       info.title || '',
@@ -533,6 +617,7 @@ async function buildAiQueries(
     return out;
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
+    console.warn('[verify] AI 检索词生成失败', (error as Error)?.message || String(error));
     return [];
   }
 }
@@ -551,6 +636,7 @@ export async function verifySummary(
   if (settings.search.aiQueryGeneration !== false) {
     onProgress(0, limit, 'AI 正在挑选待核实项…');
     items = await buildAiQueries(settings, info, lines, Math.min(limit, 6), signal);
+    if (!items.length) onProgress(0, limit, 'AI 检索词不可用，改用规则抽取');
   }
   if (!items.length) {
     items = extractItems(lines, limit).map((item) => {
@@ -660,6 +746,7 @@ export async function verifySummary(
   let supplements: string[] = [];
   let judged = false;
   let dropped = 0;
+  let judgeError = '';
   try {
     onProgress(items.length, items.length, '语义判定证据…');
     const verdict = await judgeEvidence(settings, info, results, signal, onProgress);
@@ -671,6 +758,8 @@ export async function verifySummary(
     }
   } catch (error) {
     if (signal?.aborted) throw error;
+    judgeError = (error as Error)?.message || String(error);
+    console.warn('[verify] 语义判定失败', judgeError);
     // 判定失败时保留已搜到的证据，不让总结直接失去联网结果。
   }
 
@@ -700,7 +789,8 @@ export async function verifySummary(
     attempted: items.length,
     failed,
     judged,
-    dropped
+    dropped,
+    error: judgeError || undefined
   };
 }
 

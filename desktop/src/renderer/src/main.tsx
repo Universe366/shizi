@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
 
 const PetWindow = lazy(() =>
@@ -20,15 +21,21 @@ if (windowKind === 'shot') document.documentElement.classList.add('is-shot-windo
 createRoot(root).render(
   <React.StrictMode>
     {windowKind === 'pet' ? (
-      <Suspense fallback={null}>
-        <PetWindow />
-      </Suspense>
+      <ErrorBoundary label="桌宠">
+        <Suspense fallback={null}>
+          <PetWindow />
+        </Suspense>
+      </ErrorBoundary>
     ) : windowKind === 'shot' ? (
-      <Suspense fallback={null}>
-        <ShotOverlay />
-      </Suspense>
+      <ErrorBoundary label="截图">
+        <Suspense fallback={null}>
+          <ShotOverlay />
+        </Suspense>
+      </ErrorBoundary>
     ) : (
-      <App />
+      <ErrorBoundary label="主界面">
+        <App />
+      </ErrorBoundary>
     )}
   </React.StrictMode>
 );

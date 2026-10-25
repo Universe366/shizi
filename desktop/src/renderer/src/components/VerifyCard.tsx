@@ -6,32 +6,42 @@ interface VerifyCardProps {
 
 /** 本次联网核对：查询 → 字幕原句 → 证据列表，逐条标注支持/反驳/未判定。 */
 export function VerifyCard({ verification }: VerifyCardProps) {
-  const items = verification.items.filter((item) => item.references.length > 0);
-  const judged = verification.judged;
+  // 老版本/异常写入的 verification 可能缺字段，先归一化，避免整页白屏。
+  const data = (verification || {}) as Partial<VerificationSummary>;
+  const items = (Array.isArray(data.items) ? data.items : []).filter(
+    (item) => item && Array.isArray(item.references) && item.references.length > 0
+  );
+  const references = Array.isArray(data.references) ? data.references : [];
+  const supplements = Array.isArray(data.supplements) ? data.supplements : [];
+  const attempted = Number(data.attempted) || 0;
+  const failed = Number(data.failed) || 0;
+  const dropped = Number(data.dropped) || 0;
+  const judged = data.judged === true;
+  const error = typeof data.error === 'string' ? data.error : '';
 
   return (
     <details className="verify-card">
       <summary className="verify-head">
         <span>本次联网核对</span>
         <span className="verify-stats">
-          {verification.attempted} 项 · {verification.references.length} 条证据
-          {judged ? ` · 丢弃 ${verification.dropped}` : ' · 未判定'}
+          {attempted} 项 · {references.length} 条证据
+          {judged ? ` · 丢弃 ${dropped}` : ' · 未判定'}
         </span>
       </summary>
-      {verification.error ? (
-        <div className="verify-error">核对失败：{verification.error}</div>
-      ) : verification.failed > 0 ? (
+      {error ? (
+        <div className="verify-error">核对失败：{error}</div>
+      ) : failed > 0 ? (
         <div className="verify-error">
-          有 {verification.failed} 项检索失败；可检查设置里的检索平台、Key 或网络后重新生成。
+          有 {failed} 项检索失败；可检查设置里的检索平台、Key 或网络后重新生成。
         </div>
       ) : null}
       {!judged && (
         <div className="verify-note">本次未完成语义判定，证据只按词面与域名粗标。</div>
       )}
-      {verification.supplements.length > 0 && (
+      {supplements.length > 0 && (
         <div className="verify-supplements">
-          {verification.supplements.map((item, index) => (
-            <div key={`${index}-${item.slice(0, 8)}`}>+ {item}</div>
+          {supplements.map((item, index) => (
+            <div key={`${index}-${String(item).slice(0, 8)}`}>+ {item}</div>
           ))}
         </div>
       )}
@@ -42,8 +52,11 @@ export function VerifyCard({ verification }: VerifyCardProps) {
             <div className="verify-query">
               {item.label || item.query}
               <span className="verify-line">字幕：{item.line}</span>
+              {item.query && item.query !== item.label && (
+                <span className="verify-query-text">检索：{item.query}</span>
+              )}
             </div>
-            {item.references.map((reference) => (
+            {(item.references || []).map((reference) => (
               <button
                 key={reference.url}
                 className="verify-ref"
