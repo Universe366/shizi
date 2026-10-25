@@ -89,6 +89,8 @@ function installBsub(options: { saved?: boolean; pageError?: string } = {}) {
     transcribe: vi.fn(async () => ({ ok: true as const, data: { requestId: 'asr-1' } })),
     cancelTranscribe: vi.fn(async () => undefined),
     newTab: vi.fn(async () => ({ id: 't2', reused: false, ready: true })),
+    refreshView: vi.fn(),
+    exitFullscreen: vi.fn(),
     cancelSummary: vi.fn(async () => undefined)
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });

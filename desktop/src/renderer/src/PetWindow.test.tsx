@@ -143,7 +143,7 @@ describe('PetWindow', () => {
     render(<PetWindow />);
     expect(api.setPetLayout).toHaveBeenLastCalledWith('compact');
     await openBubble();
-    expect(api.setPetLayout).toHaveBeenLastCalledWith('bubble');
+    await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('bubble'));
     fireEvent.click(screen.getByTitle('关闭对话（Esc）'));
     await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('compact'), {
       timeout: 2000
