@@ -55,8 +55,9 @@ describe('petLayoutSize', () => {
 });
 
 describe('petLayoutForState', () => {
-  it('优先级：气泡 > 菜单 > 挂件 > 紧凑', () => {
-    expect(petLayoutForState({ open: true, widgetOpen: true, menuOpen: true })).toBe('bubble');
+  it('优先级：菜单 > 气泡 > 挂件 > 紧凑', () => {
+    expect(petLayoutForState({ open: true, widgetOpen: true, menuOpen: true })).toBe('menu');
+    expect(petLayoutForState({ open: true, widgetOpen: true, menuOpen: false })).toBe('bubble');
     expect(petLayoutForState({ open: false, widgetOpen: true, menuOpen: true })).toBe('menu');
     expect(petLayoutForState({ open: false, widgetOpen: true, menuOpen: false })).toBe('widget');
     expect(petLayoutForState({ open: false, widgetOpen: false, menuOpen: false })).toBe('compact');

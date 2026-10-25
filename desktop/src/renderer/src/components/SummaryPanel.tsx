@@ -34,6 +34,7 @@ export function SummaryPanel({
   const [summary, setSummary] = useState('');
   const [verification, setVerification] = useState<VerificationSummary | null>(null);
   const [verifyEnabled, setVerifyEnabled] = useState(true);
+  const [searchEnabled, setSearchEnabled] = useState(true);
   const [fromSaved, setFromSaved] = useState(false);
   const [model, setModel] = useState('');
   const [updatedAt, setUpdatedAt] = useState(0);
@@ -181,12 +182,15 @@ export function SummaryPanel({
     void window.bsub.getSettings().then((response) => {
       if (response.ok) {
         setPreProofread(response.data.settings.ai.preProofread === true);
-        setVerifyEnabled(response.data.settings.search.verify !== false);
+        // 总结核对由 verifySummary 控制；verify 是「AI 优化时核对」，不要混用。
+        setVerifyEnabled(response.data.settings.search.verifySummary !== false);
+        setSearchEnabled(response.data.settings.search.enabled !== false);
       }
     });
     return window.bsub.onSettingsChanged((snapshot) => {
       setPreProofread(snapshot.settings.ai.preProofread === true);
-      setVerifyEnabled(snapshot.settings.search.verify !== false);
+      setVerifyEnabled(snapshot.settings.search.verifySummary !== false);
+      setSearchEnabled(snapshot.settings.search.enabled !== false);
     });
   }, []);
 
@@ -459,22 +463,43 @@ export function SummaryPanel({
         </div>
       )}
 
-      {!streaming && summary && (!verifyEnabled || !verification) && (
-        <div className="summary-verify-hint">
-          {!verifyEnabled ? (
-            <>
-              <span>联网核对未开启，本次总结不会检查外部证据。</span>
-              <button className="mini-btn" onClick={onOpenSettings}>
-                去设置
-              </button>
-            </>
-          ) : fromSaved ? (
-            <span>这是已保存的总结；重新生成会执行联网核对。</span>
-          ) : (
-            <span>本次没有产生核对结果（可能没有可核实项或检索失败）。</span>
-          )}
-        </div>
-      )}
+      {!streaming &&
+        summary &&
+        (!verification || (!fromSaved && (!verifyEnabled || !searchEnabled))) && (
+          <div className="summary-verify-hint">
+            {fromSaved ? (
+              <>
+                <span>
+                  这是已保存的总结；
+                  {!searchEnabled || !verifyEnabled
+                    ? '重新生成不会执行联网核对。'
+                    : '重新生成会执行联网核对。'}
+                </span>
+                {(!searchEnabled || !verifyEnabled) && (
+                  <button className="mini-btn" onClick={onOpenSettings}>
+                    去设置
+                  </button>
+                )}
+              </>
+            ) : !searchEnabled ? (
+              <>
+                <span>联网检索已在设置中关闭，本次总结不会检查外部证据。</span>
+                <button className="mini-btn" onClick={onOpenSettings}>
+                  去设置
+                </button>
+              </>
+            ) : !verifyEnabled ? (
+              <>
+                <span>联网核对未开启，本次总结不会检查外部证据。</span>
+                <button className="mini-btn" onClick={onOpenSettings}>
+                  去设置
+                </button>
+              </>
+            ) : (
+              <span>本次没有产生核对结果（可能没有可核实项或检索失败）。</span>
+            )}
+          </div>
+        )}
 
       {!streaming && verification && <VerifyCard verification={verification} />}
 

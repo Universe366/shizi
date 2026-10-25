@@ -1866,8 +1866,16 @@ button:disabled {
 .chat-thinking {
   display: inline-flex;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
+  max-width: 100%;
   color: var(--muted);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.chat-thinking svg {
+  flex: none;
+  margin-top: 2px;
 }
 
 .mini-select {
@@ -4768,6 +4776,77 @@ button:disabled {
   cursor: default;
 }
 
+.chat-context-chip.is-warning {
+  border-color: color-mix(in srgb, #d97706 38%, transparent);
+  background: color-mix(in srgb, #d97706 12%, transparent);
+  color: color-mix(in srgb, #d97706 72%, var(--text));
+}
+
+/* 联网回答的来源列表：域名 + 标题，点击用系统浏览器打开 */
+.chat-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.chat-sources-title {
+  padding: 0 6px 2px;
+  color: var(--faint);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.chat-source {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-source:hover {
+  background: var(--surface-2);
+}
+
+.chat-source-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-source-site {
+  flex: none;
+  max-width: 42%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.chat-web-notice {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #d97706 12%, transparent);
+  color: color-mix(in srgb, #d97706 72%, var(--text));
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* 空库快捷导入 */
 .quick-import {
   display: flex;
@@ -5434,8 +5513,9 @@ button:disabled {
   cursor: pointer;
   -webkit-app-region: no-drag;
   transform-origin: 50% 92%;
+  opacity: var(--pet-opacity, 1);
   transition: transform 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.28), box-shadow 0.22s ease,
-    filter 0.2s ease;
+    filter 0.2s ease, opacity 0.2s ease;
   animation: pet-breathe 4.4s ease-in-out infinite;
 }
 
@@ -5459,9 +5539,9 @@ button:disabled {
 }
 
 .pet-root.is-below .pet-menu {
-  top: auto;
+  top: calc(var(--pet-size, 96px) + 34px);
   bottom: 8px;
-  max-height: calc(100vh - var(--pet-size, 96px) - 48px);
+  max-height: none;
 }
 
 /* Q 弹：按下压扁、拖动轻微倾斜，松手弹回 */
@@ -6002,6 +6082,21 @@ button:disabled {
   animation: pet-pop 0.16s ease;
 }
 
+/* 紧凑态窗口只比本体高 34px，提示绝对定位到本体上方，避免被裁掉 */
+.pet-root.is-compact .pet-hint {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: calc(var(--pet-size, 96px) + 6px);
+  z-index: 30;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
 .pet-bubble-head {
   display: flex;
   align-items: center;
@@ -6170,6 +6265,50 @@ button:disabled {
   color: var(--text);
 }
 
+/* 桌宠联网回答的来源：只列标题，点开系统浏览器 */
+.pet-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--pet-hairline);
+}
+
+.pet-sources-label {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.pet-source {
+  max-width: 100%;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.pet-source:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.pet-web-notice {
+  margin-top: 4px;
+  color: color-mix(in srgb, #d97706 72%, var(--text));
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
 .pet-line.is-error {
   background: rgba(217, 83, 79, 0.12);
   color: #d9534f;
@@ -6220,10 +6359,11 @@ button:disabled {
 /* 快捷动作：2×2 网格，点按面积更大、排列更整齐 */
 .pet-quick {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 4px;
   flex: none;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding-bottom: 2px;
   scrollbar-width: none;
 }
@@ -6234,10 +6374,10 @@ button:disabled {
 
 .pet-quick .mini-btn {
   flex: 0 0 auto;
-  min-height: 26px;
-  height: 26px;
-  padding: 0 8px;
-  font-size: 10.5px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
 }
 
 /* 附件：截图缩略图 / 选中文字 */
@@ -6443,6 +6583,9 @@ button:disabled {
   left: 8px;
   right: 8px;
   z-index: 20;
+  max-height: calc(100% - var(--pet-size, 96px) - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   display: flex;
   flex-direction: column;

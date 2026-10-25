@@ -18,7 +18,13 @@ export function VerifyCard({ verification }: VerifyCardProps) {
           {judged ? ` · 丢弃 ${verification.dropped}` : ' · 未判定'}
         </span>
       </summary>
-      {verification.error && <div className="verify-error">核对失败：{verification.error}</div>}
+      {verification.error ? (
+        <div className="verify-error">核对失败：{verification.error}</div>
+      ) : verification.failed > 0 ? (
+        <div className="verify-error">
+          有 {verification.failed} 项检索失败；可检查设置里的检索平台、Key 或网络后重新生成。
+        </div>
+      ) : null}
       {!judged && (
         <div className="verify-note">本次未完成语义判定，证据只按词面与域名粗标。</div>
       )}

@@ -1,17 +1,32 @@
-import type { ChatMessage, PageInfo, SubtitleLine } from '../shared/types';
+import type {
+  AiPlatform,
+  ChatMessage,
+  PageInfo,
+  SubtitleLine,
+  WebReference
+} from '../shared/types';
 import { activePlatform, loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream, chatToolLoop } from './aiClient';
 import type { AiMessage, AiPart } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
-import { searchWeb } from './search';
+import {
+  buildChatQuery,
+  parseAutoSearchIntent,
+  rankReferences,
+  searchWeb,
+  shouldAutoSearch,
+  withSearchSignal
+} from './search';
+import type { SearchMeta } from './search';
 import { listMcpTools, callMcpTool } from './mcp';
 import type { McpServer, McpTool } from '../shared/types';
 import { skillPrompt } from './skills';
 import type { PageContext } from './pageContext';
 import { selectRelevantChunks } from './pageContext';
 import { APP_TOOL_DEFS, APP_TOOL_PREFIX, callAppTool } from './appTools';
+import { withDeadline } from './async';
 
 const MAX_HISTORY = 16;
 const REQUEST_TIMEOUT_MS = 300000;
@@ -28,11 +43,54 @@ export interface ChatOptions {
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
+  /** 联网检索/准备阶段的状态，给侧栏显示，避免长时间只有「正在回答…」 */
+  onStatus?: (status: string) => void;
 }
 
-export async function chat(
-  options: ChatOptions
-): Promise<{ text: string; model: string; reasoning: string }> {
+export interface ChatResult {
+  text: string;
+  model: string;
+  reasoning: string;
+  references?: WebReference[];
+  webEngine?: string;
+  webError?: string;
+}
+
+/** 解析「是否需要联网」的小模型输出；无法判断时交给规则兜底。 */
+async function aiWantsSearch(
+  platform: AiPlatform,
+  question: string,
+  info: PageInfo,
+  signal?: AbortSignal
+): Promise<boolean> {
+  try {
+    const result = await chatOnce(
+      platform,
+      [
+        {
+          role: 'system',
+          content:
+            '你是检索路由器。判断用户问题是否需要联网搜索外部事实。' +
+            '需要：最新/实时/价格/新闻/人物/产品参数/版本/事件/数据核实等可验证信息；' +
+            '不需要：总结字幕、解释观点、翻译、写作、闲聊、基于给定资料就能回答。' +
+            '只输出 YES 或 NO，不要解释。'
+        },
+        {
+          role: 'user',
+          content: `标题：${info.title || '未知'}\n问题：${question.slice(0, 500)}`
+        }
+      ],
+      { temperature: 0, maxTokens: 8, timeoutMs: 8000, signal }
+    );
+    return parseAutoSearchIntent(result.text) ?? shouldAutoSearch(question);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // 小模型失败/额度不足时退回规则，不能让自动联网把对话卡死。
+    return shouldAutoSearch(question);
+  }
+}
+
+export async function chat(options: ChatOptions): Promise<ChatResult> {
   const settings = loadSettings();
   const platform = activePlatform(settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
@@ -53,28 +111,81 @@ export async function chat(
     : '';
 
   let webBlock = '';
+  let references: WebReference[] = [];
+  let webEngine = '';
+  let webError = '';
   const lastUser = [...options.messages].reverse().find((message) => message.role === 'user');
   const question = String(lastUser?.content || '').trim();
-  const wantsSearch =
-    settings.search.enabled &&
-    Boolean(question) &&
-    (options.web === true ||
-      settings.search.alwaysSearchOnChat ||
-      (settings.search.autoSearchOnChat &&
-        /最新|今天|现在|谁|多少|价格|新闻|发布|核实|查一下|搜索|什么时候|latest|news|price|who|when/i.test(
-          question
-        )));
+  let wantsSearch = false;
+  if (settings.search.enabled && Boolean(question)) {
+    if (options.web === true || settings.search.alwaysSearchOnChat) {
+      wantsSearch = true;
+    } else if (settings.search.autoSearchOnChat) {
+      if (settings.search.autoSearchAi) {
+        options.onStatus?.('判断是否需要联网…');
+        wantsSearch = await aiWantsSearch(platform, question, options.info, options.signal);
+        if (!wantsSearch) options.onStatus?.('正在回答…');
+      } else {
+        wantsSearch = shouldAutoSearch(question);
+      }
+    }
+  }
+  if (options.web === true && !settings.search.enabled) {
+    webError = '联网检索没有启用，请到设置 → 检索与核对开启';
+    options.onStatus?.(webError);
+  }
   if (wantsSearch) {
+    const userMessages = options.messages.filter(
+      (message) => message.role === 'user' && String(message.content || '').trim()
+    );
+    const previousQuestion =
+      userMessages.length >= 2
+        ? String(userMessages[userMessages.length - 2].content || '')
+        : '';
+    const query = buildChatQuery(question, options.info, previousQuestion);
+    options.onStatus?.(`联网检索：${query}`);
+    // 单独一个 controller：用户停止/18 秒超时都能真正中止底层 HTTP，而不是只放弃等待。
+    const searchAbort = new AbortController();
+    const forwardAbort = () => searchAbort.abort(options.signal?.reason);
+    options.signal?.addEventListener('abort', forwardAbort, { once: true });
+    if (options.signal?.aborted) searchAbort.abort();
+    let searchMeta: SearchMeta | undefined;
     try {
-      const refs = await searchWeb(settings, question.slice(0, 80));
-      if (refs.length) {
-        webBlock = `联网参考（回答外部事实时可使用；与字幕冲突时以字幕为准）：\n${refs
-          .slice(0, 5)
-          .map((ref, index) => `${index + 1}. ${ref.title}｜${ref.url}\n${ref.snippet.slice(0, 300)}`)
+      const raw = await withDeadline(
+        withSearchSignal(searchAbort.signal, () =>
+          searchWeb(settings, query, (meta) => {
+            searchMeta = meta;
+          })
+        ),
+        18000,
+        options.signal,
+        '联网检索超时',
+        () => searchAbort.abort(new Error('联网检索超时'))
+      );
+      references = rankReferences(query, raw).slice(0, 5);
+      if (references.length) {
+        webEngine = searchMeta?.engine || '';
+        const engine = searchMeta
+          ? ` · ${searchMeta.cached ? '缓存 · ' : ''}${searchMeta.engine}`
+          : '';
+        options.onStatus?.(`已找到 ${references.length} 条参考资料${engine}`);
+        webBlock = `联网参考（回答外部事实时可使用；与字幕冲突时以字幕为准）：\n${references
+          .map(
+            (ref, index) =>
+              `${index + 1}. ${ref.title}｜${ref.url}\n${ref.snippet.slice(0, 300)}`
+          )
           .join('\n')}`;
+      } else {
+        webError = '没有检索到参考资料，已按未联网回答';
+        options.onStatus?.(webError);
       }
     } catch (error) {
-      console.warn('[chat] 联网检索失败', (error as Error).message);
+      if (options.signal?.aborted || (error as Error)?.name === 'AbortError') throw error;
+      webError = (error as Error)?.message || String(error);
+      options.onStatus?.(`联网检索失败：${webError}（继续回答）`);
+      console.warn('[chat] 联网检索失败', webError);
+    } finally {
+      options.signal?.removeEventListener('abort', forwardAbort);
     }
   }
 
@@ -231,7 +342,14 @@ export async function chat(
     );
     options.onDelta?.(result.text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return { text: result.text, model: platform.model, reasoning: result.reasoning };
+    return {
+      text: result.text,
+      model: platform.model,
+      reasoning: result.reasoning,
+      references,
+      webEngine: webEngine || undefined,
+      webError: webError || undefined
+    };
   }
 
   const chatOptions = {
@@ -246,7 +364,14 @@ export async function chat(
     if (!result.text.trim()) throw new Error('AI 返回为空');
     options.onDelta?.(result.text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return { text: result.text, model: platform.model, reasoning: result.reasoning };
+    return {
+      text: result.text,
+      model: platform.model,
+      reasoning: result.reasoning,
+      references,
+      webEngine: webEngine || undefined,
+      webError: webError || undefined
+    };
   }
 
   const result = await chatStream(platform, messages, {
@@ -254,5 +379,12 @@ export async function chat(
     onDelta: options.onDelta,
     onReasoning: options.onReasoning
   });
-  return { text: result.text, model: platform.model, reasoning: result.reasoning };
+  return {
+    text: result.text,
+    model: platform.model,
+    reasoning: result.reasoning,
+    references,
+    webEngine: webEngine || undefined,
+    webError: webError || undefined
+  };
 }

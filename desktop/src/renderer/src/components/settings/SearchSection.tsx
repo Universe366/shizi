@@ -58,8 +58,11 @@ export function SearchSection({
       checked={draft.search.enabled}
       onChange={(event) => updateSearch({ enabled: event.target.checked })}
     />
-    总结时自动检索参考资料
+    启用联网检索（对话「联网」/ 总结核对 / 优化核对）
   </label>
+  <div className="settings-hint">
+    关闭后对话里的「联网」开关会变灰；已保存的总结仍会保留当时的核对结果。
+  </div>
 
   <div className="settings-label">检索平台</div>
   <div className="settings-inline">
@@ -96,6 +99,11 @@ export function SearchSection({
       <Trash2 size={12} />
     </button>
   </div>
+  {activeSearch && activeSearch.id !== draft.search.activeId && (
+    <div className="settings-hint">
+      正在编辑「{activeSearch.name}」；点「设为使用中」后，对话联网与总结核对才会用这个平台。
+    </div>
+  )}
 
   {activeSearch && (
     <>
@@ -366,6 +374,16 @@ export function SearchSection({
     />
     对话自动联网（问题涉及最新/是谁/多少钱等）
   </label>
+  {draft.search.autoSearchOnChat === true && (
+    <label className="settings-check">
+      <input
+        type="checkbox"
+        checked={draft.search.autoSearchAi === true}
+        onChange={(event) => updateSearch({ autoSearchAi: event.target.checked })}
+      />
+      用 AI 判断是否需要联网（更准，但每次对话多一次小调用；默认只用规则）
+    </label>
+  )}
 
   <label className="settings-check">
     <input
@@ -415,7 +433,7 @@ export function SearchSection({
       onChange={(event) => setSearchQuery(event.target.value)}
     />
     <button className="mini-btn" disabled={searchTesting} onClick={() => onTestSearch()}>
-      {searchTesting ? <Loader2 size={12} className="spin" /> : <Search size={12} />} 测试检索
+      {searchTesting ? <Loader2 size={12} className="spin" /> : <Search size={12} />} 测试当前表单
     </button>
   </div>
   {searchResults && (
@@ -428,7 +446,7 @@ export function SearchSection({
     </div>
   )}
   <div className="settings-hint">
-    Exa / AnySearch / SearXNG 免 Key；DeepSeek 搜索可复用 AI 平台 Key。测试使用已保存配置。
+    免 Key：Exa / AnySearch / SearXNG；DeepSeek 搜索可复用 AI 平台 Key。测试会使用当前编辑的平台、协议与 Key（未保存也可），结果数/时间范围也按当前表单。
   </div>
 </SettingsSection>
   );

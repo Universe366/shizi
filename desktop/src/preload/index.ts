@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { BsubApi } from '../shared/api';
 import type {
   AiDeltaEvent,
@@ -16,6 +16,7 @@ import type {
   ChatDeltaEvent,
   ChatDoneEvent,
   ChatErrorEvent,
+  ChatStatusEvent,
   ChatRequest,
   AsrDoneEvent,
   AsrErrorEvent,
@@ -98,6 +99,13 @@ const api: BsubApi = {
   readClipboard: () => ipcRenderer.invoke('clipboard:read') as Promise<string>,
   foregroundWindow: () => ipcRenderer.invoke('window:foreground'),
   readPetFile: (path: string) => ipcRenderer.invoke('pet:read-file', path),
+  petFilePath: (file: File) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
   transcribeVoice: (dataUrl: string) => ipcRenderer.invoke('voice:transcribe', { dataUrl }),
   tabPreview: (id: string) =>
     ipcRenderer.invoke('tab:preview', id) as Promise<{
@@ -461,8 +469,8 @@ const api: BsubApi = {
     >,
   onSettingsChanged: (cb: (snapshot: SettingsSnapshot) => void) =>
     on<SettingsSnapshot>('settings:changed', cb),
-  testSearch: (query: string) =>
-    ipcRenderer.invoke('search:test', query) as Promise<Result<WebReference[]>>,
+  testSearch: (query: string, override?: unknown) =>
+    ipcRenderer.invoke('search:test', query, override) as Promise<Result<WebReference[]>>,
   exportRuleGroup: (group: CorrectionRuleGroup) =>
     ipcRenderer.invoke('rules:export', group) as Promise<
       Result<{ canceled: boolean; path?: string }>
@@ -549,6 +557,7 @@ const api: BsubApi = {
   onChatDelta: (cb: (event: ChatDeltaEvent) => void) => on<ChatDeltaEvent>('chat:delta', cb),
   onChatDone: (cb: (event: ChatDoneEvent) => void) => on<ChatDoneEvent>('chat:done', cb),
   onChatError: (cb: (event: ChatErrorEvent) => void) => on<ChatErrorEvent>('chat:error', cb),
+  onChatStatus: (cb: (event: ChatStatusEvent) => void) => on<ChatStatusEvent>('chat:status', cb),
 
   transcribe: (requestId: string) =>
     ipcRenderer.invoke('asr:transcribe', { requestId }) as Promise<Result<{ requestId: string }>>,

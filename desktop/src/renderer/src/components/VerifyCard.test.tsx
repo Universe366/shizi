@@ -79,4 +79,9 @@ describe('VerifyCard', () => {
     render(<VerifyCard verification={summary({ error: '检索超时' })} />);
     expect(screen.getByText(/核对失败：检索超时/)).toBeTruthy();
   });
+
+  it('部分检索失败时提示数量与排查方向', () => {
+    render(<VerifyCard verification={summary({ failed: 3 })} />);
+    expect(screen.getByText(/有 3 项检索失败/)).toBeTruthy();
+  });
 });

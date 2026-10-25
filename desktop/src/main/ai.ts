@@ -2,7 +2,7 @@ import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '..
 import { activePlatform, activePrompt, loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream } from './aiClient';
-import { buildSearchQuery, rankReferences, searchWeb } from './search';
+import { buildSearchQuery, rankReferences, searchWeb, withSearchSignal } from './search';
 import { buildVerifyBlock, verifySummary } from './verify';
 import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
@@ -444,7 +444,10 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
       options.onStatus?.('正在联网检索参考资料…');
       try {
         const searchQuery = buildSearchQuery(info.title, info.owner);
-        const references = rankReferences(searchQuery, await searchWeb(settings, searchQuery));
+        const references = rankReferences(
+          searchQuery,
+          await withSearchSignal(options.signal, () => searchWeb(settings, searchQuery))
+        );
         if (references.length) {
           let budget = 6000;
           const rows: string[] = [];

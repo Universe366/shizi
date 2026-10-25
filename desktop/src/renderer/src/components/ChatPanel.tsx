@@ -6,7 +6,8 @@ import type {
   PageInfo,
   SkillItem,
   SubtitleLine,
-  TabInfo
+  TabInfo,
+  WebReference
 } from '../../../shared/types';
 import { Markdown } from './Markdown';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
@@ -26,6 +27,32 @@ const PAGE_SUGGESTIONS = [
   '这个页面有哪些值得质疑的地方？'
 ];
 
+/** 参考链接只显示域名，避免长 URL 把气泡撑开。 */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+/** 历史记录来自 localStorage，渲染前过滤掉损坏/非 http(s) 的来源。 */
+function safeSources(value: unknown): WebReference[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is WebReference => {
+      if (!item || typeof item !== 'object') return false;
+      const candidate = item as WebReference;
+      return typeof candidate.url === 'string' && /^https?:\/\//i.test(candidate.url);
+    })
+    .map((item) => ({
+      title:
+        typeof item.title === 'string' && item.title.trim() ? item.title.trim() : item.url,
+      url: item.url,
+      snippet: typeof item.snippet === 'string' ? item.snippet : ''
+    }));
+}
+
 function chatStorageKey(videoKey: string): string {
   return videoKey ? `bsub-chat:${videoKey}` : '';
 }
@@ -37,7 +64,12 @@ function loadChat(videoKey: string): ChatMessage[] {
     const raw = JSON.parse(localStorage.getItem(key) || '[]');
     if (!Array.isArray(raw)) return [];
     return raw
-      .filter((item) => item && (item.role === 'user' || item.role === 'assistant'))
+      .filter(
+        (item) =>
+          item &&
+          (item.role === 'user' || item.role === 'assistant') &&
+          typeof item.content === 'string'
+      )
       .slice(-60);
   } catch {
     return [];
@@ -86,7 +118,14 @@ export function ChatPanel({
   const [expandReasoning, setExpandReasoning] = useState(false);
   const [pageContext, setPageContext] = useState<PageContextSummary | null>(null);
   const [includePage, setIncludePage] = useState(true);
-  const [webSearch, setWebSearch] = useState(false);
+  const [webSearch, setWebSearch] = useState(() => {
+    try {
+      return localStorage.getItem('chat-web') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [searchEnabled, setSearchEnabled] = useState(true);
   const [savedNotice, setSavedNotice] = useState('');
   const autoSaveRef = useRef<{ title: string; url: string } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +147,29 @@ export function ChatPanel({
       setSkillId((current) => (items.some((item) => item.id === current) ? current : ''));
       setSendOnEnter(response.data.settings.ai.sendOnEnter !== false);
       setExpandReasoning(response.data.settings.ai.expandReasoning === true);
+      const searchOn = response.data.settings.search.enabled !== false;
+      setSearchEnabled(searchOn);
+      if (!searchOn) {
+        setWebSearch(false);
+        try {
+          localStorage.setItem('chat-web', '0');
+        } catch {
+          // ignore
+        }
+      }
     })();
+    return window.bsub.onSettingsChanged((snapshot) => {
+      const searchOn = snapshot.settings.search.enabled !== false;
+      setSearchEnabled(searchOn);
+      if (!searchOn) {
+        setWebSearch(false);
+        try {
+          localStorage.setItem('chat-web', '0');
+        } catch {
+          // ignore
+        }
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -160,9 +221,21 @@ export function ChatPanel({
     });
     const offDone = window.bsub.onChatDone((event) => {
       if (event.requestId !== requestRef.current) return;
+      // 来源只保留标题/链接/短摘要，避免 localStorage 被长正文撑爆。
+      const sources = (event.references || []).map((reference) => ({
+        ...reference,
+        snippet: reference.snippet.slice(0, 240)
+      }));
       setMessages((previous) => [
         ...previous,
-        { role: 'assistant', content: event.text, reasoning: event.reasoning }
+        {
+          role: 'assistant',
+          content: event.text,
+          reasoning: event.reasoning,
+          ...(sources.length ? { sources } : {}),
+          ...(event.webEngine ? { webEngine: event.webEngine } : {}),
+          ...(event.webError ? { webNotice: event.webError } : {})
+        }
       ]);
       setStreaming(false);
       setStreamText('');
@@ -194,16 +267,28 @@ export function ChatPanel({
     });
     const offError = window.bsub.onChatError((event) => {
       if (event.requestId !== requestRef.current) return;
+      // 用户主动点「停止」不是回答失败，不要弹红色错误卡片。
+      if (event.error === '已取消') {
+        setStreaming(false);
+        setStreamText('');
+        setStatus('');
+        requestRef.current = '';
+        return;
+      }
       setError(event.error);
       setStreaming(false);
       setStreamText('');
       setStatus('');
       requestRef.current = '';
     });
+    const offStatus = window.bsub.onChatStatus((event) => {
+      if (event.requestId === requestRef.current) setStatus(event.status);
+    });
     return () => {
       offDelta();
       offDone();
       offError();
+      offStatus();
     };
   }, []);
 
@@ -519,6 +604,34 @@ export function ChatPanel({
                       <ReasoningBlock text={message.reasoning} defaultOpen={expandReasoning} />
                     )}
                     <Markdown content={message.content} />
+                    {safeSources(message.sources).length > 0 && (
+                      <div className="chat-sources">
+                        <div className="chat-sources-title">
+                          参考来源 · {safeSources(message.sources).length}
+                          {typeof message.webEngine === 'string' && message.webEngine
+                            ? ` · ${message.webEngine}`
+                            : ''}
+                        </div>
+                        {safeSources(message.sources).map((reference, sourceIndex) => (
+                          <button
+                            key={`${sourceIndex}-${reference.url}`}
+                            className="chat-source"
+                            title={reference.url}
+                            onClick={() => void window.bsub.openExternal(reference.url)}
+                          >
+                            <span className="chat-source-title">
+                              {reference.title || reference.url}
+                            </span>
+                            <span className="chat-source-site">{hostOf(reference.url)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {typeof message.webNotice === 'string' && message.webNotice && (
+                      <div className="chat-web-notice" title={message.webNotice}>
+                        {message.webNotice}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -605,14 +718,36 @@ export function ChatPanel({
                 ).toLocaleString('zh-CN')} tokens`
               : ''}
           </label>
-          <label className="chat-context-chip" title="本次对话强制联网检索，回答会列出参考链接">
+          <label
+            className="chat-context-chip"
+            title={
+              searchEnabled
+                ? '本次对话强制联网检索，回答会列出参考链接'
+                : '联网检索已在设置里关闭，先去开启'
+            }
+            style={searchEnabled ? undefined : { opacity: 0.55 }}
+          >
             <input
               type="checkbox"
               checked={webSearch}
-              onChange={(event) => setWebSearch(event.target.checked)}
+              disabled={!searchEnabled}
+              onChange={(event) => {
+                const next = event.target.checked;
+                setWebSearch(next);
+                try {
+                  localStorage.setItem('chat-web', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
             />
             联网
           </label>
+          {!searchEnabled && (
+            <button className="chat-context-chip is-warning" onClick={onOpenSettings}>
+              联网未启用 · 去开启
+            </button>
+          )}
           {pageContext && pageContext.selectionChars > 0 && (
             <span className="chat-context-chip is-selection">
               已选中 {pageContext.selectionChars.toLocaleString('zh-CN')} 字

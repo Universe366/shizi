@@ -15,6 +15,7 @@ import type {
   ChatDeltaEvent,
   ChatDoneEvent,
   ChatErrorEvent,
+  ChatStatusEvent,
   ChatRequest,
   AsrDoneEvent,
   AsrErrorEvent,
@@ -303,6 +304,8 @@ export interface BsubApi {
   readPetFile(
     path: string
   ): Promise<Result<{ kind: 'image' | 'text'; name: string; dataUrl?: string; text?: string }>>;
+  /** Electron 32+ 移除了 File.path，拖入文件要经 webUtils 取真实路径 */
+  petFilePath(file: File): string;
   transcribeVoice(dataUrl: string): Promise<Result<{ text: string }>>;
   tabPreview(id: string): Promise<{ dataUrl: string; title: string; url: string } | null>;
   getTabGroups(): Promise<TabGroup[]>;
@@ -345,7 +348,10 @@ export interface BsubApi {
   exportSettings(): Promise<Result<{ canceled: boolean; path?: string }>>;
   importSettings(): Promise<Result<{ canceled: boolean; snapshot?: SettingsSnapshot }>>;
   onSettingsChanged(cb: (snapshot: SettingsSnapshot) => void): () => void;
-  testSearch(query: string): Promise<Result<WebReference[]>>;
+  testSearch(
+    query: string,
+    override?: { platform?: SearchPlatform; search?: AppSettings['search'] }
+  ): Promise<Result<WebReference[]>>;
   previewCorrection(text: string, settings?: AppSettings): Promise<Result<string>>;
   exportRuleGroup(group: CorrectionRuleGroup): Promise<Result<{ canceled: boolean; path?: string }>>;
   importRuleGroups(): Promise<Result<CorrectionRuleGroup[]>>;
@@ -394,6 +400,7 @@ export interface BsubApi {
   onChatDelta(cb: (event: ChatDeltaEvent) => void): () => void;
   onChatDone(cb: (event: ChatDoneEvent) => void): () => void;
   onChatError(cb: (event: ChatErrorEvent) => void): () => void;
+  onChatStatus(cb: (event: ChatStatusEvent) => void): () => void;
 
   transcribe(requestId: string): Promise<Result<{ requestId: string }>>;
   cancelTranscribe(requestId: string): Promise<void>;

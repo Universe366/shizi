@@ -80,7 +80,7 @@ describe('SearchSection', () => {
     const p = props();
     render(<SearchSection {...p} />);
     fireEvent.click(screen.getByText(/测试连接/));
-    fireEvent.click(screen.getByText(/测试检索/));
+    fireEvent.click(screen.getByText(/测试当前表单/));
     expect(p.testConnection).toHaveBeenCalledWith('search');
     expect(p.onTestSearch).toHaveBeenCalled();
   });

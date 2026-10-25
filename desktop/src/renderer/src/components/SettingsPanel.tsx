@@ -807,7 +807,10 @@ export function SettingsPanel({
     setError('');
     setSearchResults(null);
     try {
-      const response = await window.bsub.testSearch(searchQuery);
+      const response = await window.bsub.testSearch(searchQuery, {
+        platform: activeSearch || undefined,
+        search: draft?.search
+      });
       if (response.ok) {
         setSearchResults(response.data);
         setMessage(

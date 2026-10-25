@@ -48,21 +48,22 @@ export function petLayoutSize(
     case 'widget':
       return { width: 232, height: size + 252 };
     case 'menu':
-      return { width: 236, height: size + 400 };
+      // 12 个菜单项 + 分组线约 406px；留出本体和边距，避免菜单压住桌宠。
+      return { width: 236, height: size + 470 };
     case 'compact':
     default:
       return { width: size + 12, height: size + 34 };
   }
 }
 
-/** 有气泡时右击菜单也能放下，所以优先 bubble。 */
+/** 有菜单时优先按菜单尺寸；否则气泡 > 挂件 > 紧凑（与 renderer 的 JSX 顺序一致）。 */
 export function petLayoutForState(input: {
   open: boolean;
   widgetOpen: boolean;
   menuOpen: boolean;
 }): PetLayoutMode {
-  if (input.open) return 'bubble';
   if (input.menuOpen) return 'menu';
+  if (input.open) return 'bubble';
   if (input.widgetOpen) return 'widget';
   return 'compact';
 }

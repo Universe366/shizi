@@ -106,10 +106,16 @@ export async function testPlatformConnection(
       ...settings.search,
       enabled: true,
       activeId: target.id,
-      platforms: [target]
+      platforms: [target],
+      // 测试只测当前平台；不要用免 Key 兜底或缓存掩盖配置错误。
+      keylessFallback: false,
+      cacheMinutes: 0
     }
   };
-  if (!target.baseUrl && target.kind !== 'exa') throw new Error('请先填写接口地址');
+  // 大多数协议在搜索函数里有官方默认地址；只有自定义/DeepSeek 搜索强依赖输入框。
+  if (!target.baseUrl && ['deepseek-search', 'custom'].includes(target.kind || '')) {
+    throw new Error('请先填写接口地址');
+  }
   const results = await searchWeb(copy, 'B站 字幕');
   return {
     ok: true,

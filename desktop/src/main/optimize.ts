@@ -3,7 +3,7 @@ import { activePlatform, loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
 import { glossaryTerms } from './correction';
-import { rankReferences, searchWeb } from './search';
+import { rankReferences, searchWeb, withSearchSignal } from './search';
 
 const MAX_BATCH_LINES = 30;
 const MAX_BATCH_CHARS = 5000;
@@ -74,12 +74,12 @@ async function verifySuggestions(
     if (signal?.aborted) return;
     try {
       const query = item.suggestion.slice(0, 80);
-      const found = await searchWeb(
-        { ...settings, search: { ...settings.search, enabled: true } },
-        query
+      const found = await withSearchSignal(signal, () =>
+        searchWeb({ ...settings, search: { ...settings.search, enabled: true } }, query)
       );
       rows.push({ item, refs: rankReferences(query, found).slice(0, 2) });
     } catch {
+      if (signal?.aborted) return;
       rows.push({ item, refs: [] });
     }
   }

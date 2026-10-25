@@ -621,6 +621,8 @@ export interface SearchSettings {
   keylessOrder: string[];
   cacheMinutes: number;
   autoSearchOnChat: boolean;
+  /** 自动联网时用一次小 AI 调用判断要不要检索（默认只用规则） */
+  autoSearchAi: boolean;
   alwaysSearchOnChat: boolean;
   useVideoMeta: boolean;
   useComments: boolean;
@@ -812,7 +814,7 @@ export interface AppSettings {
     petSpeechRate: number;
     /** 启动时的位置 */
     petStartCorner: PetStartCorner;
-    /** 全局截图快捷键 Ctrl+Shift+S */
+    /** 全局截图快捷键 Ctrl+Alt+S */
     petShortcut: boolean;
     /** 气泡里显示的名字 */
     petName: string;
@@ -1011,6 +1013,12 @@ export interface ChatMessage {
   content: string;
   images?: string[];
   reasoning?: string;
+  /** 助手消息引用的联网资料（持久化时只保留标题/链接/短摘要） */
+  sources?: WebReference[];
+  /** 本次来源实际使用的检索引擎（用于来源列表标题） */
+  webEngine?: string;
+  /** 联网失败/未启用的提示，回答本身仍然有效 */
+  webNotice?: string;
 }
 
 export interface ChatRequest {
@@ -1048,11 +1056,22 @@ export interface ChatDeltaEvent {
   reasoning?: string;
 }
 
+export interface ChatStatusEvent {
+  requestId: string;
+  status: string;
+}
+
 export interface ChatDoneEvent {
   requestId: string;
   text: string;
   model: string;
   reasoning?: string;
+  /** 本次联网检索实际采用的参考资料 */
+  references?: WebReference[];
+  /** 参考资料实际使用的检索引擎 */
+  webEngine?: string;
+  /** 联网失败/未启用时的提示（回答仍会继续） */
+  webError?: string;
 }
 
 export interface ChatErrorEvent {

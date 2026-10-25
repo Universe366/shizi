@@ -11,6 +11,8 @@ function installBsub() {
     done?: (event: unknown) => void;
     error?: (event: unknown) => void;
     shot?: (result: unknown) => void;
+    voice?: () => void;
+    chat?: () => void;
   } = {};
   const api = {
     getSettings: vi.fn(async () => ({
@@ -61,6 +63,19 @@ function installBsub() {
       handlers.shot = cb;
       return () => {};
     }),
+    onPetVoice: vi.fn((cb: () => void) => {
+      handlers.voice = cb;
+      return () => {};
+    }),
+    onPetChat: vi.fn((cb: () => void) => {
+      handlers.chat = cb;
+      return () => {};
+    }),
+    petFilePath: vi.fn((file: File) => `/tmp/${file.name}`),
+    readPetFile: vi.fn(async () => ({
+      ok: true as const,
+      data: { kind: 'text' as const, name: 'a.txt', text: 'hello' }
+    })),
     openSettings: vi.fn(async () => undefined),
     beginPetDrag: vi.fn(async () => undefined),
     petBlur: vi.fn(async () => undefined),
@@ -283,6 +298,30 @@ describe('PetWindow', () => {
     const requestId = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
     handlers.done?.({ requestId, text: '它讲了三个要点', model: 'test' });
     expect(await screen.findByText('它讲了三个要点')).toBeTruthy();
+  });
+
+  it('联网回答会显示来源与检索失败提示', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '查一下最新价格' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
+    const requestId = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
+    handlers.done?.({
+      requestId,
+      text: '这是联网回答',
+      model: 'test',
+      references: [{ title: '来源 A', url: 'https://example.com/a', snippet: '摘要' }],
+      webEngine: 'Exa（语义搜索）',
+      webError: '联网检索失败：超时'
+    });
+    expect(await screen.findByText('这是联网回答')).toBeTruthy();
+    const source = await screen.findByTitle('https://example.com/a');
+    expect(source.textContent).toContain('来源 A');
+    expect(screen.getByText('Exa（语义搜索）')).toBeTruthy();
+    expect(screen.getByText('联网检索失败：超时')).toBeTruthy();
   });
 
   it('生成中可点「停止」，会取消这次请求', async () => {
@@ -971,6 +1010,77 @@ describe('PetWindow 自由缩放', () => {
     expect(document.querySelector('.pet-size-badge')?.textContent).toContain('500 × 520');
     fireEvent.mouseUp(window, { screenX: 560, screenY: 460 });
     await waitFor(() => expect(api.resizeBubble).toHaveBeenLastCalledWith(500, 520, true));
+  });
+});
+
+describe('PetWindow 快捷键/右键/拖文件', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('全局对话快捷键打开气泡并把焦点放进输入框', async () => {
+    const { handlers } = installBsub();
+    render(<PetWindow />);
+    await waitFor(() => expect(handlers.chat).toBeTruthy());
+    handlers.chat?.();
+    const input = await screen.findByPlaceholderText(/问点什么/);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('全局语音快捷键会请求麦克风，关闭气泡会停止录音', async () => {
+    const { handlers } = installBsub();
+    const track = { stop: vi.fn() };
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [track] }));
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia }
+    });
+    const previous = (globalThis as { MediaRecorder?: unknown }).MediaRecorder;
+    class FakeRecorder {
+      state = 'inactive';
+      ondataavailable: ((event: unknown) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start() {
+        this.state = 'recording';
+      }
+      stop() {
+        this.state = 'inactive';
+        this.onstop?.();
+      }
+    }
+    (globalThis as { MediaRecorder?: unknown }).MediaRecorder = FakeRecorder;
+    try {
+      render(<PetWindow />);
+      await waitFor(() => expect(handlers.voice).toBeTruthy());
+      handlers.voice?.();
+      await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
+      await waitFor(() => expect(screen.getByTitle(/关闭对话/)).toBeTruthy());
+      fireEvent.click(screen.getByTitle(/关闭对话/));
+      await waitFor(() => expect(track.stop).toHaveBeenCalled());
+    } finally {
+      (globalThis as { MediaRecorder?: unknown }).MediaRecorder = previous;
+    }
+  });
+
+  it('输入框里右键不弹桌宠菜单', async () => {
+    installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.contextMenu(screen.getByPlaceholderText(/问点什么/));
+    expect(screen.queryByText('历史记录')).toBeNull();
+    expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
+  });
+
+  it('菜单打开时点本体只收起菜单，不展开气泡', async () => {
+    installBsub();
+    render(<PetWindow />);
+    const body = screen.getByTitle(/点击聊天/);
+    fireEvent.contextMenu(body);
+    expect(screen.getByText('历史记录')).toBeTruthy();
+    fireEvent.click(body);
+    await waitFor(() => expect(screen.queryByText('历史记录')).toBeNull());
+    expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
   });
 });
 

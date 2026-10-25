@@ -1,12 +1,24 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { session } from 'electron';
 import type { AppSettings, SearchPlatform, SearchTimeRange, WebReference } from '../shared/types';
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+// 让取消信号沿着异步调用链传进每个 provider，而不必给 13 个搜索函数都加参数。
+const searchSignal = new AsyncLocalStorage<AbortSignal | undefined>();
+
+export function withSearchSignal<T>(
+  signal: AbortSignal | undefined,
+  task: () => Promise<T>
+): Promise<T> {
+  return signal ? searchSignal.run(signal, task) : task();
+}
+
 function cleanTitle(title: string): string {
   return String(title || '')
     .replace(/_哔哩哔哩.*$/i, '')
+    .replace(/[|｜]\s*B站.*$/i, '')
     .replace(/【.*?】/g, ' ')
     .replace(/\(.*?\)/g, ' ')
     .replace(/\[.*?\]/g, ' ')
@@ -18,6 +30,79 @@ export function buildSearchQuery(title: string, owner?: string): string {
   const clean = cleanTitle(title);
   if (clean.length >= 6) return clean;
   return [owner, clean].filter(Boolean).join(' ').trim() || clean || '视频';
+}
+
+/** 对话自动联网的轻量判断：只覆盖明显需要外部事实的问题，设置里默认关闭。 */
+const AUTO_SEARCH_PATTERN =
+  /最新|今天|现在|今年|近期|最近|谁|多少|多少钱|价格|售价|参数|配置|对比|区别|评测|推荐|值得|真假|谣言|核实|查证|查一下|搜索|什么时候|哪一年|发布|上市|新闻|版本|趋势|latest|news|price|who|when|current|today|compare/i;
+
+export function shouldAutoSearch(question: string): boolean {
+  const text = String(question || '');
+  // 纯字幕/视频内容问题不该因为“最近/这期”就去搜网页；带明确外部事实词才放行。
+  if (
+    /视频|字幕|这期|本期|页面/.test(text) &&
+    !/最新|新闻|发布|上市|价格|售价|参数|配置|对比|评测|谣言|真假/.test(text)
+  ) {
+    return false;
+  }
+  return AUTO_SEARCH_PATTERN.test(text);
+}
+
+/** 解析「是否需要联网」的小模型输出；无法判断时返回 null，交给规则兜底。 */
+export function parseAutoSearchIntent(text: string): boolean | null {
+  const value = String(text || '')
+    .trim()
+    .toLowerCase();
+  if (/^(yes|y|是|需要|要)/.test(value)) return true;
+  if (/^(no|n|否|不需要|不用)/.test(value)) return false;
+  return null;
+}
+
+/**
+ * 对话联网的检索词：把「帮我查一下」「联网」这类口令和口语尾巴去掉；
+ * 用户说「这个视频/它」时补上当前标题，避免拿一句“总结一下”去搜。
+ */
+function stripChatPrefix(text: string): string {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(
+      /^(?:(?:请帮我|帮我|麻烦|请|能否|可以|我想|想问|问一下|请问|查一下|查查|查询|搜索一下|搜索|搜一下|搜搜|联网|上网|找一下|找找)[\s，,]*)+/,
+      ''
+    )
+    .replace(/[？?。！!]+$/g, '')
+    .trim();
+}
+
+export function buildChatQuery(
+  question: string,
+  info?: { title?: string; partTitle?: string },
+  previousQuestion?: string
+): string {
+  const raw = String(question || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const stripped = stripChatPrefix(raw);
+  const previous = stripChatPrefix(previousQuestion || '');
+  const followUp =
+    Boolean(previous) &&
+    stripped.length <= 14 &&
+    !/视频|页面|本期/.test(stripped) &&
+    /^(那|那么|还有|然后|具体|它|为什么|怎么|多久|多少|价格|多少钱|呢)/.test(stripped);
+  if (followUp) {
+    return `${previous.slice(0, 40)} ${stripped}`.trim().slice(0, 80);
+  }
+  const title = cleanTitle(info?.title || '');
+  const meta = /^(总结一下|总结|解释一下|解释|说说|讲讲|介绍一下|介绍|怎么回事|为什么|有用吗|对吗)$/.test(
+    stripped
+  );
+  const vague = !stripped || stripped.length < 4 || meta;
+  const refers = /这个|该视频|本期|视频里|前面|刚才|上面|它/.test(raw);
+  if ((vague || refers) && title) {
+    const core = meta || !stripped || stripped === title ? '' : ` ${stripped}`;
+    return `${title}${core}`.slice(0, 80);
+  }
+  return (stripped || title || '最新').slice(0, 80);
 }
 
 function daysFor(range: SearchTimeRange): number | undefined {
@@ -38,36 +123,76 @@ function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 }
 
-async function timeoutFetch(url: string, init: RequestInit, timeoutMs = 20000): Promise<Response> {
+async function timeoutFetch(
+  url: string,
+  init: RequestInit,
+  timeoutMs = 20000,
+  signal?: AbortSignal
+): Promise<Response> {
   const controller = new AbortController();
+  const outer = signal || searchSignal.getStore();
+  const forwardAbort = () => controller.abort(outer?.reason);
+  outer?.addEventListener('abort', forwardAbort, { once: true });
+  if (outer?.aborted) controller.abort(outer.reason);
   const timer = setTimeout(() => controller.abort(new Error('检索超时')), timeoutMs);
   try {
     return await session.defaultSession.fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    outer?.removeEventListener('abort', forwardAbort);
   }
 }
 
 function normalize(rows: WebReference[], max: number): WebReference[] {
   const out: WebReference[] = [];
   const seen = new Set<string>();
+  const plain = (value: unknown): string =>
+    String(value || '')
+      // 搜索接口常在标题/摘要里塞 <b> 高亮，UI 和模型都不需要这些标签。
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   for (const row of rows) {
     const url = String(row.url || '').trim();
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
     seen.add(url);
     out.push({
-      title: String(row.title || url).trim(),
+      title: plain(row.title) || url,
       url,
-      snippet: String(row.snippet || '')
-        .replace(/\s+/g, ' ')
-        .trim()
+      snippet: plain(row.snippet)
     });
     if (out.length >= max) break;
   }
   return out;
 }
 
-const searchCache = new Map<string, { at: number; refs: WebReference[] }>();
+export interface SearchMeta {
+  /** 实际使用的引擎名（可能带“免费兜底”） */
+  engine: string;
+  fallback: boolean;
+  cached: boolean;
+}
+
+const searchCache = new Map<string, { at: number; refs: WebReference[]; meta: SearchMeta }>();
+const SEARCH_CACHE_MAX = 120;
+
+function rememberSearch(key: string, refs: WebReference[], meta: SearchMeta): void {
+  searchCache.set(key, { at: Date.now(), refs, meta });
+  if (searchCache.size <= SEARCH_CACHE_MAX) return;
+  // 长期运行的桌面端不能无限攒检索结果：按时间淘汰最旧的一批。
+  const oldest = [...searchCache.entries()]
+    .sort((a, b) => a[1].at - b[1].at)
+    .slice(0, searchCache.size - SEARCH_CACHE_MAX);
+  for (const [oldKey] of oldest) searchCache.delete(oldKey);
+}
+
+function emitMeta(callback: ((meta: SearchMeta) => void) | undefined, meta: SearchMeta): void {
+  try {
+    callback?.(meta);
+  } catch {
+    // 状态回调失败不影响检索
+  }
+}
 
 function activePlatform(settings: AppSettings): SearchPlatform {
   return (
@@ -639,17 +764,27 @@ function freePlatform(id: 'anysearch' | 'searxng'): SearchPlatform {
   };
 }
 
-export async function searchWeb(settings: AppSettings, query: string): Promise<WebReference[]> {
+export async function searchWeb(
+  settings: AppSettings,
+  query: string,
+  onMeta?: (meta: SearchMeta) => void
+): Promise<WebReference[]> {
   if (!settings.search.enabled) return [];
+  const abort = searchSignal.getStore();
+  if (abort?.aborted) throw Object.assign(new Error('已取消'), { name: 'AbortError' });
   const platform = activePlatform(settings);
   if (!platform) throw new Error('没有可用的检索平台');
   const max = settings.search.maxResults;
   const kind = platform.kind || 'custom';
-  const cacheKey = `${platform.id}|${query}|${max}|${settings.search.timeRange}`;
+  if (!platform.baseUrl.trim() && (kind === 'deepseek-search' || kind === 'custom')) {
+    throw new Error(`${platform.name || '检索平台'} 还没有填写接口地址`);
+  }
+  const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}`;
   const ttl = Math.max(0, settings.search.cacheMinutes || 0) * 60000;
   if (ttl > 0) {
     const cached = searchCache.get(cacheKey);
     if (cached && Date.now() - cached.at < ttl) {
+      emitMeta(onMeta, { ...cached.meta, cached: true });
       return cached.refs.map((ref) => ({ ...ref }));
     }
   }
@@ -672,11 +807,19 @@ export async function searchWeb(settings: AppSettings, query: string): Promise<W
 
     const normalized = normalize(rows, max);
     if (normalized.length) {
-      if (ttl > 0) searchCache.set(cacheKey, { at: Date.now(), refs: normalized });
+      const meta: SearchMeta = {
+        engine: platform.name || platform.kind || '检索',
+        fallback: false,
+        cached: false
+      };
+      if (ttl > 0) rememberSearch(cacheKey, normalized, meta);
+      emitMeta(onMeta, meta);
       return normalized;
     }
     throw new Error('没有返回结果');
   } catch (error) {
+    // 用户取消/超时后不要再换引擎重试。
+    if (searchSignal.getStore()?.aborted) throw error;
     if (settings.search.keylessFallback !== false) {
       // 无 Key 兜底：按用户配置的顺序逐个尝试（exa / anysearch / searxng）。
       const order =
@@ -684,6 +827,7 @@ export async function searchWeb(settings: AppSettings, query: string): Promise<W
           ? settings.search.keylessOrder
           : ['exa', 'anysearch'];
       for (const id of order) {
+        if (searchSignal.getStore()?.aborted) throw error;
         if (id === kind) continue;
         try {
           let rows: WebReference[] = [];
@@ -694,7 +838,18 @@ export async function searchWeb(settings: AppSettings, query: string): Promise<W
             rows = await searchSearxng(settings, freePlatform('searxng'), query);
           const fallback = normalize(rows, max);
           if (fallback.length) {
-            if (ttl > 0) searchCache.set(cacheKey, { at: Date.now(), refs: fallback });
+            const meta: SearchMeta = {
+              engine:
+                id === 'exa'
+                  ? 'Exa（免费兜底）'
+                  : id === 'anysearch'
+                    ? 'AnySearch（免费兜底）'
+                    : 'SearXNG（免费兜底）',
+              fallback: true,
+              cached: false
+            };
+            if (ttl > 0) rememberSearch(cacheKey, fallback, meta);
+            emitMeta(onMeta, meta);
             return fallback;
           }
         } catch {
@@ -742,6 +897,15 @@ export function rankReferences(query: string, references: WebReference[]): WebRe
 }
 
 export async function testSearch(settings: AppSettings, query: string): Promise<WebReference[]> {
-  const enabled = { ...settings, search: { ...settings.search, enabled: true } };
+  // 设置页的「测试」必须只测当前平台：不能让免 Key 兜底把错误配置伪装成成功。
+  const enabled = {
+    ...settings,
+    search: {
+      ...settings.search,
+      enabled: true,
+      keylessFallback: false,
+      cacheMinutes: 0
+    }
+  };
   return searchWeb(enabled, query);
 }

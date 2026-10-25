@@ -113,6 +113,8 @@ export function registerSettingsIpc(ctx: IpcContext): void {
       ctx.send('settings:changed', settingsSnapshot());
     }
     setPetEnabled(next);
+    // 隐藏桌宠后必须把全局快捷键注销，否则 Ctrl+Shift+D / Ctrl+Alt+S 还能把它叫回来。
+    registerPetShortcuts();
   });
   ipcMain.handle('pet:shortcut-status', () => petShortcutStatus());
   ipcMain.handle('pet:shortcuts-status', () => petShortcutsStatus());

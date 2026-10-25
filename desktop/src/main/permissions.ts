@@ -1,4 +1,4 @@
-import { app, dialog, session } from 'electron';
+import { BrowserWindow, app, dialog, session } from 'electron';
 import type { WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -121,7 +121,12 @@ export function installPermissionGate(appRendererId: () => number | null): void 
 
   const isAppUi = (contents: WebContents): boolean => {
     try {
-      return contents.id === appRendererId();
+      if (contents.id === appRendererId()) return true;
+      // 桌宠、截图覆盖层等也是应用自己的窗口：允许麦克风/剪贴板等能力，
+      // 否则桌宠的语音提问会被权限闸门直接拒绝。
+      return BrowserWindow.getAllWindows().some(
+        (win) => !win.isDestroyed() && win.webContents.id === contents.id
+      );
     } catch {
       return false;
     }

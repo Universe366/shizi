@@ -164,13 +164,35 @@ SPA 切页瞬间拿到上一个视频的预取轨。
   会把现有总结补成一条版本记录。恢复版本只更新 `summaries`，不会伪造新版本；
 - 总结 system prompt 追加插件同款格式规则（`SUMMARY_FORMAT_RULES`），不要注入
   Skills，否则格式会跑偏；
-- `verify.ts`：从字幕抽具体项 → 生成检索词 → 搜索 → 语义判定；
+- `verify.ts`：从字幕抽具体项 → 生成检索词 → 搜索 → 语义判定；单个核对项检索最多等
+  15 秒（`withDeadline`），避免一条卡住的检索拖住整次总结；
 - 判定失败时只整理 0~3 条外部补充，不把未判定网页列表塞进总结；
 - 核对卡片默认折叠；
 - 流式/非流式返回都必须带 `verification`；
 - **取消要能穿透**：`verifySummary` / 检索失败的分支必须检查 `signal.aborted` 再决定是否
   “继续总结”，否则取消后还会发起下一次请求；`fetchWithTimeout` 在注册监听前若已取消，
   要主动 abort（`addEventListener` 不会补发已发生的事件）。
+- 对话联网在 `chat.ts` 里先检索再拼 prompt：检索词经 `buildChatQuery()` 去掉“帮我查一下”
+  之类口令，泛问题补当前标题，短追问带上一问；结果用 `rankReferences()` 排序后取 5 条；
+  自动联网判断在 `shouldAutoSearch()`（纯规则，默认关闭）；开启 `autoSearchAi`
+  时先用一次 8 秒小模型调用语义判断，失败/超时回退规则；
+- 检索通过 `SearchMeta` 回传实际引擎、是否缓存/免费兜底；侧栏状态显示
+  “已找到 N 条 · 缓存 · Exa”这类信息；
+- 检索有 **18 秒硬截止**（`withDeadline`），超时/失败不会让对话一直转圈：`webError` 随
+  `chat:done` 返回，侧栏在回答下方显示“联网检索失败/未启用”提示；超时/取消通过
+  `withSearchSignal`（AsyncLocalStorage）把 AbortSignal 传进每个 provider 的 `fetch`，
+  不再只放弃等待、让请求在后台跑完；
+- 检索/准备阶段通过 `chat:status` 推送（“联网检索：… / 已找到 N 条 / 失败原因”），
+  侧栏不再一直显示“正在回答…”；
+- `chat:done` 带 `references` 与 `webEngine`，`ChatPanel` 在回答下方渲染可点击来源
+  （标题 + 域名 + 实际引擎，`openExternal` 打开系统浏览器），来源随对话历史持久化
+  （只保留短摘要）；历史来源渲染前用 `safeSources()` 过滤成 http(s)，防止坏
+  localStorage 让 React 崩溃。
+- 设置页的「测试连接 / 测试当前表单」必须只测当前平台：`testSearch()` 与
+  `testPlatformConnection()` 都要关掉 `keylessFallback` 和缓存，否则 Exa 兜底会把
+  缺少 Key / 地址填错的配置伪装成“连接正常”。
+- 总结侧栏的“是否开启核对”必须读 `search.verifySummary`；`search.verify` 只控制
+  AI 优化时核对改动，两者不要混用（默认 `verifySummary=true`、`verify=false`）。
 
 ### 4.1 任务中心（jobs）
 
@@ -364,9 +386,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.19）；
+  - 桌面端 `desktop/package.json`（例如 0.38.20）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.7）；
-  - **tag 用桌面版本号**（例如 `v0.38.19`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.20`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -633,3 +655,23 @@ node panel-test.js     # 至少跑这个
   后台视图取不到画面也能预览；打开右键菜单、搜索、折叠、滚动都会清掉预览；
 - 长标签列表必须能滚动：垂直 `.tab` 设 `flex: 0 0 34px`，不要让它被 flex 压扁；
   折叠轨道隐藏固定/分组标题，分组头在组内含当前标签时高亮。
+
+### 13.20 桌宠
+
+- `petGeometry.ts` 只做纯计算（工作区夹取、贴边吸附、气泡/菜单/挂件尺寸、上下翻转、惯性），
+  `petWindow.ts` 负责窗口生命周期、拖拽跟随光标、甩动惯性、贴边停靠与探出；
+- 窗口是透明无边框 `BrowserWindow`，尺寸随 `compact / widget / menu / bubble` 伸缩；
+  本体坐标是唯一锚点，展开时窗口围绕本体向上/向下长，屏幕边缘不够时 `shouldFlipBelow()` 翻转；
+- 拖拽由主进程按 16ms 跟随 `screen.getCursorScreenPoint()`，指针离开窗口也不会掉；
+  松手按速度进入惯性，停下后再吸附/落盘；
+- 贴边停靠 + 探出：只在 compact 下生效，光标在**整个窗口**（含把手/提示条）里就不收起；
+- 渲染层 `PetWindow.tsx`：单击/双击动作、拖动阈值、气泡、挂件、右键菜单、历史、截图、
+  语音、待办、不透明度（只作用在 `.pet-body`）与上下翻转顺序；
+- 全局快捷键在 `petShortcuts.ts`：截图 `Ctrl+Alt+S`（避开主窗口的 `Ctrl+Shift+S`）、
+  语音 `Ctrl+Shift+Space`、对话 `Ctrl+Shift+D`；主进程开窗后延迟 600ms 再发事件，
+  等渲染层 effect 注册好监听；隐藏桌宠时必须注销；
+- 设置变化通过 `ctx.send('settings:changed')` 广播到所有应用窗口（主窗口 + 桌宠），
+  这样改大小/主题/名字/不透明度能实时生效；
+- 权限闸门把应用自己的所有 `BrowserWindow`（含桌宠、截图覆盖层）视为可信，
+  否则 `getUserMedia` 会被直接拒绝；
+- Electron 32+ 移除了 `File.path`，拖入文件必须走 preload 的 `webUtils.getPathForFile`。

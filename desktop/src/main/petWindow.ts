@@ -93,11 +93,13 @@ function peekTick(): void {
   }
 
   const body = currentBody();
+  // 紧凑窗口里本体上方还有把手和提示条；只要光标还在窗口内就不要收起。
+  const bounds = petWindow.getBounds();
   const insideBody =
-    cursor.x >= body.x &&
-    cursor.x <= body.x + body.width &&
-    cursor.y >= body.y &&
-    cursor.y <= body.y + body.height;
+    cursor.x >= bounds.x &&
+    cursor.x <= bounds.x + bounds.width &&
+    cursor.y >= bounds.y &&
+    cursor.y <= bounds.y + bounds.height;
   if (insideBody) {
     peekInsideAt = Date.now();
     return;
@@ -324,6 +326,13 @@ export function openPetWindow(useStartCorner = false): void {
   petWindow.on('closed', () => {
     petWindow = null;
     stopDragLoop();
+    stopInertia();
+    if (peekTimer) {
+      clearInterval(peekTimer);
+      peekTimer = null;
+    }
+    peekHidden = false;
+    peekFullBody = null;
     screen.removeListener('display-metrics-changed', onDisplaysChanged);
     screen.removeListener('display-added', onDisplaysChanged);
     screen.removeListener('display-removed', onDisplaysChanged);
@@ -396,7 +405,8 @@ export function petLayout(): PetLayoutMode {
 function applyWindowStyle(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
   const settings = loadSettings();
-  petWindow.setOpacity(Math.min(1, Math.max(0.4, settings.general.petOpacity ?? 1)));
+  // 不透明度只作用在桌宠本体（renderer CSS 变量），不要把气泡内容一起变透明。
+  petWindow.setOpacity(1);
   petWindow.setAlwaysOnTop(settings.general.petAlwaysOnTop !== false, 'screen-saver');
   layoutPetWindow();
 }

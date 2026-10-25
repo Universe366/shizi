@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
 
 import type { TabManager } from './tabs';
 
@@ -22,6 +22,17 @@ const { ai: aiControllers } = abortControllers;
 export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   const send = (channel: string, payload: unknown) => {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
+    // 桌宠是独立窗口：设置变化（大小/主题/名字/不透明度…）也要实时同步过去。
+    if (channel === 'settings:changed') {
+      for (const other of BrowserWindow.getAllWindows()) {
+        if (other === win || other.isDestroyed()) continue;
+        try {
+          other.webContents.send(channel, payload);
+        } catch {
+          // ignore
+        }
+      }
+    }
   };
   const ctx: IpcContext = { win, send, tabs, aiControllers };
   registerJobsIpc(ctx);

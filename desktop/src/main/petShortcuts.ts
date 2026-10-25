@@ -4,7 +4,8 @@ import { openPetWindow, petWebContents } from './petWindow';
 import { beginRegionCapture } from './shotOverlay';
 
 /** 桌面宠物全局快捷键。截图必须可用；对话/语音可通过设置关闭。 */
-export const PET_SHOT_ACCELERATOR = 'Control+Shift+S';
+// 不要用 Control+Shift+S：主窗口的「选中即问」占用了它，全局注册会把它吞掉。
+export const PET_SHOT_ACCELERATOR = 'Control+Alt+S';
 export const PET_VOICE_ACCELERATOR = 'Control+Shift+Space';
 export const PET_CHAT_ACCELERATOR = 'Control+Shift+D';
 
@@ -22,11 +23,17 @@ const states: Record<PetShortcutState['id'], PetShortcutState> = {
 };
 
 function sendToPet(channel: string): void {
+  const before = petWebContents();
   openPetWindow();
   const wc = petWebContents();
   if (!wc || wc.isDestroyed()) return;
-  if (wc.isLoading()) wc.once('did-finish-load', () => wc.send(channel));
-  else wc.send(channel);
+  const deliver = () => {
+    if (!wc.isDestroyed()) wc.send(channel);
+  };
+  // 新窗口的 React effect 要等首帧之后才注册监听，did-finish-load 仍然可能太早；
+  // 已就绪的窗口立即发，新窗口给 600ms 缓冲。
+  if (before && !before.isDestroyed() && !wc.isLoading()) deliver();
+  else setTimeout(deliver, 600);
 }
 
 function register(id: PetShortcutState['id'], callback: () => void): void {

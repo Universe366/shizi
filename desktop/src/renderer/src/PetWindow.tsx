@@ -7,7 +7,8 @@ import type {
   PetClickAction,
   PetDoubleClickAction,
   PetTheme,
-  PetTodo
+  PetTodo,
+  WebReference
 } from '../../shared/types';
 
 function fallbackInfo(): PageInfo {
@@ -128,6 +129,23 @@ function visionHint(raw: string): string {
   return '当前 AI 模型可能不支持图片。去「设置 → AI」换一个支持视觉的模型（如 GPT-4o / Claude / Gemini / Qwen-VL）后再试一次。';
 }
 
+/** 历史来源来自 localStorage，渲染前过滤掉损坏/非 http(s) 的链接。 */
+function safeSources(value: unknown): WebReference[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is WebReference => {
+      if (!item || typeof item !== 'object') return false;
+      const candidate = item as WebReference;
+      return typeof candidate.url === 'string' && /^https?:\/\//i.test(candidate.url);
+    })
+    .map((item) => ({
+      title:
+        typeof item.title === 'string' && item.title.trim() ? item.title.trim() : item.url,
+      url: item.url,
+      snippet: typeof item.snippet === 'string' ? item.snippet : ''
+    }));
+}
+
 /** 桌宠窗口：情绪、拖动、气泡对话、截图识图、问选中、联网检索。 */
 export function PetWindow() {
   const [open, setOpen] = useState(false);
@@ -145,16 +163,33 @@ export function PetWindow() {
   const [speak, setSpeak] = useState(() => localStorage.getItem('pet-speak') === '1');
   const [webOn, setWebOn] = useState(() => localStorage.getItem('pet-web') === '1');
   const [hint, setHint] = useState('');
-  const [history, setHistory] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>(() => {
+  const [history, setHistory] = useState<
+    Array<{
+      role: 'user' | 'assistant';
+      text: string;
+      sources?: WebReference[];
+      webEngine?: string;
+      webNotice?: string;
+    }>
+  >(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('pet-history') || '[]');
       return Array.isArray(raw)
         ? raw
             .filter(
-              (item): item is { role: 'user' | 'assistant'; text: string } =>
+              (
+                item
+              ): item is {
+                role: 'user' | 'assistant';
+                text: string;
+                sources?: WebReference[];
+                webEngine?: string;
+                webNotice?: string;
+              } =>
                 Boolean(item) &&
                 (item.role === 'user' || item.role === 'assistant') &&
-                typeof item.text === 'string'
+                typeof item.text === 'string' &&
+                (!item.sources || Array.isArray(item.sources))
             )
             .slice(-30)
         : [];
@@ -181,8 +216,14 @@ export function PetWindow() {
   const withImageRef = useRef(false);
   const happyTimer = useRef<number | null>(null);
   const lastActive = useRef(Date.now());
+  const lastTalkAt = useRef(0);
+  const voiceCanceled = useRef(false);
+  const voiceStarting = useRef(false);
+  const openChatRef = useRef<() => void>(() => undefined);
+  const startVoiceRef = useRef<() => void>(() => undefined);
   const dragStarted = useRef(false);
   const [petSize, setPetSize] = useState(96);
+  const [petOpacity, setPetOpacity] = useState(1);
   const [soundOn, setSoundOn] = useState(true);
   const [idleTalkOn, setIdleTalkOn] = useState(true);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
@@ -229,6 +270,7 @@ export function PetWindow() {
   useEffect(() => {
     const apply = (general: Record<string, unknown>) => {
       setPetSize(Math.min(180, Math.max(64, Number(general.petSize) || 96)));
+      setPetOpacity(Math.min(1, Math.max(0.4, Number(general.petOpacity ?? 1) || 1)));
       setSoundOn(general.petSound !== false);
       setIdleTalkOn(general.petIdleTalk !== false);
       setAlwaysOnTop(general.petAlwaysOnTop !== false);
@@ -376,6 +418,7 @@ export function PetWindow() {
         return;
       }
       if (!open) return;
+      setHistoryOpen(false);
       setOpen(false);
       // 焦点别留在不可见的桌宠窗口里，还回上一个窗口。
       void window.bsub.petBlur();
@@ -403,7 +446,20 @@ export function PetWindow() {
       const finalText = ocrRef.current ? cleanOcrText(event.text) : event.text;
       ocrRef.current = false;
       setAnswer(finalText);
-      setHistory((items) => [...items, { role: 'assistant', text: finalText }]);
+      const sources = (event.references || []).slice(0, 3).map((reference) => ({
+        ...reference,
+        snippet: reference.snippet.slice(0, 160)
+      }));
+      setHistory((items) => [
+        ...items,
+        {
+          role: 'assistant',
+          text: finalText,
+          ...(sources.length ? { sources } : {}),
+          ...(event.webEngine ? { webEngine: event.webEngine } : {}),
+          ...(event.webError ? { webNotice: event.webError } : {})
+        }
+      ]);
       setEmotion('happy');
       if (speak && finalText) {
         try {
@@ -432,7 +488,7 @@ export function PetWindow() {
     };
   }, [speak, speechRate]);
 
-  // 全局快捷键（Ctrl+Shift+S）截完的结果
+  // 全局快捷键（Ctrl+Alt+S）截完的结果
   useEffect(() => window.bsub.onPetShot((result) => shotHandler.current(result)), []);
   shotHandler.current = (result) => {
     void handleShotResult(result);
@@ -483,18 +539,26 @@ export function PetWindow() {
   // 空闲：睡觉 + 自言自语
   useEffect(() => {
     const timer = window.setInterval(() => {
+      // 气泡/菜单/挂件开着时不睡觉、不说话，避免打断正在看的内容。
+      if (busy || open || menuOpen || widgetOpen) return;
       const idleMs = Date.now() - lastActive.current;
-      if (busy) return;
       if (sleepMinutes > 0 && idleMs > sleepMinutes * 60_000) {
         setEmotion('sleeping');
         return;
       }
-      if (idleTalkOn && idleTalkMinutes > 0 && idleMs > idleTalkMinutes * 60_000) {
+      if (
+        idleTalkOn &&
+        idleTalkMinutes > 0 &&
+        idleMs > idleTalkMinutes * 60_000 &&
+        Date.now() - lastTalkAt.current > idleTalkMinutes * 60_000
+      ) {
+        // 记录这次说话的时间：之前每 45 秒会重复一次，太吵。
+        lastTalkAt.current = Date.now();
         flash(SELF_TALK[Math.floor(Math.random() * SELF_TALK.length)], 5000);
       }
     }, 45_000);
     return () => window.clearInterval(timer);
-  }, [busy, idleTalkOn, idleTalkMinutes, sleepMinutes]);
+  }, [busy, idleTalkOn, idleTalkMinutes, sleepMinutes, open, menuOpen, widgetOpen]);
 
   const wake = () => {
     lastActive.current = Date.now();
@@ -519,12 +583,27 @@ export function PetWindow() {
     if (!next) speechSynthesis.cancel();
   };
 
+  /** 打开气泡并把它带到前台状态：关掉菜单/挂件/历史，焦点给输入框。 */
+  const openChatPanel = () => {
+    setMenuOpen(false);
+    setWidgetOpen(false);
+    setHistoryOpen(false);
+    setOpen(true);
+    window.setTimeout(() => inputRef.current?.focus(), 60);
+  };
+
   const toggleOpen = () => {
     wake();
     setEmotion('happy');
     if (happyTimer.current) window.clearTimeout(happyTimer.current);
     happyTimer.current = window.setTimeout(() => setEmotion('idle'), 1200);
-    if (!open) setWidgetOpen(false);
+    if (!open) {
+      setWidgetOpen(false);
+      setMenuOpen(false);
+      setHistoryOpen(false);
+    } else {
+      setHistoryOpen(false);
+    }
     if (!open && Math.random() < 0.4) {
       flash(CLICK_PHRASES[Math.floor(Math.random() * CLICK_PHRASES.length)]);
     }
@@ -623,7 +702,7 @@ export function PetWindow() {
     width: number;
     height: number;
   }) => {
-    setOpen(true);
+    openChatPanel();
     if (result.action === 'image') {
       setShot(result.dataUrl);
       flash('截图已就绪，接着问就行');
@@ -693,7 +772,7 @@ export function PetWindow() {
       return;
     }
     setSelection({ text, title: response.data.title });
-    setOpen(true);
+    openChatPanel();
     await ask(prompt, { selection: text });
   };
 
@@ -834,9 +913,17 @@ export function PetWindow() {
       stopVoice();
       return;
     }
-    if (busy) return;
+    if (busy || voiceStarting.current) return;
+    voiceStarting.current = true;
     try {
+      voiceCanceled.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 等权限/设备期间气泡被关掉：直接释放麦克风，不要偷偷开始录。
+      if (voiceCanceled.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        voiceCanceled.current = false;
+        return;
+      }
       mediaStream.current = stream;
       mediaChunks.current = [];
       const recorder = new MediaRecorder(stream);
@@ -848,6 +935,12 @@ export function PetWindow() {
         setRecording(false);
         stream.getTracks().forEach((track) => track.stop());
         mediaStream.current = null;
+        // 关闭气泡/窗口导致的停止不转写，避免在后台偷偷发请求。
+        if (voiceCanceled.current) {
+          voiceCanceled.current = false;
+          mediaChunks.current = [];
+          return;
+        }
         const blob = new Blob(mediaChunks.current, { type: 'audio/webm' });
         mediaChunks.current = [];
         if (!blob.size) {
@@ -868,11 +961,37 @@ export function PetWindow() {
       };
       recorder.start();
       setRecording(true);
-      setOpen(true);
+      openChatPanel();
     } catch {
+      // getUserMedia 成功、MediaRecorder 构造失败时也要把麦克风关掉。
+      mediaStream.current?.getTracks().forEach((track) => track.stop());
+      mediaStream.current = null;
+      mediaRecorder.current = null;
       flash('无法使用麦克风');
+    } finally {
+      voiceStarting.current = false;
     }
   };
+
+  // 全局快捷键（Ctrl+Shift+D / Ctrl+Shift+Space）：主进程只负责开窗+发事件，这里接住。
+  openChatRef.current = openChatPanel;
+  startVoiceRef.current = () => {
+    void startVoice();
+  };
+
+  useEffect(() => window.bsub.onPetChat?.(() => openChatRef.current()), []);
+  useEffect(() => window.bsub.onPetVoice?.(() => startVoiceRef.current()), []);
+
+  // 气泡被关掉时停止录音：不要把麦克风留在后台。
+  useEffect(() => {
+    if (open) return;
+    if (!recording && !voiceStarting.current) return;
+    voiceCanceled.current = true;
+    if (recording) {
+      mediaChunks.current = [];
+      stopVoice();
+    }
+  }, [open, recording]);
 
   const pasteClipboard = async () => {
     try {
@@ -883,8 +1002,7 @@ export function PetWindow() {
       }
       setInput((value) => (value ? `${value}
 ${text.slice(0, 4000)}` : text.slice(0, 4000)));
-      setOpen(true);
-      window.setTimeout(() => inputRef.current?.focus(), 60);
+      openChatPanel();
     } catch {
       flash('读取剪贴板失败');
     }
@@ -948,7 +1066,16 @@ ${text.slice(0, 4000)}` : text.slice(0, 4000)));
   const dropFile = async (event: React.DragEvent) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
-    const filePath = (file as File & { path?: string })?.path || '';
+    // Electron 32+ 的 File 没有 path 字段，必须走 webUtils（preload 暴露）。
+    let filePath = '';
+    try {
+      filePath = window.bsub.petFilePath?.(file) || '';
+    } catch {
+      filePath = '';
+    }
+    if (!filePath) {
+      filePath = (file as File & { path?: string })?.path || '';
+    }
     if (!filePath) {
       flash('请从资源管理器拖入文件');
       return;
@@ -958,7 +1085,7 @@ ${text.slice(0, 4000)}` : text.slice(0, 4000)));
       flash(result?.error || '读取文件失败');
       return;
     }
-    setOpen(true);
+    openChatPanel();
     if (result.data.kind === 'image' && result.data.dataUrl) {
       setShot(result.data.dataUrl);
       flash(`已添加图片：${result.data.name}`);
@@ -1013,13 +1140,18 @@ ${result.data.text}`
         playing ? ' is-playing' : ''
       }${motion ? '' : ' no-motion'}${pressing ? ' is-pressing' : ''}${
         dragging ? ' is-dragging' : ''
-      }${below ? ' is-below' : ''}`}
+      }${below ? ' is-below' : ''}${!open && !widgetOpen && !menuOpen ? ' is-compact' : ''}`}
       style={{
         ['--pet-size' as string]: `${petSize}px`,
-        ['--pet-bubble-w' as string]: `${bubbleW}px`
+        ['--pet-bubble-w' as string]: `${bubbleW}px`,
+        ['--pet-opacity' as string]: String(petOpacity)
       }}
       onContextMenu={(event) => {
+        const target = event.target as HTMLElement | null;
+        // 输入框里右键应该留给系统/快捷键粘贴，不要用桌宠菜单把气泡顶掉。
+        if (target?.closest('input,textarea,[contenteditable="true"],[contenteditable=""]')) return;
         event.preventDefault();
+        wake();
         setMenuOpen((value) => !value);
       }}
       onMouseEnter={wake}
@@ -1245,6 +1377,7 @@ ${result.data.text}`
                 aria-label="关闭对话"
                 onClick={() => {
                   setOpen(false);
+                  setHistoryOpen(false);
                   void window.bsub.petBlur();
                 }}
               >
@@ -1306,7 +1439,33 @@ ${result.data.text}`
           <div className="pet-bubble-body" ref={bubbleBody}>
             {history.slice(-6).map((item, index) => (
               <div key={index} className={`pet-line is-${item.role}`}>
-                {item.role === 'assistant' ? <Markdown content={item.text} /> : item.text}
+                {item.role === 'assistant' ? (
+                  <>
+                    <Markdown content={item.text} />
+                    {safeSources(item.sources).length ? (
+                      <div className="pet-sources">
+                        {typeof item.webEngine === 'string' && item.webEngine && (
+                          <div className="pet-sources-label">{item.webEngine}</div>
+                        )}
+                        {safeSources(item.sources).map((reference, sourceIndex) => (
+                          <button
+                            key={`${sourceIndex}-${reference.url}`}
+                            className="pet-source"
+                            title={reference.url}
+                            onClick={() => void window.bsub.openExternal(reference.url)}
+                          >
+                            {reference.title || reference.url}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {typeof item.webNotice === 'string' && item.webNotice && (
+                      <div className="pet-web-notice">{item.webNotice}</div>
+                    )}
+                  </>
+                ) : (
+                  item.text
+                )}
               </div>
             ))}
             {busy && (
@@ -1578,6 +1737,10 @@ ${result.data.text}`
             (Math.abs(event.screenX - press.x) > 3 || Math.abs(event.screenY - press.y) > 3);
           if (moved || dragStarted.current) {
             dragStarted.current = false;
+            return;
+          }
+          if (menuOpen) {
+            setMenuOpen(false);
             return;
           }
           // 双击的第二次 click 不再触发单击动作，交给 onDoubleClick。

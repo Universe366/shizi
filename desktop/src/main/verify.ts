@@ -10,7 +10,8 @@ import type {
 import { activePlatform } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
-import { rankReferences, searchWeb } from './search';
+import { rankReferences, searchWeb, withSearchSignal } from './search';
+import { withDeadline } from './async';
 
 const STOPWORDS = new Set([
   '视频', '内容', '我们', '他们', '你们', '这个', '那个', '什么', '怎么', '为什么',
@@ -612,18 +613,32 @@ export async function verifySummary(
     const label = item.label || item.query;
     let raw: WebReference[] | null = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const searchAbort = new AbortController();
+      const forwardAbort = () => searchAbort.abort(signal?.reason);
+      signal?.addEventListener('abort', forwardAbort, { once: true });
+      if (signal?.aborted) searchAbort.abort();
       try {
-        raw = await searchWeb(settings, searchQuery);
+        // 单个核对项最多等 15 秒；超时/取消都会真正中止底层 HTTP。
+        raw = await withDeadline(
+          withSearchSignal(searchAbort.signal, () => searchWeb(settings, searchQuery)),
+          15000,
+          signal,
+          '检索超时',
+          () => searchAbort.abort(new Error('检索超时'))
+        );
         break;
       } catch (error) {
         if (signal?.aborted) throw error;
-        if (attempt === 1) {
+        const timedOut = (error as Error)?.name === 'TimeoutError';
+        if (attempt === 1 || timedOut) {
           failed += 1;
           done += 1;
           onProgress(done, items.length, label);
           return { ...item, references: [] as WebReference[] };
         }
         await new Promise((resolve) => setTimeout(resolve, 400));
+      } finally {
+        signal?.removeEventListener('abort', forwardAbort);
       }
     }
     if (!raw) {

@@ -89,6 +89,26 @@ describe('SummaryPanel', () => {
     expect(screen.getByText(/重新生成会执行联网核对/)).toBeTruthy();
   });
 
+  it('用 verifySummary 而不是 verify 判断总结核对', async () => {
+    const { api } = installBsub({ saved: true });
+    api.getSettings.mockResolvedValueOnce({
+      ok: true as const,
+      data: {
+        settings: {
+          ai: { preProofread: false },
+          // verify=false（默认）只代表「AI 优化时核对」关闭，总结核对仍应开启。
+          search: { verify: false, verifySummary: true },
+          export: { defaultFormat: 'md', format: 'md' }
+        },
+        version: '0.37.2'
+      }
+    } as never);
+    render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);
+    expect(await screen.findByText('已保存的总结')).toBeTruthy();
+    expect(screen.getByText(/重新生成会执行联网核对/)).toBeTruthy();
+    expect(screen.queryByText(/重新生成不会执行联网核对/)).toBeNull();
+  });
+
   it('没有保存总结时展示空状态', async () => {
     installBsub();
     render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);

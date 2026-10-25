@@ -268,6 +268,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     keylessOrder: ['exa', 'anysearch'],
     cacheMinutes: 5,
     autoSearchOnChat: false,
+    autoSearchAi: false,
     alwaysSearchOnChat: false,
     useVideoMeta: true,
     useComments: true,
@@ -846,6 +847,7 @@ function normalize(input: unknown): AppSettings {
         base.search.cacheMinutes = Math.min(60, Math.max(0, Math.round(cacheMinutes)));
       }
       base.search.autoSearchOnChat = raw.search.autoSearchOnChat === true;
+      base.search.autoSearchAi = raw.search.autoSearchAi === true;
       base.search.alwaysSearchOnChat = raw.search.alwaysSearchOnChat === true;
       base.search.useVideoMeta = raw.search.useVideoMeta !== false;
       base.search.useComments =

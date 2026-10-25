@@ -9,6 +9,7 @@ import type {
   PageInfo,
   QualityReport,
   Result,
+  SearchPlatform,
   SkillItem,
   SubtitleLine,
   WebReference
@@ -18,7 +19,7 @@ import { readSkillFile } from '../skills';
 import { checkSubtitles } from '../quality';
 import { generateChapters } from '../chapters';
 import { testSearch } from '../search';
-import { loadSettings } from '../settings';
+import { isMaskedSecret, loadSettings } from '../settings';
 import { applyCorrectionToText } from '../correction';
 
 import { failure, type IpcContext } from './shared';
@@ -96,14 +97,41 @@ export function registerToolsIpc(ctx: IpcContext): void {
     }
   );
 
-  ipcMain.handle('search:test', async (_event, query: string): Promise<Result<WebReference[]>> => {
-    try {
-      const q = String(query || '').trim() || 'B站 视频 总结';
-      return { ok: true, data: await testSearch(loadSettings(), q) };
-    } catch (error) {
-      return failure<WebReference[]>(error);
+  ipcMain.handle(
+    'search:test',
+    async (
+      _event,
+      query: string,
+      override?: {
+        platform?: SearchPlatform;
+        search?: AppSettings['search'];
+      }
+    ): Promise<Result<WebReference[]>> => {
+      try {
+        const q = String(query || '').trim() || 'B站 视频 总结';
+        const saved = loadSettings();
+        const candidate = override?.platform;
+        if (!candidate) return { ok: true, data: await testSearch(saved, q) };
+
+        // 允许用设置页里尚未保存的平台/协议/Key 做测试；掩码 Key 回退到已保存值。
+        const apiKey =
+          candidate.apiKey && candidate.apiKey !== '__CLEAR__' && !isMaskedSecret(candidate.apiKey)
+            ? candidate.apiKey
+            : saved.search.platforms.find((item) => item.id === candidate.id)?.apiKey || '';
+        const platform: SearchPlatform = { ...candidate, apiKey };
+        const search: AppSettings['search'] = {
+          ...saved.search,
+          ...(override?.search || {}),
+          enabled: true,
+          activeId: platform.id,
+          platforms: [platform, ...saved.search.platforms.filter((item) => item.id !== platform.id)]
+        };
+        return { ok: true, data: await testSearch({ ...saved, search }, q) };
+      } catch (error) {
+        return failure<WebReference[]>(error);
+      }
     }
-  });
+  );
 
   ipcMain.handle('rules:export', async (_event, group: CorrectionRuleGroup) => {
     try {

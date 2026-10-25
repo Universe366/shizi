@@ -42,6 +42,7 @@ import type {
   ChatDoneEvent,
   ChatErrorEvent,
   ChatRequest,
+  ChatStatusEvent,
   OptimizeDoneEvent,
   OptimizeErrorEvent,
   OptimizeProgressEvent,
@@ -493,13 +494,18 @@ export function registerMediaIpc(ctx: IpcContext): void {
             onDelta: (delta) =>
               sendToSender('chat:delta', { requestId, delta } satisfies ChatDeltaEvent),
             onReasoning: (reasoning) =>
-              sendToSender('chat:delta', { requestId, delta: '', reasoning } satisfies ChatDeltaEvent)
+              sendToSender('chat:delta', { requestId, delta: '', reasoning } satisfies ChatDeltaEvent),
+            onStatus: (status) =>
+              sendToSender('chat:status', { requestId, status } satisfies ChatStatusEvent)
           });
           sendToSender('chat:done', {
             requestId,
             text: result.text,
             model: result.model,
-            reasoning: result.reasoning
+            reasoning: result.reasoning,
+            references: result.references,
+            webEngine: result.webEngine,
+            webError: result.webError
           } satisfies ChatDoneEvent);
         } catch (error) {
           const message = controller.signal.aborted

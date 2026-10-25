@@ -243,7 +243,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
             checked={value.petShortcut !== false}
             onChange={(event) => onChange({ petShortcut: event.target.checked })}
           />
-          启用全局截图快捷键 Ctrl+Shift+S
+          启用全局截图快捷键 Ctrl+Alt+S
         </label>
         <label className="settings-check">
           <input
