@@ -143,6 +143,7 @@ export function PetWindow() {
   const [copied, setCopied] = useState(false);
   const [shot, setShot] = useState<string | null>(null);
   const [shotBusy, setShotBusy] = useState(false);
+  const shotBusyRef = useRef(false);
   const [selection, setSelection] = useState<{ text: string; title: string } | null>(null);
   const requestRef = useRef('');
   const withImageRef = useRef(false);
@@ -173,6 +174,7 @@ export function PetWindow() {
   const sentMessages = useRef<string[]>([]);
   const recallIndex = useRef(-1);
   const openedByClick = useRef(false);
+  const pressPoint = useRef<{ x: number; y: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
 
@@ -210,6 +212,25 @@ export function PetWindow() {
     return window.bsub.onSettingsChanged((snapshot) => {
       apply(snapshot.settings.general as unknown as Record<string, unknown>);
     });
+  }, []);
+
+  // 打开气泡就把焦点放进输入框：点一下就能直接打字。
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 60);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
+  // 点到别处（窗口失焦）就收起气泡/菜单，不要一直浮在上面。
+  useEffect(() => {
+    const close = () => {
+      // 截图覆盖窗会暂时抢走焦点，这时候别把气泡收掉（截完还要用）。
+      if (shotBusyRef.current) return;
+      setMenuOpen(false);
+      setOpen(false);
+    };
+    window.addEventListener('blur', close);
+    return () => window.removeEventListener('blur', close);
   }, []);
 
   // 窗口跟着内容伸缩：关闭气泡后只占桌宠大小，不再用透明区域挡住桌面。
@@ -280,12 +301,18 @@ export function PetWindow() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (menuOpen) setMenuOpen(false);
-      else setOpen(false);
+      if (menuOpen) {
+        setMenuOpen(false);
+        return;
+      }
+      if (!open) return;
+      setOpen(false);
+      // 焦点别留在不可见的桌宠窗口里，还回上一个窗口。
+      void window.bsub.petBlur();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [menuOpen]);
+  }, [menuOpen, open]);
 
   // 回答更新后滚到底部
   useEffect(() => {
@@ -492,6 +519,7 @@ export function PetWindow() {
     }
     wake();
     setShotBusy(true);
+    shotBusyRef.current = true;
     try {
       const result = await window.bsub.captureRegion();
       if (!result) {
@@ -503,6 +531,7 @@ export function PetWindow() {
       flash('截图失败，请重试');
     } finally {
       setShotBusy(false);
+      shotBusyRef.current = false;
     }
   };
 
@@ -626,6 +655,7 @@ export function PetWindow() {
       return;
     }
     dragStarted.current = false;
+    pressPoint.current = { x: event.screenX, y: event.screenY };
     setPressing(true);
     // 位移交给主进程跟随光标：指针移出窗口也不会掉。
     void window.bsub.beginPetDrag();
@@ -641,9 +671,7 @@ export function PetWindow() {
       window.removeEventListener('mouseup', up);
       setPressing(false);
       setDragging(false);
-      void window.bsub.endPetDrag().then((result) => {
-        if (result?.moved) dragStarted.current = true;
-      });
+      void window.bsub.endPetDrag();
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
@@ -823,9 +851,12 @@ export function PetWindow() {
               </button>
               <button
                 className="pet-close"
-                title="隐藏桌宠（可在设置里重新打开）"
-                aria-label="隐藏桌宠"
-                onClick={() => void window.bsub.setPetEnabled(false)}
+                title="关闭对话（Esc）"
+                aria-label="关闭对话"
+                onClick={() => {
+                  setOpen(false);
+                  void window.bsub.petBlur();
+                }}
               >
                 ×
               </button>
@@ -936,7 +967,12 @@ export function PetWindow() {
                 {action.label}
               </button>
             ))}
-            <button className="mini-btn" title="把回答复制到剪贴板" onClick={() => void copyAnswer()}>
+            <button
+              className="mini-btn"
+              title="把回答复制到剪贴板"
+              disabled={!answer && !history.some((item) => item.role === 'assistant')}
+              onClick={() => void copyAnswer()}
+            >
               {copied ? '已复制' : '复制'}
             </button>
           </div>
@@ -984,7 +1020,13 @@ export function PetWindow() {
         title="点击聊天，拖动移动，双击打开主窗口"
         onMouseDown={startDrag}
         onClick={(event) => {
-          if (dragStarted.current) {
+          const press = pressPoint.current;
+          pressPoint.current = null;
+          // 松开时的位置和按下时差超过 3px，说明刚才是在拖动，不能当点击。
+          const moved =
+            press &&
+            (Math.abs(event.screenX - press.x) > 3 || Math.abs(event.screenY - press.y) > 3);
+          if (moved || dragStarted.current) {
             dragStarted.current = false;
             return;
           }

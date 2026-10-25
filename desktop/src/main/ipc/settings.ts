@@ -45,6 +45,7 @@ import {
   endPetDrag,
   movePet,
   petBodyRect,
+  petBlur,
   petPosition,
   resetPetPosition,
   setPetAlwaysOnTop,
@@ -72,6 +73,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     ctx.win.show();
     ctx.win.focus();
   });
+  ipcMain.handle('pet:blur', () => petBlur());
   ipcMain.handle('pet:begin-drag', () => {
     beginPetDrag();
   });

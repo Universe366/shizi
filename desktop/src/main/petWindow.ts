@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, app, screen } from 'electron';
 import path from 'node:path';
 import { loadSettings, saveSettings } from './settings';
 import {
@@ -19,6 +19,10 @@ let petWindow: BrowserWindow | null = null;
 let layoutMode: PetLayoutMode = 'compact';
 /** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
 let desiredBody: Rect | null = null;
+/** 桌宠抢焦点之前是哪个窗口，Esc 收起时还回去。 */
+let lastFocusedWindow: BrowserWindow | null = null;
+let previousWindow: BrowserWindow | null = null;
+let focusTracking = false;
 
 /* ---------------- 位置：内部一律以「桌宠本体」为准 ---------------- */
 
@@ -110,6 +114,7 @@ export function openPetWindow(useStartCorner = false): void {
     return;
   }
   layoutMode = 'compact';
+  startFocusTracking();
   const size = petSize();
   const settings = loadSettings();
   const corner = settings.general.petStartCorner;
@@ -346,4 +351,39 @@ export function setPetAlwaysOnTop(enabled: boolean): boolean {
     petWindow.setAlwaysOnTop(enabled, 'screen-saver');
   }
   return enabled;
+}
+
+/** 开始跟踪窗口焦点：记住桌宠抢焦点之前是哪个窗口。 */
+function startFocusTracking(): void {
+  if (focusTracking) return;
+  focusTracking = true;
+  lastFocusedWindow = BrowserWindow.getFocusedWindow();
+  app.on('browser-window-focus', (_event, win) => {
+    if (win === petWindow && lastFocusedWindow && lastFocusedWindow !== petWindow) {
+      previousWindow = lastFocusedWindow;
+    }
+    lastFocusedWindow = win;
+  });
+}
+
+/** 把焦点还给上一个窗口（Esc 收起气泡后调用，别让焦点留在不可见的桌宠窗口里）。 */
+export function petBlur(): void {
+  if (!petWindow || petWindow.isDestroyed()) return;
+  const usable = (win: BrowserWindow | null): win is BrowserWindow =>
+    Boolean(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+  const target =
+    usable(previousWindow)
+      ? previousWindow
+      : BrowserWindow.getAllWindows().find(
+          (win) => win !== petWindow && usable(win) && win.isFocusable()
+        );
+  if (target) {
+    target.focus();
+    return;
+  }
+  try {
+    petWindow.blur();
+  } catch {
+    // 某些平台不支持，忽略
+  }
 }

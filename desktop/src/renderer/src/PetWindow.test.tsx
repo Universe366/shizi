@@ -63,6 +63,7 @@ function installBsub() {
     }),
     openSettings: vi.fn(async () => undefined),
     beginPetDrag: vi.fn(async () => undefined),
+    petBlur: vi.fn(async () => undefined),
     endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
     petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
     onSettingsChanged: vi.fn(() => () => {}),
@@ -340,8 +341,8 @@ describe('PetWindow', () => {
     expect(api.setPetEnabled).toHaveBeenCalledWith(false);
   });
 
-  it('Esc 先关菜单，再关气泡', async () => {
-    installBsub();
+  it('Esc 先关菜单，再关气泡并把焦点还回去', async () => {
+    const { api } = installBsub();
     render(<PetWindow />);
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
     expect(screen.getByText('截图（框选）')).toBeTruthy();
@@ -352,6 +353,7 @@ describe('PetWindow', () => {
     expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
+    expect(api.petBlur).toHaveBeenCalled();
   });
 
   it('挂件显示时钟并可加待办', async () => {
@@ -376,12 +378,14 @@ describe('PetWindow', () => {
     expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
   });
 
-  it('气泡里的隐藏按钮关闭桌宠', async () => {
+  it('气泡右上角的 × 关闭对话（不隐藏桌宠）', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
     await openBubble();
-    fireEvent.click(screen.getByTitle(/隐藏桌宠/));
-    expect(api.setPetEnabled).toHaveBeenCalledWith(false);
+    fireEvent.click(screen.getByTitle('关闭对话（Esc）'));
+    expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
+    expect(api.setPetEnabled).not.toHaveBeenCalled();
+    expect(api.petBlur).toHaveBeenCalled();
   });
 });
 
@@ -698,5 +702,38 @@ describe('PetWindow 操作优化', () => {
       },
       { timeout: 3000 }
     );
+  });
+});
+
+describe('PetWindow 点击/失焦', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('打开气泡后焦点直接进输入框', async () => {
+    installBsub();
+    render(<PetWindow />);
+    fireEvent.click(screen.getByTitle(/点击聊天/));
+    const input = await screen.findByPlaceholderText(/问点什么/);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+  });
+
+  it('拖动后松手不会误开气泡', async () => {
+    installBsub();
+    render(<PetWindow />);
+    const body = screen.getByTitle(/点击聊天/);
+    fireEvent.mouseDown(body, { button: 0, screenX: 100, screenY: 100 });
+    fireEvent.mouseUp(window, { screenX: 220, screenY: 160 });
+    fireEvent.click(body, { screenX: 220, screenY: 160 });
+    expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
+  });
+
+  it('点到别处（窗口失焦）会收起气泡', async () => {
+    installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.blur(window);
+    await waitFor(() => expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull());
   });
 });

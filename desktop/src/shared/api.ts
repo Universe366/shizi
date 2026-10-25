@@ -98,6 +98,8 @@ export interface BsubApi {
   /** 桌宠窗口随气泡/挂件/菜单伸缩，避免透明区域挡住桌面点击。 */
   setPetLayout(mode: 'compact' | 'bubble' | 'widget' | 'menu'): Promise<void>;
   setPetAlwaysOnTop(enabled: boolean): Promise<boolean>;
+  /** 收起气泡后把焦点还给上一个窗口。 */
+  petBlur(): Promise<void>;
   /** 主进程跟随光标拖拽（指针移出窗口也不会掉）。 */
   beginPetDrag(): Promise<void>;
   endPetDrag(): Promise<{ x: number; y: number; moved: boolean } | null>;

@@ -112,6 +112,7 @@
   "permissions:list",
   "permissions:revoke",
   "pet:begin-drag",
+  "pet:blur",
   "pet:body-rect",
   "pet:drop",
   "pet:end-drag",

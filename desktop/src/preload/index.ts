@@ -115,6 +115,7 @@ const api: BsubApi = {
     ipcRenderer.invoke('pet:set-layout', mode) as Promise<void>,
   setPetAlwaysOnTop: (enabled: boolean) =>
     ipcRenderer.invoke('pet:set-always-on-top', enabled) as Promise<boolean>,
+  petBlur: () => ipcRenderer.invoke('pet:blur') as Promise<void>,
   beginPetDrag: () => ipcRenderer.invoke('pet:begin-drag') as Promise<void>,
   endPetDrag: () =>
     ipcRenderer.invoke('pet:end-drag') as Promise<{ x: number; y: number; moved: boolean } | null>,

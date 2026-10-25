@@ -5440,6 +5440,7 @@ button:disabled {
   transform: translateY(1px) scale(0.98, 1.03) rotate(-1.6deg);
   transition-duration: 0.12s;
   animation: none;
+  cursor: grabbing;
 }
 
 .pet-root.is-dragging .pet-eye {
