@@ -375,6 +375,19 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           <option value="top-left">左上角</option>
         </select>
 
+        <div className="settings-label">贴边停靠</div>
+        <select
+          className="settings-input"
+          value={value.petDock || 'none'}
+          onChange={(event) =>
+            onChange({ petDock: event.target.value as 'none' | 'left' | 'right' })
+          }
+        >
+          <option value="none">不停靠</option>
+          <option value="left">靠左（气泡向右展开）</option>
+          <option value="right">靠右（气泡向左展开）</option>
+        </select>
+
         <div className="toolbar-actions">
           <button
             className="mini-btn"
@@ -390,7 +403,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           </button>
         </div>
         <div className="settings-hint">
-          拖动桌宠可移动位置（松手吸附屏幕边缘）；右键桌宠可看屏幕、问选中、暂停/继续播放、切换置顶或隐藏。
+          拖动桌宠可移动位置（松手吸附屏幕边缘，靠近左右边缘会自动停靠）；气泡可拖右上角（翻转后右下角）任意调整大小；右键桌宠可看屏幕、问选中、暂停/继续播放、切换置顶或隐藏。
           关闭气泡后窗口会自动缩到桌宠大小，不会挡住桌面点击。修改后点「保存」生效。
         </div>
       </SettingsSection>

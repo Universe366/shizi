@@ -953,3 +953,23 @@ describe('PetWindow 按钮可配置', () => {
     expect(screen.queryByTitle(/桌面小挂件/)).toBeNull();
   });
 });
+
+describe('PetWindow 自由缩放', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('拖手柄实时改尺寸并落盘', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const grip = document.querySelector('.pet-resize') as HTMLElement;
+    fireEvent.mouseDown(grip, { button: 0, screenX: 500, screenY: 500 });
+    fireEvent.mouseMove(window, { screenX: 560, screenY: 460 });
+    await waitFor(() => expect(api.resizeBubble).toHaveBeenCalledWith(500, 520, false));
+    expect(document.querySelector('.pet-size-badge')?.textContent).toContain('500 × 520');
+    fireEvent.mouseUp(window, { screenX: 560, screenY: 460 });
+    await waitFor(() => expect(api.resizeBubble).toHaveBeenLastCalledWith(500, 520, true));
+  });
+});

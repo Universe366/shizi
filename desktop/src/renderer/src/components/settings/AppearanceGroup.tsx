@@ -123,6 +123,16 @@ export function AppearanceGroup({ value, onChange }: Props) {
         />
         起始页显示 B 站热搜
       </label>
+
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.autoStart === true}
+          onChange={(event) => onChange({ autoStart: event.target.checked })}
+        />
+        开机自动启动拾字
+      </label>
+      <div className="settings-hint">使用系统登录项；关闭后下次启动不再自动运行。</div>
     </SettingsSection>
   );
 }

@@ -541,8 +541,11 @@ try {
             setter.call(el, value);
             el.dispatchEvent(new Event('input', { bubbles: true }));
           };
-          setValue(inputs[0], '冒烟站点');
-          setValue(inputs[1], 'https://example.com/smoke');
+          const byPlaceholder = (placeholder) =>
+            [...inputs].find((el) => el.placeholder === placeholder);
+          setValue(byPlaceholder('例如：知乎'), '冒烟站点');
+          setValue(byPlaceholder('常用 / 学习 / 工具'), '冒烟分组');
+          setValue(byPlaceholder('https://example.com'), 'https://example.com/smoke');
           await new Promise((r) => setTimeout(r, 80));
           document.querySelector('.start-modal-actions .primary')?.click();
           await new Promise((r) => setTimeout(r, 500));
@@ -554,7 +557,7 @@ try {
         })()`
       )
     );
-    if (!added.saved.some((item) => item.label === '冒烟站点')) {
+    if (!added.saved.some((item) => item.label === '冒烟站点' && item.group === '冒烟分组')) {
       throw new Error('新增快捷方式没有写进设置');
     }
     const removed = JSON.parse(
@@ -879,6 +882,31 @@ try {
     }
     if (enabled) throw new Error('隐藏后 settings.petEnabled 仍为 true');
     return 'petEnabled=false';
+  });
+
+  await step('设置页的起始页按钮', async () => {
+    const result = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          document.querySelector('.settings-entry')?.click();
+          await new Promise((r) => setTimeout(r, 500));
+          document.querySelector('button[title="起始页"]')?.click();
+          await new Promise((r) => setTimeout(r, 450));
+          const info = {
+            start: Boolean(document.querySelector('.start-page-v2')),
+            settings: Boolean(document.querySelector('.settings-page'))
+          };
+          const input = document.querySelector('.start-search-v2 input');
+          input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          return JSON.stringify(info);
+        })()`
+      )
+    );
+    if (!result.start || result.settings) {
+      throw new Error(`起始页按钮没有切走设置：${JSON.stringify(result)}`);
+    }
+    return 'start page replaces settings';
   });
 
   await step('关闭确认弹窗', async () => {

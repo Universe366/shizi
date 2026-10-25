@@ -167,3 +167,19 @@ describe('AddressBar 搜索引擎', () => {
     );
   });
 });
+
+describe('AddressBar 原生菜单', () => {
+  afterEach(cleanup);
+
+  it('有 popupMenu 时走系统菜单，选中后派发动作', async () => {
+    const api = installBsub() as ReturnType<typeof installBsub> & {
+      popupMenu?: (items: unknown) => Promise<string | null>;
+    };
+    api.popupMenu = vi.fn(async () => 'bookmarks');
+    const p = props();
+    const { container } = render(<AddressBar {...p} />);
+    fireEvent.click(container.querySelector('button[title="菜单"]') as HTMLElement);
+    await vi.waitFor(() => expect(api.popupMenu).toHaveBeenCalled());
+    expect(p.onOpenHub).toHaveBeenCalledWith('bookmarks');
+  });
+});

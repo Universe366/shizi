@@ -285,6 +285,10 @@ export interface BsubApi {
     position?: 'left' | 'right';
     collapsed?: boolean;
   }): Promise<Result<SettingsSnapshot>>;
+  /** 用系统菜单渲染浮层（避免被网页视图盖住）。 */
+  popupMenu(
+    items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>
+  ): Promise<string | null>;
   /** 请求关闭主窗口（走应用内确认弹窗）。 */
   requestClose(): Promise<void>;
   /** 关闭窗口时主进程询问：最小化到托盘 / 退出 / 取消。 */

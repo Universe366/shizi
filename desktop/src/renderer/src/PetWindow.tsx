@@ -192,6 +192,7 @@ export function PetWindow() {
   const [hydrated, setHydrated] = useState(false);
   const [bubbleW, setBubbleW] = useState(440);
   const [bubbleH, setBubbleH] = useState(480);
+  const [resizing, setResizing] = useState<{ w: number; h: number } | null>(null);
   const [below, setBelow] = useState(false);
   const [buttons, setButtons] = useState<string[]>([
     'web',
@@ -666,6 +667,34 @@ export function PetWindow() {
     flash(`气泡 ${width}×${height}`);
   };
 
+  /** 拖角自由调整：上/下按翻转方向增长，宽度向右增长；拖动时显示尺寸。 */
+  const startResize = (event: React.MouseEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { sx: event.screenX, sy: event.screenY, w: bubbleW, h: bubbleH };
+    let last = { w: bubbleW, h: bubbleH };
+    const move = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.screenX - start.sx;
+      const dy = moveEvent.screenY - start.sy;
+      const width = Math.min(760, Math.max(320, start.w + dx));
+      const height = Math.min(820, Math.max(260, start.h + (below ? dy : -dy)));
+      last = { w: width, h: height };
+      setBubbleW(width);
+      setBubbleH(height);
+      setResizing(last);
+      void window.bsub.resizeBubble(width, height, false);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      setResizing(null);
+      void window.bsub.resizeBubble(last.w, last.h, true);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   /** 在紧凑 / 舒适 / 大窗之间循环，按钮点起来可预期，不用拖角猜方向。 */
   const cycleBubbleSize = () => {
     const presets: Array<[number, number]> = [
@@ -758,7 +787,7 @@ export function PetWindow() {
     // 只响应左键；输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-menu')) return;
+    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-resize,.pet-menu')) return;
     if (!fromBubble && target.closest('.pet-bubble,.pet-widget,.pet-menu')) return;
     dragStarted.current = false;
     pressPoint.current = { x: event.screenX, y: event.screenY };
@@ -1146,6 +1175,17 @@ export function PetWindow() {
                 新对话
               </button>
             </div>
+          )}
+
+          <span
+            className="pet-resize"
+            title="拖动调整大小"
+            onMouseDown={startResize}
+          />
+          {resizing && (
+            <span className="pet-size-badge">
+              {resizing.w} × {resizing.h}
+            </span>
           )}
 
           <div className="pet-bubble-input">

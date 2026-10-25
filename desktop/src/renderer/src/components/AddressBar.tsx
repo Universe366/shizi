@@ -134,6 +134,43 @@ export function AddressBar({
     void window.bsub.navigate(text);
   };
 
+  const runMenuChoice = (choice: string | null) => {
+    if (!choice) return;
+    if (choice === 'history') onOpenHub('history');
+    else if (choice === 'bookmarks') onOpenHub('bookmarks');
+    else if (choice === 'downloads') onOpenHub('downloads');
+    else if (choice === 'tabs') onOpenHub('tabs');
+    else if (choice === 'reader') onOpenReader();
+    else if (choice === 'zoom') void window.bsub.zoomReset();
+    else if (choice === 'start') onOpenStart();
+    else if (choice.startsWith('rate-')) void window.bsub.setPlaybackRate(Number(choice.slice(5)));
+  };
+
+  const openMenu = async () => {
+    // 网页视图是原生层，HTML 菜单会被盖住；优先用系统菜单。
+    if (typeof window.bsub.popupMenu !== 'function') {
+      setMenuOpen((value) => !value);
+      return;
+    }
+    setMenuOpen(false);
+    const choice = await window.bsub.popupMenu([
+      { id: 'history', label: '历史记录' },
+      { id: 'bookmarks', label: '书签' },
+      { id: 'downloads', label: '下载' },
+      { id: 'tabs', label: '标签页' },
+      { type: 'separator' },
+      { id: 'reader', label: '阅读模式（Alt+R）' },
+      { id: 'zoom', label: `重置缩放（${Math.round((tab?.zoom ?? 1) * 100)}%）` },
+      { id: 'start', label: '起始页' },
+      { type: 'separator' },
+      ...[0.5, 1, 1.25, 1.5, 2, 3].map((rate) => ({
+        id: `rate-${rate}`,
+        label: `倍速 ${rate}×`
+      }))
+    ]);
+    runMenuChoice(choice);
+  };
+
   return (
     <div className="address-bar">
       <div className="nav-group">
@@ -289,7 +326,7 @@ export function AddressBar({
         <button
           className={`nav-btn${menuOpen ? ' is-active' : ''}`}
           title="菜单"
-          onClick={() => setMenuOpen((value) => !value)}
+          onClick={() => void openMenu()}
         >
           <MoreHorizontal size={17} />
         </button>

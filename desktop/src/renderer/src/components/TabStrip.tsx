@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Globe, Loader2, Moon, Plus, Search, X } from 'lucide-react';
+import { Globe, Loader2, MoreHorizontal, Moon, Plus, Search, X } from 'lucide-react';
 import type { TabInfo } from '../../../shared/types';
 import { moveIndexFor } from '../lib/tabs';
 
@@ -23,6 +23,8 @@ export function TabStrip({
   const [menu, setMenu] = useState<TabMenuState | null>(null);
   const [filter, setFilter] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tabs.collapsed') === '1');
@@ -55,6 +57,24 @@ export function TabStrip({
   useEffect(() => {
     localStorage.setItem('tabs.width', String(width));
   }, [width]);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const close = (event: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActionsOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [actionsOpen]);
 
   useEffect(() => {
     if (!menu) return;
@@ -122,6 +142,65 @@ export function TabStrip({
               >
                 <Plus size={14} />
               </button>
+              <div className="tab-actions-wrap" ref={actionsRef}>
+                <button
+                  className={`tab-head-new${actionsOpen ? ' is-active' : ''}`}
+                  title="标签操作"
+                  onClick={() => setActionsOpen((value) => !value)}
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+                {actionsOpen && (
+                  <div className="tab-actions-menu" role="menu">
+                    <button
+                      onClick={() => {
+                        setActionsOpen(false);
+                        if (onNewTab) onNewTab();
+                        else void window.bsub.newTab();
+                      }}
+                    >
+                      新建标签页
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActionsOpen(false);
+                        void window.bsub.reopenClosedTab();
+                      }}
+                    >
+                      重新打开关闭的标签
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActionsOpen(false);
+                        setSearchOpen(true);
+                      }}
+                    >
+                      搜索标签
+                    </button>
+                    <div className="tab-menu-sep" />
+                    <button
+                      onClick={() => {
+                        setActionsOpen(false);
+                        const activeTab = tabs.find((tab) => tab.active);
+                        for (const tab of tabs) {
+                          if (!activeTab || tab.id !== activeTab.id) void window.bsub.closeTab(tab.id);
+                        }
+                      }}
+                    >
+                      关闭其他标签
+                    </button>
+                    <button
+                      className="is-danger"
+                      onClick={() => {
+                        setActionsOpen(false);
+                        for (const tab of tabs) void window.bsub.closeTab(tab.id);
+                      }}
+                    >
+                      关闭全部标签
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -209,6 +288,16 @@ export function TabStrip({
                 <Loader2 size={13} className="spin" />
               ) : tab.suspended ? (
                 <Moon size={13} />
+              ) : tab.favicon ? (
+                <img
+                  className="tab-favicon"
+                  src={tab.favicon}
+                  alt=""
+                  draggable={false}
+                  onError={(event) => {
+                    event.currentTarget.style.visibility = 'hidden';
+                  }}
+                />
               ) : (
                 <Globe size={13} />
               )}

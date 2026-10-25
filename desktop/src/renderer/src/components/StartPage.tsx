@@ -97,12 +97,15 @@ export function StartPage({
   const [city, setCity] = useState('上海');
   const [hot, setHot] = useState<string[]>([]);
   const [hotOn, setHotOn] = useState(true);
-  const [editing, setEditing] = useState<{ id?: string; label: string; url: string } | null>(null);
+  const [editing, setEditing] = useState<
+    { id?: string; label: string; url: string; group: string } | null
+  >(null);
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const draggedAt = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
+  const wallpaperRef = useRef<HTMLDivElement>(null);
   const dragId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -160,6 +163,17 @@ export function StartPage({
   }, [hotOn]);
 
   useEffect(() => {
+    if (!wallpaperOpen) return;
+    const close = (event: MouseEvent) => {
+      if (wallpaperRef.current && !wallpaperRef.current.contains(event.target as Node)) {
+        setWallpaperOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [wallpaperOpen]);
+
+  useEffect(() => {
     if (!shortcutMenu) return;
     const close = () => setShortcutMenu(null);
     document.addEventListener('mousedown', close);
@@ -209,15 +223,42 @@ export function StartPage({
   const saveShortcut = () => {
     if (!editing) return;
     const label = editing.label.trim();
+    const group = editing.group.trim() || '常用';
     let url = editing.url.trim();
     if (!label || !url) return;
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     if (!/^https?:\/\/[^\s]+$/i.test(url)) return;
     const id = editing.id || `s-${Date.now().toString(36)}`;
     const next = editing.id
-      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, label, url } : item))
-      : [...shortcuts, { id, label, url }];
+      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, label, url, group } : item))
+      : [...shortcuts, { id, label, url, group }];
     setEditing(null);
+    void persistShortcuts(next);
+  };
+
+  const groups = useMemo(() => {
+    const map = new Map<string, StartShortcut[]>();
+    for (const item of shortcuts) {
+      const key = item.group || '常用';
+      const list = map.get(key) || [];
+      list.push(item);
+      map.set(key, list);
+    }
+    return Array.from(map.entries());
+  }, [shortcuts]);
+
+  const moveShortcutTo = (fromId: string, group: string, targetId?: string) => {
+    const fromIndex = shortcuts.findIndex((item) => item.id === fromId);
+    if (fromIndex < 0) return;
+    const next = [...shortcuts];
+    const [moved] = next.splice(fromIndex, 1);
+    moved.group = group;
+    if (targetId) {
+      const targetIndex = next.findIndex((item) => item.id === targetId);
+      next.splice(targetIndex < 0 ? next.length : targetIndex, 0, moved);
+    } else {
+      next.push(moved);
+    }
     void persistShortcuts(next);
   };
 
@@ -266,7 +307,7 @@ export function StartPage({
               {greeting(now)}，
               {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
             </span>
-            <div className="start-hero-actions">
+            <div className="start-hero-actions" ref={wallpaperRef}>
               <button
                 className={`start-edit-btn${editMode ? ' is-active' : ''}`}
                 onClick={() => setEditMode((value) => !value)}
@@ -521,101 +562,135 @@ export function StartPage({
           </article>
         </section>
 
-        <section className="start-shortcut-grid">
-          {builtIn.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                className={`start-shortcut${editMode ? ' is-locked' : ''}`}
-                onClick={() => {
-                  if (editMode) return;
-                  item.run();
-                }}
-              >
-                <span className="start-shortcut-icon">
-                  <Icon size={18} />
-                </span>
-                <span className="start-shortcut-label">{item.label}</span>
-              </button>
-            );
-          })}
-
-          {shortcuts.map((item) => (
-            <button
-              key={item.id}
-              className={`start-shortcut start-shortcut-custom${editMode ? ' is-editing' : ''}`}
-              title={item.url}
-              draggable={editMode}
-              onDragStart={() => {
-                dragId.current = item.id;
-                draggedAt.current = Date.now();
-              }}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={() => {
-                const from = dragId.current;
-                dragId.current = null;
-                if (!from || from === item.id) return;
-                const next = [...shortcuts];
-                const fromIndex = next.findIndex((entry) => entry.id === from);
-                const toIndex = next.findIndex((entry) => entry.id === item.id);
-                if (fromIndex < 0 || toIndex < 0) return;
-                const [moved] = next.splice(fromIndex, 1);
-                next.splice(toIndex, 0, moved);
-                void persistShortcuts(next);
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                setShortcutMenu({ x: event.clientX, y: event.clientY, id: item.id });
-              }}
-              onClick={() => {
-                if (Date.now() - draggedAt.current < 350) return;
-                if (editMode) {
-                  setEditing({ id: item.id, label: item.label, url: item.url });
-                  return;
-                }
-                onClose();
-                onNavigate(item.url);
-              }}
-            >
-              <span className="start-shortcut-icon start-shortcut-favicon">
-                {item.label.slice(0, 1).toUpperCase()}
-              </span>
-              <span className="start-shortcut-label">{item.label}</span>
-              {editMode && (
-                <span
-                  className="start-shortcut-remove"
-                  role="button"
-                  title="删除"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    removeShortcut(item.id);
+        <section className="start-shortcut-area">
+          <div className="start-shortcut-grid">
+            {builtIn.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  className={`start-shortcut${editMode ? ' is-locked' : ''}`}
+                  onClick={() => {
+                    if (editMode) return;
+                    item.run();
                   }}
                 >
-                  ×
-                </span>
-              )}
-            </button>
+                  <span className="start-shortcut-icon">
+                    <Icon size={18} />
+                  </span>
+                  <span className="start-shortcut-label">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {groups.map(([group, items]) => (
+            <div className="start-shortcut-group" key={group}>
+              <div
+                className="start-shortcut-group-title"
+                onDragOver={(event) => {
+                  if (editMode) event.preventDefault();
+                }}
+                onDrop={() => {
+                  const from = dragId.current;
+                  dragId.current = null;
+                  if (editMode && from) moveShortcutTo(from, group);
+                }}
+              >
+                {group}
+                <span className="start-shortcut-group-count">{items.length}</span>
+              </div>
+              <div className="start-shortcut-grid">
+                {items.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`start-shortcut start-shortcut-custom${editMode ? ' is-editing' : ''}`}
+                    title={item.url}
+                    draggable={editMode}
+                    onDragStart={(event) => {
+                      dragId.current = item.id;
+                      draggedAt.current = Date.now();
+                      event.dataTransfer?.setData('text/plain', item.id);
+                      event.dataTransfer?.setDragImage(event.currentTarget, 18, 18);
+                    }}
+                    onDragOver={(event) => {
+                      if (editMode) event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const from = dragId.current || event.dataTransfer?.getData('text/plain');
+                      dragId.current = null;
+                      if (!from || from === item.id) return;
+                      moveShortcutTo(from, item.group || '常用', item.id);
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      setShortcutMenu({ x: event.clientX, y: event.clientY, id: item.id });
+                    }}
+                    onClick={() => {
+                      if (Date.now() - draggedAt.current < 350) return;
+                      if (editMode) {
+                        setEditing({
+                          id: item.id,
+                          label: item.label,
+                          url: item.url,
+                          group: item.group || '常用'
+                        });
+                        return;
+                      }
+                      onClose();
+                      onNavigate(item.url);
+                    }}
+                  >
+                    <span className="start-shortcut-icon start-shortcut-favicon">
+                      {item.label.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="start-shortcut-label">{item.label}</span>
+                    {editMode && (
+                      <span
+                        className="start-shortcut-remove"
+                        role="button"
+                        title="删除"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeShortcut(item.id);
+                        }}
+                      >
+                        ×
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
 
           {editMode && (
-            <button
-              className="start-shortcut start-shortcut-add"
-              title="添加快捷方式"
-              onClick={() => setEditing({ label: '', url: '' })}
-            >
-            <span className="start-shortcut-icon">
-              <Plus size={18} />
-            </span>
-              <span className="start-shortcut-label">添加</span>
-            </button>
+            <div className="start-shortcut-grid">
+              <button
+                className="start-shortcut start-shortcut-add"
+                title="添加快捷方式"
+                onClick={() =>
+                  setEditing({
+                    label: '',
+                    url: '',
+                    group: groups[groups.length - 1]?.[0] || '常用'
+                  })
+                }
+              >
+                <span className="start-shortcut-icon">
+                  <Plus size={18} />
+                </span>
+                <span className="start-shortcut-label">添加</span>
+              </button>
+            </div>
           )}
         </section>
 
         <div className="start-footnote">
           <Sparkles size={12} />
           {editMode
-            ? '编辑中：点图标改名称/网址，拖拽排序，× 删除；完成后点右上角「完成」'
+            ? '编辑中：点图标改名称/网址/分组，拖到别的分组即可归类，× 删除；完成后点右上角「完成」'
             : '点右上角「编辑」可增删/排序快捷方式；设置会跟随导出/导入一起备份'}
           <button
             className="start-foot-link"
@@ -665,6 +740,21 @@ export function StartPage({
               />
             </label>
             <label className="start-modal-field">
+              <span>分组</span>
+              <input
+                list="start-groups"
+                maxLength={12}
+                value={editing.group}
+                placeholder="常用 / 学习 / 工具"
+                onChange={(event) => setEditing({ ...editing, group: event.target.value })}
+              />
+              <datalist id="start-groups">
+                {Array.from(new Set(shortcuts.map((item) => item.group || '常用'))).map((group) => (
+                  <option key={group} value={group} />
+                ))}
+              </datalist>
+            </label>
+            <label className="start-modal-field">
               <span>网址</span>
               <input
                 maxLength={500}
@@ -701,7 +791,14 @@ export function StartPage({
           <button
             onClick={() => {
               const item = shortcuts.find((entry) => entry.id === shortcutMenu.id);
-              if (item) setEditing({ id: item.id, label: item.label, url: item.url });
+              if (item) {
+                setEditing({
+                  id: item.id,
+                  label: item.label,
+                  url: item.url,
+                  group: item.group || '常用'
+                });
+              }
               setShortcutMenu(null);
             }}
           >

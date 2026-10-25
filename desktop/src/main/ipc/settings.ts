@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, clipboard, dialog, ipcMain, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import { applyAutoStart } from '../autoStart';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
 let closeDecisionHandler: ((payload: CloseDecisionPayload) => void) | null = null;
@@ -134,6 +135,25 @@ export function registerSettingsIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle(
+    'ui:popup-menu',
+    async (event, items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>) =>
+      new Promise<string | null>((resolve) => {
+        const template = (Array.isArray(items) ? items : []).map((item) =>
+          item.type === 'separator'
+            ? ({ type: 'separator' } as const)
+            : {
+                label: String(item.label || ''),
+                enabled: item.enabled !== false,
+                click: () => resolve(item.id || null)
+              }
+        );
+        const menu = Menu.buildFromTemplate(template);
+        const win = BrowserWindow.fromWebContents(event.sender) || ctx.win;
+        menu.popup({ window: win, callback: () => resolve(null) });
+      })
+  );
+
+  ipcMain.handle(
     'settings:set',
     async (_event, next: AppSettings): Promise<Result<ReturnType<typeof settingsSnapshot>>> => {
       try {
@@ -141,6 +161,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         setPetEnabled(saved.general.petEnabled === true);
+        applyAutoStart(saved.general.autoStart === true);
         applyPetSettings();
         await restartBridge(ctx.win);
         const snapshot = settingsSnapshot();

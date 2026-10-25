@@ -296,3 +296,21 @@ describe('气泡上下翻转', () => {
     expect(win.y + win.height).toBeGreaterThan(body.y + body.height);
   });
 });
+
+describe('贴边对齐', () => {
+  const body = { x: 0, y: 700, width: 96, height: 96 };
+  const bubble = { width: 440, height: 480 };
+
+  it('靠左时窗口向右展开，本体不动', () => {
+    const win = windowRectFor(body, 'bubble', 96, bubble, false, 'left');
+    expect(win.x).toBe(body.x - 6);
+    expect(bodyRectFor(win, 96, false, 'left')).toEqual(body);
+  });
+
+  it('靠右时窗口向左展开，本体不动', () => {
+    const rightBody = { ...body, x: 1824 };
+    const win = windowRectFor(rightBody, 'bubble', 96, bubble, false, 'right');
+    expect(bodyRectFor(win, 96, false, 'right')).toEqual(rightBody);
+    expect(win.x + win.width).toBe(rightBody.x + 96 + 6);
+  });
+});

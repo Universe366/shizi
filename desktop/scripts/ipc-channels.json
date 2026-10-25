@@ -182,6 +182,7 @@
   "trash:delete",
   "trash:list",
   "trash:restore",
+  "ui:popup-menu",
   "update:check",
   "update:download",
   "update:install",

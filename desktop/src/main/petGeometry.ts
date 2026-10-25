@@ -128,11 +128,22 @@ export function nearestWorkArea(
 export const PET_PADDING = 6;
 
 /** 窗口矩形 → 桌宠本体矩形（默认贴底；below 模式下本体在顶部、面板向下展开）。 */
-export function bodyRectFor(windowRect: Rect, petSize: number, below = false): Rect {
+export function bodyRectFor(
+  windowRect: Rect,
+  petSize: number,
+  below = false,
+  align: 'center' | 'left' | 'right' = 'center'
+): Rect {
   const size = normalizePetSize(petSize);
   const topOffset = PET_PADDING + PET_GRIP + PET_GAP;
+  const x =
+    align === 'left'
+      ? windowRect.x + PET_PADDING
+      : align === 'right'
+        ? windowRect.x + windowRect.width - PET_PADDING - size
+        : windowRect.x + Math.round((windowRect.width - size) / 2);
   return {
-    x: windowRect.x + Math.round((windowRect.width - size) / 2),
+    x,
     y: below
       ? windowRect.y + topOffset
       : windowRect.y + windowRect.height - PET_PADDING - size,
@@ -147,13 +158,20 @@ export function windowRectFor(
   mode: PetLayoutMode,
   petSize: number,
   bubble: BubbleSize = DEFAULT_BUBBLE,
-  below = false
+  below = false,
+  align: 'center' | 'left' | 'right' = 'center'
 ): Rect {
   const size = normalizePetSize(petSize);
   const windowSize = petLayoutSize(mode, size, bubble);
   const topOffset = PET_PADDING + PET_GRIP + PET_GAP;
+  const x =
+    align === 'left'
+      ? bodyRect.x - PET_PADDING
+      : align === 'right'
+        ? bodyRect.x + size + PET_PADDING - windowSize.width
+        : bodyRect.x - Math.round((windowSize.width - size) / 2);
   return {
-    x: bodyRect.x - Math.round((windowSize.width - size) / 2),
+    x,
     y: below ? bodyRect.y - topOffset : bodyRect.y + size + PET_PADDING - windowSize.height,
     width: windowSize.width,
     height: windowSize.height

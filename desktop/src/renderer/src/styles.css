@@ -5703,7 +5703,7 @@ button:disabled {
   top: 42px;
   width: 16px;
   height: 16px;
-  cursor: ns-resize;
+  cursor: nesw-resize;
   opacity: 0.5;
   transition: opacity 0.15s ease;
 }
@@ -5737,7 +5737,22 @@ button:disabled {
 .pet-root.is-below .pet-resize {
   top: auto;
   bottom: 42px;
-  cursor: ns-resize;
+  cursor: nwse-resize;
+}
+
+.pet-size-badge {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 82%, transparent);
+  color: var(--surface);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 3;
 }
 
 /* 新对话入口 */
@@ -8216,4 +8231,164 @@ button:disabled {
 .update-text {
   flex: 1;
   min-width: 0;
+}
+
+/* ---------- 垂直标签栏（Edge 风格） ---------- */
+.tab-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  object-fit: contain;
+  display: block;
+}
+
+.app-shell.vertical-tabs .tab-strip {
+  transition: width 0.18s ease, flex-basis 0.18s ease;
+}
+
+.app-shell.vertical-tabs .tab {
+  height: 34px;
+  border-radius: 9px;
+  padding: 0 8px;
+  gap: 8px;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.app-shell.vertical-tabs .tab:hover {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.app-shell.vertical-tabs .tab.is-active {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.app-shell.vertical-tabs .tab.is-active .tab-title {
+  font-weight: 600;
+}
+
+.app-shell.vertical-tabs .tab-close {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.app-shell.vertical-tabs .tab:hover .tab-close,
+.app-shell.vertical-tabs .tab.is-active .tab-close {
+  opacity: 1;
+}
+
+.tab-actions-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tab-actions-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 30;
+  min-width: 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.tab-actions-menu button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab-actions-menu button:hover {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.tab-actions-menu button.is-danger {
+  color: #e5484d;
+}
+
+/* 折叠时：图标轨道也要像 Edge 一样可用 */
+.tab-strip.is-collapsed .tab {
+  justify-content: center;
+  padding: 0;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.tab-strip.is-collapsed .tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.tab-strip.is-collapsed .tab-close {
+  display: none;
+}
+
+.tab-strip.is-collapsed .tab.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* 起始页分组 */
+.start-shortcut-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-shortcut-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.start-shortcut-group-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 4px;
+  color: color-mix(in srgb, var(--text) 55%, transparent);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.start-shortcut-group-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* 壁纸对比度：避免浅色壁纸下文字看不清 */
+.start-page-v2::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 24%, transparent);
+}
+
+.start-page-v2 .start-sheet {
+  position: relative;
+  z-index: 2;
+}
+
+.start-page-v2 .start-aurora {
+  z-index: 0;
 }

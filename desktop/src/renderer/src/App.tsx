@@ -483,7 +483,10 @@ export default function App() {
         onToggleBookmark={() => void toggleBookmark()}
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
-        onOpenStart={() => setStartOpen(true)}
+        onOpenStart={() => {
+          setSettingsOpen(false);
+          setStartOpen(true);
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
         hasUpdate={hasUpdate}
       />

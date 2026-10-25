@@ -50,6 +50,28 @@ function petSize(): number {
   return normalizePetSize(loadSettings().general.petSize);
 }
 
+/** 贴边停靠时的水平对齐：停左边时气泡向右展开，停右边时向左。 */
+function dockAlign(): 'center' | 'left' | 'right' {
+  const dock = loadSettings().general.petDock;
+  if (dock === 'left') return 'left';
+  if (dock === 'right') return 'right';
+  return 'center';
+}
+
+/** 松手时离左右边缘足够近就停靠，否则取消停靠。 */
+function updateDockFromBody(body: Rect, area: Rect): void {
+  const threshold = 24;
+  const size = body.width;
+  let dock: 'none' | 'left' | 'right' = 'none';
+  if (body.x - area.x <= threshold) dock = 'left';
+  else if (area.x + area.width - (body.x + size) <= threshold) dock = 'right';
+  const settings = loadSettings();
+  if (settings.general.petDock !== dock) {
+    settings.general.petDock = dock;
+    saveSettings(settings);
+  }
+}
+
 function bubbleSize(): BubbleSize {
   if (transientBubble) return transientBubble;
   return persistedBubbleSize();
@@ -95,7 +117,7 @@ function currentBody(): Rect {
   }
   const [x, y] = petWindow.getPosition();
   const [width, height] = petWindow.getSize();
-  return bodyRectFor({ x, y, width, height }, size, layoutBelow);
+  return bodyRectFor({ x, y, width, height }, size, layoutBelow, dragTimer ? 'center' : dockAlign());
 }
 
 function clampBody(body: Rect): Rect {
@@ -124,11 +146,12 @@ function applyBody(target: Rect, remember = false): Rect {
   }
   const area = bodyArea(body);
   updateBelow(body, area);
-  const windowRect = windowRectFor(body, layoutMode, body.width, bubbleSize(), layoutBelow);
+  const align = dragTimer ? 'center' : dockAlign();
+  const windowRect = windowRectFor(body, layoutMode, body.width, bubbleSize(), layoutBelow, align);
   const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
   // 窗口被屏幕边缘推回时，本体以实际窗口为准。
-  const applied = bodyRectFor(bounded, body.width, layoutBelow);
+  const applied = bodyRectFor(bounded, body.width, layoutBelow, align);
   if (remember) desiredBody = applied;
   return applied;
 }
@@ -261,7 +284,15 @@ export function layoutPetWindow(): void {
       : currentBody();
   const area = bodyArea(body);
   updateBelow(body, area);
-  const windowRect = windowRectFor(body, layoutMode, petSize(), bubbleSize(), layoutBelow);
+  const align = dockAlign();
+  const windowRect = windowRectFor(
+    body,
+    layoutMode,
+    petSize(),
+    bubbleSize(),
+    layoutBelow,
+    align
+  );
   const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
 }
@@ -312,6 +343,10 @@ export function resetPetPosition(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
   stopInertia();
   const settings = loadSettings();
+  if (settings.general.petDock !== 'none') {
+    settings.general.petDock = 'none';
+    saveSettings(settings);
+  }
   const primary = screen.getPrimaryDisplay().workArea;
   const corner = settings.general.petStartCorner;
   const body =
@@ -324,14 +359,23 @@ export function resetPetPosition(): void {
 /** 直接设置本体位置（程序化移动 / 兼容旧 IPC）。 */
 export function movePet(x: number, y: number): void {
   if (!petWindow || petWindow.isDestroyed()) return;
-  applyBody({ x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() }, true);
+  const target = {
+    x: Math.round(x),
+    y: Math.round(y),
+    width: petSize(),
+    height: petSize()
+  };
+  updateDockFromBody(clampBody(target), bodyArea(target));
+  applyBody(target, true);
 }
 
 /** 松手：吸附屏幕边缘 + 立即保存。返回吸附后的本体位置。 */
 export function dropPet(x: number, y: number): { x: number; y: number } | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
   const body = { x: Math.round(x), y: Math.round(y), width: petSize(), height: petSize() };
-  const snapped = loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
+  const snapped =
+    loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
+  updateDockFromBody(snapped, bodyArea(snapped));
   const applied = applyBody(snapped, true);
   persistBody(applied);
   return { x: applied.x, y: applied.y };
@@ -424,7 +468,9 @@ function startInertia(vx: number, vy: number): void {
     inertia = decayVelocity(inertia, dt);
     if (speedOf(inertia) < 0.02) {
       stopInertia();
-      const settled = applyBody(snapRectToEdges(applied, bodyArea(applied)));
+      const snappedSettle = snapRectToEdges(applied, bodyArea(applied));
+      updateDockFromBody(snappedSettle, bodyArea(snappedSettle));
+      const settled = applyBody(snappedSettle);
       persistBody(settled);
     }
   }, 16);
@@ -458,6 +504,7 @@ export function endPetDrag(): { x: number; y: number; moved: boolean } | null {
   const body = currentBody();
   const snapped =
     loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
+  if (wasDrag) updateDockFromBody(snapped, bodyArea(snapped));
   const applied = applyBody(snapped);
   if (wasDrag) persistBody(applied);
   return { x: applied.x, y: applied.y, moved: wasDrag };

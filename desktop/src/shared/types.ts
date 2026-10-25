@@ -702,6 +702,8 @@ export interface StartShortcut {
   id: string;
   label: string;
   url: string;
+  /** 分组名，例如 常用 / 学习 / 工具 */
+  group?: string;
 }
 
 export interface PetTodo {
@@ -789,6 +791,8 @@ export interface AppSettings {
     petThrow: boolean;
     /** 气泡里显示哪些按钮（见 PET_BUTTONS） */
     petButtons: string[];
+    /** 贴边停靠：none / 左 / 右 */
+    petDock: 'none' | 'left' | 'right';
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
@@ -808,6 +812,8 @@ export interface AppSettings {
     startHotSearch: boolean;
     /** 云同步文件夹（OneDrive/坚果云等本地同步目录） */
     syncFolder: string;
+    /** 开机自启动 */
+    autoStart: boolean;
     /** searchEngine=custom 时的 URL 模板，必须包含 {q} */
     searchEngineCustom: string;
   };

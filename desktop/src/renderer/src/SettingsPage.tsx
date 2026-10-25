@@ -22,6 +22,24 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     contentRef.current?.scrollTo({ top: 0 });
   }, [group]);
 
+  const jumpToSection = (title: string) => {
+    const host = contentRef.current;
+    if (!host) return;
+    const section = Array.from(
+      host.querySelectorAll<HTMLElement>('.settings-section')
+    ).find(
+      (item) =>
+        (item.querySelector('.settings-section-title')?.textContent || '').trim() === title
+    );
+    if (!section) return;
+    (section as HTMLDetailsElement).open = true;
+    const sticky = host.querySelector<HTMLElement>('.settings-sticky');
+    const offset = (sticky?.getBoundingClientRect().height || 0) + 10;
+    const top =
+      section.getBoundingClientRect().top - host.getBoundingClientRect().top + host.scrollTop - offset;
+    host.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  };
+
   useEffect(() => {
     const host = contentRef.current;
     if (!host) return;
@@ -120,12 +138,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                 key={`${item.title}-${index}`}
                 className={`settings-toc-item${activeToc === index ? ' is-active' : ''}`}
                 title={item.title}
-                onClick={() => {
-                  const target = tocSections.current[index];
-                  if (!target) return;
-                  (target as HTMLDetailsElement).open = true;
-                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={() => jumpToSection(item.title)}
               >
                 {item.title}
               </button>

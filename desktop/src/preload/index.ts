@@ -401,6 +401,7 @@ const api: BsubApi = {
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>
     ipcRenderer.invoke('settings:wizard', !visible) as Promise<Result<SettingsSnapshot>>,
+  popupMenu: (items: unknown) => ipcRenderer.invoke('ui:popup-menu', items),
   requestClose: () => ipcRenderer.invoke('app:close-window') as Promise<void>,
   onCloseRequest: (cb: () => void) => on<void>('app:close-request', cb),
   closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>

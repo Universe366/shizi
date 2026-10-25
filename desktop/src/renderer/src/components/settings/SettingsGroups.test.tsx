@@ -82,6 +82,13 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ verticalTabs: true });
   });
 
+  it('开机自启动开关回传补丁', () => {
+    const p = props();
+    render(<Groups {...p} />);
+    fireEvent.click(screen.getByLabelText(/开机自动启动/));
+    expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
+  });
+
   it('侧栏宽度超范围时夹到 260–560', () => {
     const p = props();
     render(<Groups {...p} />);

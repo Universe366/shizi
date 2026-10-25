@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
+import { applyAutoStart } from './autoStart';
 import { setCloseDecisionHandler } from './ipc/settings';
 
 import {
@@ -321,6 +322,7 @@ app
     writeLog('startup.log', 'ready');
     migrateSettingsSecrets();
     nativeTheme.themeSource = loadSettings().general.theme;
+    applyAutoStart(loadSettings().general.autoStart === true);
     if (process.platform === 'win32') app.setAppUserModelId('com.shizi.desktop');
     session.defaultSession.setUserAgent(UA);
     installDownloadHook(() => mainWindow);

@@ -120,6 +120,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petBubbleHeight: 480,
     petThrow: true,
     petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat'],
+    petDock: 'none',
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -132,6 +133,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     startCity: '上海',
     startHotSearch: true,
     syncFolder: '',
+    autoStart: false,
     searchEngineCustom: ''
   },
   ai: {
@@ -388,6 +390,8 @@ function normalize(input: unknown): AppSettings {
         'copy',
         'newChat'
       ];
+      const dock = raw.general.petDock;
+      base.general.petDock = dock === 'left' || dock === 'right' ? dock : 'none';
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))
@@ -427,13 +431,14 @@ function normalize(input: unknown): AppSettings {
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])
             .filter(
-              (item): item is { id?: unknown; label?: unknown; url?: unknown } =>
+              (item): item is { id?: unknown; label?: unknown; url?: unknown; group?: unknown } =>
                 Boolean(item) && typeof item === 'object'
             )
             .map((item) => ({
               id: String(item.id || `s-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
               label: String(item.label || '').trim().slice(0, 20),
-              url: String(item.url || '').trim().slice(0, 500)
+              url: String(item.url || '').trim().slice(0, 500),
+              group: String(item.group || '常用').trim().slice(0, 12) || '常用'
             }))
             .filter((item) => item.label && /^https?:\/\//i.test(item.url))
             .slice(0, 24)
@@ -450,6 +455,7 @@ function normalize(input: unknown): AppSettings {
       base.general.startHotSearch = raw.general.startHotSearch !== false;
       base.general.syncFolder =
         typeof raw.general.syncFolder === 'string' ? raw.general.syncFolder.slice(0, 500) : '';
+      base.general.autoStart = raw.general.autoStart === true;
       base.general.autoFollow = raw.general.autoFollow !== false;
       base.general.wizardDone = raw.general.wizardDone === true;
       base.general.restoreSession = raw.general.restoreSession !== false;
