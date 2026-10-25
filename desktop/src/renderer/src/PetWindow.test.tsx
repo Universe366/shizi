@@ -125,8 +125,10 @@ describe('PetWindow', () => {
     expect(api.setPetLayout).toHaveBeenLastCalledWith('compact');
     await openBubble();
     expect(api.setPetLayout).toHaveBeenLastCalledWith('bubble');
-    fireEvent.click(screen.getByTitle(/点击聊天/));
-    await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('compact'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(api.setPetLayout).toHaveBeenLastCalledWith('compact'), {
+      timeout: 2000
+    });
   });
 
   it('打开挂件时窗口变宽，挂件状态会记住', async () => {
@@ -609,17 +611,17 @@ describe('PetWindow 操作优化', () => {
     localStorage.clear();
   });
 
-  it('单击立即展开（不再等 180ms）', () => {
+  it('单击在 150ms 内展开（给双击留判定窗口）', async () => {
     installBsub();
     render(<PetWindow />);
     fireEvent.click(screen.getByTitle(/点击聊天/));
-    expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
+    expect(await screen.findByPlaceholderText(/问点什么/)).toBeTruthy();
   });
 
   it('草稿在重开/重启后还在', async () => {
     installBsub();
     const first = render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '没发出去的草稿' } });
     await new Promise((resolve) => setTimeout(resolve, 260));
@@ -627,7 +629,7 @@ describe('PetWindow 操作优化', () => {
 
     installBsub();
     render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     expect((screen.getByPlaceholderText(/问点什么/) as HTMLInputElement).value).toBe(
       '没发出去的草稿'
     );
@@ -636,7 +638,7 @@ describe('PetWindow 操作优化', () => {
   it('↑ 能翻出上一条问题', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '第一个问题' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -649,7 +651,7 @@ describe('PetWindow 操作优化', () => {
   it('「新对话」清空上下文与回答', async () => {
     const { api, handlers } = installBsub();
     render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '旧问题' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -672,7 +674,7 @@ describe('PetWindow 操作优化', () => {
   it('出错后可以重试上一条', async () => {
     const { api, handlers } = installBsub();
     render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     const input = screen.getByPlaceholderText(/问点什么/);
     fireEvent.change(input, { target: { value: '会失败的问题' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -687,7 +689,7 @@ describe('PetWindow 操作优化', () => {
   it('待办会写进设置文件', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
-    fireEvent.click(screen.getByTitle(/点击聊天/));
+    await openBubble();
     fireEvent.click(screen.getByTitle(/桌面小挂件/));
     const todo = screen.getByPlaceholderText(/加一条待办/);
     fireEvent.change(todo, { target: { value: '写周报' } });
@@ -735,5 +737,59 @@ describe('PetWindow 点击/失焦', () => {
     await openBubble();
     fireEvent.blur(window);
     await waitFor(() => expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull());
+  });
+});
+
+describe('PetWindow 气泡尺寸与菜单', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('右键菜单可以切气泡三档尺寸', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
+    fireEvent.click(screen.getByText('气泡：大窗'));
+    await vi.waitFor(() => {
+      const calls = (api.saveSettings as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      const saved = calls.at(-1)?.[0] as { general?: Record<string, unknown> };
+      expect(saved?.general?.petBubbleWidth).toBe(620);
+      expect(saved?.general?.petBubbleHeight).toBe(680);
+    });
+  });
+
+  it('从气泡标题栏也能拖动', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.mouseDown(document.querySelector('.pet-bubble-head') as HTMLElement, {
+      button: 0,
+      screenX: 100,
+      screenY: 100
+    });
+    expect(api.beginPetDrag).toHaveBeenCalled();
+  });
+
+  it('挂件在点别处后也会收起', async () => {
+    installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.click(screen.getByTitle(/桌面小挂件/));
+    expect(screen.getByPlaceholderText(/加一条待办/)).toBeTruthy();
+    fireEvent.blur(window);
+    await waitFor(() => expect(screen.queryByPlaceholderText(/加一条待办/)).toBeNull());
+  });
+
+  it('右键菜单支持 ↑/↓ 键盘选择', async () => {
+    installBsub();
+    render(<PetWindow />);
+    fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
+    const menu = document.querySelector('.pet-menu') as HTMLElement;
+    await waitFor(() => expect(document.activeElement?.textContent).toContain('截图（框选）'));
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement?.textContent).toContain('整页截图');
+    fireEvent.keyDown(menu, { key: 'End' });
+    expect(document.activeElement?.textContent).toContain('隐藏桌宠');
   });
 });

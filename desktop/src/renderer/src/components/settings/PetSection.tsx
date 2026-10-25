@@ -178,6 +178,70 @@ export function PetSection({ value, onChange }: PetSectionProps) {
         <label className="settings-check">
           <input
             type="checkbox"
+            checked={value.petThrow !== false}
+            onChange={(event) => onChange({ petThrow: event.target.checked })}
+          />
+          拖动惯性（松手后继续滑一段）
+        </label>
+
+        <div className="settings-label">
+          对话气泡尺寸（{value.petBubbleWidth || 440} × {value.petBubbleHeight || 480}）
+        </div>
+        <div className="toolbar-actions">
+          {[
+            { label: '紧凑', width: 360, height: 340 },
+            { label: '舒适', width: 440, height: 480 },
+            { label: '大窗', width: 620, height: 680 }
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              className={`mini-btn${
+                (value.petBubbleWidth || 440) === preset.width ? ' is-active' : ''
+              }`}
+              onClick={() =>
+                onChange({ petBubbleWidth: preset.width, petBubbleHeight: preset.height })
+              }
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        <div className="toolbar-actions">
+          <input
+            className="settings-input"
+            style={{ width: 96 }}
+            type="number"
+            min={320}
+            max={760}
+            step={20}
+            value={value.petBubbleWidth || 440}
+            onChange={(event) =>
+              onChange({
+                petBubbleWidth: Math.min(760, Math.max(320, Number(event.target.value) || 440))
+              })
+            }
+          />
+          <span className="settings-hint">宽度 px</span>
+          <input
+            className="settings-input"
+            style={{ width: 96 }}
+            type="number"
+            min={260}
+            max={820}
+            step={20}
+            value={value.petBubbleHeight || 480}
+            onChange={(event) =>
+              onChange({
+                petBubbleHeight: Math.min(820, Math.max(260, Number(event.target.value) || 480))
+              })
+            }
+          />
+          <span className="settings-hint">高度 px</span>
+        </div>
+
+        <label className="settings-check">
+          <input
+            type="checkbox"
             checked={value.petShortcut !== false}
             onChange={(event) => onChange({ petShortcut: event.target.checked })}
           />

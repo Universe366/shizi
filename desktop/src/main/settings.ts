@@ -116,6 +116,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petStartCorner: 'remember',
     petShortcut: true,
     petName: '即时助手',
+    petBubbleWidth: 440,
+    petBubbleHeight: 480,
+    petThrow: true,
     petTodos: [],
     searchEngine: 'bilibili',
     searchEngineCustom: ''
@@ -355,6 +358,15 @@ function normalize(input: unknown): AppSettings {
         typeof raw.general.petName === 'string' && raw.general.petName.trim()
           ? raw.general.petName.trim().slice(0, 12)
           : '即时助手';
+      const bubbleWidth = Number(raw.general.petBubbleWidth);
+      base.general.petBubbleWidth = Number.isFinite(bubbleWidth)
+        ? Math.min(760, Math.max(320, Math.round(bubbleWidth)))
+        : 440;
+      const bubbleHeight = Number(raw.general.petBubbleHeight);
+      base.general.petBubbleHeight = Number.isFinite(bubbleHeight)
+        ? Math.min(820, Math.max(260, Math.round(bubbleHeight)))
+        : 480;
+      base.general.petThrow = raw.general.petThrow !== false;
       base.general.petTodos = Array.isArray(raw.general.petTodos)
         ? (raw.general.petTodos as unknown[])
             .filter(

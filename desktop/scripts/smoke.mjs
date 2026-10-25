@@ -453,7 +453,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (!compact) throw new Error('桌宠页面未就绪');
-    // 120px 桌宠：compact = 132x154（Windows DPI 取整可能差 1–2px）
+    // 120px 桌宠 + 默认 440×480 气泡：compact = 132x154，bubble = 452x638
     if (Math.abs(compact.w - 132) > 2 || Math.abs(compact.h - 154) > 2) {
       throw new Error(`compact 尺寸异常：${compact.w}x${compact.h}`);
     }
@@ -468,14 +468,14 @@ try {
         await evaluate(pet, '(async () => JSON.stringify(await window.bsub.petBodyRect()))()')
       );
     // 放到屏幕中间再验证，避免“贴边时窗口被推回”干扰断言
-    await evaluate(pet, 'window.bsub.movePet(700, 420).then(() => null)');
+    await evaluate(pet, 'window.bsub.movePet(700, 760).then(() => null)');
     await new Promise((resolve) => setTimeout(resolve, 300));
     const bodyBefore = await readBody();
 
     await evaluate(pet, 'window.bsub.setPetLayout("bubble").then(() => null)');
     await new Promise((resolve) => setTimeout(resolve, 400));
     const bubble = await read();
-    if (Math.abs(bubble.w - 264) > 2 || Math.abs(bubble.h - 450) > 2) {
+    if (Math.abs(bubble.w - 452) > 2 || Math.abs(bubble.h - 638) > 2) {
       throw new Error(`bubble 尺寸异常：${bubble.w}x${bubble.h}`);
     }
     // 展开气泡只能向上长，桌宠本体在屏幕上不能动
@@ -505,7 +505,7 @@ try {
       throw new Error(`越界未夹取：${far.x},${far.y} ${far.width}x${far.height} / ${area.w}x${area.h}`);
     }
     if (far.x < -4 || far.y < -4) throw new Error(`越界为负：${far.x},${far.y}`);
-    await evaluate(pet, 'window.bsub.movePet(700, 420).then(() => null)');
+    await evaluate(pet, 'window.bsub.movePet(700, 760).then(() => null)');
 
     // 即时问答依赖的两个通道：截图 + 选中文字
     // 截图要求主窗口在前台（被完全遮挡时 Chromium 会返回空图）

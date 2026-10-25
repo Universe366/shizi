@@ -4,6 +4,8 @@ import {
   bodyRectFor,
   clampRectToArea,
   cornerBodyRect,
+  decayVelocity,
+  speedOf,
   defaultBodyRect,
   defaultPetRect,
   fitWithin,
@@ -43,7 +45,7 @@ describe('petLayoutSize', () => {
       expect(size.width).toBeGreaterThan(compact.width);
       expect(size.height).toBeGreaterThan(compact.height);
     }
-    expect(petLayoutSize('bubble', 96).width).toBe(264);
+    expect(petLayoutSize('bubble', 96).width).toBe(452);
   });
 
   it('尺寸随桌宠大小线性变化', () => {
@@ -211,5 +213,49 @@ describe('rubberBandRect', () => {
     // 仍然越界但幅度更小
     expect(soft.x + soft.width).toBeGreaterThan(area.width);
     expect(soft.x + soft.width).toBeLessThan(target.x + target.width);
+  });
+});
+
+describe('气泡尺寸可配置', () => {
+  it('默认 440×480，窗口按内容加边距', () => {
+    expect(petLayoutSize('bubble', 96)).toEqual({ width: 452, height: 614 });
+  });
+
+  it('自定义尺寸会跟着变', () => {
+    expect(petLayoutSize('bubble', 120, { width: 600, height: 640 })).toEqual({
+      width: 612,
+      height: 798
+    });
+  });
+
+  it('窗口始终包住本体且本体位置不变', () => {
+    const body = { x: 600, y: 300, width: 96, height: 96 };
+    const win = windowRectFor(body, 'bubble', 96, { width: 600, height: 640 });
+    expect(bodyRectFor(win, 96)).toEqual(body);
+  });
+});
+
+describe('拖拽惯性', () => {
+  it('速度按时间衰减，16ms 一帧衰减 10%', () => {
+    const next = decayVelocity({ vx: 1, vy: 0 }, 16, 0.9);
+    expect(next.vx).toBeCloseTo(0.9, 5);
+    expect(next.vy).toBe(0);
+  });
+
+  it('同样时间里，两帧比一帧衰减更多', () => {
+    const once = decayVelocity({ vx: 2, vy: 0 }, 32, 0.9).vx;
+    const twice = decayVelocity(decayVelocity({ vx: 2, vy: 0 }, 16, 0.9), 16, 0.9).vx;
+    expect(twice).toBeCloseTo(once, 5);
+  });
+
+  it('速度会衰减到停（<0.02）', () => {
+    let v = { vx: 1.2, vy: 0.6 };
+    let frames = 0;
+    while (speedOf(v) >= 0.02 && frames < 200) {
+      v = decayVelocity(v, 16, 0.9);
+      frames += 1;
+    }
+    expect(speedOf(v)).toBeLessThan(0.02);
+    expect(frames).toBeLessThan(80);
   });
 });

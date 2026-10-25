@@ -26,15 +26,27 @@ export function normalizePetSize(value: number | undefined): number {
 }
 
 /** 每种状态下的窗口尺寸：桌宠本体 + 需要展示的气泡/挂件高度。 */
-export function petLayoutSize(mode: PetLayoutMode, petSize: number): { width: number; height: number } {
+export interface BubbleSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_BUBBLE: BubbleSize = { width: 440, height: 480 };
+
+/** 气泡窗口 = 气泡内容 + 桌宠本体 + 边距/把手。 */
+export function petLayoutSize(
+  mode: PetLayoutMode,
+  petSize: number,
+  bubble: BubbleSize = DEFAULT_BUBBLE
+): { width: number; height: number } {
   const size = normalizePetSize(petSize);
   switch (mode) {
     case 'bubble':
-      return { width: 264, height: size + 330 };
+      return { width: bubble.width + 12, height: bubble.height + size + 38 };
     case 'widget':
       return { width: 232, height: size + 252 };
     case 'menu':
-      return { width: 236, height: size + 330 };
+      return { width: 236, height: size + 400 };
     case 'compact':
     default:
       return { width: size + 12, height: size + 34 };
@@ -125,9 +137,14 @@ export function bodyRectFor(windowRect: Rect, petSize: number): Rect {
 }
 
 /** 桌宠本体矩形 + 布局模式 → 窗口矩形（窗口向上、向两侧长，本体位置不变）。 */
-export function windowRectFor(bodyRect: Rect, mode: PetLayoutMode, petSize: number): Rect {
+export function windowRectFor(
+  bodyRect: Rect,
+  mode: PetLayoutMode,
+  petSize: number,
+  bubble: BubbleSize = DEFAULT_BUBBLE
+): Rect {
   const size = normalizePetSize(petSize);
-  const windowSize = petLayoutSize(mode, size);
+  const windowSize = petLayoutSize(mode, size, bubble);
   return {
     x: bodyRect.x - Math.round((windowSize.width - size) / 2),
     y: bodyRect.y + size + PET_PADDING - windowSize.height,
@@ -182,4 +199,21 @@ export function rubberBandRect(target: Rect, clamped: Rect, factor = 0.3): Rect 
     x: Math.round(clamped.x + (target.x - clamped.x) * factor),
     y: Math.round(clamped.y + (target.y - clamped.y) * factor)
   };
+}
+
+/** 甩出去的初始速度门槛（px/ms）。 */
+export const THROW_THRESHOLD = 0.12;
+
+/** 每帧摩擦衰减；dt 是距上一帧的毫秒数。 */
+export function decayVelocity(
+  v: { vx: number; vy: number },
+  dt: number,
+  friction = 0.9
+): { vx: number; vy: number } {
+  const k = Math.pow(friction, Math.max(1, dt) / 16);
+  return { vx: v.vx * k, vy: v.vy * k };
+}
+
+export function speedOf(v: { vx: number; vy: number }): number {
+  return Math.hypot(v.vx, v.vy);
 }

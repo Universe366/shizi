@@ -5560,7 +5560,8 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 252px;
+  width: var(--pet-bubble-w, 440px);
+  max-width: 100%;
   flex: 1 1 auto;
   min-height: 0;
   box-sizing: border-box;
@@ -5578,9 +5579,28 @@ button:disabled {
   min-height: 34px;
   overflow-y: auto;
   overflow-x: hidden;
-  line-height: 1.62;
+  line-height: 1.65;
   white-space: pre-wrap;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 24%, transparent) transparent;
+  padding-right: 4px;
+}
+
+.pet-bubble-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pet-bubble-body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 26%, transparent);
+  background-clip: content-box;
+}
+
+.pet-bubble-body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 40%, transparent);
+  background-clip: content-box;
 }
 
 /* 新对话入口 */
@@ -5826,6 +5846,12 @@ button:disabled {
   justify-content: space-between;
   gap: 8px;
   flex: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.pet-bubble-head:active {
+  cursor: grabbing;
 }
 
 .pet-bubble-title {

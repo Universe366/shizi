@@ -10,7 +10,11 @@ import {
   normalizePetSize,
   rubberBandRect,
   snapRectToEdges,
+  speedOf,
+  decayVelocity,
+  THROW_THRESHOLD,
   windowRectFor,
+  type BubbleSize,
   type PetLayoutMode,
   type Rect
 } from './petGeometry';
@@ -40,6 +44,14 @@ function bodyArea(body: Rect): Rect {
 
 function petSize(): number {
   return normalizePetSize(loadSettings().general.petSize);
+}
+
+function bubbleSize(): BubbleSize {
+  const settings = loadSettings();
+  return {
+    width: settings.general.petBubbleWidth || 440,
+    height: settings.general.petBubbleHeight || 480
+  };
 }
 
 /** 当前本体矩形；窗口不存在时用默认右下角兜底。 */
@@ -77,7 +89,7 @@ function applyBody(target: Rect, remember = false): Rect {
     if (remember) desiredBody = body;
     return body;
   }
-  const windowRect = windowRectFor(body, layoutMode, body.width);
+  const windowRect = windowRectFor(body, layoutMode, body.width, bubbleSize());
   const area = bodyArea(body);
   const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
@@ -130,7 +142,7 @@ export function openPetWindow(useStartCorner = false): void {
       : defaultBodyRect(size, primary));
   const body = clampBody(saved);
   desiredBody = body;
-  const rect = windowRectFor(body, layoutMode, size);
+  const rect = windowRectFor(body, layoutMode, size, bubbleSize());
 
   petWindow = new BrowserWindow({
     ...rect,
@@ -174,6 +186,7 @@ export function openPetWindow(useStartCorner = false): void {
 
 export function closePetWindow(): void {
   stopDragLoop();
+  stopInertia();
   if (petWindow && !petWindow.isDestroyed()) petWindow.close();
   petWindow = null;
 }
@@ -199,7 +212,7 @@ export function layoutPetWindow(): void {
     layoutMode === 'compact'
       ? desiredBody || persistedBody() || currentBody()
       : currentBody();
-  const windowRect = windowRectFor(body, layoutMode, petSize());
+  const windowRect = windowRectFor(body, layoutMode, petSize(), bubbleSize());
   const bounded = clampRectToArea(windowRect, bodyArea(body));
   petWindow.setBounds(bounded);
 }
@@ -244,6 +257,7 @@ export function petBodyRect(): Rect | null {
 
 export function resetPetPosition(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
+  stopInertia();
   const settings = loadSettings();
   const primary = screen.getPrimaryDisplay().workArea;
   const corner = settings.general.petStartCorner;
@@ -276,6 +290,9 @@ let dragTimer: NodeJS.Timeout | null = null;
 let dragStart: { cursor: Electron.Point; body: Rect } | null = null;
 let dragMoved = false;
 let lastMoveAt = 0;
+let dragVelocity = { vx: 0, vy: 0 };
+let inertiaTimer: NodeJS.Timeout | null = null;
+let inertia = { vx: 0, vy: 0 };
 
 function stopDragLoop(): void {
   if (dragTimer) {
@@ -287,18 +304,30 @@ function stopDragLoop(): void {
 
 export function beginPetDrag(): void {
   if (!petWindow || petWindow.isDestroyed() || dragTimer) return;
+  stopInertia();
   dragStart = { cursor: screen.getCursorScreenPoint(), body: currentBody() };
   dragMoved = false;
+  dragVelocity = { vx: 0, vy: 0 };
   lastMoveAt = Date.now();
   let lastCursor = dragStart.cursor;
+  let lastSampleAt = Date.now();
   dragTimer = setInterval(() => {
     if (!dragStart || !petWindow || petWindow.isDestroyed()) return;
     const cursor = screen.getCursorScreenPoint();
+    const now = Date.now();
+    const dt = now - lastSampleAt;
+    if (dt > 0) {
+      dragVelocity = {
+        vx: (cursor.x - lastCursor.x) / dt,
+        vy: (cursor.y - lastCursor.y) / dt
+      };
+      lastSampleAt = now;
+    }
     const dx = cursor.x - dragStart.cursor.x;
     const dy = cursor.y - dragStart.cursor.y;
     if (cursor.x !== lastCursor.x || cursor.y !== lastCursor.y) {
       lastCursor = cursor;
-      lastMoveAt = Date.now();
+      lastMoveAt = now;
     }
     if (!dragMoved && Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
     if (dragMoved) {
@@ -307,20 +336,75 @@ export function beginPetDrag(): void {
       // 越界时只露出一小截（橡皮筋），松手会被拉回。
       applyBody(rubberBandRect(target, clamped));
       // 指针移出窗口后可能收不到 mouseup：光标停住 1.2s 就自动收尾。
-      if (Date.now() - lastMoveAt > 1200) void endPetDrag();
+      if (now - lastMoveAt > 1200) void endPetDrag();
     }
   }, 16);
 }
 
+/** 松手后的惯性：按松手速度继续滑，摩擦到停或撞边，最后吸附并落盘。 */
+function startInertia(vx: number, vy: number): void {
+  stopInertia();
+  if (Math.hypot(vx, vy) < 0.05) return;
+  inertia = { vx, vy };
+  let last = Date.now();
+  inertiaTimer = setInterval(() => {
+    if (!petWindow || petWindow.isDestroyed()) {
+      stopInertia();
+      return;
+    }
+    const now = Date.now();
+    const dt = Math.min(48, Math.max(1, now - last));
+    last = now;
+    const body = currentBody();
+    const target = {
+      ...body,
+      x: body.x + inertia.vx * dt,
+      y: body.y + inertia.vy * dt
+    };
+    const clamped = clampBody(target);
+    if (Math.abs(clamped.x - target.x) > 1) inertia.vx = 0;
+    if (Math.abs(clamped.y - target.y) > 1) inertia.vy = 0;
+    const applied = applyBody(clamped);
+    inertia = decayVelocity(inertia, dt);
+    if (speedOf(inertia) < 0.02) {
+      stopInertia();
+      const settled = applyBody(snapRectToEdges(applied, bodyArea(applied)));
+      persistBody(settled);
+    }
+  }, 16);
+}
+
+function stopInertia(): void {
+  if (inertiaTimer) {
+    clearInterval(inertiaTimer);
+    inertiaTimer = null;
+  }
+  inertia = { vx: 0, vy: 0 };
+}
+
 export function endPetDrag(): { x: number; y: number; moved: boolean } | null {
+  const wasDrag = dragMoved;
+  const { vx, vy } = dragVelocity;
   stopDragLoop();
   if (!petWindow || petWindow.isDestroyed()) return null;
+
+  // 甩出去：先按速度滑一段，停下时再吸附/落盘。
+  if (
+    wasDrag &&
+    loadSettings().general.petThrow !== false &&
+    speedOf({ vx, vy }) > THROW_THRESHOLD
+  ) {
+    startInertia(vx, vy);
+    const body = currentBody();
+    return { x: body.x, y: body.y, moved: true };
+  }
+
   const body = currentBody();
   const snapped =
     loadSettings().general.petSnap === false ? body : snapRectToEdges(body, bodyArea(body));
   const applied = applyBody(snapped);
-  if (dragMoved) persistBody(applied);
-  return { x: applied.x, y: applied.y, moved: dragMoved };
+  if (wasDrag) persistBody(applied);
+  return { x: applied.x, y: applied.y, moved: wasDrag };
 }
 
 /* ---------------- 截图时临时隐藏（避免把桌宠自己拍进去） ---------------- */

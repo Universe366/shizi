@@ -173,9 +173,11 @@ export function PetWindow() {
   const lastAsk = useRef<{ text: string; selection?: string; image?: string } | null>(null);
   const sentMessages = useRef<string[]>([]);
   const recallIndex = useRef(-1);
-  const openedByClick = useRef(false);
   const pressPoint = useRef<{ x: number; y: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [bubbleW, setBubbleW] = useState(440);
+  const tapTimer = useRef<number | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
 
   useEffect(() => {
@@ -193,6 +195,7 @@ export function PetWindow() {
       setSleepMinutes(Number(general.petSleepMinutes ?? 5));
       setVolume(Number(general.petSoundVolume ?? 60));
       setSpeechRate(Number(general.petSpeechRate ?? 1));
+      setBubbleW(Number(general.petBubbleWidth) || 440);
       if (Array.isArray(general.petTodos)) {
         const incoming = JSON.stringify(general.petTodos);
         setTodos((current) =>
@@ -228,6 +231,7 @@ export function PetWindow() {
       if (shotBusyRef.current) return;
       setMenuOpen(false);
       setOpen(false);
+      setWidgetOpen(false);
     };
     window.addEventListener('blur', close);
     return () => window.removeEventListener('blur', close);
@@ -270,6 +274,7 @@ export function PetWindow() {
     }, 400);
     return () => {
       if (todoTimer.current) window.clearTimeout(todoTimer.current);
+      if (tapTimer.current) window.clearTimeout(tapTimer.current);
     };
   }, [todos, hydrated]);
 
@@ -372,9 +377,39 @@ export function PetWindow() {
       if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
       if (hintTimer.current) window.clearTimeout(hintTimer.current);
       if (todoTimer.current) window.clearTimeout(todoTimer.current);
+      if (tapTimer.current) window.clearTimeout(tapTimer.current);
     },
     []
   );
+
+  // 右键菜单打开后可以用 ↑/↓/Home/End 选，Enter 触发
+  useEffect(() => {
+    if (!menuOpen) return;
+    const timer = window.setTimeout(() => {
+      const first = menuRef.current?.querySelector('button');
+      first?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [menuOpen]);
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(menuRef.current?.querySelectorAll('button') || []) as HTMLElement[];
+    if (!items.length) return;
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(current + 1) % items.length].focus();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(current - 1 + items.length) % items.length].focus();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      items[0].focus();
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1].focus();
+    }
+  };
 
   // 空闲：睡觉 + 自言自语
   useEffect(() => {
@@ -571,6 +606,18 @@ export function PetWindow() {
     await ask(prompt, { selection: text });
   };
 
+  /** 直接改气泡尺寸（右键菜单里的三档），写到设置里立即生效。 */
+  const applyBubblePreset = async (width: number, height: number) => {
+    setBubbleW(width);
+    const snapshot = await window.bsub.getSettings();
+    if (!snapshot.ok) return;
+    const next = snapshot.data.settings;
+    next.general.petBubbleWidth = width;
+    next.general.petBubbleHeight = height;
+    await window.bsub.saveSettings(next);
+    flash(`气泡 ${width}×${height}`);
+  };
+
   /** 新对话：清掉上下文与回答，附件保留（想继续问图就不用重截）。 */
   const resetChat = () => {
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
@@ -647,13 +694,12 @@ export function PetWindow() {
     flash(next !== false ? '已置顶' : '已取消置顶');
   };
 
-  const startDrag = (event: React.MouseEvent) => {
-    // 只响应左键；气泡里的输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
+  const startDrag = (event: React.MouseEvent, fromBubble = false) => {
+    // 只响应左键；输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest('input,textarea,.pet-bubble,.pet-widget,.pet-menu,.mini-btn,.pet-close')) {
-      return;
-    }
+    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-menu')) return;
+    if (!fromBubble && target.closest('.pet-bubble,.pet-widget,.pet-menu')) return;
     dragStarted.current = false;
     pressPoint.current = { x: event.screenX, y: event.screenY };
     setPressing(true);
@@ -684,7 +730,10 @@ export function PetWindow() {
       }${motion ? '' : ' no-motion'}${pressing ? ' is-pressing' : ''}${
         dragging ? ' is-dragging' : ''
       }`}
-      style={{ ['--pet-size' as string]: `${petSize}px` }}
+      style={{
+        ['--pet-size' as string]: `${petSize}px`,
+        ['--pet-bubble-w' as string]: `${bubbleW}px`
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         setMenuOpen((value) => !value);
@@ -692,7 +741,7 @@ export function PetWindow() {
       onMouseEnter={wake}
     >
       {menuOpen && (
-        <div className="pet-menu" onMouseLeave={() => setMenuOpen(false)}>
+        <div className="pet-menu" ref={menuRef} onKeyDown={onMenuKeyDown} onMouseLeave={() => setMenuOpen(false)}>
           <button
             onClick={() => {
               setMenuOpen(false);
@@ -751,6 +800,34 @@ export function PetWindow() {
             }}
           >
             <span className="pet-menu-icon">↺</span><span className="pet-menu-label">重置位置</span>
+          </button>
+          <span className="pet-menu-sep" />
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              void applyBubblePreset(360, 340);
+            }}
+          >
+            <span className="pet-menu-icon">▭</span>
+            <span className="pet-menu-label">气泡：紧凑</span>
+          </button>
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              void applyBubblePreset(440, 480);
+            }}
+          >
+            <span className="pet-menu-icon">▭</span>
+            <span className="pet-menu-label">气泡：舒适</span>
+          </button>
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              void applyBubblePreset(620, 680);
+            }}
+          >
+            <span className="pet-menu-icon">▭</span>
+            <span className="pet-menu-label">气泡：大窗</span>
           </button>
           <span className="pet-menu-sep" />
           <button
@@ -819,7 +896,7 @@ export function PetWindow() {
 
       {open && !menuOpen && (
         <div className="pet-bubble">
-          <div className="pet-bubble-head">
+          <div className="pet-bubble-head" onMouseDown={(event) => startDrag(event, true)}>
             <span className="pet-bubble-title">
               <span className={`pet-dot${busy ? ' is-busy' : ''}`} />
               {petName}
@@ -1033,20 +1110,19 @@ export function PetWindow() {
           // 双击的第二次 click 不再触发单击动作，交给 onDoubleClick。
           if (event.detail > 1) return;
           if (clickAction === 'none') return;
-          if (soundOn) beep(volume);
-          if (clickAction === 'screenshot') {
-            void takeRegionShot();
-            return;
-          }
-          // 单击零延迟：立即开合；若是双击，onDoubleClick 再把这次开合撤掉。
-          openedByClick.current = !open;
-          toggleOpen();
+          if (tapTimer.current) window.clearTimeout(tapTimer.current);
+          // 150ms 内没有第二次点击才执行单击动作，避免双击时气泡闪现。
+          tapTimer.current = window.setTimeout(() => {
+            tapTimer.current = null;
+            if (soundOn) beep(volume);
+            if (clickAction === 'screenshot') void takeRegionShot();
+            else toggleOpen();
+          }, 150);
         }}
         onDoubleClick={() => {
-          // 双击的第一下已经把气泡打开了（或关掉了），这里恢复原状再执行双击动作
-          if (openedByClick.current) {
-            setOpen(false);
-            openedByClick.current = false;
+          if (tapTimer.current) {
+            window.clearTimeout(tapTimer.current);
+            tapTimer.current = null;
           }
           if (dblAction === 'main') void window.bsub.focusMain();
           else if (dblAction === 'screenshot') void takeRegionShot();

@@ -775,6 +775,12 @@ export interface AppSettings {
     petShortcut: boolean;
     /** 气泡里显示的名字 */
     petName: string;
+    /** 对话气泡宽度（px） */
+    petBubbleWidth: number;
+    /** 对话气泡高度（px） */
+    petBubbleHeight: number;
+    /** 拖动松手后带惯性（甩出去会滑一段） */
+    petThrow: boolean;
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
