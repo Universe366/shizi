@@ -193,14 +193,12 @@ describe('StartPage 自定义快捷方式与壁纸', () => {
 describe('StartPage 编辑模式', () => {
   afterEach(cleanup);
 
-  it('编辑态才显示添加入口，完成后隐藏', () => {
+  it('添加入口始终可见，编辑态才显示删除', () => {
     installBsub();
     const p = props();
     render(<StartPage {...p} />);
-    expect(screen.queryByTitle('添加快捷方式')).toBeNull();
+    expect(screen.getByTitle('添加快捷方式')).toBeTruthy();
     fireEvent.click(screen.getByText('编辑'));
     expect(screen.getByTitle('添加快捷方式')).toBeTruthy();
-    fireEvent.click(screen.getByText('完成'));
-    expect(screen.queryByTitle('添加快捷方式')).toBeNull();
   });
 });

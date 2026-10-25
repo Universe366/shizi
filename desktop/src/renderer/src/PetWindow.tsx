@@ -711,7 +711,10 @@ export function PetWindow() {
   };
 
   /** 拖角自由调整：上/下按翻转方向增长，宽度向右增长；拖动时显示尺寸。 */
-  const startResize = (event: React.MouseEvent) => {
+  const startResize = (
+    event: React.MouseEvent,
+    axes: { width?: boolean; height?: boolean } = { width: true, height: true }
+  ) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
@@ -720,8 +723,10 @@ export function PetWindow() {
     const move = (moveEvent: MouseEvent) => {
       const dx = moveEvent.screenX - start.sx;
       const dy = moveEvent.screenY - start.sy;
-      const width = Math.min(760, Math.max(320, start.w + dx));
-      const height = Math.min(820, Math.max(260, start.h + (below ? dy : -dy)));
+      const width = axes.width ? Math.min(760, Math.max(320, start.w + dx)) : start.w;
+      const height = axes.height
+        ? Math.min(820, Math.max(260, start.h + (below ? dy : -dy)))
+        : start.h;
       last = { w: width, h: height };
       setBubbleW(width);
       setBubbleH(height);
@@ -1347,6 +1352,7 @@ ${result.data.text}`
               {shot && (
                 <div className="pet-shot">
                   <img src={shot} alt="当前页面截图" />
+                  <span className="pet-shot-label">截图</span>
                   <button title="移除截图" onClick={() => setShot(null)}>
                     ×
                   </button>
@@ -1355,9 +1361,36 @@ ${result.data.text}`
               {selection && (
                 <div className="pet-selection" title={selection.text}>
                   <span>
-                    选中：{selection.text.slice(0, 36)}
-                    {selection.text.length > 36 ? '…' : ''}
+                    选中：{selection.text.slice(0, 26)}
+                    {selection.text.length > 26 ? '…' : ''}
                   </span>
+                  <div className="pet-selection-actions">
+                    <button
+                      title="复制选中文字"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(selection.text);
+                          flash('已复制选段');
+                        } catch {
+                          flash('复制失败');
+                        }
+                      }}
+                    >
+                      复制
+                    </button>
+                    <button
+                      title="解释选中"
+                      onClick={() => void askSelection(SELECTION_ACTIONS[0].prompt)}
+                    >
+                      解释
+                    </button>
+                    <button
+                      title="翻译选中"
+                      onClick={() => void askSelection(SELECTION_ACTIONS[1].prompt)}
+                    >
+                      翻译
+                    </button>
+                  </div>
                   <button title="移除选中内容" onClick={() => setSelection(null)}>
                     ×
                   </button>
@@ -1482,9 +1515,19 @@ ${result.data.text}`
           )}
 
           <span
+            className="pet-resize-edge is-right"
+            title="拖动调整宽度"
+            onMouseDown={(event) => startResize(event, { width: true })}
+          />
+          <span
+            className={`pet-resize-edge ${below ? 'is-bottom' : 'is-top'}`}
+            title="拖动调整高度"
+            onMouseDown={(event) => startResize(event, { height: true })}
+          />
+          <span
             className="pet-resize"
-            title="拖动调整大小"
-            onMouseDown={startResize}
+            title="切换预设尺寸（也可以拖边缘自由调整）"
+            onMouseDown={(event) => startResize(event)}
           />
           {resizing && (
             <span className="pet-size-badge">

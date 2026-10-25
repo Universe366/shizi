@@ -833,6 +833,10 @@ export interface AppSettings {
     startShortcuts: StartShortcut[];
     /** 起始页壁纸主题 */
     startWallpaper: 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
+    /** 自定义壁纸（压缩后的 dataURL） */
+    startWallpaperImage: string;
+    /** 起始页小组件顺序 */
+    startWidgets: string[];
     /** 起始页天气小组件 */
     startWeather: boolean;
     /** 天气城市 */

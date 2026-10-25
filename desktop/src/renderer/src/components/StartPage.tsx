@@ -35,6 +35,14 @@ const ENGINES: Array<{ id: SearchEngineId; label: string }> = [
   { id: 'custom', label: '自定义' }
 ];
 
+const WIDGET_LABELS: Record<string, string> = {
+  weather: '天气',
+  todo: '待办',
+  hot: '热搜',
+  recent: '最近入库',
+  history: '最近访问'
+};
+
 const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [
   { id: 'aurora', label: '极光' },
   { id: 'midnight', label: '夜空' },
@@ -92,6 +100,14 @@ export function StartPage({
   const [todoDraft, setTodoDraft] = useState('');
   const [shortcuts, setShortcuts] = useState<StartShortcut[]>([]);
   const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
+  const [wallpaperImage, setWallpaperImage] = useState('');
+  const [widgetOrder, setWidgetOrder] = useState<string[]>([
+    'weather',
+    'todo',
+    'hot',
+    'recent',
+    'history'
+  ]);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [weatherOn, setWeatherOn] = useState(true);
@@ -121,6 +137,10 @@ export function StartPage({
       Array.isArray(general.startShortcuts) ? (general.startShortcuts as StartShortcut[]) : []
     );
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
+    setWallpaperImage(String(general.startWallpaperImage || ''));
+    if (Array.isArray(general.startWidgets) && general.startWidgets.length) {
+      setWidgetOrder(general.startWidgets.map(String));
+    }
     setWeatherOn(general.startWeather !== false);
     setCity(String(general.startCity || '上海'));
     setHotOn(general.startHotSearch !== false);
@@ -293,9 +313,54 @@ export function StartPage({
   );
 
   const doneCount = todos.filter((todo) => todo.done).length;
+  const orderOf = (id: string) => {
+    const index = widgetOrder.indexOf(id);
+    return index < 0 ? 99 : index;
+  };
+  const moveWidget = (id: string, delta: number) => {
+    const index = widgetOrder.indexOf(id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= widgetOrder.length) return;
+    const next = [...widgetOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    setWidgetOrder(next);
+    void patchGeneral({ startWidgets: next });
+  };
+  const applyWallpaperFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const max = 2560;
+        const scale = Math.min(1, max / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        setWallpaperImage(dataUrl);
+        void patchGeneral({ startWallpaperImage: dataUrl });
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
-    <div className={`start-page start-page-v2 start-wallpaper-${wallpaper}`}>
+    <div
+      className={`start-page start-page-v2 start-wallpaper-${wallpaper}`}
+      style={
+        wallpaperImage
+          ? {
+              backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg) 18%, transparent), color-mix(in srgb, var(--bg) 45%, transparent)), url(${wallpaperImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }
+          : undefined
+      }
+    >
       <div className="start-aurora" aria-hidden="true">
         <span className="start-blob start-blob-a" />
         <span className="start-blob start-blob-b" />
@@ -337,11 +402,38 @@ export function StartPage({
                       title={item.label}
                       onClick={() => {
                         setWallpaper(item.id);
+                        setWallpaperImage('');
                         setWallpaperOpen(false);
-                        void patchGeneral({ startWallpaper: item.id });
+                        void patchGeneral({ startWallpaper: item.id, startWallpaperImage: '' });
                       }}
                     />
                   ))}
+                  <label className="start-wallpaper-upload" title="上传本地图片作为壁纸">
+                    上传
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) applyWallpaperFile(file);
+                        event.currentTarget.value = '';
+                        setWallpaperOpen(false);
+                      }}
+                    />
+                  </label>
+                  {wallpaperImage && (
+                    <button
+                      className="start-wallpaper-clear"
+                      title="清除自定义壁纸"
+                      onClick={() => {
+                        setWallpaperImage('');
+                        void patchGeneral({ startWallpaperImage: '' });
+                        setWallpaperOpen(false);
+                      }}
+                    >
+                      清除
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -406,9 +498,34 @@ export function StartPage({
           </div>
         </section>
 
+        {editMode && (
+          <div className="start-widget-order">
+            <span className="start-widget-order-label">小组件顺序</span>
+            {widgetOrder.map((id, index) => (
+              <span className="start-widget-order-item" key={id}>
+                <span>{WIDGET_LABELS[id] || id}</span>
+                <button
+                  title="往前移"
+                  disabled={index === 0}
+                  onClick={() => moveWidget(id, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  title="往后移"
+                  disabled={index === widgetOrder.length - 1}
+                  onClick={() => moveWidget(id, 1)}
+                >
+                  ↓
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <section className="start-widget-grid">
           {weatherOn && (
-            <article className="start-widget-card start-weather-widget">
+            <article className="start-widget-card start-weather-widget" style={{ order: orderOf('weather') }}>
               <header>
                 <CloudSun size={14} />
                 <span>天气</span>
@@ -432,7 +549,7 @@ export function StartPage({
             </article>
           )}
 
-          <article className="start-widget-card start-todo-widget">
+          <article className="start-widget-card start-todo-widget" style={{ order: orderOf('todo') }}>
             <header>
               <ListChecks size={14} />
               <span>待办</span>
@@ -476,7 +593,7 @@ export function StartPage({
           </article>
 
           {hotOn && (
-            <article className="start-widget-card">
+            <article className="start-widget-card" style={{ order: orderOf('hot') }}>
               <header>
                 <Flame size={14} />
                 <span>B 站热搜</span>
@@ -511,7 +628,7 @@ export function StartPage({
             </article>
           )}
 
-          <article className="start-widget-card">
+          <article className="start-widget-card" style={{ order: orderOf('recent') }}>
             <header>
               <BookOpen size={14} />
               <span>最近入库</span>
@@ -538,7 +655,7 @@ export function StartPage({
             </div>
           </article>
 
-          <article className="start-widget-card">
+          <article className="start-widget-card" style={{ order: orderOf('history') }}>
             <header>
               <History size={14} />
               <span>最近访问</span>
@@ -612,7 +729,7 @@ export function StartPage({
                     key={item.id}
                     className={`start-shortcut start-shortcut-custom${editMode ? ' is-editing' : ''}`}
                     title={item.url}
-                    draggable={editMode}
+                    draggable
                     onDragStart={(event) => {
                       dragId.current = item.id;
                       draggedAt.current = Date.now();
@@ -652,6 +769,22 @@ export function StartPage({
                       {item.label.slice(0, 1).toUpperCase()}
                     </span>
                     <span className="start-shortcut-label">{item.label}</span>
+                    <span
+                      className="start-shortcut-edit"
+                      role="button"
+                      title="编辑名称/网址/分组"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setEditing({
+                          id: item.id,
+                          label: item.label,
+                          url: item.url,
+                          group: item.group || '常用'
+                        });
+                      }}
+                    >
+                      ✎
+                    </span>
                     {editMode && (
                       <span
                         className="start-shortcut-remove"
@@ -671,26 +804,24 @@ export function StartPage({
             </div>
           ))}
 
-          {editMode && (
-            <div className="start-shortcut-grid">
-              <button
-                className="start-shortcut start-shortcut-add"
-                title="添加快捷方式"
-                onClick={() =>
-                  setEditing({
-                    label: '',
-                    url: '',
-                    group: groups[groups.length - 1]?.[0] || '常用'
-                  })
-                }
-              >
-                <span className="start-shortcut-icon">
-                  <Plus size={18} />
-                </span>
-                <span className="start-shortcut-label">添加</span>
-              </button>
-            </div>
-          )}
+          <div className="start-shortcut-grid">
+            <button
+              className="start-shortcut start-shortcut-add"
+              title="添加快捷方式"
+              onClick={() =>
+                setEditing({
+                  label: '',
+                  url: '',
+                  group: groups[groups.length - 1]?.[0] || '常用'
+                })
+              }
+            >
+              <span className="start-shortcut-icon">
+                <Plus size={18} />
+              </span>
+              <span className="start-shortcut-label">添加</span>
+            </button>
+          </div>
         </section>
 
         <div className="start-footnote">

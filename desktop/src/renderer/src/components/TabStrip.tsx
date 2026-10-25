@@ -40,12 +40,14 @@ export function TabStrip({
   tabs,
   vertical = false,
   onSearch,
-  onNewTab
+  onNewTab,
+  onPeekChange
 }: {
   tabs: TabInfo[];
   vertical?: boolean;
   onSearch?: () => void;
   onNewTab?: () => void;
+  onPeekChange?: (peek: boolean, width: number) => void;
 }) {
   const [menu, setMenu] = useState<TabMenuState | null>(null);
   const [filter, setFilter] = useState('');
@@ -105,6 +107,11 @@ export function TabStrip({
   };
   const visibleTabs = tabs.filter(matches);
   const expanded = !collapsed || peekOpen;
+
+  useEffect(() => {
+    onPeekChange?.(collapsed && peekOpen, width);
+    return () => onPeekChange?.(false, width);
+  }, [collapsed, peekOpen, width, onPeekChange]);
   const pinnedTabs = visibleTabs.filter((tab) => tab.pinned);
   const normalTabs = visibleTabs.filter((tab) => !tab.pinned);
   const ungroupedTabs = normalTabs.filter((tab) => !tab.groupId);

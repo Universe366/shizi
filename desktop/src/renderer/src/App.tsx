@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FindResult, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
@@ -52,6 +52,10 @@ export default function App() {
   const [startOpen, setStartOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [pageLeftInset, setPageLeftInset] = useState(0);
+  const handlePeekChange = useCallback((peek: boolean, width: number) => {
+    setPageLeftInset(peek ? Math.max(0, width - 52) : 0);
+  }, []);
   const [bookmarked, setBookmarked] = useState(false);
 
   // 内置浏览器是原生 WebContentsView，永远盖在 renderer 上面。
@@ -483,6 +487,7 @@ export default function App() {
           vertical={verticalTabs}
           onSearch={() => setSearchOpen(true)}
           onNewTab={() => setStartOpen(true)}
+          onPeekChange={handlePeekChange}
         />
       )}
       <div className="app-main">
@@ -540,6 +545,7 @@ export default function App() {
           sidebarPosition={sidebarPosition}
           sidebarCollapsed={sidebarCollapsed}
           sidebarWidth={sidebarWidth}
+          leftInset={pageLeftInset}
           snapshot={dragSnapshot}
         />
       </div>

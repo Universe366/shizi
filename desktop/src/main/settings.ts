@@ -136,6 +136,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       { id: 'bing', label: '必应', url: 'https://www.bing.com' }
     ],
     startWallpaper: 'aurora',
+    startWallpaperImage: '',
+    startWidgets: ['weather', 'todo', 'hot', 'recent', 'history'],
     startWeather: true,
     startCity: '上海',
     startHotSearch: true,
@@ -469,6 +471,17 @@ function normalize(input: unknown): AppSettings {
       base.general.startWallpaper = wallpapers.includes(raw.general.startWallpaper as never)
         ? (raw.general.startWallpaper as (typeof wallpapers)[number])
         : 'aurora';
+      base.general.startWallpaperImage =
+        typeof raw.general.startWallpaperImage === 'string'
+          ? raw.general.startWallpaperImage.slice(0, 2_500_000)
+          : '';
+      const widgetIds = ['weather', 'todo', 'hot', 'recent', 'history'];
+      base.general.startWidgets = Array.isArray(raw.general.startWidgets)
+        ? (raw.general.startWidgets as unknown[])
+            .map(String)
+            .filter((id, index, list) => widgetIds.includes(id) && list.indexOf(id) === index)
+        : widgetIds;
+      if (!base.general.startWidgets.length) base.general.startWidgets = widgetIds;
       base.general.startWeather = raw.general.startWeather !== false;
       base.general.startCity =
         typeof raw.general.startCity === 'string' && raw.general.startCity.trim()
