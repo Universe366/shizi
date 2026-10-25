@@ -116,6 +116,7 @@
   "pet:body-rect",
   "pet:drop",
   "pet:end-drag",
+  "pet:flipped",
   "pet:get-position",
   "pet:move",
   "pet:reset-position",

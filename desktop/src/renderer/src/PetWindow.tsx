@@ -176,6 +176,7 @@ export function PetWindow() {
   const pressPoint = useRef<{ x: number; y: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [bubbleW, setBubbleW] = useState(440);
+  const [below, setBelow] = useState(false);
   const tapTimer = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const shotHandler = useRef<(result: { action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }) => void>(() => {});
@@ -215,6 +216,12 @@ export function PetWindow() {
     return window.bsub.onSettingsChanged((snapshot) => {
       apply(snapshot.settings.general as unknown as Record<string, unknown>);
     });
+  }, []);
+
+  // 上方空间不足时主进程会把面板翻到下面，这里跟着换 CSS 顺序。
+  useEffect(() => {
+    void window.bsub.petFlipped().then(setBelow);
+    return window.bsub.onPetFlipped(setBelow);
   }, []);
 
   // 打开气泡就把焦点放进输入框：点一下就能直接打字。
@@ -729,7 +736,7 @@ export function PetWindow() {
         playing ? ' is-playing' : ''
       }${motion ? '' : ' no-motion'}${pressing ? ' is-pressing' : ''}${
         dragging ? ' is-dragging' : ''
-      }`}
+      }${below ? ' is-below' : ''}`}
       style={{
         ['--pet-size' as string]: `${petSize}px`,
         ['--pet-bubble-w' as string]: `${bubbleW}px`

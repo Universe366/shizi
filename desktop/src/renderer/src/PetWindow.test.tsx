@@ -66,6 +66,8 @@ function installBsub() {
     petBlur: vi.fn(async () => undefined),
     endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
     petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
+    petFlipped: vi.fn(async () => false),
+    onPetFlipped: vi.fn((_cb: (below: boolean) => void) => () => {}),
     onSettingsChanged: vi.fn(() => () => {}),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     readSelection: vi.fn(async () => ({
@@ -791,5 +793,26 @@ describe('PetWindow 气泡尺寸与菜单', () => {
     expect(document.activeElement?.textContent).toContain('整页截图');
     fireEvent.keyDown(menu, { key: 'End' });
     expect(document.activeElement?.textContent).toContain('隐藏桌宠');
+  });
+});
+
+describe('PetWindow 上下翻转', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('主进程通知翻转时切到 is-below', async () => {
+    const { api } = installBsub();
+    const handlers: Array<(below: boolean) => void> = [];
+    api.onPetFlipped.mockImplementation((cb: (below: boolean) => void) => {
+      handlers.push(cb);
+      return () => {};
+    });
+    api.petFlipped.mockResolvedValue(true as never);
+    render(<PetWindow />);
+    await waitFor(() => expect(document.querySelector('.pet-root.is-below')).toBeTruthy());
+    handlers[0]?.(false);
+    await waitFor(() => expect(document.querySelector('.pet-root.is-below')).toBeNull());
   });
 });

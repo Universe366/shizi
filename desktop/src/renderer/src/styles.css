@@ -5429,6 +5429,31 @@ button:disabled {
   animation: pet-breathe 4.4s ease-in-out infinite;
 }
 
+/* 面板翻到下方：本体贴顶、气泡/挂件向下展开 */
+.pet-root.is-below {
+  justify-content: flex-start;
+}
+
+.pet-root.is-below .pet-grip {
+  order: 0;
+}
+
+.pet-root.is-below .pet-body {
+  order: 1;
+}
+
+.pet-root.is-below .pet-hint,
+.pet-root.is-below .pet-widget,
+.pet-root.is-below .pet-bubble {
+  order: 2;
+}
+
+.pet-root.is-below .pet-menu {
+  top: auto;
+  bottom: 8px;
+  max-height: calc(100vh - var(--pet-size, 96px) - 48px);
+}
+
 /* Q 弹：按下压扁、拖动轻微倾斜，松手弹回 */
 .pet-root.is-pressing .pet-body {
   transform: translateY(4px) scale(1.06, 0.9);

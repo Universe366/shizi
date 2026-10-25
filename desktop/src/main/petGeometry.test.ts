@@ -14,6 +14,7 @@ import {
   petLayoutForState,
   petLayoutSize,
   rubberBandRect,
+  shouldFlipBelow,
   snapRectToEdges,
   windowRectFor
 } from './petGeometry';
@@ -257,5 +258,41 @@ describe('拖拽惯性', () => {
     }
     expect(speedOf(v)).toBeLessThan(0.02);
     expect(frames).toBeLessThan(80);
+  });
+});
+
+describe('气泡上下翻转', () => {
+  const area = { x: 0, y: 0, width: 1920, height: 1080 };
+  const bubble = { width: 440, height: 480 };
+
+  it('顶部空间不够时翻到下方', () => {
+    const body = { x: 600, y: 80, width: 96, height: 96 };
+    expect(shouldFlipBelow(body, 'bubble', 96, area, bubble)).toBe(true);
+  });
+
+  it('底部空间足够时保持在上方', () => {
+    const body = { x: 600, y: 900, width: 96, height: 96 };
+    expect(shouldFlipBelow(body, 'bubble', 96, area, bubble)).toBe(false);
+  });
+
+  it('上下都不够时不翻转（宁可夹在屏幕里）', () => {
+    const tiny = { x: 0, y: 0, width: 500, height: 500 };
+    const body = { x: 200, y: 200, width: 96, height: 96 };
+    expect(shouldFlipBelow(body, 'bubble', 96, tiny, { width: 440, height: 480 })).toBe(false);
+  });
+
+  it('翻转后本体位置不变、面板在下方', () => {
+    const body = { x: 600, y: 80, width: 96, height: 96 };
+    const win = windowRectFor(body, 'bubble', 96, bubble, true);
+    expect(bodyRectFor(win, 96, true)).toEqual(body);
+    expect(win.y).toBeLessThan(body.y);
+    expect(win.y + win.height).toBeGreaterThan(body.y + body.height);
+  });
+
+  it('不翻转时依旧向上长', () => {
+    const body = { x: 600, y: 900, width: 96, height: 96 };
+    const win = windowRectFor(body, 'bubble', 96, bubble, false);
+    expect(bodyRectFor(win, 96, false)).toEqual(body);
+    expect(win.y + win.height).toBeGreaterThan(body.y + body.height);
   });
 });

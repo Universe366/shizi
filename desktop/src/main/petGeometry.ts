@@ -18,6 +18,8 @@ export const PET_MIN_SIZE = 64;
 export const PET_MAX_SIZE = 180;
 export const PET_DEFAULT_SIZE = 96;
 export const PET_EDGE_SNAP = 28;
+export const PET_GRIP = 14;
+export const PET_GAP = 6;
 
 export function normalizePetSize(value: number | undefined): number {
   const size = Number(value);
@@ -125,12 +127,15 @@ export function nearestWorkArea(
 /** 窗口内边距（与 styles.css 的 .pet-root padding 保持一致）。 */
 export const PET_PADDING = 6;
 
-/** 窗口矩形 → 桌宠本体矩形（水平居中、贴底部）。 */
-export function bodyRectFor(windowRect: Rect, petSize: number): Rect {
+/** 窗口矩形 → 桌宠本体矩形（默认贴底；below 模式下本体在顶部、面板向下展开）。 */
+export function bodyRectFor(windowRect: Rect, petSize: number, below = false): Rect {
   const size = normalizePetSize(petSize);
+  const topOffset = PET_PADDING + PET_GRIP + PET_GAP;
   return {
     x: windowRect.x + Math.round((windowRect.width - size) / 2),
-    y: windowRect.y + windowRect.height - PET_PADDING - size,
+    y: below
+      ? windowRect.y + topOffset
+      : windowRect.y + windowRect.height - PET_PADDING - size,
     width: size,
     height: size
   };
@@ -141,16 +146,40 @@ export function windowRectFor(
   bodyRect: Rect,
   mode: PetLayoutMode,
   petSize: number,
-  bubble: BubbleSize = DEFAULT_BUBBLE
+  bubble: BubbleSize = DEFAULT_BUBBLE,
+  below = false
 ): Rect {
   const size = normalizePetSize(petSize);
   const windowSize = petLayoutSize(mode, size, bubble);
+  const topOffset = PET_PADDING + PET_GRIP + PET_GAP;
   return {
     x: bodyRect.x - Math.round((windowSize.width - size) / 2),
-    y: bodyRect.y + size + PET_PADDING - windowSize.height,
+    y: below ? bodyRect.y - topOffset : bodyRect.y + size + PET_PADDING - windowSize.height,
     width: windowSize.width,
     height: windowSize.height
   };
+}
+
+/**
+ * 上方空间不够、下方够的时候，把面板翻到桌宠下面（窗口向下长、本体贴顶）。
+ * compact 不翻；padding 取 6 与 CSS 对齐。
+ */
+export function shouldFlipBelow(
+  body: Rect,
+  mode: PetLayoutMode,
+  petSize: number,
+  area: Rect,
+  bubble: BubbleSize = DEFAULT_BUBBLE
+): boolean {
+  if (mode === 'compact') return false;
+  const size = normalizePetSize(petSize);
+  const win = petLayoutSize(mode, size, bubble);
+  const panel = win.height - size - (PET_PADDING * 2 + PET_GRIP + PET_GAP * 2);
+  if (panel <= 0) return false;
+  const need = panel + PET_GAP;
+  const above = body.y - area.y;
+  const below = area.y + area.height - (body.y + body.height);
+  return above < need && below >= need;
 }
 
 /** 默认本体位置：右下角，距工作区边缘 24px。 */

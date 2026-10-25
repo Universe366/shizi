@@ -507,6 +507,25 @@ try {
     if (far.x < -4 || far.y < -4) throw new Error(`越界为负：${far.x},${far.y}`);
     await evaluate(pet, 'window.bsub.movePet(700, 760).then(() => null)');
 
+    // 顶部空间不足时面板翻到下方，本体不动
+    await evaluate(pet, 'window.bsub.movePet(700, 80).then(() => null)');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const topBody = await readBody();
+    await evaluate(pet, 'window.bsub.setPetLayout("bubble").then(() => null)');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const flippedBody = await readBody();
+    const win = JSON.parse(
+      await evaluate(pet, '(async () => JSON.stringify(await window.bsub.petPosition()))()')
+    );
+    if (Math.abs(flippedBody.y - topBody.y) > 3) {
+      throw new Error(`翻转后本体位移：${topBody.y} -> ${flippedBody.y}`);
+    }
+    if (!(win.y < topBody.y)) {
+      throw new Error(`翻转后窗口没有向下展开：win.y=${win.y} body.y=${topBody.y}`);
+    }
+    await evaluate(pet, 'window.bsub.setPetLayout("compact").then(() => null)');
+    await evaluate(pet, 'window.bsub.movePet(700, 760).then(() => null)');
+
     // 即时问答依赖的两个通道：截图 + 选中文字
     // 截图要求主窗口在前台（被完全遮挡时 Chromium 会返回空图）
     await evaluate(ws, "window.bsub.focusMain().then(() => null)");

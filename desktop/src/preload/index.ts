@@ -125,6 +125,8 @@ const api: BsubApi = {
       registered: boolean;
       error: string;
     }>,
+  petFlipped: () => ipcRenderer.invoke('pet:flipped') as Promise<boolean>,
+  onPetFlipped: (cb: (below: boolean) => void) => on<boolean>('pet:flipped', cb),
   petBodyRect: () =>
     ipcRenderer.invoke('pet:body-rect') as Promise<{
       x: number;

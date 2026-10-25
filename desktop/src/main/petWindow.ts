@@ -9,6 +9,7 @@ import {
   nearestWorkArea,
   normalizePetSize,
   rubberBandRect,
+  shouldFlipBelow,
   snapRectToEdges,
   speedOf,
   decayVelocity,
@@ -21,6 +22,8 @@ import {
 
 let petWindow: BrowserWindow | null = null;
 let layoutMode: PetLayoutMode = 'compact';
+let layoutBelow = false;
+let notifiedBelow: boolean | null = null;
 /** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
 let desiredBody: Rect | null = null;
 /** 桌宠抢焦点之前是哪个窗口，Esc 收起时还回去。 */
@@ -62,7 +65,7 @@ function currentBody(): Rect {
   }
   const [x, y] = petWindow.getPosition();
   const [width, height] = petWindow.getSize();
-  return bodyRectFor({ x, y, width, height }, size);
+  return bodyRectFor({ x, y, width, height }, size, layoutBelow);
 }
 
 function clampBody(body: Rect): Rect {
@@ -89,14 +92,26 @@ function applyBody(target: Rect, remember = false): Rect {
     if (remember) desiredBody = body;
     return body;
   }
-  const windowRect = windowRectFor(body, layoutMode, body.width, bubbleSize());
   const area = bodyArea(body);
+  updateBelow(body, area);
+  const windowRect = windowRectFor(body, layoutMode, body.width, bubbleSize(), layoutBelow);
   const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
   // 窗口被屏幕边缘推回时，本体以实际窗口为准。
-  const applied = bodyRectFor(bounded, body.width);
+  const applied = bodyRectFor(bounded, body.width, layoutBelow);
   if (remember) desiredBody = applied;
   return applied;
+}
+
+/** 上方放不下、下方放得下时，把面板翻到桌宠下面；变化时通知渲染层换 CSS 顺序。 */
+function updateBelow(body: Rect, area: Rect): void {
+  const next = shouldFlipBelow(body, layoutMode, body.width, area, bubbleSize());
+  if (next === layoutBelow) return;
+  layoutBelow = next;
+  if (notifiedBelow !== layoutBelow) {
+    notifiedBelow = layoutBelow;
+    petWebContents()?.send('pet:flipped', layoutBelow);
+  }
 }
 
 function persistBody(body: Rect): void {
@@ -126,6 +141,8 @@ export function openPetWindow(useStartCorner = false): void {
     return;
   }
   layoutMode = 'compact';
+  layoutBelow = false;
+  notifiedBelow = false;
   startFocusTracking();
   const size = petSize();
   const settings = loadSettings();
@@ -212,8 +229,10 @@ export function layoutPetWindow(): void {
     layoutMode === 'compact'
       ? desiredBody || persistedBody() || currentBody()
       : currentBody();
-  const windowRect = windowRectFor(body, layoutMode, petSize(), bubbleSize());
-  const bounded = clampRectToArea(windowRect, bodyArea(body));
+  const area = bodyArea(body);
+  updateBelow(body, area);
+  const windowRect = windowRectFor(body, layoutMode, petSize(), bubbleSize(), layoutBelow);
+  const bounded = clampRectToArea(windowRect, area);
   petWindow.setBounds(bounded);
 }
 
@@ -250,6 +269,10 @@ export function petPosition(): { x: number; y: number } | null {
 }
 
 /** 桌宠本体在屏幕上的矩形（跨布局稳定）。 */
+export function petFlipped(): boolean {
+  return layoutBelow;
+}
+
 export function petBodyRect(): Rect | null {
   if (!petWindow || petWindow.isDestroyed()) return null;
   return currentBody();
@@ -316,11 +339,14 @@ export function beginPetDrag(): void {
     const cursor = screen.getCursorScreenPoint();
     const now = Date.now();
     const dt = now - lastSampleAt;
-    if (dt > 0) {
-      dragVelocity = {
-        vx: (cursor.x - lastCursor.x) / dt,
-        vy: (cursor.y - lastCursor.y) / dt
-      };
+    const stepX = cursor.x - lastCursor.x;
+    const stepY = cursor.y - lastCursor.y;
+    if (dt > 0 && (stepX !== 0 || stepY !== 0)) {
+      dragVelocity = { vx: stepX / dt, vy: stepY / dt };
+      lastSampleAt = now;
+    } else if (now - lastSampleAt > 150) {
+      // 停了 150ms 以上才算真的松手/停住，避免松手瞬间被一帧 0 速度覆盖掉惯性。
+      dragVelocity = { vx: 0, vy: 0 };
       lastSampleAt = now;
     }
     const dx = cursor.x - dragStart.cursor.x;
