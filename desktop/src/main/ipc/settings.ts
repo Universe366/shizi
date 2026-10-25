@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, clipboard, dialog, ipcMain, nativeTheme, shell } from 'electron';
+
+type CloseDecisionPayload = { choice?: string; remember?: boolean };
+let closeDecisionHandler: ((payload: CloseDecisionPayload) => void) | null = null;
+
+export function setCloseDecisionHandler(
+  handler: ((payload: CloseDecisionPayload) => void) | null
+): void {
+  closeDecisionHandler = handler;
+}
 import type {
   AiPlatform,
   AsrPlatform,
@@ -59,6 +68,10 @@ import { petShortcutStatus } from '../petShortcuts';
 
 /** 设置 / 更新 / 桥 / 权限 / 数据目录 / 诊断 相关 IPC。 */
 export function registerSettingsIpc(ctx: IpcContext): void {
+  ipcMain.on('app:close-decision', (_event, payload: CloseDecisionPayload) => {
+    closeDecisionHandler?.(payload);
+  });
+
   ipcMain.handle('pet:get-position', () => petPosition());
   ipcMain.handle('pet:reset-position', () => resetPetPosition());
   ipcMain.handle('pet:move', (_event, x: number, y: number) => {
@@ -99,6 +112,12 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     setPetEnabled(next);
   });
   ipcMain.handle('pet:shortcut-status', () => petShortcutStatus());
+  ipcMain.handle('app:close-window', () => {
+    setTimeout(() => {
+      if (!ctx.win.isDestroyed()) ctx.win.close();
+    }, 0);
+  });
+
   ipcMain.handle('app:open-settings', () => {
     ctx.win.show();
     ctx.win.focus();

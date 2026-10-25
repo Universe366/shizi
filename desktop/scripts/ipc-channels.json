@@ -1,6 +1,8 @@
 [
   "ai:cancel",
   "ai:summarize",
+  "app:close-decision",
+  "app:close-window",
   "app:focus-main",
   "app:open-settings",
   "asr:cancel",

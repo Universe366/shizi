@@ -23,8 +23,15 @@ export interface CloseDialogOptions {
   noLink: boolean;
 }
 
+export interface CloseChoice {
+  choice: 'tray' | 'quit' | 'cancel';
+  remember: boolean;
+}
+
 export interface CloseFlowDeps<S extends { general: { closeToTray?: boolean } }> {
   settings: S;
+  /** 由渲染进程弹自定义确认框；返回 null 表示放弃（窗口保持打开）。 */
+  askClose?: () => Promise<CloseChoice | null>;
   hideWindow: () => void;
   quit: () => void;
   showMessageBox: (
@@ -55,29 +62,36 @@ export function handleCloseRequest<S extends { general: { closeToTray?: boolean 
 
   event.preventDefault();
   deps.setChoicePending(true);
-  void deps
-    .showMessageBox({
-      type: 'question',
-      title: deps.windowTitle,
-      message: '要最小化到托盘，还是退出应用？',
-      detail: '最小化后可以从托盘图标恢复；选择「记住」下次不再询问。',
-      buttons: ['最小化到托盘', '退出应用', '取消'],
-      defaultId: 0,
-      cancelId: 2,
-      checkboxLabel: '记住我的选择',
-      checkboxChecked: false,
-      noLink: true
-    })
+
+  const native = () =>
+    deps
+      .showMessageBox({
+        type: 'question',
+        title: deps.windowTitle,
+        message: '要最小化到托盘，还是退出应用？',
+        detail: '最小化后可以从托盘图标恢复；选择「记住」下次不再询问。',
+        buttons: ['最小化到托盘', '退出应用', '取消'],
+        defaultId: 0,
+        cancelId: 2,
+        checkboxLabel: '记住我的选择',
+        checkboxChecked: false,
+        noLink: true
+      })
+      .then<CloseChoice>((result) => ({
+        choice: closeChoiceFromDialog(result),
+        remember: result.checkboxChecked === true
+      }));
+
+  void (deps.askClose ? deps.askClose() : native())
     .then((result) => {
       deps.setChoicePending(false);
-      const choice = closeChoiceFromDialog(result);
-      if (choice === 'cancel') return;
-      if (result.checkboxChecked) {
+      if (!result || result.choice === 'cancel') return;
+      if (result.remember) {
         const settings = deps.loadSettings();
-        settings.general.closeToTray = choice === 'tray';
+        settings.general.closeToTray = result.choice === 'tray';
         deps.saveSettings(settings);
       }
-      if (choice === 'tray') {
+      if (result.choice === 'tray') {
         deps.hideWindow();
       } else {
         deps.setQuitting(true);

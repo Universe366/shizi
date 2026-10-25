@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
+import { setCloseDecisionHandler } from './ipc/settings';
 
 import {
   closeLibrary,
@@ -254,6 +255,34 @@ function createWindow(): void {
     );
   }
 
+  const askCloseFromRenderer = (): Promise<
+    { choice: 'tray' | 'quit' | 'cancel'; remember: boolean } | null
+  > => {
+    const target = mainWindow;
+    if (!target || target.isDestroyed() || target.webContents.isDestroyed()) {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (
+        value: { choice: 'tray' | 'quit' | 'cancel'; remember: boolean } | null
+      ) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        setCloseDecisionHandler(null);
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish(null), 15000);
+      setCloseDecisionHandler((payload) => {
+        const choice = payload?.choice;
+        if (choice !== 'tray' && choice !== 'quit' && choice !== 'cancel') return;
+        finish({ choice, remember: payload?.remember === true });
+      });
+      target.webContents.send('app:close-request');
+    });
+  };
+
   mainWindow.on('close', (event) => {
     handleCloseRequest(
       event,
@@ -263,6 +292,7 @@ function createWindow(): void {
         windowTitle: APP_NAME,
         hideWindow: () => mainWindow?.hide(),
         quit: () => app.quit(),
+        askClose: askCloseFromRenderer,
         showMessageBox: (options) => dialog.showMessageBox(mainWindow as BrowserWindow, options),
         loadSettings: () => loadSettings(),
         saveSettings: (settings) => saveSettings(settings),

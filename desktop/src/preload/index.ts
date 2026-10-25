@@ -401,6 +401,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>
     ipcRenderer.invoke('settings:wizard', !visible) as Promise<Result<SettingsSnapshot>>,
+  requestClose: () => ipcRenderer.invoke('app:close-window') as Promise<void>,
+  onCloseRequest: (cb: () => void) => on<void>('app:close-request', cb),
+  closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>
+    ipcRenderer.send('app:close-decision', { choice, remember }),
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
   startHotSearch: () => ipcRenderer.invoke('start:hot'),
   chooseSyncFolder: () => ipcRenderer.invoke('sync:choose'),

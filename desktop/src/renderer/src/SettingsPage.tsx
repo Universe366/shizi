@@ -6,6 +6,9 @@ import { SETTINGS_GROUPS } from './components/settings/registry';
 export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [group, setGroup] = useState(SETTINGS_GROUPS[0].id);
   const [dirty, setDirty] = useState(false);
+  const [toc, setToc] = useState<Array<{ title: string }>>([]);
+  const [activeToc, setActiveToc] = useState(0);
+  const tocSections = useRef<HTMLElement[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   const active = SETTINGS_GROUPS.find((item) => item.id === group) || SETTINGS_GROUPS[0];
   const Icon = active.icon;
@@ -17,6 +20,47 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
+  }, [group]);
+
+  useEffect(() => {
+    const host = contentRef.current;
+    if (!host) return;
+    const visibleSections = () =>
+      Array.from(host.querySelectorAll<HTMLElement>('.settings-section')).filter(
+        (section) => section.style.display !== 'none'
+      );
+    const collect = () => {
+      const sections = visibleSections();
+      tocSections.current = sections;
+      setToc(
+        sections.map((section) => ({
+          title: (section.querySelector('.settings-section-title')?.textContent || '').trim()
+        }))
+      );
+    };
+    collect();
+    const observer = new MutationObserver(collect);
+    observer.observe(host, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['style']
+    });
+    const onScroll = () => {
+      const sections = visibleSections();
+      const top = host.getBoundingClientRect().top + 64;
+      let active = 0;
+      sections.forEach((section, index) => {
+        if (section.getBoundingClientRect().top <= top) active = index;
+      });
+      setActiveToc(active);
+    };
+    host.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      observer.disconnect();
+      host.removeEventListener('scroll', onScroll);
+    };
   }, [group]);
 
   useEffect(() => {
@@ -68,6 +112,26 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
         <div className="settings-page-content" ref={contentRef}>
           <SettingsPanel group={group} onDirtyChange={setDirty} />
         </div>
+        {toc.length > 2 && (
+          <aside className="settings-toc" aria-label="本页目录">
+            <div className="settings-toc-title">本页目录</div>
+            {toc.map((item, index) => (
+              <button
+                key={`${item.title}-${index}`}
+                className={`settings-toc-item${activeToc === index ? ' is-active' : ''}`}
+                title={item.title}
+                onClick={() => {
+                  const target = tocSections.current[index];
+                  if (!target) return;
+                  (target as HTMLDetailsElement).open = true;
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                {item.title}
+              </button>
+            ))}
+          </aside>
+        )}
       </div>
     </div>
   );

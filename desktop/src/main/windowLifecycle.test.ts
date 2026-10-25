@@ -103,6 +103,7 @@ describe('handleCloseRequest', () => {
     handleCloseRequest(event(), { isQuitting: false, choicePending: false }, deps);
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
     expect(deps.setChoicePending).toHaveBeenLastCalledWith(false);
     expect(deps.quit).not.toHaveBeenCalled();
   });
@@ -192,5 +193,30 @@ describe('bootstrapRenderer', () => {
     });
     expect(result.devHooks).toBe(true);
     expect(log).toHaveBeenCalledWith('[dev] hooks failed', 'probe failed');
+  });
+});
+
+describe('handleCloseRequest（渲染进程弹窗）', () => {
+  it('优先调用 askClose，不再弹系统对话框', async () => {
+    const askClose = vi.fn(async () => ({ choice: 'quit' as const, remember: true }));
+    const { deps, saved } = closeDeps({ askClose });
+    expect(handleCloseRequest(event(), { isQuitting: false, choicePending: false }, deps)).toBe('asked');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(askClose).toHaveBeenCalledTimes(1);
+    expect(deps.showMessageBox).not.toHaveBeenCalled();
+    expect(saved.at(-1)?.general.closeToTray).toBe(false);
+    expect(deps.quit).toHaveBeenCalled();
+  });
+
+  it('取消时保持窗口打开', async () => {
+    const askClose = vi.fn(async () => ({ choice: 'cancel' as const, remember: false }));
+    const { deps } = closeDeps({ askClose });
+    handleCloseRequest(event(), { isQuitting: false, choicePending: false }, deps);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.hideWindow).not.toHaveBeenCalled();
+    expect(deps.quit).not.toHaveBeenCalled();
+    expect(deps.setChoicePending).toHaveBeenLastCalledWith(false);
   });
 });

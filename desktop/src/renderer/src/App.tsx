@@ -18,6 +18,7 @@ const SettingsPage = lazy(() =>
 import { nextTabId, tabIdByNumber } from './lib/tabs';
 import { useDropImport } from './lib/dropImport';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
+import { CloseDialog } from './components/CloseDialog';
 
 export default function App() {
   const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -49,11 +50,14 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
 
   // 内置浏览器是原生 WebContentsView，永远盖在 renderer 上面。
   // 向导/全局搜索是 renderer 里的全屏遮罩，不隐藏页面就会出现
   // 「卡片被页面挡住、只剩左侧点不了」的情况。
+  useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
+
   useEffect(() => {
     void window.bsub.setBrowserVisible(!wizard && !searchOpen && !hub && !readerOpen);
   }, [wizard, searchOpen, hub, readerOpen]);
@@ -334,6 +338,23 @@ export default function App() {
       if (event.key === 'F5') {
         event.preventDefault();
         void window.bsub.reload();
+        return;
+      }
+      if (event.altKey && /^[1-9]$/.test(event.key)) {
+        const target = tabs[Number(event.key) - 1];
+        if (target) {
+          event.preventDefault();
+          void window.bsub.activateTab(target.id);
+        }
+        return;
+      }
+      if (mod && event.key === 'Tab') {
+        event.preventDefault();
+        if (tabs.length > 1) {
+          const index = tabs.findIndex((tab) => tab.active);
+          const nextIndex = (index + (event.shiftKey ? -1 : 1) + tabs.length) % tabs.length;
+          void window.bsub.activateTab(tabs[nextIndex].id);
+        }
         return;
       }
       if (event.altKey && event.key === 'ArrowLeft') {
@@ -628,6 +649,13 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
       />
       </div>
+      <CloseDialog
+        open={closeOpen}
+        onChoose={(choice, remember) => {
+          setCloseOpen(false);
+          window.bsub.closeDecision(choice, remember);
+        }}
+      />
     </div>
   );
 }

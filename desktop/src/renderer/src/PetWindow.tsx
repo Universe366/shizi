@@ -653,32 +653,6 @@ export function PetWindow() {
     await ask(prompt, { selection: text });
   };
 
-  /** 拖动右下角调气泡大小：拖动时实时生效，松手才落盘。 */
-  const startResize = (event: React.MouseEvent) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const start = { sx: event.screenX, sy: event.screenY, w: bubbleW, h: bubbleH };
-    let last = { w: bubbleW, h: bubbleH };
-    const move = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.screenX - start.sx;
-      const dy = moveEvent.screenY - start.sy;
-      const width = Math.min(760, Math.max(320, start.w + dx));
-      const height = Math.min(820, Math.max(260, start.h + (below ? dy : -dy)));
-      last = { w: width, h: height };
-      setBubbleW(width);
-      setBubbleH(height);
-      void window.bsub.resizeBubble(width, height, false);
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      void window.bsub.resizeBubble(last.w, last.h, true);
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  };
-
   /** 直接改气泡尺寸（右键菜单里的三档），写到设置里立即生效。 */
   const applyBubblePreset = async (width: number, height: number) => {
     setBubbleW(width);
@@ -690,6 +664,18 @@ export function PetWindow() {
     next.general.petBubbleHeight = height;
     await window.bsub.saveSettings(next);
     flash(`气泡 ${width}×${height}`);
+  };
+
+  /** 在紧凑 / 舒适 / 大窗之间循环，按钮点起来可预期，不用拖角猜方向。 */
+  const cycleBubbleSize = () => {
+    const presets: Array<[number, number]> = [
+      [360, 340],
+      [440, 480],
+      [620, 680]
+    ];
+    const index = presets.findIndex(([width]) => width === bubbleW);
+    const next = presets[(index + 1) % presets.length];
+    void applyBubblePreset(next[0], next[1]);
   };
 
   /** 新对话：清掉上下文与回答，附件保留（想继续问图就不用重截）。 */
@@ -772,7 +758,7 @@ export function PetWindow() {
     // 只响应左键；输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-resize,.pet-menu')) return;
+    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-menu')) return;
     if (!fromBubble && target.closest('.pet-bubble,.pet-widget,.pet-menu')) return;
     dragStarted.current = false;
     pressPoint.current = { x: event.screenX, y: event.screenY };
@@ -1007,6 +993,14 @@ export function PetWindow() {
                 </button>
               )}
               <button
+                className="pet-size"
+                title={`气泡大小：${bubbleW}×${bubbleH}（点击切换紧凑 / 舒适 / 大窗）`}
+                aria-label="切换气泡大小"
+                onClick={() => cycleBubbleSize()}
+              >
+                ⤢
+              </button>
+              <button
                 className="pet-close"
                 title="关闭对话（Esc）"
                 aria-label="关闭对话"
@@ -1153,12 +1147,6 @@ export function PetWindow() {
               </button>
             </div>
           )}
-
-          <span
-            className="pet-resize"
-            title="拖动调整气泡大小"
-            onMouseDown={startResize}
-          />
 
           <div className="pet-bubble-input">
             <input

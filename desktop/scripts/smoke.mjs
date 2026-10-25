@@ -531,6 +531,8 @@ try {
       await evaluate(
         ws,
         `(async () => {
+          [...document.querySelectorAll('.start-edit-btn')][0]?.click();
+          await new Promise((r) => setTimeout(r, 150));
           document.querySelector('.start-shortcut-add')?.click();
           await new Promise((r) => setTimeout(r, 120));
           const inputs = document.querySelectorAll('.start-modal-field input');
@@ -877,6 +879,38 @@ try {
     }
     if (enabled) throw new Error('隐藏后 settings.petEnabled 仍为 true');
     return 'petEnabled=false';
+  });
+
+  await step('关闭确认弹窗', async () => {
+    const opened = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          await window.bsub.requestClose();
+          await new Promise((r) => setTimeout(r, 600));
+          return JSON.stringify({
+            card: Boolean(document.querySelector('.close-card')),
+            tray: Boolean(
+              [...document.querySelectorAll('.close-action')].find((el) =>
+                el.textContent.includes('最小化到托盘')
+              )
+            )
+          });
+        })()`
+      )
+    );
+    if (!opened.card || !opened.tray) throw new Error('没有出现应用内关闭弹窗');
+    await evaluate(
+      ws,
+      `(async () => {
+        const cancel = document.querySelector('.close-card-foot .mini-btn');
+        cancel?.click();
+        await new Promise((r) => setTimeout(r, 300));
+        return 'ok';
+      })()`
+    );
+    if ((await evaluate(ws, '1 + 1')) !== 2) throw new Error('取消后窗口不应关闭');
+    return 'custom dialog + cancel';
   });
 
   ws.close();

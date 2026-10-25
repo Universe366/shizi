@@ -75,3 +75,21 @@ describe('UpdateSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ ...value, feedUrl: 'https://example.com/feed' });
   });
 });
+
+describe('UpdateSection 发布说明', () => {
+  afterEach(cleanup);
+
+  it('HTML 发布说明会转成可读文本渲染', () => {
+    const p = props({
+      status: {
+        state: 'available',
+        version: '0.38.15',
+        notes: '<p>修复 <strong>设置页</strong> 卡顿</p><ul><li>更快</li></ul>'
+      } as UpdateStatus,
+      statusText: '发现新版本 v0.38.15'
+    });
+    render(<UpdateSection {...p} />);
+    expect(screen.getByText(/修复/)).toBeTruthy();
+    expect(screen.getByText('更快')).toBeTruthy();
+  });
+});

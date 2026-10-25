@@ -22,6 +22,9 @@ export function TabStrip({
 }) {
   const [menu, setMenu] = useState<TabMenuState | null>(null);
   const [filter, setFilter] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tabs.collapsed') === '1');
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem('tabs.width'));
@@ -39,6 +42,15 @@ export function TabStrip({
   useEffect(() => {
     localStorage.setItem('tabs.collapsed', collapsed ? '1' : '0');
   }, [collapsed]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    filterRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    listRef.current?.querySelector('.tab.is-active')?.scrollIntoView?.({ block: 'nearest' });
+  }, [tabs]);
 
   useEffect(() => {
     localStorage.setItem('tabs.width', String(width));
@@ -77,7 +89,11 @@ export function TabStrip({
       style={vertical ? { width: collapsed ? 52 : width } : undefined}
     >
       {vertical && (
-        <div className="tab-vertical-head">
+        <div
+          className="tab-vertical-head"
+          onDoubleClick={() => setCollapsed((value) => !value)}
+          title="双击折叠/展开"
+        >
           <button
             className="tab-collapse"
             title={collapsed ? '展开标签栏' : '折叠标签栏'}
@@ -91,25 +107,46 @@ export function TabStrip({
             </span>
           )}
           {!collapsed && (
-            <button
-              className="tab-head-new"
-              title="新建标签页（Ctrl+T）"
-              onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
-            >
-              <Plus size={14} />
-            </button>
+            <div className="tab-head-actions">
+              <button
+                className={`tab-head-new${searchOpen ? ' is-active' : ''}`}
+                title="搜索标签"
+                onClick={() => setSearchOpen((value) => !value)}
+              >
+                <Search size={13} />
+              </button>
+              <button
+                className="tab-head-new"
+                title="新建标签页（Ctrl+T）"
+                onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
           )}
         </div>
       )}
-      {vertical && !collapsed && (
+      {vertical && !collapsed && searchOpen && (
         <div className="tab-filter">
           <Search size={12} />
           <input
+            ref={filterRef}
             value={filter}
             placeholder="搜索标签…"
             spellCheck={false}
             onChange={(event) => setFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setFilter('');
+                setSearchOpen(false);
+              }
+            }}
           />
+          {filter && (
+            <button className="tab-filter-clear" title="清空" onClick={() => setFilter('')}>
+              <X size={12} />
+            </button>
+          )}
         </div>
       )}
       {vertical && !collapsed && (
@@ -134,6 +171,7 @@ export function TabStrip({
         />
       )}
       <div
+        ref={listRef}
         className="tab-strip-list"
         onDoubleClick={(event) => {
           if (event.target === event.currentTarget) onNewTab?.();
@@ -194,20 +232,24 @@ export function TabStrip({
           </div>
         ))}
       </div>
-      <button
-        className="tab-search"
-        title="全局搜索（Ctrl+K）"
-        onClick={() => onSearch?.()}
-      >
-        <Search size={14} />
-      </button>
-      <button
-        className="tab-new"
-        title="新建标签页（起始页）"
-        onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
-      >
-        <Plus size={15} />
-      </button>
+      {!vertical && (
+        <>
+          <button
+            className="tab-search"
+            title="全局搜索（Ctrl+K）"
+            onClick={() => onSearch?.()}
+          >
+            <Search size={14} />
+          </button>
+          <button
+            className="tab-new"
+            title="新建标签页（起始页）"
+            onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
+          >
+            <Plus size={15} />
+          </button>
+        </>
+      )}
 
       {menu && (
         <div

@@ -148,6 +148,7 @@ describe('StartPage 自定义快捷方式与壁纸', () => {
     const api = installBsub();
     const p = props();
     render(<StartPage {...p} />);
+    fireEvent.click(screen.getByText('编辑'));
     fireEvent.click(screen.getByTitle('添加快捷方式'));
     fireEvent.change(screen.getByPlaceholderText('例如：知乎'), { target: { value: '知乎' } });
     fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
@@ -186,5 +187,20 @@ describe('StartPage 自定义快捷方式与壁纸', () => {
     render(<StartPage {...p} />);
     expect(await screen.findByText('22°')).toBeTruthy();
     expect(await screen.findByText('热搜一')).toBeTruthy();
+  });
+});
+
+describe('StartPage 编辑模式', () => {
+  afterEach(cleanup);
+
+  it('编辑态才显示添加入口，完成后隐藏', () => {
+    installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    expect(screen.queryByTitle('添加快捷方式')).toBeNull();
+    fireEvent.click(screen.getByText('编辑'));
+    expect(screen.getByTitle('添加快捷方式')).toBeTruthy();
+    fireEvent.click(screen.getByText('完成'));
+    expect(screen.queryByTitle('添加快捷方式')).toBeNull();
   });
 });

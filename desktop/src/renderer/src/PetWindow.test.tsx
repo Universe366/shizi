@@ -825,18 +825,18 @@ describe('PetWindow 气泡缩放与渲染', () => {
     localStorage.clear();
   });
 
-  it('拖右下角会实时改尺寸，松手落盘', async () => {
+  it('点 ⤢ 在紧凑/舒适/大窗之间循环', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
     await openBubble();
-    const grip = document.querySelector('.pet-resize') as HTMLElement;
-    fireEvent.mouseDown(grip, { button: 0, screenX: 500, screenY: 500 });
-    fireEvent.mouseMove(window, { screenX: 560, screenY: 460 });
-    await waitFor(() =>
-      expect(api.resizeBubble).toHaveBeenCalledWith(500, 520, false)
+    fireEvent.click(screen.getByTitle(/气泡大小/));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ petBubbleWidth: 620, petBubbleHeight: 680 })
+        })
+      )
     );
-    fireEvent.mouseUp(window, { screenX: 560, screenY: 460 });
-    await waitFor(() => expect(api.resizeBubble).toHaveBeenLastCalledWith(500, 520, true));
   });
 
   it('助手回答按 Markdown 渲染', async () => {

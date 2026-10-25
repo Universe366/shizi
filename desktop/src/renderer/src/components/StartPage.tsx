@@ -100,6 +100,8 @@ export function StartPage({
   const [editing, setEditing] = useState<{ id?: string; label: string; url: string } | null>(null);
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const draggedAt = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const dragId = useRef<string | null>(null);
 
@@ -265,6 +267,12 @@ export function StartPage({
               {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
             </span>
             <div className="start-hero-actions">
+              <button
+                className={`start-edit-btn${editMode ? ' is-active' : ''}`}
+                onClick={() => setEditMode((value) => !value)}
+              >
+                {editMode ? '完成' : '编辑'}
+              </button>
               <button
                 className="start-icon-btn"
                 title="更换壁纸"
@@ -517,7 +525,14 @@ export function StartPage({
           {builtIn.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.id} className="start-shortcut" onClick={item.run}>
+              <button
+                key={item.id}
+                className={`start-shortcut${editMode ? ' is-locked' : ''}`}
+                onClick={() => {
+                  if (editMode) return;
+                  item.run();
+                }}
+              >
                 <span className="start-shortcut-icon">
                   <Icon size={18} />
                 </span>
@@ -529,11 +544,12 @@ export function StartPage({
           {shortcuts.map((item) => (
             <button
               key={item.id}
-              className="start-shortcut start-shortcut-custom"
+              className={`start-shortcut start-shortcut-custom${editMode ? ' is-editing' : ''}`}
               title={item.url}
-              draggable
+              draggable={editMode}
               onDragStart={() => {
                 dragId.current = item.id;
+                draggedAt.current = Date.now();
               }}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => {
@@ -553,6 +569,11 @@ export function StartPage({
                 setShortcutMenu({ x: event.clientX, y: event.clientY, id: item.id });
               }}
               onClick={() => {
+                if (Date.now() - draggedAt.current < 350) return;
+                if (editMode) {
+                  setEditing({ id: item.id, label: item.label, url: item.url });
+                  return;
+                }
                 onClose();
                 onNavigate(item.url);
               }}
@@ -561,24 +582,41 @@ export function StartPage({
                 {item.label.slice(0, 1).toUpperCase()}
               </span>
               <span className="start-shortcut-label">{item.label}</span>
+              {editMode && (
+                <span
+                  className="start-shortcut-remove"
+                  role="button"
+                  title="删除"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removeShortcut(item.id);
+                  }}
+                >
+                  ×
+                </span>
+              )}
             </button>
           ))}
 
-          <button
-            className="start-shortcut start-shortcut-add"
-            title="添加快捷方式"
-            onClick={() => setEditing({ label: '', url: '' })}
-          >
+          {editMode && (
+            <button
+              className="start-shortcut start-shortcut-add"
+              title="添加快捷方式"
+              onClick={() => setEditing({ label: '', url: '' })}
+            >
             <span className="start-shortcut-icon">
               <Plus size={18} />
             </span>
-            <span className="start-shortcut-label">添加</span>
-          </button>
+              <span className="start-shortcut-label">添加</span>
+            </button>
+          )}
         </section>
 
         <div className="start-footnote">
           <Sparkles size={12} />
-          右键自定义图标可编辑/删除；拖拽可排序；设置会跟随导出/导入一起备份
+          {editMode
+            ? '编辑中：点图标改名称/网址，拖拽排序，× 删除；完成后点右上角「完成」'
+            : '点右上角「编辑」可增删/排序快捷方式；设置会跟随导出/导入一起备份'}
           <button
             className="start-foot-link"
             onClick={async () => {

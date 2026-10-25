@@ -109,6 +109,7 @@ describe('TabStrip', () => {
 
   it('纵向模式可以搜索过滤标签', () => {
     render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('搜索标签'));
     const input = screen.getByPlaceholderText('搜索标签…');
     fireEvent.change(input, { target: { value: '第三个' } });
     expect(screen.queryByText('B 站首页')).toBeNull();

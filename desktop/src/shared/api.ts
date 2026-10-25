@@ -285,6 +285,11 @@ export interface BsubApi {
     position?: 'left' | 'right';
     collapsed?: boolean;
   }): Promise<Result<SettingsSnapshot>>;
+  /** 请求关闭主窗口（走应用内确认弹窗）。 */
+  requestClose(): Promise<void>;
+  /** 关闭窗口时主进程询问：最小化到托盘 / 退出 / 取消。 */
+  onCloseRequest(cb: () => void): () => void;
+  closeDecision(choice: 'tray' | 'quit' | 'cancel', remember: boolean): void;
   /** 起始页天气（Open-Meteo） */
   startWeather(city: string): Promise<
     Result<{ city: string; temperature: number; description: string; high: number; low: number }>

@@ -18,6 +18,34 @@ interface UpdateSectionProps {
   onOpenReleases: () => void;
 }
 
+/** GitHub/electron-updater 的发布说明可能带 HTML，统一转成 Markdown 再渲染。 */
+function normalizedNotes(raw: string): string {
+  return String(raw || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+const STATE_LABEL: Record<string, string> = {
+  idle: '未检查',
+  checking: '检查中',
+  available: '有新版本',
+  'not-available': '已是最新',
+  downloading: '下载中',
+  downloaded: '待安装',
+  error: '检查失败',
+  disabled: '不可用'
+};
+
 /** 版本更新：检查状态、进度、发布说明、自动检查与自定义更新源。 */
 export function UpdateSection({
   version,
@@ -41,7 +69,8 @@ export function UpdateSection({
       </div>
       <div className={`update-card${status ? ` is-${status.state}` : ''}`}>
         <div className="update-head">
-          <span>{statusText}</span>
+          <span className="update-state">{STATE_LABEL[status?.state || 'idle'] || '状态'}</span>
+          <span className="update-text">{statusText}</span>
           <span className="muted">当前 v{version}</span>
         </div>
         {status?.checkedAt && (
@@ -59,7 +88,7 @@ export function UpdateSection({
         )}
         {(status?.state === 'available' || status?.state === 'downloaded') && status?.notes && (
           <div className="update-notes">
-            <Markdown content={status.notes} />
+            <Markdown content={normalizedNotes(status.notes)} />
           </div>
         )}
       </div>
