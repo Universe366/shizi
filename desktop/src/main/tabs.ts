@@ -937,8 +937,20 @@ export class TabManager {
     this.activeRecord()?.view?.webContents.stopFindInPage('clearSelection');
   }
 
-  setLayout(rect: LayoutRect): void {
-    const hadSize = this.bounds.width > 0 && this.bounds.height > 0;
+  /** 打开/折叠侧栏时退出视频全屏；否则原生页会盖住侧栏，或在窗口全屏里缩放成白屏。 */
+  exitFullscreen(): void {
+    const record = this.activeRecord();
+    if (!record?.view) return;
+    const win = BrowserWindow.fromWebContents(record.view.webContents);
+    void record.view.webContents
+      .executeJavaScript(
+        'document.fullscreenElement ? document.exitFullscreen().catch(() => null) : null'
+      )
+      .catch(() => undefined);
+    if (win?.isFullScreen()) win.setFullScreen(false);
+  }
+
+  setLayout(rect: LayoutRect): void {    const hadSize = this.bounds.width > 0 && this.bounds.height > 0;
     this.bounds = {
       x: Math.max(0, Math.round(rect.x)),
       y: Math.max(0, Math.round(rect.y)),

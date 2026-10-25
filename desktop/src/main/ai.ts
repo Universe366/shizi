@@ -218,56 +218,82 @@ async function summarizeInChunks(options: {
   const chunks = chunkTranscript(lines, SUMMARY_CHUNK_CHARS);
   const total = chunks.length;
   const background = options.metaBlock.slice(0, 900);
-  const summaries: string[] = [];
+  const summaries: string[] = new Array(total).fill('');
   const chunkMaxTokens = Math.min(settings.ai.maxTokens || 8192, 8192);
 
-  for (let index = 0; index < total; index += 1) {
+  const summarizeChunk = async (index: number): Promise<void> => {
     if (options.signal?.aborted) throw new Error('已终止');
     const chunk = chunks[index];
     options.onStatus?.(
       `长视频分段总结 ${index + 1}/${total}（约 ${clock(chunk.start)} 起）…`
     );
-    const result = await chatOnce(
-      platform,
-      [
-        {
-          role: 'system',
-          content: [
-            options.prompt,
-            options.glossaryBlock,
-            options.skills,
-            SUMMARY_FORMAT_RULES,
-            CHUNK_SYSTEM
-          ]
-            .filter(Boolean)
-            .join('\n\n')
-        },
-        {
-          role: 'user',
-          content: chunkPrompt({
-            title: info.title || '',
-            part: info.partTitle || '',
-            index: index + 1,
-            total,
-            from: chunk.start,
-            to: index + 1 < total ? chunks[index + 1].start : info.duration || chunk.end,
-            background,
-            text: chunk.text
-          })
-        }
-      ],
+    const chunkMessages = [
       {
-        temperature: settings.ai.temperature,
-        maxTokens: chunkMaxTokens,
-        timeoutMs: 600000,
-        signal: options.signal
+        role: 'system' as const,
+        content: [
+          options.prompt,
+          options.glossaryBlock,
+          options.skills,
+          SUMMARY_FORMAT_RULES,
+          CHUNK_SYSTEM
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      },
+      {
+        role: 'user' as const,
+        content: chunkPrompt({
+          title: info.title || '',
+          part: info.partTitle || '',
+          index: index + 1,
+          total,
+          from: chunk.start,
+          to: index + 1 < total ? chunks[index + 1].start : info.duration || chunk.end,
+          background,
+          text: chunk.text
+        })
       }
-    );
-    if (!result.text.trim()) throw new Error(`第 ${index + 1}/${total} 段总结为空`);
-    summaries.push(
-      `【第 ${index + 1}/${total} 段 · 起于 ${clock(chunk.start)}】\n${result.text.trim()}`
-    );
-  }
+    ];
+    // 分段也必须走流式：部分推理模型在非流式下只返回 reasoning、content 为空；
+    // 旧实现用 chatOnce，长视频第 1 段直接报“总结为空”。
+    const result =
+      settings.ai.stream === false
+        ? await chatOnce(platform, chunkMessages, {
+            temperature: settings.ai.temperature,
+            maxTokens: chunkMaxTokens,
+            timeoutMs: 240000,
+            signal: options.signal
+          })
+        : await chatStream(platform, chunkMessages, {
+            temperature: settings.ai.temperature,
+            maxTokens: chunkMaxTokens,
+            timeoutMs: 240000,
+            signal: options.signal
+          });
+    const chunkText = (result.text || result.reasoning || '').trim();
+    if (!chunkText) {
+      console.warn('[m4] chunk empty', index + 1, '/', total);
+      options.onStatus?.(`第 ${index + 1}/${total} 段没有返回内容，跳过`);
+      return;
+    }
+    summaries[index] = `【第 ${index + 1}/${total} 段 · 起于 ${clock(chunk.start)}】\n${chunkText}`;
+  };
+
+  // 两路并发：长视频（尤其 40 分钟以上）串行分段会把总时长翻倍；两路足够快，
+  // 又不会像全并发那样一把打满平台限流。
+  let nextChunk = 0;
+  const workers = Array.from({ length: Math.min(2, total) }, async () => {
+    while (true) {
+      const index = nextChunk;
+      nextChunk += 1;
+      if (index >= total) return;
+      await summarizeChunk(index);
+    }
+  });
+  await Promise.all(workers);
+
+  const doneSummaries = summaries.filter(Boolean);
+  if (!doneSummaries.length) throw new Error('分段总结为空（模型没有返回内容）');
 
   options.onStatus?.(`正在合并 ${total} 段总结…`);
   const messages = [
@@ -287,7 +313,7 @@ async function summarizeInChunks(options: {
         extraContext: options.metaBlock,
         referencesBlock: options.referencesBlock,
         chunkCount: total,
-        chunkSummaries: summaries.join('\n\n---\n\n')
+        chunkSummaries: doneSummaries.join('\n\n---\n\n')
       })
     }
   ];
@@ -300,10 +326,11 @@ async function summarizeInChunks(options: {
 
   if (settings.ai.stream === false) {
     const merged = await chatOnce(platform, messages, chatOptions);
-    if (!merged.text.trim()) throw new Error('合并总结为空');
-    options.onDelta?.(merged.text);
+    const text = (merged.text || merged.reasoning || '').trim();
+    if (!text) throw new Error('合并总结为空');
+    options.onDelta?.(text);
     if (merged.reasoning) options.onReasoning?.(merged.reasoning);
-    return { text: merged.text, chunks: total };
+    return { text, chunks: total };
   }
 
   const merged = await chatStream(platform, messages, {
@@ -311,7 +338,9 @@ async function summarizeInChunks(options: {
     onDelta: options.onDelta,
     onReasoning: options.onReasoning
   });
-  return { text: merged.text, chunks: total };
+  const text = (merged.text || merged.reasoning || '').trim();
+  if (!text) throw new Error('合并总结为空');
+  return { text, chunks: total };
 }
 
 export async function summarize(options: SummarizeOptions): Promise<{ text: string; model: string; verification?: VerificationSummary }> {
@@ -512,10 +541,11 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
 
   if (settings.ai.stream === false) {
     const result = await chatOnce(platform, messages, chatOptions);
-    if (!result.text.trim()) throw new Error('AI 返回为空');
-    options.onDelta?.(result.text);
+    const text = (result.text || result.reasoning || '').trim();
+    if (!text) throw new Error('AI 返回为空');
+    options.onDelta?.(text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return { text: result.text, model: platform.model, verification };
+    return { text, model: platform.model, verification };
   }
 
   const result = await chatStream(platform, messages, {
@@ -523,5 +553,7 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     onDelta: options.onDelta,
     onReasoning: options.onReasoning
   });
-  return { text: result.text, model: platform.model, verification };
+  const text = (result.text || result.reasoning || '').trim();
+  if (!text) throw new Error('AI 返回为空');
+  return { text, model: platform.model, verification };
 }

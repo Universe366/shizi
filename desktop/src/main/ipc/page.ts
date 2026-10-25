@@ -93,8 +93,8 @@ export function registerPageIpc(ctx: IpcContext): void {
     }
   });
 
-  ipcMain.handle('page:info', async (): Promise<Result<PageInfo>> => {
-    const wc = ctx.tabs.activeWebContents();
+  ipcMain.handle('page:info', async (_event, tabId?: string): Promise<Result<PageInfo>> => {
+    const wc = (tabId && ctx.tabs.webContentsOf(String(tabId))) || ctx.tabs.activeWebContents();
     if (!wc) return { ok: false, error: '没有打开的页面' };
     try {
       const info = await getPageInfo(wc);
@@ -119,11 +119,26 @@ export function registerPageIpc(ctx: IpcContext): void {
 
   ipcMain.handle(
     'page:subtitles',
-    async (_event, expectSignature?: string): Promise<Result<SubtitleBundle>> => {
-      const wc = ctx.tabs.activeWebContents();
+    async (_event, expectSignature?: string, tabId?: string): Promise<Result<SubtitleBundle>> => {
+      const wc = (tabId && ctx.tabs.webContentsOf(String(tabId))) || ctx.tabs.activeWebContents();
       if (!wc) return { ok: false, error: '没有打开的页面' };
       try {
-        const bundle = await getSubtitles(wc, String(expectSignature || '') || undefined);
+        // B 站 SPA 在切页/恢复会话时可能销毁旧 render frame；
+        // 固定到发起请求的 tab 并在 frame disposed 时重试一次，避免“视频明明有字幕却取不到”。
+        let bundle: SubtitleBundle | null = null;
+        let lastError: Error | null = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            bundle = await getSubtitles(wc, String(expectSignature || '') || undefined);
+            lastError = null;
+            break;
+          } catch (error) {
+            lastError = error as Error;
+            if (!/disposed|WebFrameMain|render frame/i.test(lastError.message)) throw error;
+            if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 350));
+          }
+        }
+        if (!bundle) throw lastError || new Error('读取字幕失败');
         console.log(
           '[m2] subtitles',
           `tracks=${bundle.tracks.length}`,

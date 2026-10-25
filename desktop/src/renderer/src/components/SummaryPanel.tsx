@@ -63,10 +63,12 @@ export function SummaryPanel({
   const asrInfoRef = useRef<PageInfo | null>(null);
   const asrKeyRef = useRef('');
   const videoKeyRef = useRef('');
+  const activeTabRef = useRef<TabInfo | null>(null);
 
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
   videoKeyRef.current = videoKey;
+  activeTabRef.current = activeTab;
 
   useEffect(() => {
     if (streamingRef.current) return;
@@ -210,11 +212,12 @@ export function SummaryPanel({
   }, []);
 
   const ensureLines = useCallback(async () => {
-    const infoResponse = await window.bsub.getPageInfo();
+    const tabId = activeTabRef.current?.id;
+    const infoResponse = await window.bsub.getPageInfo(tabId);
     if (!infoResponse.ok) throw new Error(infoResponse.error);
     const currentInfo = infoResponse.data;
 
-    const subtitles = await window.bsub.getSubtitles(currentInfo.signature);
+    const subtitles = await window.bsub.getSubtitles(currentInfo.signature, tabId);
     if (!subtitles.ok) throw new Error(subtitles.error);
     const needLogin = subtitles.data.needLogin === true;
 
@@ -299,7 +302,7 @@ export function SummaryPanel({
     setAsrProgress(0);
     setAsrMessage('准备音轨…');
     try {
-      const response = await window.bsub.getPageInfo();
+      const response = await window.bsub.getPageInfo(activeTabRef.current?.id);
       if (!response.ok) throw new Error(response.error);
       const requestId = newRequestId();
       asrRequestRef.current = requestId;

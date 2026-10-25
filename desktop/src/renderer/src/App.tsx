@@ -123,6 +123,7 @@ export default function App() {
   };
 
   const commitSidebarToggle = (collapsed: boolean) => {
+    void window.bsub.exitFullscreen();
     setSidebarCollapsed(collapsed);
     void window.bsub.setSidebarLayout({ collapsed }).then((response) => {
       if (response.ok) applyLayout(response.data);
@@ -403,6 +404,7 @@ export default function App() {
   }, [startOpen, settingsOpen, tabs.length]);
 
   const handleSectionSelect = (next: Section) => {
+    void window.bsub.exitFullscreen();
     setSection(next);
     if (sidebarCollapsed) {
       setSidebarCollapsed(false);
@@ -548,10 +550,12 @@ export default function App() {
           onToggleCollapse={commitSidebarToggle}
           onDragSnapshot={setDragSnapshot}
           onOpenSummary={() => {
+            void window.bsub.exitFullscreen();
             setSection('summary');
             window.setTimeout(() => window.dispatchEvent(new Event('bsub:summary-request')), 200);
           }}
           onOpenChapters={() => {
+            void window.bsub.exitFullscreen();
             setSection('summary');
             window.setTimeout(() => window.dispatchEvent(new Event('bsub:chapters-request')), 250);
           }}

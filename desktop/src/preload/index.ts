@@ -127,8 +127,7 @@ const api: BsubApi = {
     ipcRenderer.invoke('group:collapse', id) as Promise<void>,
   closeTabGroup: (id: string) => ipcRenderer.invoke('group:close', id) as Promise<void>,
   newTab: (url?: string) => ipcRenderer.invoke('tab:new', url) as Promise<string>,
-  openUrl: (url: string, start?: number) =>
-    ipcRenderer.invoke('tab:open', url, start) as Promise<{
+  openUrl: (url: string, start?: number) =>    ipcRenderer.invoke('tab:open', url, start) as Promise<{
       id: string;
       reused: boolean;
       ready: boolean;
@@ -209,6 +208,7 @@ const api: BsubApi = {
   stopFind: () => ipcRenderer.invoke('tab:stop-find') as Promise<void>,
   onFindResult: (cb: (result: FindResult) => void) => on<FindResult>('find:result', cb),
   setLayout: (rect: LayoutRect) => ipcRenderer.send('layout:set', rect),
+  exitFullscreen: () => ipcRenderer.send('tabs:exit-fullscreen'),
   onTabs: (cb: (tabs: TabInfo[]) => void) => on<TabInfo[]>('tabs:changed', cb),
   setTabMuted: (id: string, muted: boolean) =>
     ipcRenderer.invoke('tab:set-muted', id, muted) as Promise<void>,
@@ -247,7 +247,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('browser:clear-data') as Promise<Result<{ cleared: boolean }>>,
   onDownloadsChanged: (cb: () => void) => on<null>('downloads:changed', () => cb()),
 
-  getPageInfo: () => ipcRenderer.invoke('page:info') as Promise<Result<PageInfo>>,
+  getPageInfo: (tabId?: string) =>
+    ipcRenderer.invoke('page:info', tabId) as Promise<Result<PageInfo>>,
   getPageContext: () =>
     ipcRenderer.invoke('page:context') as Promise<Result<PageContextSummary>>,
   getPageDocument: () =>
@@ -256,8 +257,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('source:resolve-collection', input) as Promise<
       Result<CollectionResolveResult>
     >,
-  getSubtitles: (expectSignature?: string) =>
-    ipcRenderer.invoke('page:subtitles', expectSignature) as Promise<Result<SubtitleBundle>>,
+  getSubtitles: (expectSignature?: string, tabId?: string) =>
+    ipcRenderer.invoke('page:subtitles', expectSignature, tabId) as Promise<Result<SubtitleBundle>>,
   readSelection: () =>
     ipcRenderer.invoke('page:selection') as Promise<
       Result<{ title: string; url: string; selection: string }>

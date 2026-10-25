@@ -327,4 +327,7 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.on('layout:set', (_event, rect: LayoutRect) => {
     ctx.tabs.setLayout(rect);
   });
+  ipcMain.on('tabs:exit-fullscreen', () => {
+    ctx.tabs.exitFullscreen();
+  });
 }

@@ -192,6 +192,7 @@
   "tab:zoom-out",
   "tab:zoom-reset",
   "tabs:closed",
+  "tabs:exit-fullscreen",
   "tabs:groups",
   "tabs:list",
   "tabs:reopen-at",

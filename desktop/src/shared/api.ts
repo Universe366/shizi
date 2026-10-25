@@ -152,6 +152,7 @@ export interface BsubApi {
   reload(): Promise<void>;
   stop(): Promise<void>;
   setLayout(rect: LayoutRect): void;
+  exitFullscreen(): void;
   onTabs(cb: (tabs: TabInfo[]) => void): () => void;
   reopenClosedTab(): Promise<string | null>;
 
@@ -174,11 +175,11 @@ export interface BsubApi {
   clearBrowsingData(): Promise<Result<{ cleared: boolean }>>;
   onDownloadsChanged(cb: () => void): () => void;
 
-  getPageInfo(): Promise<Result<PageInfo>>;
+  getPageInfo(tabId?: string): Promise<Result<PageInfo>>;
   getPageContext(): Promise<Result<PageContextSummary>>;
   getPageDocument(): Promise<Result<PageDocument>>;
   resolveCollection(input: string): Promise<Result<CollectionResolveResult>>;
-  getSubtitles(expectSignature?: string): Promise<Result<SubtitleBundle>>;
+  getSubtitles(expectSignature?: string, tabId?: string): Promise<Result<SubtitleBundle>>;
   /** 当前页面选中的文字（桌宠「问选中」，不抽整页正文）。 */
   readSelection(): Promise<Result<{ title: string; url: string; selection: string }>>;
   /** 截当前标签页，返回 data URL（桌宠「看屏幕」/识图）。 */

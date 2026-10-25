@@ -587,14 +587,13 @@ async function buildAiQueries(
         { role: 'system', content: system },
         { role: 'user', content: user }
       ],
-      { temperature: 0.2, maxTokens: 400, timeoutMs: 120000, signal }
+      { temperature: 0.2, maxTokens: 400, timeoutMs: 60000, signal }
     );
     const parsed = parseSearchQueries(result.text || result.reasoning || '', 6);
     if (!parsed.length) {
       console.warn('[verify] AI 检索词生成返回空/无法解析');
       return [];
     }
-
     const source = [
       info.title || '',
       info.partTitle || '',
@@ -614,6 +613,7 @@ async function buildAiQueries(
       out.push({ label: query, query: searchQuery, line: context, context, references: [] });
       if (out.length >= Math.max(1, Math.min(limit, 6))) break;
     }
+    console.log('[verify] AI queries', parsed.length, 'grounded', out.length);
     return out;
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
@@ -733,8 +733,8 @@ export async function verifySummary(
       onProgress(done, items.length, label);
       return { ...item, references: [] as WebReference[] };
     }
-    const ranked = rankReferences(label, raw)
-      .filter((reference) => relevant(label, reference))
+    const ranked = rankReferences(searchQuery, raw)
+      .filter((reference) => relevant(searchQuery, reference))
       .slice(0, 3)
       .map((reference) => ({ ...reference, site: siteOf(reference.url) }));
     done += 1;
