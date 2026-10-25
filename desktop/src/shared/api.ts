@@ -8,6 +8,7 @@ import type {
   AsrPlatform,
   SearchPlatform,
   AppSettings,
+  TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
   BridgeStatus,
@@ -285,6 +286,15 @@ export interface BsubApi {
     position?: 'left' | 'right';
     collapsed?: boolean;
   }): Promise<Result<SettingsSnapshot>>;
+  tabPreview(id: string): Promise<{ dataUrl: string; title: string; url: string } | null>;
+  getTabGroups(): Promise<TabGroup[]>;
+  onTabGroups(cb: (groups: TabGroup[]) => void): () => void;
+  createTabGroup(name: string, color: TabGroup['color']): Promise<TabGroup>;
+  assignTabGroup(tabId: string, groupId: string | null): Promise<void>;
+  renameTabGroup(id: string, name: string): Promise<void>;
+  setTabGroupColor(id: string, color: TabGroup['color']): Promise<void>;
+  toggleTabGroupCollapsed(id: string): Promise<void>;
+  closeTabGroup(id: string): Promise<void>;
   /** 用系统菜单渲染浮层（避免被网页视图盖住）。 */
   popupMenu(
     items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>

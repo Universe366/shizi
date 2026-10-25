@@ -6,14 +6,21 @@
 // - 一个都没恢复出来时退回起始页；
 // - 没有保存的会话时也创建起始页。
 
+import type { TabGroup } from '../shared/types';
+
 export interface RestoreManager {
   create(url: string, options?: { activate?: boolean }): Promise<string>;
   activate(id: string): Promise<void>;
+  restoreGroups?(
+    groups: TabGroup[],
+    assignments: Array<{ tabId: string; groupId?: string; pinned?: boolean }>
+  ): void;
 }
 
 export interface SavedSession {
-  tabs: Array<{ url: string }>;
+  tabs: Array<{ url: string; groupId?: string; pinned?: boolean }>;
   activeUrl?: string;
+  groups?: TabGroup[];
 }
 
 export interface RestoreResult {
@@ -38,14 +45,23 @@ export async function restoreSession(deps: RestoreDeps): Promise<RestoreResult> 
     return { restored: 0, usedStartUrl: true, activeUrl: startUrl };
   }
 
-  const created: Array<{ id: string; url: string }> = [];
+  const created: Array<{ id: string; url: string; groupId?: string; pinned?: boolean }> = [];
   for (const item of saved.tabs) {
     try {
       const id = await manager.create(item.url, { activate: false });
-      created.push({ id, url: item.url });
+      created.push({ id, url: item.url, groupId: item.groupId, pinned: item.pinned });
     } catch (error) {
       warn('[session] 恢复标签失败', item.url, (error as Error).message);
     }
+  }
+  if (
+    manager.restoreGroups &&
+    (saved.groups?.length || created.some((item) => item.groupId || item.pinned))
+  ) {
+    manager.restoreGroups(
+      saved.groups || [],
+      created.map((item) => ({ tabId: item.id, groupId: item.groupId, pinned: item.pinned }))
+    );
   }
 
   const target = created.find((item) => item.url === saved.activeUrl) || created.at(-1);

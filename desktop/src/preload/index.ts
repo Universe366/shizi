@@ -55,6 +55,7 @@ import type {
   SummarizeRequest,
   SummaryRef,
   TabInfo,
+  TabGroup,
   TrackBody,
   UpdateStatus,
   LibraryIngestPayload,
@@ -94,6 +95,25 @@ const on = <T>(channel: string, cb: (payload: T) => void) => {
 
 const api: BsubApi = {
   listTabs: () => ipcRenderer.invoke('tabs:list') as Promise<TabInfo[]>,
+  tabPreview: (id: string) =>
+    ipcRenderer.invoke('tab:preview', id) as Promise<{
+      dataUrl: string;
+      title: string;
+      url: string;
+    } | null>,
+  getTabGroups: () => ipcRenderer.invoke('tabs:groups') as Promise<TabGroup[]>,
+  onTabGroups: (cb: (groups: TabGroup[]) => void) => on<TabGroup[]>('tabs:groups', cb),
+  createTabGroup: (name: string, color: TabGroup['color']) =>
+    ipcRenderer.invoke('group:create', name, color) as Promise<TabGroup>,
+  assignTabGroup: (tabId: string, groupId: string | null) =>
+    ipcRenderer.invoke('group:assign', tabId, groupId) as Promise<void>,
+  renameTabGroup: (id: string, name: string) =>
+    ipcRenderer.invoke('group:rename', id, name) as Promise<void>,
+  setTabGroupColor: (id: string, color: TabGroup['color']) =>
+    ipcRenderer.invoke('group:color', id, color) as Promise<void>,
+  toggleTabGroupCollapsed: (id: string) =>
+    ipcRenderer.invoke('group:collapse', id) as Promise<void>,
+  closeTabGroup: (id: string) => ipcRenderer.invoke('group:close', id) as Promise<void>,
   newTab: (url?: string) => ipcRenderer.invoke('tab:new', url) as Promise<string>,
   openUrl: (url: string, start?: number) =>
     ipcRenderer.invoke('tab:open', url, start) as Promise<{

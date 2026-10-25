@@ -15,6 +15,15 @@ export interface TabInfo {
   audible?: boolean;
   /** 已静音 */
   muted?: boolean;
+  /** 所属标签组 */
+  groupId?: string;
+}
+
+export interface TabGroup {
+  id: string;
+  name: string;
+  color: 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'gray';
+  collapsed: boolean;
 }
 
 export interface FindResult {

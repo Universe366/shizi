@@ -474,7 +474,75 @@ try {
     return `sleep/wake mute recent ${JSON.stringify(result)}`;
   });
 
-  // 13. 设置页全宽 / 起始页结构
+  // 13. 分组 / 悬停展开 / 悬停预览
+  await step('垂直栏交互', async () => {
+    const result = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const active = (await window.bsub.listTabs()).find((tab) => tab.active);
+          const group = await window.bsub.createTabGroup('冒烟分组', 'green');
+          await window.bsub.assignTabGroup(active.id, group.id);
+          await new Promise((r) => setTimeout(r, 350));
+          const head = document.querySelector('.tab-group-head');
+          const headText = head?.textContent || '';
+          await window.bsub.toggleTabGroupCollapsed(group.id);
+          await new Promise((r) => setTimeout(r, 250));
+          const collapsed = Boolean(document.querySelector('.tab-group.is-green'));
+          await window.bsub.renameTabGroup(group.id, '冒烟分组2');
+          await new Promise((r) => setTimeout(r, 250));
+          const renamed = document.querySelector('.tab-group-head')?.textContent || '';
+          await window.bsub.assignTabGroup(active.id, null);
+          await window.bsub.closeTabGroup(group.id);
+          await new Promise((r) => setTimeout(r, 250));
+          return JSON.stringify({
+            headText,
+            collapsed,
+            renamed,
+            gone: !document.querySelector('.tab-group-head')
+          });
+        })()`
+      )
+    );
+    if (!result.headText.includes('冒烟分组')) throw new Error(`分组头没有渲染：${result.headText}`);
+    if (!result.collapsed) throw new Error('分组折叠没有生效');
+    if (!result.renamed.includes('冒烟分组2')) throw new Error(`分组重命名没有生效：${result.renamed}`);
+    if (!result.gone) throw new Error('关闭分组后分组头仍在');
+
+    const hover = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const strip = document.querySelector('.tab-strip');
+          document.querySelector('.tab-collapse')?.click();
+          await new Promise((r) => setTimeout(r, 260));
+          const collapsed = strip.className.includes('is-collapsed');
+          strip.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 320));
+          const peeking = strip.className.includes('is-peeking');
+          const peekWidth = Math.round(strip.getBoundingClientRect().width);
+          strip.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 320));
+          const restored = !strip.className.includes('is-peeking');
+          document.querySelector('.tab-collapse')?.click();
+          await new Promise((r) => setTimeout(r, 280));
+          const tab = document.querySelector('.tab');
+          tab?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 1100));
+          const preview = Boolean(document.querySelector('.tab-preview'));
+          tab?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+          return JSON.stringify({ collapsed, peeking, peekWidth, restored, preview });
+        })()`
+      )
+    );
+    if (!hover.collapsed || !hover.peeking || !hover.restored) {
+      throw new Error(`悬停展开异常：${JSON.stringify(hover)}`);
+    }
+    if (!hover.preview) throw new Error('悬停没有出现标签预览');
+    return `group peek(${hover.peekWidth}) preview ${JSON.stringify(result)}`;
+  });
+
+  // 14. 设置页全宽 / 起始页结构
   await step('设置页与起始页', async () => {
     const settingsInfo = JSON.parse(
       await evaluate(

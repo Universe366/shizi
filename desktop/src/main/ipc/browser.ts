@@ -25,6 +25,37 @@ import { failure, withStartParam, type IpcContext } from './shared';
 /** 标签页 / 书签 / 下载 / 浏览历史 / 布局 相关 IPC。 */
 export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tabs:list', () => ctx.tabs.list());
+  ipcMain.handle('tabs:groups', () => ctx.tabs.groupsList());
+  ipcMain.handle('tab:preview', async (_event, id: string) => {
+    const wc = ctx.tabs.webContentsOf(String(id));
+    if (!wc || wc.isDestroyed()) return null;
+    try {
+      const image = await wc.capturePage();
+      if (image.isEmpty()) return null;
+      const resized = image.resize({ width: 360 });
+      return { dataUrl: resized.toDataURL(), title: wc.getTitle(), url: wc.getURL() };
+    } catch {
+      return null;
+    }
+  });
+  ipcMain.handle('group:create', (_event, name: string, color: string) =>
+    ctx.tabs.createGroup(String(name || ''), (color || 'blue') as never)
+  );
+  ipcMain.handle('group:assign', (_event, tabId: string, groupId: string | null) => {
+    ctx.tabs.assignGroup(String(tabId), groupId ? String(groupId) : null);
+  });
+  ipcMain.handle('group:rename', (_event, id: string, name: string) => {
+    ctx.tabs.renameGroup(String(id), String(name || ''));
+  });
+  ipcMain.handle('group:color', (_event, id: string, color: string) => {
+    ctx.tabs.setGroupColor(String(id), color as never);
+  });
+  ipcMain.handle('group:collapse', (_event, id: string) => {
+    ctx.tabs.toggleGroupCollapsed(String(id));
+  });
+  ipcMain.handle('group:close', (_event, id: string) => {
+    ctx.tabs.closeGroup(String(id));
+  });
   ipcMain.handle('tab:new', (_event, url?: string) => ctx.tabs.create(url));
   ipcMain.handle('tab:set-muted', (_event, id: string, muted: boolean) => {
     ctx.tabs.setMuted(String(id), muted === true);

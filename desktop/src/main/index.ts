@@ -172,6 +172,7 @@ function createWindow(): void {
     (tabs) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('tabs:changed', tabs);
+        mainWindow.webContents.send('tabs:groups', tabManager?.groupsList() ?? []);
       }
       sessionPersister.schedule();
     },

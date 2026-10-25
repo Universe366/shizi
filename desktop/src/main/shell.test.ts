@@ -26,7 +26,7 @@ describe('createSessionPersister', () => {
   it('persist 写入快照', () => {
     const persister = createSessionPersister(() => manager([{ url: 'https://a.example' }], 'https://a.example'));
     persister.persist();
-    expect(saveSession).toHaveBeenCalledWith([{ url: 'https://a.example' }], 'https://a.example');
+    expect(saveSession).toHaveBeenCalledWith([{ url: 'https://a.example' }], 'https://a.example', []);
   });
 
   it('schedule 合并多次调用，只写一次', () => {

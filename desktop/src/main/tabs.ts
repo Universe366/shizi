@@ -3,7 +3,7 @@ import type { MenuItemConstructorOptions, WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { FindResult, LayoutRect, TabInfo } from '../shared/types';
+import type { FindResult, LayoutRect, TabGroup, TabInfo } from '../shared/types';
 import { normalizeUrl } from './url';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
@@ -26,6 +26,7 @@ interface TabRecord {
   pinned?: boolean;
   audible?: boolean;
   muted?: boolean;
+  groupId?: string;
   loadPromise?: Promise<void>;
 }
 
@@ -78,6 +79,7 @@ export class TabManager {
   private audioTimer: NodeJS.Timeout | null = null;
   // Ctrl+Shift+T 用：最近关掉的标签（最多 20 个）。
   private readonly closedStack: Array<{ url: string; title: string }> = [];
+  private readonly groups = new Map<string, TabGroup>();
 
   constructor(
     private readonly win: BrowserWindow,
@@ -542,6 +544,12 @@ export class TabManager {
     }
 
     this.tabs.delete(id);
+    if (record.groupId) {
+      const group = this.groups.get(record.groupId);
+      if (group && ![...this.tabs.values()].some((item) => item.groupId === group.id)) {
+        this.groups.delete(group.id);
+      }
+    }
     this.releaseView(record);
 
     if (this.activeId === id) {
@@ -611,6 +619,80 @@ export class TabManager {
     return this.create(entry.url);
   }
 
+  groupsList(): TabGroup[] {
+    return [...this.groups.values()];
+  }
+
+  createGroup(name: string, color: TabGroup['color'] = 'blue'): TabGroup {
+    const group: TabGroup = {
+      id: `g-${randomUUID().slice(0, 8)}`,
+      name: String(name || '新分组').trim().slice(0, 24) || '新分组',
+      color,
+      collapsed: false
+    };
+    this.groups.set(group.id, group);
+    this.emit();
+    return group;
+  }
+
+  assignGroup(tabId: string, groupId: string | null): void {
+    const record = this.tabs.get(tabId);
+    if (!record) return;
+    if (groupId && !this.groups.has(groupId)) return;
+    record.groupId = groupId || undefined;
+    this.emit();
+  }
+
+  renameGroup(id: string, name: string): void {
+    const group = this.groups.get(id);
+    if (!group) return;
+    group.name = String(name || '').trim().slice(0, 24) || group.name;
+    this.emit();
+  }
+
+  setGroupColor(id: string, color: TabGroup['color']): void {
+    const group = this.groups.get(id);
+    if (!group) return;
+    group.color = color;
+    this.emit();
+  }
+
+  toggleGroupCollapsed(id: string): void {
+    const group = this.groups.get(id);
+    if (!group) return;
+    group.collapsed = !group.collapsed;
+    this.emit();
+  }
+
+  closeGroup(id: string): void {
+    const ids = [...this.tabs.values()].filter((record) => record.groupId === id).map((r) => r.id);
+    for (const tabId of ids) void this.close(tabId);
+    this.groups.delete(id);
+    this.emit();
+  }
+
+  restoreGroups(
+    groups: TabGroup[],
+    assignments: Array<{ tabId: string; groupId?: string; pinned?: boolean }>
+  ): void {
+    for (const group of groups) {
+      if (!group || !group.id) continue;
+      this.groups.set(group.id, {
+        id: group.id,
+        name: String(group.name || '分组').slice(0, 24),
+        color: group.color || 'blue',
+        collapsed: group.collapsed === true
+      });
+    }
+    for (const item of assignments) {
+      const record = this.tabs.get(item.tabId);
+      if (!record) continue;
+      if (item.groupId && this.groups.has(item.groupId)) record.groupId = item.groupId;
+      if (item.pinned) record.pinned = true;
+    }
+    this.emit();
+  }
+
   pin(id: string, pinned: boolean): void {
     const record = this.tabs.get(id);
     if (!record) return;
@@ -643,12 +725,25 @@ export class TabManager {
   }
 
   /** 当前会话快照，用于退出时保存。 */
-  sessionSnapshot(): { tabs: Array<{ url: string; title: string }>; activeUrl: string } {
+  sessionSnapshot(): {
+    tabs: Array<{ url: string; title: string; groupId?: string; pinned?: boolean }>;
+    activeUrl: string;
+    groups: TabGroup[];
+  } {
     const tabs = [...this.tabs.values()]
       .filter((record) => /^https?:/i.test(record.url))
-      .map((record) => ({ url: record.url, title: record.title || '' }));
+      .map((record) => ({
+        url: record.url,
+        title: record.title || '',
+        groupId: record.groupId,
+        pinned: record.pinned === true
+      }));
     const active = this.activeRecord();
-    return { tabs, activeUrl: active?.url || tabs[tabs.length - 1]?.url || '' };
+    return {
+      tabs,
+      activeUrl: active?.url || tabs[tabs.length - 1]?.url || '',
+      groups: [...this.groups.values()]
+    };
   }
 
   private releaseView(record: TabRecord): void {
@@ -872,6 +967,7 @@ export class TabManager {
         suspended: record.suspended,
         zoom: record.zoom || 1,
         pinned: record.pinned === true,
+        groupId: record.groupId,
         audible: (() => {
           try {
             return record.view && !record.suspended

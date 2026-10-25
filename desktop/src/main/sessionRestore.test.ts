@@ -88,3 +88,31 @@ describe('restoreSession', () => {
     expect(created.map((item) => item.url)).toEqual(['https://start']);
   });
 });
+
+describe('restoreSession 分组', () => {
+  it('恢复分组元数据与标签归属', async () => {
+    const { manager, created } = fakeManager();
+    const restoreGroups = vi.fn();
+    manager.restoreGroups = restoreGroups;
+    await restoreSession({
+      manager,
+      saved: {
+        tabs: [
+          { url: 'https://a', groupId: 'g1', pinned: true },
+          { url: 'https://b', groupId: 'g1' }
+        ],
+        activeUrl: 'https://a',
+        groups: [{ id: 'g1', name: '论文', color: 'blue', collapsed: false }]
+      },
+      startUrl: 'https://start'
+    });
+    expect(restoreGroups).toHaveBeenCalledWith(
+      [{ id: 'g1', name: '论文', color: 'blue', collapsed: false }],
+      [
+        { tabId: 'tab-1', groupId: 'g1', pinned: true },
+        { tabId: 'tab-2', groupId: 'g1', pinned: undefined }
+      ]
+    );
+    expect(created).toHaveLength(2);
+  });
+});

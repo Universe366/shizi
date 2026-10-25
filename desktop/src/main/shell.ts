@@ -65,7 +65,7 @@ export function createSessionPersister(
       const manager = getManager();
       if (!manager) return;
       const snapshot = manager.sessionSnapshot();
-      if (snapshot.tabs.length) saveSession(snapshot.tabs, snapshot.activeUrl);
+      if (snapshot.tabs.length) saveSession(snapshot.tabs, snapshot.activeUrl, snapshot.groups || []);
     } catch (error) {
       console.warn('[session] 保存失败:', (error as Error).message);
     }
