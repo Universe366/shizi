@@ -442,6 +442,62 @@ try {
       throw new Error(`设置页没有占满宽度：${settingsInfo.width}/${settingsInfo.win}`);
     }
 
+    // 搜索过滤：输入「导出」应只剩少量分组
+    const search = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const input = document.querySelector('.settings-search-input');
+          const setValue = (el, value) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(el, value);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          };
+          const total = document.querySelectorAll('.settings-section').length;
+          setValue(input, '导出');
+          await new Promise((r) => setTimeout(r, 400));
+          const all = document.querySelectorAll('.settings-section').length;
+          const visible = [...document.querySelectorAll('.settings-section')].filter(
+            (el) => el.style.display !== 'none'
+          ).length;
+          setValue(input, '');
+          await new Promise((r) => setTimeout(r, 300));
+          return JSON.stringify({ total, all, visible });
+        })()`
+      )
+    );
+    if (!(search.visible > 0 && search.visible < search.all)) {
+      throw new Error(`设置搜索过滤没有生效：${search.visible}/${search.all}`);
+    }
+
+    // 改一个字段 → 未保存 → Ctrl+S 保存
+    const saved = JSON.parse(
+      await evaluate(
+        ws,
+        `(async () => {
+          const input = [...document.querySelectorAll('.settings-input')].find(
+            (el) => el.placeholder === '城市，例如 上海'
+          );
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(input, '北京');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 250));
+          const dirty = Boolean(document.querySelector('.settings-toolbar-hint.is-dirty'));
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
+          await new Promise((r) => setTimeout(r, 700));
+          const snapshot = await window.bsub.getSettings();
+          return JSON.stringify({
+            dirty,
+            city: snapshot.data.settings.general.startCity,
+            hint: document.querySelector('.settings-toolbar-hint')?.textContent || ''
+          });
+        })()`
+      )
+    );
+    if (!saved.dirty) throw new Error('修改后没有出现未保存状态');
+    if (saved.city !== '北京') throw new Error(`Ctrl+S 没有保存：${saved.city}`);
+    if (!saved.hint.includes('已保存')) throw new Error(`保存后状态没更新：${saved.hint}`);
+
     await evaluate(
       ws,
       `(async () => {

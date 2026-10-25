@@ -61,7 +61,13 @@ function updateText(status: UpdateStatus | null): string {
   }
 }
 
-export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
+export function SettingsPanel({
+  group = 'all',
+  onDirtyChange
+}: {
+  group?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+} = {}) {
   const show = (key: string) =>
     !group || group === 'all' || group === key || Boolean(settingsQuery.trim());
 
@@ -103,6 +109,7 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
     });
   }, []);
   const savedJsonRef = useRef('');
+  const searchRef = useRef<HTMLInputElement>(null);
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
   const [platformStatus, setPlatformStatus] = useState<{
     key: string;
@@ -152,22 +159,24 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
   }, []);
 
   useEffect(() => {
-    const query = settingsQuery.trim().toLowerCase();
-    const sections = Array.from(
-      document.querySelectorAll<HTMLElement>('.settings-section')
-    );
-    let count = 0;
-    for (const section of sections) {
-      const match =
-        !query || (section.textContent || '').toLowerCase().includes(query);
-      section.style.display = match ? '' : 'none';
-      if (match) {
-        count += 1;
-        if (query) (section as HTMLDetailsElement).open = true;
+    const frame = window.requestAnimationFrame(() => {
+      const query = settingsQuery.trim().toLowerCase();
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>('.settings-section')
+      );
+      let count = 0;
+      for (const section of sections) {
+        const match = !query || (section.textContent || '').toLowerCase().includes(query);
+        section.style.display = match ? '' : 'none';
+        if (match) {
+          count += 1;
+          if (query) (section as HTMLDetailsElement).open = true;
+        }
       }
-    }
-    setVisibleSections(count);
-  }, [settingsQuery, draft]);
+      setVisibleSections(count);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [settingsQuery, group, draft === null]);
 
   const active = draft
     ? draft.ai.platforms.find((platform) => platform.id === editingAiId) ||
@@ -704,6 +713,23 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
     }
   };
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
+        event.preventDefault();
+        if (dirty && !saving) void save();
+      } else if (key === 'f') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dirty, saving]);
+
   const test = async () => {
     if (!active) return;
     setTesting(true);
@@ -988,8 +1014,10 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
     if (!draft) return;
     const current = JSON.stringify(draft);
     if (!savedJsonRef.current) savedJsonRef.current = current;
-    setDirty(current !== savedJsonRef.current);
-  }, [draft]);
+    const next = current !== savedJsonRef.current;
+    setDirty(next);
+    onDirtyChange?.(next);
+  }, [draft, onDirtyChange]);
 
   if (!draft || !active || !activeTemplate || !activeAsr) {
     return (
@@ -1007,14 +1035,16 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
     <div className="panel settings-panel">
       <div className="settings-sticky">
         <div className="panel-toolbar">
-          <div className="panel-title">设置</div>
+          <span className={`settings-toolbar-hint${dirty ? ' is-dirty' : ''}`}>
+            {dirty ? '有未保存的修改' : '所有修改已保存'}
+          </span>
           <div className="toolbar-actions">
-            {dirty ? (
-              <span className="settings-dirty">未保存</span>
-            ) : (
-              <span className="settings-saved">已保存</span>
-            )}
-            <button className="mini-btn primary" disabled={saving} onClick={() => void save()}>
+            <button
+              className="mini-btn primary"
+              disabled={saving || !dirty}
+              title="保存设置（Ctrl+S）"
+              onClick={() => void save()}
+            >
               {saving ? <Loader2 size={12} className="spin" /> : <Save size={12} />} 保存
             </button>
           </div>
@@ -1023,11 +1053,21 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
         <div className="settings-search-row">
           <Search size={14} />
           <input
+            ref={searchRef}
             className="settings-search-input"
-            placeholder="搜索设置（Key / 导出 / 超时…）"
+            placeholder="搜索设置（Ctrl+F）"
             value={settingsQuery}
             spellCheck={false}
             onChange={(event) => setSettingsQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setSettingsQuery('');
+              if (event.key === 'Enter') {
+                const first = Array.from(
+                  document.querySelectorAll<HTMLElement>('.settings-section')
+                ).find((section) => section.style.display !== 'none');
+                first?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
           />
           {settingsQuery && (
             <button className="mini-btn" onClick={() => setSettingsQuery('')}>
@@ -1055,7 +1095,7 @@ export function SettingsPanel({ group = 'all' }: { group?: string } = {}) {
         </div>
 
         {settingsQuery && (
-          <div className="settings-hint">匹配 {visibleSections} 个分组</div>
+          <div className="settings-hint">匹配 {visibleSections} 个设置分组</div>
         )}
       </div>
 

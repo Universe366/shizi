@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新时间：2026-10-25  
-> 适用版本：桌面 **0.38.13** / 插件 **2.18.7**  
-> 当前发布基线：tag `v0.38.13`（`44ff233`）  
-> 最新 Release：`v0.38.13`  
+> 适用版本：桌面 **0.38.14** / 插件 **2.18.7**  
+> 当前发布基线：tag `v0.38.14`（本提交）  
+> 最新 Release：`v0.38.14`  
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.13` 通过 |
+| 发布 CI | `v0.38.14`（本次） |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.13，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.14（发布后确认） |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -71,21 +71,20 @@
 - `.gitignore` 补充 `desktop/release`、`desktop/out`、`desktop/resources/extension`、`artifacts/`。
 - 工作区构建产物统一放到 `artifacts/`；`desktop/release`（3.1GB）与 `out` 已删除，需要时用 `npm run pack` 重建。
 
-### 未发布（2026-10-25，起始页进阶与云同步）
+- **设置页打磨**：修复 flex 压扁输入框（18–20px）导致的操作卡手；粘性保存栏 + Ctrl+S；Ctrl+F 搜索/Enter 跳转；分组切换回顶；未保存关闭确认；复选框改开关、控件统一 34px。
+### 0.38.14（2026-10-25，起始页 / 设置 / 搜索）
 
 - **自定义快捷方式**：起始页新增/编辑/删除/拖拽排序，存 `general.startShortcuts`；冒烟覆盖新增→删除全流程。
 - **小组件**：天气（Open-Meteo，`startWeather/startCity`）、B 站热搜（`startHotSearch`）、5 套壁纸（`startWallpaper`）。
 - **云同步（文件夹版）**：`general.syncFolder` + `sync:*` 通道，把 `shizi-settings.json` 写进网盘同步目录；不含 Key。
 - 新增 `main/ipc/start.ts`、`main/ipc/sync.ts`、`main/sync.ts` 与 5 条 sync 测试。
 
-### 未发布（2026-10-25，界面与搜索）
 
 - **起始页 v2**：iTab 风格大搜索框 + 引擎切换 + 待办/最近入库/最近访问小组件 + 快捷图标网格。
 - **垂直标签栏默认**；设置页打开时隐藏标签栏（整页占满）；宽度/折叠持久化、标题加号、双击空白新建、菜单补新建/重开。
 - **搜索浏览器化**：默认引擎必应（老配置迁移一次），地址栏可切换，输入关键词出现「用 XX 搜索」建议。
 - **桌宠按钮可配置**：`general.petButtons` 控制气泡里显示哪些按钮，设置页可勾选。
 
-### 未发布（2026-10-25，桌宠对话与窗口）
 
 - **可选可复制**：气泡正文 / Markdown 恢复 `user-select:text`（全局 body 是 none）。
 - **Markdown 渲染**：助手回答用 `components/Markdown` 渲染，气泡内单独缩小标题/代码/表格；流式时纯文本。
@@ -245,9 +244,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.13 测试/冒烟通过
+- [x] 0.38.14 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.13`
+- [x] 最新 Release 指向 `v0.38.14`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
