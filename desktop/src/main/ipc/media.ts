@@ -486,6 +486,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             messages: payload.messages,
             skillIds: payload.skillIds,
             web: payload.web === true,
+            surface: payload.surface === 'pet' ? 'pet' : 'main',
             page,
             signal: controller.signal,
             onDelta: (delta) =>

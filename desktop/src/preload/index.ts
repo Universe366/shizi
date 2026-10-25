@@ -126,6 +126,11 @@ const api: BsubApi = {
       error: string;
     }>,
   petFlipped: () => ipcRenderer.invoke('pet:flipped') as Promise<boolean>,
+  resizeBubble: (width: number, height: number, persist: boolean) =>
+    ipcRenderer.invoke('pet:resize-bubble', { width, height, persist }) as Promise<{
+      width: number;
+      height: number;
+    }>,
   onPetFlipped: (cb: (below: boolean) => void) => on<boolean>('pet:flipped', cb),
   petBodyRect: () =>
     ipcRenderer.invoke('pet:body-rect') as Promise<{

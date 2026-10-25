@@ -67,6 +67,7 @@ function installBsub() {
     endPetDrag: vi.fn(async () => ({ x: 10, y: 10, moved: false })),
     petBodyRect: vi.fn(async () => ({ x: 10, y: 10, width: 96, height: 96 })),
     petFlipped: vi.fn(async () => false),
+    resizeBubble: vi.fn(async (width: number, height: number) => ({ width, height })),
     onPetFlipped: vi.fn((_cb: (below: boolean) => void) => () => {}),
     onSettingsChanged: vi.fn(() => () => {}),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
@@ -103,6 +104,7 @@ function lastChatPayload(api: ReturnType<typeof installBsub>['api']) {
   return calls.at(-1)?.[0] as {
     includePage: boolean;
     web: boolean;
+    surface?: string;
     messages: Array<{ content: string; images?: string[] }>;
   };
 }
@@ -177,7 +179,7 @@ describe('PetWindow', () => {
     fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
     await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
     const payload = lastChatPayload(api);
-    expect(payload.messages[0].content).toContain('提取');
+    expect(payload.messages[0].content).toContain('识别');
     expect(payload.messages[0].images).toEqual([SHOT]);
   });
 
@@ -441,7 +443,7 @@ describe('PetWindow 回归', () => {
     await vi.waitFor(() => expect(api.chat).toHaveBeenCalled(), { timeout: 5000 });
     const payload = lastChatPayload(api);
     expect(payload.messages.at(-1)?.images).toEqual([SHOT]);
-    expect(payload.messages.at(-1)?.content).toContain('提取');
+    expect(payload.messages.at(-1)?.content).toContain('识别');
   });
 
   it('取消截图会给出提示', async () => {
@@ -814,5 +816,93 @@ describe('PetWindow 上下翻转', () => {
     await waitFor(() => expect(document.querySelector('.pet-root.is-below')).toBeTruthy());
     handlers[0]?.(false);
     await waitFor(() => expect(document.querySelector('.pet-root.is-below')).toBeNull());
+  });
+});
+
+describe('PetWindow 气泡缩放与渲染', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('拖右下角会实时改尺寸，松手落盘', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const grip = document.querySelector('.pet-resize') as HTMLElement;
+    fireEvent.mouseDown(grip, { button: 0, screenX: 500, screenY: 500 });
+    fireEvent.mouseMove(window, { screenX: 560, screenY: 460 });
+    await waitFor(() =>
+      expect(api.resizeBubble).toHaveBeenCalledWith(500, 520, false)
+    );
+    fireEvent.mouseUp(window, { screenX: 560, screenY: 460 });
+    await waitFor(() => expect(api.resizeBubble).toHaveBeenLastCalledWith(500, 520, true));
+  });
+
+  it('助手回答按 Markdown 渲染', async () => {
+    const { api, handlers } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '要点' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    const id = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
+    handlers.done?.({ requestId: id, text: '**重点** 内容', model: 'test' });
+    expect(await screen.findByText('重点')).toBeTruthy();
+    expect(document.querySelector('.pet-line.is-assistant strong')).toBeTruthy();
+  });
+
+  it('对话不再读取主窗口页面信息（解耦）', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '你好' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    expect(api.getPageInfo).not.toHaveBeenCalled();
+  });
+});
+
+describe('PetWindow 对话独立与 OCR 清理', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('对话请求标记 surface=pet，和主窗口区分', async () => {
+    const { api } = installBsub();
+    render(<PetWindow />);
+    await openBubble();
+    const input = screen.getByPlaceholderText(/问点什么/);
+    fireEvent.change(input, { target: { value: '你好' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    expect(lastChatPayload(api).surface).toBe('pet');
+  });
+
+  it('OCR 回答会去掉引导句和代码块', async () => {
+    const { api, handlers } = installBsub();
+    api.captureRegion.mockResolvedValueOnce({
+      action: 'ocr',
+      dataUrl: SHOT,
+      width: 200,
+      height: 120
+    } as never);
+    render(<PetWindow />);
+    await openBubble();
+    fireEvent.click(screen.getByTitle('框选屏幕区域，再选识别图片 / 对话 / 提取文字'));
+    await vi.waitFor(() => expect(api.chat).toHaveBeenCalled());
+    const id = ((api.chat.mock.calls[0] as unknown[])[0] as { requestId: string }).requestId;
+    handlers.done?.({
+      requestId: id,
+      text: ['以下是从图片中提取的文字：', '```', '你好世界', '第二行', '```'].join(
+        String.fromCharCode(10)
+      ),
+      model: 'test'
+    });
+    expect(await screen.findByText(/你好世界/)).toBeTruthy();
+    expect(screen.queryByText(/以下是从图片中提取的文字/)).toBeNull();
   });
 });

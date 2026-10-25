@@ -120,6 +120,7 @@
   "pet:get-position",
   "pet:move",
   "pet:reset-position",
+  "pet:resize-bubble",
   "pet:set-always-on-top",
   "pet:set-enabled",
   "pet:set-layout",

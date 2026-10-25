@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Markdown } from './components/Markdown';
 import type {
   ChatMessage,
   PageInfo,
@@ -48,7 +49,8 @@ const SELECTION_ACTIONS = [
 ];
 
 const SHOT_PROMPT = '这张截图里是什么？用 3 条说清楚重点；如果有文字、数字或报错，原样摘出来。';
-const OCR_PROMPT = '提取这张图里的所有文字，尽量保留原有的分行和排版；看不清的字用「□」占位。';
+const OCR_PROMPT =
+  '只输出这张图里识别到的文字本身，不要任何标题、说明、前后缀、引号或代码块；保留原有换行，看不清的字用「□」占位。';
 
 const SELF_TALK = [
   '看视频遇到不懂的，右键「看屏幕」就行。',
@@ -108,6 +110,18 @@ function beep(volume = 60): void {
   } catch {
     // 音频不可用时静默
   }
+}
+
+/** OCR 结果清理：去掉代码块围栏和“以下是提取的文字：”这类引导句。 */
+function cleanOcrText(raw: string): string {
+  let text = String(raw || '').trim();
+  const fenced = /^```[a-zA-Z]*\n([\s\S]*?)\n```$/.exec(text);
+  if (fenced) text = fenced[1].trim();
+  const lines = text.split('\n');
+  if (lines.length > 1 && /^(以下|下面).{0,14}(文字|内容)/.test(lines[0].trim())) {
+    text = lines.slice(1).join('\n').trim();
+  }
+  return text;
 }
 
 /** 模型不支持图片时，把底层报错翻译成可照做的提示。 */
@@ -171,11 +185,13 @@ export function PetWindow() {
   const hintTimer = useRef<number | null>(null);
   const todoTimer = useRef<number | null>(null);
   const lastAsk = useRef<{ text: string; selection?: string; image?: string } | null>(null);
+  const ocrRef = useRef(false);
   const sentMessages = useRef<string[]>([]);
   const recallIndex = useRef(-1);
   const pressPoint = useRef<{ x: number; y: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [bubbleW, setBubbleW] = useState(440);
+  const [bubbleH, setBubbleH] = useState(480);
   const [below, setBelow] = useState(false);
   const tapTimer = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -197,6 +213,7 @@ export function PetWindow() {
       setVolume(Number(general.petSoundVolume ?? 60));
       setSpeechRate(Number(general.petSpeechRate ?? 1));
       setBubbleW(Number(general.petBubbleWidth) || 440);
+      setBubbleH(Number(general.petBubbleHeight) || 480);
       if (Array.isArray(general.petTodos)) {
         const incoming = JSON.stringify(general.petTodos);
         setTodos((current) =>
@@ -342,12 +359,14 @@ export function PetWindow() {
     const offDone = window.bsub.onChatDone((event) => {
       if (event.requestId !== requestRef.current) return;
       setBusy(false);
-      setAnswer(event.text);
-      setHistory((items) => [...items, { role: 'assistant', text: event.text }]);
+      const finalText = ocrRef.current ? cleanOcrText(event.text) : event.text;
+      ocrRef.current = false;
+      setAnswer(finalText);
+      setHistory((items) => [...items, { role: 'assistant', text: finalText }]);
       setEmotion('happy');
-      if (speak && event.text) {
+      if (speak && finalText) {
         try {
-          const utterance = new SpeechSynthesisUtterance(event.text.slice(0, 400));
+          const utterance = new SpeechSynthesisUtterance(finalText.slice(0, 400));
           utterance.lang = 'zh-CN';
           utterance.rate = speechRate;
           speechSynthesis.cancel();
@@ -471,7 +490,10 @@ export function PetWindow() {
    * 即时问答：默认不抽整页正文（那是主窗口的总结流程），
    * 只有明确附带的截图 / 选中文字才作为上下文。
    */
-  const ask = async (text: string, context?: { selection?: string; image?: string | null }) => {
+  const ask = async (
+    text: string,
+    context?: { selection?: string; image?: string | null; cleanup?: 'ocr' }
+  ) => {
     const value = text.trim();
     if (!value || busy) return;
     wake();
@@ -482,6 +504,7 @@ export function PetWindow() {
     setInput('');
     const attachment = context?.image === null ? null : context?.image || shot;
     withImageRef.current = Boolean(attachment);
+    ocrRef.current = context?.cleanup === 'ocr';
 
     const quoted = (context?.selection || selection?.text || '').trim().slice(0, 2000);
     const content = quoted
@@ -510,8 +533,8 @@ export function PetWindow() {
     const requestId = `pet-${Date.now()}`;
     requestRef.current = requestId;
     try {
-      const page = await window.bsub.getPageInfo();
-      const info = page.ok ? page.data : fallbackInfo();
+      // 桌宠对话与主窗口的当前页面解耦：不再读取活动标签页信息。
+      const info = fallbackInfo();
       const message: ChatMessage = {
         role: 'user',
         content,
@@ -524,7 +547,8 @@ export function PetWindow() {
         messages: [...contextMessages, message],
         // 桌宠只处理即时问题：不把整页正文塞给模型。
         includePage: false,
-        web: webOn
+        web: webOn,
+        surface: 'pet'
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -550,7 +574,10 @@ export function PetWindow() {
       return;
     }
     setShot(result.dataUrl);
-    await ask(result.action === 'ocr' ? OCR_PROMPT : SHOT_PROMPT, { image: result.dataUrl });
+    await ask(result.action === 'ocr' ? OCR_PROMPT : SHOT_PROMPT, {
+      image: result.dataUrl,
+      cleanup: result.action === 'ocr' ? 'ocr' : undefined
+    });
   };
 
   /** 框选截图：动作条里选「识别图片 / 对话 / 提取文字」。 */
@@ -613,9 +640,36 @@ export function PetWindow() {
     await ask(prompt, { selection: text });
   };
 
+  /** 拖动右下角调气泡大小：拖动时实时生效，松手才落盘。 */
+  const startResize = (event: React.MouseEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const start = { sx: event.screenX, sy: event.screenY, w: bubbleW, h: bubbleH };
+    let last = { w: bubbleW, h: bubbleH };
+    const move = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.screenX - start.sx;
+      const dy = moveEvent.screenY - start.sy;
+      const width = Math.min(760, Math.max(320, start.w + dx));
+      const height = Math.min(820, Math.max(260, start.h + (below ? dy : -dy)));
+      last = { w: width, h: height };
+      setBubbleW(width);
+      setBubbleH(height);
+      void window.bsub.resizeBubble(width, height, false);
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      void window.bsub.resizeBubble(last.w, last.h, true);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   /** 直接改气泡尺寸（右键菜单里的三档），写到设置里立即生效。 */
   const applyBubblePreset = async (width: number, height: number) => {
     setBubbleW(width);
+    setBubbleH(height);
     const snapshot = await window.bsub.getSettings();
     if (!snapshot.ok) return;
     const next = snapshot.data.settings;
@@ -705,7 +759,7 @@ export function PetWindow() {
     // 只响应左键；输入框/按钮不要触发拖动（本体自己是按钮，要放行）。
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
-    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-menu')) return;
+    if (target.closest('input,textarea,.mini-btn,.pet-close,.pet-resize,.pet-menu')) return;
     if (!fromBubble && target.closest('.pet-bubble,.pet-widget,.pet-menu')) return;
     dragStarted.current = false;
     pressPoint.current = { x: event.screenX, y: event.screenY };
@@ -948,9 +1002,9 @@ export function PetWindow() {
           </div>
 
           <div className="pet-bubble-body" ref={bubbleBody}>
-            {history.slice(-4).map((item, index) => (
+            {history.slice(-6).map((item, index) => (
               <div key={index} className={`pet-line is-${item.role}`}>
-                {item.text}
+                {item.role === 'assistant' ? <Markdown content={item.text} /> : item.text}
               </div>
             ))}
             {busy && (
@@ -1034,7 +1088,7 @@ export function PetWindow() {
 
           <div className="pet-quick">
             <button
-              className="mini-btn"
+              className="mini-btn primary"
               title="框选屏幕区域，再选识别图片 / 对话 / 提取文字"
               disabled={busy || shotBusy}
               onClick={() => void takeRegionShot()}
@@ -1068,6 +1122,12 @@ export function PetWindow() {
               </button>
             </div>
           )}
+
+          <span
+            className="pet-resize"
+            title="拖动调整气泡大小"
+            onMouseDown={startResize}
+          />
 
           <div className="pet-bubble-input">
             <input

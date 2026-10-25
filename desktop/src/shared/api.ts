@@ -105,6 +105,12 @@ export interface BsubApi {
   endPetDrag(): Promise<{ x: number; y: number; moved: boolean } | null>;
   /** 全局截图快捷键的注册状态。 */
   petShortcutStatus(): Promise<{ accelerator: string; registered: boolean; error: string }>;
+  /** 拖角调整气泡大小；persist=true 时落盘。 */
+  resizeBubble(
+    width: number,
+    height: number,
+    persist: boolean
+  ): Promise<{ width: number; height: number }>;
   /** 面板是否翻到了桌宠下方。 */
   petFlipped(): Promise<boolean>;
   onPetFlipped(cb: (below: boolean) => void): () => void;

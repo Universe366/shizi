@@ -49,6 +49,7 @@ import {
   petFlipped,
   petPosition,
   resetPetPosition,
+  resizeBubble,
   setPetAlwaysOnTop,
   setPetEnabled,
   setPetLayout
@@ -81,6 +82,11 @@ export function registerSettingsIpc(ctx: IpcContext): void {
   ipcMain.handle('pet:end-drag', () => endPetDrag());
   ipcMain.handle('pet:body-rect', () => petBodyRect());
   ipcMain.handle('pet:flipped', () => petFlipped());
+  ipcMain.handle(
+    'pet:resize-bubble',
+    (_event, payload: { width?: number; height?: number; persist?: boolean }) =>
+      resizeBubble(Number(payload?.width), Number(payload?.height), payload?.persist === true)
+  );
   ipcMain.handle('pet:set-enabled', (_event, enabled: boolean) => {
     const next = enabled === true;
     // 从桌宠里点「隐藏」也要落设置，否则重启又冒出来。

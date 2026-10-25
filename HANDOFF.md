@@ -21,7 +21,7 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 88 个文件 / 493 个用例（主进程与 shared 28 文件 / 177 用例，渲染层 60 文件 / 316 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 88 个文件 / 498 个用例（主进程与 shared 28 文件 / 177 用例，渲染层 60 文件 / 321 用例；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 14/14`（含诊断/权限/更新/桥状态只读通道、桌宠窗口与布局、框选截图、隐藏落设置） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
@@ -70,6 +70,13 @@
 - 移除废弃样式：独立设置窗口、图片桌宠相关 CSS。
 - `.gitignore` 补充 `desktop/release`、`desktop/out`、`desktop/resources/extension`、`artifacts/`。
 - 工作区构建产物统一放到 `artifacts/`；`desktop/release`（3.1GB）与 `out` 已删除，需要时用 `npm run pack` 重建。
+
+### 未发布（2026-10-25，桌宠对话与窗口）
+
+- **可选可复制**：气泡正文 / Markdown 恢复 `user-select:text`（全局 body 是 none）。
+- **Markdown 渲染**：助手回答用 `components/Markdown` 渲染，气泡内单独缩小标题/代码/表格；流式时纯文本。
+- **与主窗口解耦**：不再调用 `getPageInfo`；`ChatRequest.surface='pet'` 走独立系统提示词；OCR 结果清洗（去围栏/引导句）。
+- **窗口操作**：新增 `pet:resize-bubble` 与拖角手柄（实时预览、松手落盘）；截图按钮改主操作。
 
 ### 0.38.13（2026-10-25，桌宠）
 

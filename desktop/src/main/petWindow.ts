@@ -23,6 +23,7 @@ import {
 let petWindow: BrowserWindow | null = null;
 let layoutMode: PetLayoutMode = 'compact';
 let layoutBelow = false;
+let transientBubble: BubbleSize | null = null;
 let notifiedBelow: boolean | null = null;
 /** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
 let desiredBody: Rect | null = null;
@@ -50,11 +51,40 @@ function petSize(): number {
 }
 
 function bubbleSize(): BubbleSize {
+  if (transientBubble) return transientBubble;
+  return persistedBubbleSize();
+}
+
+function persistedBubbleSize(): BubbleSize {
   const settings = loadSettings();
   return {
     width: settings.general.petBubbleWidth || 440,
     height: settings.general.petBubbleHeight || 480
   };
+}
+
+/** 拖角调整气泡大小：persist=false 时只临时生效，松手再落盘。 */
+export function resizeBubble(
+  width: number,
+  height: number,
+  persist: boolean
+): BubbleSize {
+  const next = {
+    width: Math.min(760, Math.max(320, Math.round(Number(width) || 440))),
+    height: Math.min(820, Math.max(260, Math.round(Number(height) || 480)))
+  };
+  if (!persist) {
+    transientBubble = next;
+    layoutPetWindow();
+    return next;
+  }
+  transientBubble = null;
+  const settings = loadSettings();
+  settings.general.petBubbleWidth = next.width;
+  settings.general.petBubbleHeight = next.height;
+  saveSettings(settings);
+  layoutPetWindow();
+  return next;
 }
 
 /** 当前本体矩形；窗口不存在时用默认右下角兜底。 */

@@ -948,6 +948,8 @@ export interface ChatRequest {
   includePage?: boolean;
   /** 本次对话强制联网检索（覆盖设置里的自动检索策略） */
   web?: boolean;
+  /** 调用来源：main = 主窗口对话；pet = 桌面即时助手（用独立系统提示词） */
+  surface?: 'main' | 'pet';
 }
 
 export interface PageContextSummary {
