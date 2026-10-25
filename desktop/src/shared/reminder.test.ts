@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { formatReminder, parseReminder } from './reminder';
 
 describe('parseReminder', () => {
-  const now = new Date('2026-10-25T10:00:00+08:00').getTime();
+  // 用本地时间构造，避免在 UTC CI 上日期判断跟着时区漂移。
+  const now = new Date(2026, 9, 25, 10, 0, 0).getTime();
 
   it('解析「N 分钟后」并去掉时间短语', () => {
     expect(parseReminder('20分钟后 喝水', now)).toEqual({
