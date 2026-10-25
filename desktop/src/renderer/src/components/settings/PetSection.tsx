@@ -273,6 +273,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
             { id: 'clipboard', label: '粘贴板' },
             { id: 'handoff', label: '交给主窗口' },
             { id: 'save', label: '存为待办' },
+            { id: 'note', label: '存为笔记' },
             { id: 'newChat', label: '新对话' },
             { id: 'web', label: '联网' },
             { id: 'read', label: '朗读' },

@@ -1004,14 +1004,21 @@ try {
         return 'ok';
       })()`
     );
+    const pdfPath = path.join(desktop, 'node_modules', 'pdf-parse', 'test', 'data', '01-valid.pdf');
     const petChannels = JSON.parse(
       await evaluate(
         pet,
         `(async () => {
           const clip = await window.bsub.readClipboard();
           const fg = await window.bsub.foregroundWindow();
+          const pdf = await window.bsub.readPetFile(${JSON.stringify(pdfPath)});
           await window.bsub.handoffChat({ question: '交接问题', answer: '交接回答' });
-          return JSON.stringify({ clip, fgOk: fg.ok === true });
+          return JSON.stringify({
+            clip,
+            fgOk: fg.ok === true,
+            pdfOk: pdf.ok === true && pdf.data?.kind === 'text' && pdf.data.text.length > 20,
+            pdfError: pdf.ok ? '' : pdf.error
+          });
         })()`
       )
     );
@@ -1023,7 +1030,7 @@ try {
         return text.includes('交接问题') && text.includes('交接回答');
       })()`
     );
-    if (petChannels.clip !== '冒烟剪贴板' || !petChannels.fgOk) {
+    if (petChannels.clip !== '冒烟剪贴板' || !petChannels.fgOk || !petChannels.pdfOk) {
       throw new Error(`桌宠通道异常：${JSON.stringify(petChannels)}`);
     }
     if (!handed) throw new Error('一键交给主窗口没有把对话送过去');

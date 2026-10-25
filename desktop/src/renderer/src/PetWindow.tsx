@@ -586,17 +586,15 @@ export function PetWindow() {
         ...(attachment ? { images: [attachment] } : {})
       };
       let surfaceContext = '';
-      if (attachment) {
-        try {
-          const foreground = await window.bsub.foregroundWindow?.();
-          if (foreground?.ok && (foreground.data.title || foreground.data.process)) {
-            surfaceContext = `前台窗口：${foreground.data.process || '未知程序'} - ${
-              foreground.data.title || ''
-            }`;
-          }
-        } catch {
-          // ignore
+      try {
+        const foreground = await window.bsub.foregroundWindow?.();
+        if (foreground?.ok && (foreground.data.title || foreground.data.process)) {
+          surfaceContext = `前台窗口：${foreground.data.process || '未知程序'} - ${
+            foreground.data.title || ''
+          }`;
         }
+      } catch {
+        // ignore
       }
       const started = await window.bsub.chat({
         requestId,
@@ -910,6 +908,36 @@ ${text.slice(0, 4000)}` : text.slice(0, 4000)));
       { id: Date.now(), text: `回答：${text.replace(/\s+/g, ' ').slice(0, 80)}`, done: false }
     ]);
     flash('已存为待办');
+  };
+
+  const saveAsNote = async () => {
+    const text = answer || [...history].reverse().find((item) => item.role === 'assistant')?.text;
+    if (!text) {
+      flash('还没有可保存的回答');
+      return;
+    }
+    const page = await window.bsub.getPageInfo();
+    if (!page.ok) {
+      flash('读取当前页面失败');
+      return;
+    }
+    const library = await window.bsub.listLibrary();
+    const videos = library.ok ? library.data.videos : [];
+    const strip = (value: string) => {
+      try {
+        const url = new URL(value);
+        return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+      } catch {
+        return value;
+      }
+    };
+    const match = videos.find((video) => strip(video.url) === strip(page.data.url));
+    if (!match) {
+      flash('当前页面还没入库，先入库再存笔记');
+      return;
+    }
+    const saved = await window.bsub.saveNote(match.id, text);
+    flash(saved.ok ? '已存为笔记' : saved.error || '保存笔记失败');
   };
 
   const dropFile = async (event: React.DragEvent) => {
@@ -1411,6 +1439,16 @@ ${result.data.text}`
                 onClick={() => void handoffToMain()}
               >
                 主窗口
+              </button>
+            )}
+            {has('note') && (
+              <button
+                className="mini-btn"
+                title="把回答存进当前页面在字幕库里的笔记"
+                disabled={!answer && !history.some((item) => item.role === 'assistant')}
+                onClick={() => void saveAsNote()}
+              >
+                存笔记
               </button>
             )}
             {has('save') && (

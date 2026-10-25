@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import type { PageInfo } from '../../shared/types';
 import { transcribeFile } from '../asr';
 import { compressDataUrl } from '../imageData';
@@ -50,9 +51,9 @@ public class FgWin {
 $h = [FgWin]::GetForegroundWindow()
 $sb = New-Object System.Text.StringBuilder 512
 [void][FgWin]::GetWindowText($h, $sb, 512)
-$pid = 0
-[void][FgWin]::GetWindowThreadProcessId($h, [ref]$pid)
-$p = Get-Process -Id $pid -ErrorAction SilentlyContinue
+$procId = 0
+[void][FgWin]::GetWindowThreadProcessId($h, [ref]$procId)
+$p = Get-Process -Id $procId -ErrorAction SilentlyContinue
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Write-Output ($sb.ToString() + "|" + $(if ($p) { $p.ProcessName } else { "" }))
 `;
@@ -67,6 +68,54 @@ Write-Output ($sb.ToString() + "|" + $(if ($p) { $p.ProcessName } else { "" }))
     return foregroundCache;
   } catch {
     return { title: '', process: '' };
+  }
+}
+
+let fullscreenCache: { at: number; fullscreen: boolean; process: string } | null = null;
+
+/** 判断前台窗口是否几乎铺满它所在的显示器（其他应用全屏）。 */
+export async function foregroundFullscreen(): Promise<{ fullscreen: boolean; process: string }> {
+  if (fullscreenCache && Date.now() - fullscreenCache.at < 2500) return fullscreenCache;
+  if (process.platform !== 'win32') return { fullscreen: false, process: '' };
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class FgFull {
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
+  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int index);
+}
+"@
+$h = [FgFull]::GetForegroundWindow()
+$r = New-Object FgFull+RECT
+[void][FgFull]::GetWindowRect($h, [ref]$r)
+$procId = 0
+[void][FgFull]::GetWindowThreadProcessId($h, [ref]$procId)
+$p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+$b = [System.Windows.Forms.Screen]::FromHandle($h).Bounds
+$w = $r.Right - $r.Left
+$hgt = $r.Bottom - $r.Top
+$style = [FgFull]::GetWindowLong($h, -16)
+$noCaption = (($style -band 0xC00000) -eq 0)
+$full = $noCaption -and ($w -ge $b.Width * 0.99) -and ($hgt -ge $b.Height * 0.98)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Write-Output (([string]$full) + "|" + $(if ($p) { $p.ProcessName } else { "" }))
+`;
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { timeout: 3000, windowsHide: true }
+    );
+    const [flag, proc] = String(stdout || '').trim().split('|');
+    fullscreenCache = { at: Date.now(), fullscreen: flag === 'True', process: proc || '' };
+    return fullscreenCache;
+  } catch {
+    return { fullscreen: false, process: '' };
   }
 }
 
@@ -95,6 +144,19 @@ export function registerPetToolsIpc(): void {
         const compressed = compressDataUrl(dataUrl, 1600, 88);
         if (!compressed) throw new Error('图片读取失败');
         return { ok: true, data: { kind: 'image', name: path.basename(file), dataUrl: compressed.dataUrl } };
+      }
+      if (ext === '.pdf') {
+        if (stat.size > 20 * 1024 * 1024) throw new Error('PDF 超过 20MB');
+        const buffer = await fs.promises.readFile(file);
+        const parsed = await pdfParse(buffer);
+        const text = String(parsed.text || '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+        if (!text) throw new Error('PDF 里没有可提取的文字（可能是扫描件）');
+        return {
+          ok: true,
+          data: { kind: 'text', name: path.basename(file), text: text.slice(0, 60000) }
+        };
       }
       const textExt = ['.txt', '.md', '.markdown', '.json', '.csv', '.log', '.ts', '.js', '.py', '.html', '.css'];
       if (textExt.includes(ext)) {

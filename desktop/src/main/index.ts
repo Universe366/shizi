@@ -33,6 +33,7 @@ import { installDownloadHook } from './downloadsHook';
 import { registerPetShortcuts, unregisterPetShortcuts } from './petShortcuts';
 import { setPetSuppressed } from './petWindow';
 import { startTodoReminders } from './todoReminders';
+import { foregroundFullscreen } from './ipc/petTools';
 import {
   buildUserAgent,
   resolveStartUrl,
@@ -331,21 +332,41 @@ app
     nativeTheme.themeSource = loadSettings().general.theme;
     applyAutoStart(loadSettings().general.autoStart === true);
     startTodoReminders();
+    let externalFullscreen = false;
+    let lastExternalCheck = 0;
+    let checkingFullscreen = false;
     const fullscreenTimer = setInterval(() => {
+      if (checkingFullscreen) return;
       const settings = loadSettings();
       if (settings.general.petEnabled !== true || settings.general.petHideFullscreen === false) {
         setPetSuppressed(false);
         return;
       }
-      const wc = tabManager?.activeWebContents();
-      if (!wc || wc.isDestroyed()) {
-        setPetSuppressed(false);
-        return;
-      }
-      void wc
-        .executeJavaScript('Boolean(document.fullscreenElement)')
-        .then((full) => setPetSuppressed(full === true))
-        .catch(() => setPetSuppressed(false));
+      checkingFullscreen = true;
+      void (async () => {
+        let inApp = false;
+        const wc = tabManager?.activeWebContents();
+        if (wc && !wc.isDestroyed()) {
+          try {
+            inApp = (await wc.executeJavaScript('Boolean(document.fullscreenElement)')) === true;
+          } catch {
+            inApp = false;
+          }
+        }
+        if (Date.now() - lastExternalCheck > 4000) {
+          lastExternalCheck = Date.now();
+          try {
+            const foreground = await foregroundFullscreen();
+            externalFullscreen =
+              foreground.fullscreen && !/electron|拾字|shizi/i.test(foreground.process);
+          } catch {
+            externalFullscreen = false;
+          }
+        }
+        setPetSuppressed(inApp || externalFullscreen);
+      })().finally(() => {
+        checkingFullscreen = false;
+      });
     }, 1500);
     fullscreenTimer.unref?.();
     if (process.platform === 'win32') app.setAppUserModelId('com.shizi.desktop');

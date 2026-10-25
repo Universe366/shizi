@@ -121,7 +121,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petBubbleWidth: 440,
     petBubbleHeight: 480,
     petThrow: true,
-    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat', 'voice', 'clipboard', 'handoff', 'save'],
+    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat', 'voice', 'clipboard', 'handoff', 'save', 'note'],
     petDock: 'none',
     petPeek: true,
     petHideFullscreen: true,
@@ -404,7 +404,8 @@ function normalize(input: unknown): AppSettings {
         'voice',
         'clipboard',
         'handoff',
-        'save'
+        'save',
+        'note'
       ];
       const dock = raw.general.petDock;
       base.general.petDock = dock === 'left' || dock === 'right' ? dock : 'none';
