@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, clipboard, session, WebContentsView } from 'electron';
+import { app, BrowserWindow, Menu, clipboard, nativeTheme, session, WebContentsView } from 'electron';
 import type { MenuItemConstructorOptions, WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -183,8 +183,13 @@ export class TabManager {
           backgroundThrottling: false
         }
       });
-      view.setBackgroundColor('#ffffff');
-      view.setBorderRadius(10);
+      // 与 renderer 里的圆角卡片对齐：外框 14、边框 1，内层页面的圆角用 13。
+      view.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#15181e' : '#f7f6f3');
+      try {
+        view.setBorderRadius(13);
+      } catch {
+        // 个别平台不支持圆角，退化成直角页面。
+      }
       view.webContents.setZoomFactor(record.zoom || 1);
 
       record.view = view;
