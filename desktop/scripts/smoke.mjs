@@ -443,7 +443,8 @@ try {
           await new Promise((r) => setTimeout(r, 300));
           const unmuted = !document.querySelector('.tab-audio.is-muted');
           await window.bsub.closeTab(id);
-          await new Promise((r) => setTimeout(r, 400));
+          await new Promise((r) => setTimeout(r, 600));
+          const closedList = await window.bsub.listClosedTabs();
           document.querySelector('.tab-actions-wrap > button')?.click();
           await new Promise((r) => setTimeout(r, 300));
           const recent = document.querySelector('.tab-actions-menu button[title*="example.com"]');
@@ -461,7 +462,8 @@ try {
             woke,
             mutedIcon,
             unmuted,
-            hasRecent
+            hasRecent,
+            closedCount: closedList.length
           });
         })()`
       )
@@ -470,7 +472,7 @@ try {
       throw new Error(`休眠/唤醒异常：${JSON.stringify(result)}`);
     }
     if (!result.mutedIcon || !result.unmuted) throw new Error('静音状态没有反映到 UI');
-    if (!result.hasRecent) throw new Error('最近关闭里没有刚关掉的标签');
+    if (!result.hasRecent) throw new Error(`最近关闭里没有刚关掉的标签：${JSON.stringify(result)}`);
     return `sleep/wake mute recent ${JSON.stringify(result)}`;
   });
 
@@ -993,6 +995,40 @@ try {
     const petTarget = await waitForPetTarget();
     const pet = await connectTarget(petTarget);
     await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // 新增通道：剪贴板 / 前台窗口 / 一键交给主窗口
+    await evaluate(
+      ws,
+      `(async () => {
+        await window.bsub.writeClipboard('冒烟剪贴板');
+        return 'ok';
+      })()`
+    );
+    const petChannels = JSON.parse(
+      await evaluate(
+        pet,
+        `(async () => {
+          const clip = await window.bsub.readClipboard();
+          const fg = await window.bsub.foregroundWindow();
+          await window.bsub.handoffChat({ question: '交接问题', answer: '交接回答' });
+          return JSON.stringify({ clip, fgOk: fg.ok === true });
+        })()`
+      )
+    );
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const handed = await evaluate(
+      ws,
+      `(async () => {
+        const text = document.body.textContent || '';
+        return text.includes('交接问题') && text.includes('交接回答');
+      })()`
+    );
+    if (petChannels.clip !== '冒烟剪贴板' || !petChannels.fgOk) {
+      throw new Error(`桌宠通道异常：${JSON.stringify(petChannels)}`);
+    }
+    if (!handed) throw new Error('一键交给主窗口没有把对话送过去');
+    console.log('  channels', JSON.stringify({ ...petChannels, handed }));
+
     // 不能 await：窗口会在 IPC 返回前关闭，invoke 永远不 resolve
     await evaluate(pet, '(() => { window.bsub.setPetEnabled(false); return "ok"; })()');
     const deadline = Date.now() + 5000;

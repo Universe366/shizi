@@ -723,6 +723,10 @@ export interface PetTodo {
   id: number;
   text: string;
   done: boolean;
+  /** 提醒时间（毫秒时间戳） */
+  dueAt?: number;
+  /** 是否已经提醒过 */
+  notified?: boolean;
 }
 
 export type PetTheme = 'sakura' | 'mint' | 'sunset' | 'midnight' | 'graphite';
@@ -810,6 +814,14 @@ export interface AppSettings {
     petDock: 'none' | 'left' | 'right';
     /** 停靠后自动藏到屏幕边缘，悬停探出 */
     petPeek: boolean;
+    /** 全屏时自动隐藏桌宠 */
+    petHideFullscreen: boolean;
+    /** 截图压缩档位 */
+    petShotQuality: 'clear' | 'small';
+    /** 语音提问快捷键 */
+    petVoiceShortcut: boolean;
+    /** 打开对话快捷键 */
+    petChatShortcut: boolean;
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
@@ -993,6 +1005,8 @@ export interface ChatRequest {
   includePage?: boolean;
   /** 本次对话强制联网检索（覆盖设置里的自动检索策略） */
   web?: boolean;
+  /** 桌宠等场景附带的上下文（前台窗口、来源说明） */
+  context?: string;
   /** 调用来源：main = 主窗口对话；pet = 桌面即时助手（用独立系统提示词） */
   surface?: 'main' | 'pet';
 }

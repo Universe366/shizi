@@ -21,18 +21,16 @@ const THEMES: Array<{ id: PetTheme; label: string; colors: [string, string] }> =
 export function PetSection({ value, onChange }: PetSectionProps) {
   const idleMinutes = value.petIdleTalkMinutes ?? 3;
   const sleepMinutes = value.petSleepMinutes ?? 5;
-  const [shortcut, setShortcut] = useState<{
-    accelerator: string;
-    registered: boolean;
-    error: string;
-  } | null>(null);
+  const [shortcutList, setShortcutList] = useState<
+    Array<{ id: 'shot' | 'voice' | 'chat'; accelerator: string; registered: boolean; error: string }>
+  >([]);
 
   useEffect(() => {
     let alive = true;
     void window.bsub
-      .petShortcutStatus?.()
-      .then((status) => {
-        if (alive) setShortcut(status);
+      .petShortcutsStatus?.()
+      .then((list) => {
+        if (alive) setShortcutList(Array.isArray(list) ? list : []);
       })
       .catch(() => undefined);
     return () => {
@@ -247,6 +245,22 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           />
           启用全局截图快捷键 Ctrl+Shift+S
         </label>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.petVoiceShortcut !== false}
+            onChange={(event) => onChange({ petVoiceShortcut: event.target.checked })}
+          />
+          启用语音提问快捷键 Ctrl+Shift+Space
+        </label>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.petChatShortcut !== false}
+            onChange={(event) => onChange({ petChatShortcut: event.target.checked })}
+          />
+          启用打开对话快捷键 Ctrl+Shift+D
+        </label>
 
         <div className="settings-label">气泡里显示这些按钮</div>
         <div className="pet-buttons-grid">
@@ -255,6 +269,10 @@ export function PetSection({ value, onChange }: PetSectionProps) {
             { id: 'explain', label: '解释选中' },
             { id: 'translate', label: '翻译选中' },
             { id: 'copy', label: '复制回答' },
+            { id: 'voice', label: '语音提问' },
+            { id: 'clipboard', label: '粘贴板' },
+            { id: 'handoff', label: '交给主窗口' },
+            { id: 'save', label: '存为待办' },
             { id: 'newChat', label: '新对话' },
             { id: 'web', label: '联网' },
             { id: 'read', label: '朗读' },
@@ -280,13 +298,21 @@ export function PetSection({ value, onChange }: PetSectionProps) {
             );
           })}
         </div>
-        {value.petShortcut !== false && shortcut && (
-          <div className="settings-hint">
-            {shortcut.registered
-              ? `快捷键已注册：${shortcut.accelerator}`
-              : `快捷键注册失败（${shortcut.error || '可能被其他程序占用'}），可关闭上面的开关或改用桌宠里的「截图」按钮`}
-          </div>
-        )}
+        {shortcutList
+          .filter((item) =>
+            item.id === 'shot'
+              ? value.petShortcut !== false
+              : item.id === 'voice'
+                ? value.petVoiceShortcut !== false
+                : value.petChatShortcut !== false
+          )
+          .map((item) => (
+            <div className="settings-hint" key={item.id}>
+              {item.registered
+                ? `已注册：${item.accelerator}`
+                : `注册失败（${item.error || '可能被其他程序占用'}）：${item.accelerator}`}
+            </div>
+          ))}
       </SettingsSection>
 
       <SettingsSection title="声音与状态">
@@ -396,6 +422,27 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           />
           靠边自动隐藏（悬停探出）
         </label>
+
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.petHideFullscreen !== false}
+            onChange={(event) => onChange({ petHideFullscreen: event.target.checked })}
+          />
+          全屏播放时自动隐藏
+        </label>
+
+        <div className="settings-label">截图压缩</div>
+        <select
+          className="settings-input"
+          value={value.petShotQuality || 'clear'}
+          onChange={(event) =>
+            onChange({ petShotQuality: event.target.value as 'clear' | 'small' })
+          }
+        >
+          <option value="clear">清晰（最长边 1600）</option>
+          <option value="small">省流量（最长边 960）</option>
+        </select>
 
         <div className="toolbar-actions">
           <button

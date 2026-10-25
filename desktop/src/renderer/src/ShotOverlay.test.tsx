@@ -42,6 +42,9 @@ describe('ShotOverlay', () => {
     expect(screen.getByText('识别图片')).toBeTruthy();
     expect(screen.getByText('对话')).toBeTruthy();
     expect(screen.getByText('200 × 120')).toBeTruthy();
+    expect(screen.getByText('矩形')).toBeTruthy();
+    expect(screen.getByText('箭头')).toBeTruthy();
+    expect(screen.getByText('马赛克')).toBeTruthy();
 
     fireEvent.click(screen.getByText('提取文字'));
     expect(api.shotDone).toHaveBeenCalledWith({

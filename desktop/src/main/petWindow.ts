@@ -28,6 +28,7 @@ let peekHidden = false;
 let peekFullBody: Rect | null = null;
 let peekTimer: NodeJS.Timeout | null = null;
 let peekInsideAt = 0;
+let suppressed = false;
 let notifiedBelow: boolean | null = null;
 /** 用户「希望」桌宠待的位置（本体坐标），布局伸缩时以它为准。 */
 let desiredBody: Rect | null = null;
@@ -64,7 +65,7 @@ function dockAlign(): 'center' | 'left' | 'right' {
 
 /** 停靠后的边缘探出：藏到只剩一条，光标移上去再展开。 */
 function peekTick(): void {
-  if (!petWindow || petWindow.isDestroyed()) return;
+  if (!petWindow || petWindow.isDestroyed() || suppressed) return;
   const settings = loadSettings();
   const dock = settings.general.petDock;
   if (settings.general.petPeek === false || dock === 'none' || layoutMode !== 'compact' || dragTimer) {
@@ -267,6 +268,7 @@ export function openPetWindow(useStartCorner = false): void {
   }
   layoutMode = 'compact';
   layoutBelow = false;
+  suppressed = false;
   notifiedBelow = false;
   startFocusTracking();
   peekHidden = false;
@@ -415,6 +417,22 @@ export function petPosition(): { x: number; y: number } | null {
 /** 桌宠本体在屏幕上的矩形（跨布局稳定）。 */
 export function petFlipped(): boolean {
   return layoutBelow;
+}
+
+/** 全屏/勿扰时临时隐藏桌宠；恢复时用 showInactive，不抢焦点。 */
+export function setPetSuppressed(value: boolean): void {
+  if (!petWindow || petWindow.isDestroyed()) return;
+  if (value === suppressed) return;
+  suppressed = value;
+  try {
+    if (value) {
+      petWindow.hide();
+    } else if (loadSettings().general.petEnabled !== false) {
+      petWindow.showInactive();
+    }
+  } catch {
+    // ignore
+  }
 }
 
 export function petBodyRect(): Rect | null {

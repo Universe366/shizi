@@ -106,6 +106,11 @@ export interface BsubApi {
   endPetDrag(): Promise<{ x: number; y: number; moved: boolean } | null>;
   /** 全局截图快捷键的注册状态。 */
   petShortcutStatus(): Promise<{ accelerator: string; registered: boolean; error: string }>;
+  petShortcutsStatus(): Promise<
+    Array<{ id: 'shot' | 'voice' | 'chat'; accelerator: string; registered: boolean; error: string }>
+  >;
+  onPetVoice(cb: () => void): () => void;
+  onPetChat(cb: () => void): () => void;
   /** 拖角调整气泡大小；persist=true 时落盘。 */
   resizeBubble(
     width: number,
@@ -189,6 +194,7 @@ export interface BsubApi {
     payload: {
       selection: { x: number; y: number; width: number; height: number } | null;
       action: 'image' | 'chat' | 'ocr';
+      annotatedDataUrl?: string;
     } | null
   ): Promise<void>;
   triggerSubtitleMenu(): Promise<Result<boolean>>;
@@ -286,6 +292,14 @@ export interface BsubApi {
     position?: 'left' | 'right';
     collapsed?: boolean;
   }): Promise<Result<SettingsSnapshot>>;
+  handoffChat(payload: { question: string; answer: string }): Promise<void>;
+  onChatHandoff(cb: (payload: { question: string; answer: string }) => void): () => void;
+  readClipboard(): Promise<string>;
+  foregroundWindow(): Promise<Result<{ title: string; process: string }>>;
+  readPetFile(
+    path: string
+  ): Promise<Result<{ kind: 'image' | 'text'; name: string; dataUrl?: string; text?: string }>>;
+  transcribeVoice(dataUrl: string): Promise<Result<{ text: string }>>;
   tabPreview(id: string): Promise<{ dataUrl: string; title: string; url: string } | null>;
   getTabGroups(): Promise<TabGroup[]>;
   onTabGroups(cb: (groups: TabGroup[]) => void): () => void;

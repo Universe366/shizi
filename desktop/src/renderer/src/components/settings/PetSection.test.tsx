@@ -37,7 +37,12 @@ function installBsub() {
       accelerator: 'Control+Shift+S',
       registered: true,
       error: ''
-    }))
+    })),
+    petShortcutsStatus: vi.fn(async () => [
+      { id: 'shot', accelerator: 'Control+Shift+S', registered: true, error: '' },
+      { id: 'voice', accelerator: 'Control+Shift+Space', registered: true, error: '' },
+      { id: 'chat', accelerator: 'Control+Shift+D', registered: true, error: '' }
+    ])
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -98,22 +103,18 @@ describe('PetSection 快捷键状态', () => {
 
   it('注册成功与失败都会回显', async () => {
     const api = installBsub();
-    api.petShortcutStatus.mockResolvedValueOnce({
-      accelerator: 'Control+Shift+S',
-      registered: false,
-      error: '被其他程序占用'
-    });
+    api.petShortcutsStatus.mockResolvedValueOnce([
+      { id: 'shot', accelerator: 'Control+Shift+S', registered: false, error: '被其他程序占用' }
+    ]);
     const { unmount } = render(<PetSection value={general()} onChange={vi.fn()} />);
-    expect(await screen.findByText(/快捷键注册失败/)).toBeTruthy();
+    expect(await screen.findByText(/注册失败/)).toBeTruthy();
     unmount();
 
-    api.petShortcutStatus.mockResolvedValueOnce({
-      accelerator: 'Control+Shift+S',
-      registered: true,
-      error: ''
-    });
+    api.petShortcutsStatus.mockResolvedValueOnce([
+      { id: 'shot', accelerator: 'Control+Shift+S', registered: true, error: '' }
+    ]);
     render(<PetSection value={general()} onChange={vi.fn()} />);
-    expect(await screen.findByText(/快捷键已注册/)).toBeTruthy();
+    expect(await screen.findByText(/已注册/)).toBeTruthy();
   });
 });
 

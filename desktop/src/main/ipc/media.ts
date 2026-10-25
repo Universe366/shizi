@@ -487,6 +487,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             skillIds: payload.skillIds,
             web: payload.web === true,
             surface: payload.surface === 'pet' ? 'pet' : 'main',
+            context: payload.context,
             page,
             signal: controller.signal,
             onDelta: (delta) =>
@@ -514,6 +515,14 @@ export function registerMediaIpc(ctx: IpcContext): void {
       return { ok: true, data: { requestId } };
     }
   );
+
+  ipcMain.handle('chat:handoff', (_event, payload: { question?: string; answer?: string }) => {
+    if (ctx.win.isDestroyed()) return;
+    ctx.win.webContents.send('chat:handoff', {
+      question: String(payload?.question || ''),
+      answer: String(payload?.answer || '')
+    });
+  });
 
   ipcMain.handle('chat:cancel', (_event, requestId: string) => {
     chatControllers.get(requestId)?.abort();

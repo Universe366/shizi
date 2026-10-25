@@ -61,6 +61,17 @@ export default function App() {
 
   useBrowserOverlayAuto();
 
+  useEffect(() => {
+    return window.bsub.onChatHandoff?.((payload) => {
+      try {
+        localStorage.setItem('chat-handoff', JSON.stringify(payload));
+      } catch {
+        // ignore
+      }
+      setSection('chat');
+    });
+  }, []);
+
   const applyLayout = (snapshot: {
     settings: {
       general: {

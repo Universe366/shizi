@@ -31,6 +31,8 @@ import { createSessionPersister, createTray as createTrayShell } from './shell';
 import { APP_NAME } from '../shared/brand';
 import { installDownloadHook } from './downloadsHook';
 import { registerPetShortcuts, unregisterPetShortcuts } from './petShortcuts';
+import { setPetSuppressed } from './petWindow';
+import { startTodoReminders } from './todoReminders';
 import {
   buildUserAgent,
   resolveStartUrl,
@@ -328,6 +330,24 @@ app
     migrateSettingsSecrets();
     nativeTheme.themeSource = loadSettings().general.theme;
     applyAutoStart(loadSettings().general.autoStart === true);
+    startTodoReminders();
+    const fullscreenTimer = setInterval(() => {
+      const settings = loadSettings();
+      if (settings.general.petEnabled !== true || settings.general.petHideFullscreen === false) {
+        setPetSuppressed(false);
+        return;
+      }
+      const wc = tabManager?.activeWebContents();
+      if (!wc || wc.isDestroyed()) {
+        setPetSuppressed(false);
+        return;
+      }
+      void wc
+        .executeJavaScript('Boolean(document.fullscreenElement)')
+        .then((full) => setPetSuppressed(full === true))
+        .catch(() => setPetSuppressed(false));
+    }, 1500);
+    fullscreenTimer.unref?.();
     if (process.platform === 'win32') app.setAppUserModelId('com.shizi.desktop');
     session.defaultSession.setUserAgent(UA);
     installDownloadHook(() => mainWindow);

@@ -790,9 +790,9 @@ describe('PetWindow 气泡尺寸与菜单', () => {
     render(<PetWindow />);
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
     const menu = document.querySelector('.pet-menu') as HTMLElement;
-    await waitFor(() => expect(document.activeElement?.textContent).toContain('截图（框选）'));
+    await waitFor(() => expect(document.activeElement?.textContent).toContain('历史记录'));
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    expect(document.activeElement?.textContent).toContain('整页截图');
+    expect(document.activeElement?.textContent).toContain('截图（框选）');
     fireEvent.keyDown(menu, { key: 'End' });
     expect(document.activeElement?.textContent).toContain('隐藏桌宠');
   });
@@ -971,5 +971,31 @@ describe('PetWindow 自由缩放', () => {
     expect(document.querySelector('.pet-size-badge')?.textContent).toContain('500 × 520');
     fireEvent.mouseUp(window, { screenX: 560, screenY: 460 });
     await waitFor(() => expect(api.resizeBubble).toHaveBeenLastCalledWith(500, 520, true));
+  });
+});
+
+describe('PetWindow 历史', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('右键历史记录可以搜索旧对话', async () => {
+    localStorage.setItem(
+      'pet-history',
+      JSON.stringify([{ role: 'user', text: '老问题' }, { role: 'assistant', text: '老回答' }])
+    );
+    installBsub();
+    render(<PetWindow />);
+    fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
+    fireEvent.click(screen.getByText('历史记录'));
+    expect(await screen.findByPlaceholderText('搜索历史…')).toBeTruthy();
+    const input = screen.getByPlaceholderText('搜索历史…');
+    fireEvent.change(input, { target: { value: '老回答' } });
+    const items = [...document.querySelectorAll('.pet-history-item')].map(
+      (el) => el.textContent || ''
+    );
+    expect(items.some((text) => text.includes('老回答'))).toBe(true);
+    expect(items.some((text) => text.includes('老问题'))).toBe(false);
   });
 });

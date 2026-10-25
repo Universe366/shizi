@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Markdown } from './components/Markdown';
+import { parseReminder, formatReminder } from '../../shared/reminder';
 import type {
   ChatMessage,
   PageInfo,
   PetClickAction,
   PetDoubleClickAction,
-  PetTheme
+  PetTheme,
+  PetTodo
 } from '../../shared/types';
 
 function fallbackInfo(): PageInfo {
@@ -68,12 +70,6 @@ function layoutForState(open: boolean, widgetOpen: boolean, menuOpen: boolean): 
   if (open) return 'bubble';
   if (widgetOpen) return 'widget';
   return 'compact';
-}
-
-interface PetTodo {
-  id: number;
-  text: string;
-  done: boolean;
 }
 
 let audioContext: AudioContext | null = null;
@@ -149,7 +145,29 @@ export function PetWindow() {
   const [speak, setSpeak] = useState(() => localStorage.getItem('pet-speak') === '1');
   const [webOn, setWebOn] = useState(() => localStorage.getItem('pet-web') === '1');
   const [hint, setHint] = useState('');
-  const [history, setHistory] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([]);
+  const [history, setHistory] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('pet-history') || '[]');
+      return Array.isArray(raw)
+        ? raw
+            .filter(
+              (item): item is { role: 'user' | 'assistant'; text: string } =>
+                Boolean(item) &&
+                (item.role === 'user' || item.role === 'assistant') &&
+                typeof item.text === 'string'
+            )
+            .slice(-30)
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [recording, setRecording] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const mediaChunks = useRef<Blob[]>([]);
+  const mediaStream = useRef<MediaStream | null>(null);
   const [playing, setPlaying] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(() => localStorage.getItem('pet-widget') === '1');
   const [now, setNow] = useState(() => new Date());
@@ -253,6 +271,14 @@ export function PetWindow() {
     return window.bsub.onPetFlipped(setBelow);
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('pet-history', JSON.stringify(history.slice(-30)));
+    } catch {
+      // ignore
+    }
+  }, [history]);
+
   // 打开气泡就把焦点放进输入框：点一下就能直接打字。
   useEffect(() => {
     if (!open) return;
@@ -263,6 +289,7 @@ export function PetWindow() {
   // 点到别处（窗口失焦）就收起气泡/菜单，不要一直浮在上面。
   useEffect(() => {
     const close = () => {
+      setHistoryOpen(false);
       // 截图覆盖窗会暂时抢走焦点，这时候别把气泡收掉（截完还要用）。
       if (shotBusyRef.current) return;
       setMenuOpen(false);
@@ -311,6 +338,8 @@ export function PetWindow() {
     return () => {
       if (todoTimer.current) window.clearTimeout(todoTimer.current);
       if (tapTimer.current) window.clearTimeout(tapTimer.current);
+      if (mediaRecorder.current?.state === 'recording') mediaRecorder.current.stop();
+      mediaStream.current?.getTracks().forEach((track) => track.stop());
     };
   }, [todos, hydrated]);
 
@@ -416,6 +445,8 @@ export function PetWindow() {
       if (hintTimer.current) window.clearTimeout(hintTimer.current);
       if (todoTimer.current) window.clearTimeout(todoTimer.current);
       if (tapTimer.current) window.clearTimeout(tapTimer.current);
+      if (mediaRecorder.current?.state === 'recording') mediaRecorder.current.stop();
+      mediaStream.current?.getTracks().forEach((track) => track.stop());
     },
     []
   );
@@ -554,11 +585,25 @@ export function PetWindow() {
         content,
         ...(attachment ? { images: [attachment] } : {})
       };
+      let surfaceContext = '';
+      if (attachment) {
+        try {
+          const foreground = await window.bsub.foregroundWindow?.();
+          if (foreground?.ok && (foreground.data.title || foreground.data.process)) {
+            surfaceContext = `前台窗口：${foreground.data.process || '未知程序'} - ${
+              foreground.data.title || ''
+            }`;
+          }
+        } catch {
+          // ignore
+        }
+      }
       const started = await window.bsub.chat({
         requestId,
         info,
         lines: [],
         messages: [...contextMessages, message],
+        context: surfaceContext || undefined,
         // 桌宠只处理即时问题：不把整页正文塞给模型。
         includePage: false,
         web: webOn,
@@ -777,6 +822,123 @@ export function PetWindow() {
     }
   };
 
+  const stopVoice = () => {
+    if (mediaRecorder.current?.state === 'recording') mediaRecorder.current.stop();
+  };
+
+  const startVoice = async () => {
+    if (recording) {
+      stopVoice();
+      return;
+    }
+    if (busy) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStream.current = stream;
+      mediaChunks.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorder.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) mediaChunks.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        setRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStream.current = null;
+        const blob = new Blob(mediaChunks.current, { type: 'audio/webm' });
+        mediaChunks.current = [];
+        if (!blob.size) {
+          flash('没有录到声音');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async () => {
+          flash('识别中…', 6000);
+          const result = await window.bsub.transcribeVoice?.(String(reader.result || ''));
+          if (result?.ok) {
+            void ask(result.data.text);
+          } else {
+            flash(result?.error || '语音识别失败，请检查 ASR 设置');
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      recorder.start();
+      setRecording(true);
+      setOpen(true);
+    } catch {
+      flash('无法使用麦克风');
+    }
+  };
+
+  const pasteClipboard = async () => {
+    try {
+      const text = await window.bsub.readClipboard?.();
+      if (!text || !text.trim()) {
+        flash('剪贴板里没有文字');
+        return;
+      }
+      setInput((value) => (value ? `${value}
+${text.slice(0, 4000)}` : text.slice(0, 4000)));
+      setOpen(true);
+      window.setTimeout(() => inputRef.current?.focus(), 60);
+    } catch {
+      flash('读取剪贴板失败');
+    }
+  };
+
+  const handoffToMain = async () => {
+    const text = answer || [...history].reverse().find((item) => item.role === 'assistant')?.text;
+    const question = lastAsk.current?.text || [...sentMessages.current].reverse()[0] || '';
+    if (!text) {
+      flash('还没有可交接的回答');
+      return;
+    }
+    await window.bsub.handoffChat?.({ question, answer: text });
+    await window.bsub.focusMain?.();
+    flash('已交给主窗口');
+  };
+
+  const saveAnswerAsTodo = async () => {
+    const text = answer || [...history].reverse().find((item) => item.role === 'assistant')?.text;
+    if (!text) {
+      flash('还没有可保存的回答');
+      return;
+    }
+    setTodos((items) => [
+      ...items,
+      { id: Date.now(), text: `回答：${text.replace(/\s+/g, ' ').slice(0, 80)}`, done: false }
+    ]);
+    flash('已存为待办');
+  };
+
+  const dropFile = async (event: React.DragEvent) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    const filePath = (file as File & { path?: string })?.path || '';
+    if (!filePath) {
+      flash('请从资源管理器拖入文件');
+      return;
+    }
+    const result = await window.bsub.readPetFile?.(filePath);
+    if (!result?.ok) {
+      flash(result?.error || '读取文件失败');
+      return;
+    }
+    setOpen(true);
+    if (result.data.kind === 'image' && result.data.dataUrl) {
+      setShot(result.data.dataUrl);
+      flash(`已添加图片：${result.data.name}`);
+    } else if (result.data.text) {
+      setInput(
+        (value) => `${value ? `${value}
+` : ''}[文件：${result.data.name}]
+${result.data.text}`
+      );
+      flash(`已读取：${result.data.name}`);
+    }
+  };
+
   const toggleAlwaysOnTop = async () => {
     const next = await window.bsub.setPetAlwaysOnTop(!alwaysOnTop);
     setAlwaysOnTop(next !== false);
@@ -828,9 +990,22 @@ export function PetWindow() {
         setMenuOpen((value) => !value);
       }}
       onMouseEnter={wake}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => void dropFile(event)}
     >
       {menuOpen && (
         <div className="pet-menu" ref={menuRef} onKeyDown={onMenuKeyDown} onMouseLeave={() => setMenuOpen(false)}>
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              setHistoryQuery('');
+              setHistoryOpen(true);
+              setOpen(true);
+            }}
+          >
+            <span className="pet-menu-icon">◷</span>
+            <span className="pet-menu-label">历史记录</span>
+          </button>
           <button
             onClick={() => {
               setMenuOpen(false);
@@ -944,13 +1119,14 @@ export function PetWindow() {
           </div>
           <input
             className="pet-widget-input"
-            placeholder="加一条待办，Enter 保存"
+            placeholder="加一条待办，如 20分钟后 喝水"
             onKeyDown={(event) => {
               // 中文输入法按 Enter 只是确认候选词，不能当成提交。
               if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
-              const text = event.currentTarget.value.trim();
-              if (!text) return;
-              setTodos((items) => [...items, { id: Date.now(), text, done: false }]);
+              const raw = event.currentTarget.value.trim();
+              if (!raw) return;
+              const { text, dueAt } = parseReminder(raw);
+              setTodos((items) => [...items, { id: Date.now(), text, done: false, dueAt }]);
               event.currentTarget.value = '';
             }}
           />
@@ -969,6 +1145,7 @@ export function PetWindow() {
                   }
                 />
                 <span className={todo.done ? 'is-done' : ''}>{todo.text}</span>
+                {todo.dueAt && <span className="pet-todo-due">{formatReminder(todo.dueAt)}</span>}
                 <button
                   className="pet-widget-remove"
                   title="删除这条待办"
@@ -1042,6 +1219,56 @@ export function PetWindow() {
               </button>
             </div>
           </div>
+
+          {historyOpen && (
+            <div className="pet-history-panel">
+              <div className="pet-history-head">
+                <span>历史记录</span>
+                <button
+                  className="pet-close"
+                  title="关闭历史"
+                  onClick={() => setHistoryOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <input
+                className="settings-input"
+                placeholder="搜索历史…"
+                value={historyQuery}
+                onChange={(event) => setHistoryQuery(event.target.value)}
+              />
+              <div className="pet-history-list">
+                {history
+                  .filter((item) =>
+                    item.text.toLowerCase().includes(historyQuery.trim().toLowerCase())
+                  )
+                  .slice(-40)
+                  .reverse()
+                  .map((item, index) => (
+                    <button
+                      key={`${item.role}-${index}`}
+                      className={`pet-history-item is-${item.role}`}
+                      title={item.text}
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(item.text);
+                          flash('已复制');
+                        } catch {
+                          flash('复制失败');
+                        }
+                      }}
+                    >
+                      <span className="pet-history-role">
+                        {item.role === 'user' ? '我' : '答'}
+                      </span>
+                      <span className="pet-history-text">{item.text}</span>
+                    </button>
+                  ))}
+                {!history.length && <div className="pet-history-empty">还没有历史</div>}
+              </div>
+            </div>
+          )}
 
           <div className="pet-bubble-body" ref={bubbleBody}>
             {history.slice(-6).map((item, index) => (
@@ -1157,6 +1384,45 @@ export function PetWindow() {
                 翻译选中
               </button>
             )}
+            {has('voice') && (
+              <button
+                className={`mini-btn${recording ? ' is-active' : ''}`}
+                title={recording ? '停止录音并识别' : '语音提问（也可以按 Ctrl+Shift+Space）'}
+                disabled={busy && !recording}
+                onClick={() => void startVoice()}
+              >
+                {recording ? '停止录音' : '语音'}
+              </button>
+            )}
+            {has('clipboard') && (
+              <button
+                className="mini-btn"
+                title="把剪贴板里的文字放进输入框"
+                onClick={() => void pasteClipboard()}
+              >
+                粘贴板
+              </button>
+            )}
+            {has('handoff') && (
+              <button
+                className="mini-btn"
+                title="把当前问答交给主窗口继续"
+                disabled={!answer && !history.some((item) => item.role === 'assistant')}
+                onClick={() => void handoffToMain()}
+              >
+                主窗口
+              </button>
+            )}
+            {has('save') && (
+              <button
+                className="mini-btn"
+                title="把回答存成一条待办"
+                disabled={!answer && !history.some((item) => item.role === 'assistant')}
+                onClick={() => void saveAnswerAsTodo()}
+              >
+                存待办
+              </button>
+            )}
             {has('copy') && (
               <button
                 className="mini-btn"
@@ -1237,6 +1503,8 @@ export function PetWindow() {
           if (event.detail > 1) return;
           if (clickAction === 'none') return;
           if (tapTimer.current) window.clearTimeout(tapTimer.current);
+      if (mediaRecorder.current?.state === 'recording') mediaRecorder.current.stop();
+      mediaStream.current?.getTracks().forEach((track) => track.stop());
           // 150ms 内没有第二次点击才执行单击动作，避免双击时气泡闪现。
           tapTimer.current = window.setTimeout(() => {
             tapTimer.current = null;

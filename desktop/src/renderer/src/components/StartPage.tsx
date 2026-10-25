@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2
 } from 'lucide-react';
+import { parseReminder, formatReminder } from '../../../shared/reminder';
 import type {
   HistoryEntry,
   LibraryVideo,
@@ -209,9 +210,13 @@ export function StartPage({
   };
 
   const addTodo = () => {
-    const text = todoDraft.trim();
-    if (!text) return;
-    void persistTodos([...todos, { id: Date.now(), text: text.slice(0, 200), done: false }]);
+    const raw = todoDraft.trim();
+    if (!raw) return;
+    const { text, dueAt } = parseReminder(raw);
+    void persistTodos([
+      ...todos,
+      { id: Date.now(), text: text.slice(0, 200), done: false, dueAt }
+    ]);
     setTodoDraft('');
   };
 
@@ -450,6 +455,7 @@ export function StartPage({
                     }
                   />
                   <span className={todo.done ? 'is-done' : ''}>{todo.text}</span>
+                  {todo.dueAt && <span className="start-todo-due">{formatReminder(todo.dueAt)}</span>}
                 </label>
               ))}
               {!todos.length && <div className="start-widget-empty">还没有待办，加一条试试</div>}
@@ -457,7 +463,7 @@ export function StartPage({
             <div className="start-todo-add">
               <input
                 value={todoDraft}
-                placeholder="添加待办，Enter 保存"
+                placeholder="添加待办，如 20分钟后 喝水"
                 onChange={(event) => setTodoDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') addTodo();

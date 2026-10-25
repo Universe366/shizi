@@ -27,6 +27,7 @@ interface TabRecord {
   audible?: boolean;
   muted?: boolean;
   groupId?: string;
+  lastHttpUrl?: string;
   loadPromise?: Promise<void>;
 }
 
@@ -138,6 +139,7 @@ export class TabManager {
       view: null,
       title: '新标签页',
       url,
+      lastHttpUrl: /^https?:/i.test(url) ? url : undefined,
       loading: true,
       suspended: false,
       audible: false,
@@ -373,6 +375,7 @@ export class TabManager {
     wc.on('did-navigate', (_event, url) => {
       if (!url || url === 'about:blank') return;
       record.url = url;
+      if (/^https?:/i.test(url)) record.lastHttpUrl = url;
       if (/^https?:/i.test(url)) {
         this.onVisited?.({ url, title: record.title, favicon: record.favicon });
       }
@@ -381,6 +384,7 @@ export class TabManager {
     wc.on('did-navigate-in-page', (_event, url) => {
       if (!url || url === 'about:blank') return;
       record.url = url;
+      if (/^https?:/i.test(url)) record.lastHttpUrl = url;
       if (/^https?:/i.test(url)) {
         this.onVisited?.({ url, title: record.title, favicon: record.favicon });
       }
@@ -538,8 +542,9 @@ export class TabManager {
     const record = this.tabs.get(id);
     if (!record) return;
 
-    if (record.url && /^https?:/i.test(record.url)) {
-      this.closedStack.push({ url: record.url, title: record.title || '' });
+    const closeUrl = /^https?:/i.test(record.url) ? record.url : record.lastHttpUrl || '';
+    if (closeUrl) {
+      this.closedStack.push({ url: closeUrl, title: record.title || '' });
       if (this.closedStack.length > 20) this.closedStack.shift();
     }
 

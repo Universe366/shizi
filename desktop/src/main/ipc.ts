@@ -13,6 +13,7 @@ import { registerMediaIpc } from './ipc/media';
 import { registerShotIpc } from './ipc/shot';
 import { registerStartIpc } from './ipc/start';
 import { registerSyncIpc } from './ipc/sync';
+import { registerPetToolsIpc } from './ipc/petTools';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -40,6 +41,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerStartIpc();
 
   registerSyncIpc(ctx);
+
+  registerPetToolsIpc();
 
   registerToolsIpc(ctx);
 

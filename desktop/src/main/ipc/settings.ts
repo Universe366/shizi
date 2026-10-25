@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { applyAutoStart } from '../autoStart';
+import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
 let closeDecisionHandler: ((payload: CloseDecisionPayload) => void) | null = null;
@@ -65,7 +66,7 @@ import {
   setPetLayout
 } from '../petWindow';
 import type { PetLayoutMode } from '../petGeometry';
-import { petShortcutStatus } from '../petShortcuts';
+import { petShortcutStatus, petShortcutsStatus } from '../petShortcuts';
 
 /** 设置 / 更新 / 桥 / 权限 / 数据目录 / 诊断 相关 IPC。 */
 export function registerSettingsIpc(ctx: IpcContext): void {
@@ -113,6 +114,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     setPetEnabled(next);
   });
   ipcMain.handle('pet:shortcut-status', () => petShortcutStatus());
+  ipcMain.handle('pet:shortcuts-status', () => petShortcutsStatus());
   ipcMain.handle('app:close-window', () => {
     setTimeout(() => {
       if (!ctx.win.isDestroyed()) ctx.win.close();
@@ -162,6 +164,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         setPetEnabled(saved.general.petEnabled === true);
         applyAutoStart(saved.general.autoStart === true);
+        registerPetShortcuts();
         applyPetSettings();
         await restartBridge(ctx.win);
         const snapshot = settingsSnapshot();

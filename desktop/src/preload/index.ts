@@ -95,6 +95,10 @@ const on = <T>(channel: string, cb: (payload: T) => void) => {
 
 const api: BsubApi = {
   listTabs: () => ipcRenderer.invoke('tabs:list') as Promise<TabInfo[]>,
+  readClipboard: () => ipcRenderer.invoke('clipboard:read') as Promise<string>,
+  foregroundWindow: () => ipcRenderer.invoke('window:foreground'),
+  readPetFile: (path: string) => ipcRenderer.invoke('pet:read-file', path),
+  transcribeVoice: (dataUrl: string) => ipcRenderer.invoke('voice:transcribe', { dataUrl }),
   tabPreview: (id: string) =>
     ipcRenderer.invoke('tab:preview', id) as Promise<{
       dataUrl: string;
@@ -139,6 +143,12 @@ const api: BsubApi = {
   beginPetDrag: () => ipcRenderer.invoke('pet:begin-drag') as Promise<void>,
   endPetDrag: () =>
     ipcRenderer.invoke('pet:end-drag') as Promise<{ x: number; y: number; moved: boolean } | null>,
+  petShortcutsStatus: () => ipcRenderer.invoke('pet:shortcuts-status'),
+  onPetVoice: (cb: () => void) => on<void>('pet:voice', cb),
+  onPetChat: (cb: () => void) => on<void>('pet:open-chat', cb),
+  handoffChat: (payload: unknown) => ipcRenderer.invoke('chat:handoff', payload) as Promise<void>,
+  onChatHandoff: (cb: (payload: { question: string; answer: string }) => void) =>
+    on<{ question: string; answer: string }>('chat:handoff', cb),
   petShortcutStatus: () =>
     ipcRenderer.invoke('pet:shortcut-status') as Promise<{
       accelerator: string;

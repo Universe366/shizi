@@ -241,6 +241,30 @@ export function ChatPanel({
     contextRef.current = null;
   }, [activeTab?.id, activeTab?.url, pageContext?.url]);
 
+  useEffect(() => {
+    const apply = (payload: { question: string; answer: string } | null) => {
+      if (!payload || (!payload.question && !payload.answer)) return;
+      contextRef.current = null;
+      setMessages([
+        { role: 'user', content: payload.question },
+        { role: 'assistant', content: payload.answer }
+      ]);
+      setStreamText('');
+      setError(null);
+      setStreaming(false);
+    };
+    try {
+      const stored = localStorage.getItem('chat-handoff');
+      if (stored) {
+        apply(JSON.parse(stored));
+        localStorage.removeItem('chat-handoff');
+      }
+    } catch {
+      // ignore
+    }
+    return window.bsub.onChatHandoff?.((payload) => apply(payload));
+  }, []);
+
   const ensureContext = async () => {
     if (contextRef.current) return contextRef.current;
     const infoResponse = await window.bsub.getPageInfo();

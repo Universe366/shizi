@@ -3,25 +3,60 @@ import { loadSettings } from './settings';
 import { openPetWindow, petWebContents } from './petWindow';
 import { beginRegionCapture } from './shotOverlay';
 
-/** 全局框选截图：桌宠启用时可用，截完把结果送回桌宠气泡。 */
+/** 桌面宠物全局快捷键。截图必须可用；对话/语音可通过设置关闭。 */
 export const PET_SHOT_ACCELERATOR = 'Control+Shift+S';
+export const PET_VOICE_ACCELERATOR = 'Control+Shift+Space';
+export const PET_CHAT_ACCELERATOR = 'Control+Shift+D';
 
-let registered = false;
-let lastError = '';
+export interface PetShortcutState {
+  id: 'shot' | 'voice' | 'chat';
+  accelerator: string;
+  registered: boolean;
+  error: string;
+}
 
-export function registerPetShortcuts(): void {
-  if (registered) return;
+const states: Record<PetShortcutState['id'], PetShortcutState> = {
+  shot: { id: 'shot', accelerator: PET_SHOT_ACCELERATOR, registered: false, error: '' },
+  voice: { id: 'voice', accelerator: PET_VOICE_ACCELERATOR, registered: false, error: '' },
+  chat: { id: 'chat', accelerator: PET_CHAT_ACCELERATOR, registered: false, error: '' }
+};
+
+function sendToPet(channel: string): void {
+  openPetWindow();
+  const wc = petWebContents();
+  if (!wc || wc.isDestroyed()) return;
+  if (wc.isLoading()) wc.once('did-finish-load', () => wc.send(channel));
+  else wc.send(channel);
+}
+
+function register(id: PetShortcutState['id'], callback: () => void): void {
+  const state = states[id];
+  state.registered = false;
+  state.error = '';
   try {
-    const ok = globalShortcut.register(PET_SHOT_ACCELERATOR, () => {
-      const settings = loadSettings();
-      if (!settings.general.petEnabled || settings.general.petShortcut === false) return;
+    const ok = globalShortcut.register(state.accelerator, callback);
+    state.registered = ok;
+    if (!ok) state.error = '被其他程序占用';
+  } catch (error) {
+    state.error = (error as Error).message;
+  }
+}
+
+/** 注册/重新注册全部桌宠快捷键（设置变化后调用）。 */
+export function registerPetShortcuts(): void {
+  unregisterPetShortcuts();
+  const settings = loadSettings();
+  if (!settings.general.petEnabled) return;
+
+  if (settings.general.petShortcut !== false) {
+    register('shot', () => {
+      if (loadSettings().general.petShortcut === false) return;
       openPetWindow();
       void (async () => {
         const result = await beginRegionCapture();
         if (!result) return;
         const wc = petWebContents();
         if (!wc || wc.isDestroyed()) return;
-        // 快捷键可能刚把桌宠窗口拉起来，等页面加载完再发，否则事件会丢。
         if (wc.isLoading()) {
           wc.once('did-finish-load', () => {
             if (!wc.isDestroyed()) wc.send('pet:shot', result);
@@ -31,30 +66,32 @@ export function registerPetShortcuts(): void {
         }
       })();
     });
-    registered = ok;
-    lastError = ok ? '' : '被其他程序占用';
-    if (!ok) console.warn('[pet] 快捷键注册失败（可能被其他程序占用）:', PET_SHOT_ACCELERATOR);
-  } catch (error) {
-    registered = false;
-    lastError = (error as Error).message;
-    console.warn('[pet] 快捷键注册异常:', lastError);
+  }
+  if (settings.general.petVoiceShortcut !== false) {
+    register('voice', () => sendToPet('pet:voice'));
+  }
+  if (settings.general.petChatShortcut !== false) {
+    register('chat', () => sendToPet('pet:open-chat'));
   }
 }
 
 export function unregisterPetShortcuts(): void {
-  try {
-    globalShortcut.unregister(PET_SHOT_ACCELERATOR);
-  } catch {
-    // 忽略
+  for (const state of Object.values(states)) {
+    try {
+      globalShortcut.unregister(state.accelerator);
+    } catch {
+      // ignore
+    }
+    state.registered = false;
   }
-  registered = false;
 }
 
-/** 给设置页回显用：是否注册成功、失败原因。 */
-export function petShortcutStatus(): {
-  accelerator: string;
-  registered: boolean;
-  error: string;
-} {
-  return { accelerator: PET_SHOT_ACCELERATOR, registered, error: lastError };
+/** 兼容旧设置页：截图快捷键状态。 */
+export function petShortcutStatus(): { accelerator: string; registered: boolean; error: string } {
+  const state = states.shot;
+  return { accelerator: state.accelerator, registered: state.registered, error: state.error };
+}
+
+export function petShortcutsStatus(): PetShortcutState[] {
+  return Object.values(states);
 }

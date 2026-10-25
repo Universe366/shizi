@@ -23,6 +23,7 @@ export interface ChatOptions {
   skillIds?: string[];
   web?: boolean;
   surface?: 'main' | 'pet';
+  context?: string;
   page?: PageContext | null;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
@@ -97,6 +98,7 @@ export async function chat(
 
   const petSystem = [
     '你是「拾字」的桌面即时助手，回答用户当下问的小问题。',
+    options.context ? `当前上下文：${options.context}` : '',
     '要求：简短直接，默认 3 条以内或 200 字以内；用户要求详细时再展开。',
     '不要主动总结视频或网页，也不要假设用户正在看什么；只有消息里附带的截图、选段或联网结果才作为依据。',
     '不要输出与问题无关的背景介绍。',

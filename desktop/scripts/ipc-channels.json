@@ -26,7 +26,9 @@
   "browser:set-visible",
   "chapters:generate",
   "chat:cancel",
+  "chat:handoff",
   "chat:send",
+  "clipboard:read",
   "clipboard:write",
   "collection:summarize",
   "collection:summary",
@@ -127,12 +129,14 @@
   "pet:flipped",
   "pet:get-position",
   "pet:move",
+  "pet:read-file",
   "pet:reset-position",
   "pet:resize-bubble",
   "pet:set-always-on-top",
   "pet:set-enabled",
   "pet:set-layout",
   "pet:shortcut-status",
+  "pet:shortcuts-status",
   "platform:models",
   "platform:test",
   "podcast:import",
@@ -203,5 +207,7 @@
   "update:skip",
   "update:status",
   "urlbatch:cancel",
-  "urlbatch:start"
+  "urlbatch:start",
+  "voice:transcribe",
+  "window:foreground"
 ]

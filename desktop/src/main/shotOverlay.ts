@@ -2,7 +2,8 @@ import { BrowserWindow, desktopCapturer, screen } from 'electron';
 import path from 'node:path';
 import type { NativeImage } from 'electron';
 import { toImageRect, type Rect } from '../shared/shotGeometry';
-import { compressImage } from './imageData';
+import { compressDataUrl, compressImage } from './imageData';
+import { loadSettings } from './settings';
 import { withPetHidden } from './petWindow';
 
 /**
@@ -27,6 +28,8 @@ export interface ShotResult {
 export interface ShotSelection {
   selection: Rect | null;
   action: ShotAction;
+  /** 覆盖窗里已经画好标注的图片（可选）。 */
+  annotatedDataUrl?: string;
 }
 
 interface PendingShot {
@@ -81,7 +84,18 @@ export function completeRegionCapture(input: ShotSelection | null): void {
   const rect = toImageRect(input.selection, cssSize, size);
   let compressed: { dataUrl: string; width: number; height: number } | null = null;
   try {
-    compressed = compressImage(image.crop(rect));
+    const quality = loadSettings().general.petShotQuality;
+    if (input.annotatedDataUrl) {
+      compressed =
+        quality === 'small'
+          ? compressDataUrl(input.annotatedDataUrl, 960, 74)
+          : compressDataUrl(input.annotatedDataUrl, 1600, 90);
+    } else {
+      compressed =
+        quality === 'small'
+          ? compressImage(image.crop(rect), 960, 74)
+          : compressImage(image.crop(rect), 1600, 90);
+    }
   } catch (error) {
     console.warn('[shot] crop failed:', (error as Error).message);
   }

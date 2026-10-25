@@ -121,9 +121,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petBubbleWidth: 440,
     petBubbleHeight: 480,
     petThrow: true,
-    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat'],
+    petButtons: ['web', 'read', 'widget', 'screenshot', 'explain', 'translate', 'copy', 'newChat', 'voice', 'clipboard', 'handoff', 'save'],
     petDock: 'none',
     petPeek: true,
+    petHideFullscreen: true,
+    petShotQuality: 'clear',
+    petVoiceShortcut: true,
+    petChatShortcut: true,
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -396,11 +400,19 @@ function normalize(input: unknown): AppSettings {
         'explain',
         'translate',
         'copy',
-        'newChat'
+        'newChat',
+        'voice',
+        'clipboard',
+        'handoff',
+        'save'
       ];
       const dock = raw.general.petDock;
       base.general.petDock = dock === 'left' || dock === 'right' ? dock : 'none';
       base.general.petPeek = raw.general.petPeek !== false;
+      base.general.petHideFullscreen = raw.general.petHideFullscreen !== false;
+      base.general.petShotQuality = raw.general.petShotQuality === 'small' ? 'small' : 'clear';
+      base.general.petVoiceShortcut = raw.general.petVoiceShortcut !== false;
+      base.general.petChatShortcut = raw.general.petChatShortcut !== false;
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))
