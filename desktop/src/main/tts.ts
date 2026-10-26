@@ -158,9 +158,12 @@ export function edgeSynthesize(
   });
 }
 
-const SAPI_SCRIPT = String.raw`param([string]$Text,[string]$Out,[string]$Voice,[int]$Rate,[int]$Volume)
+const SAPI_SCRIPT = String.raw`param([string]$Text,[string]$TextFile,[string]$Out,[string]$Voice,[int]$Rate,[int]$Volume)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Speech
+if ($TextFile -and (Test-Path -LiteralPath $TextFile)) {
+  $Text = [IO.File]::ReadAllText($TextFile, [Text.Encoding]::UTF8)
+}
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
 try {
   if ($Voice) { $synth.SelectVoice($Voice) }
@@ -215,11 +218,14 @@ export async function sapiSynthesize(
     os.tmpdir(),
     `shizi-tts-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
   );
+  const textFile = `${out}.txt`;
   try {
+    // 通过 UTF-8 文件传文本：Windows 命令行参数在非中文 locale 会丢字。
+    fs.writeFileSync(textFile, text.slice(0, MAX_CHARS), 'utf8');
     await runPowerShell([
       ensureSapiScript(),
-      '-Text',
-      text.slice(0, MAX_CHARS),
+      '-TextFile',
+      textFile,
       '-Out',
       out,
       '-Voice',
@@ -237,6 +243,11 @@ export async function sapiSynthesize(
   } finally {
     try {
       fs.rmSync(out, { force: true });
+    } catch {
+      // ignore
+    }
+    try {
+      fs.rmSync(textFile, { force: true });
     } catch {
       // ignore
     }

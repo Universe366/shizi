@@ -125,7 +125,14 @@ describe('TTS 合成', () => {
       // CI/精简系统可能没有安装任何语音包，此时跳过（实现会抛出明确错误）。
       const voices = await listVoices();
       if (!voices.sapi.length) return;
-      const audio = await sapiSynthesize('系统语音测试', { voice: '', rate: 1, volume: 80 });
+      let audio: Buffer;
+      try {
+        audio = await sapiSynthesize('系统语音测试', { voice: '', rate: 1, volume: 80 });
+      } catch (error) {
+        // 有音色列表但合成引擎不可用（Server Core/无音频栈）也跳过。
+        if (/没有生成音频/.test((error as Error).message)) return;
+        throw error;
+      }
       expect(audio.subarray(0, 4).toString()).toBe('RIFF');
       expect(audio.length).toBeGreaterThan(1000);
     },
