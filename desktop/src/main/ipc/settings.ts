@@ -5,6 +5,7 @@ import { applyAutoStart } from '../autoStart';
 import { applyProxy } from '../proxy';
 import { applyDictation } from '../dictation';
 import { applyQuickAsk } from '../quickAsk';
+import { resetMcpSession } from '../mcp';
 import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
@@ -193,7 +194,19 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     'settings:set',
     async (_event, next: AppSettings): Promise<Result<ReturnType<typeof settingsSnapshot>>> => {
       try {
+        const before = loadSettings();
         const saved = saveSettings(next);
+        // MCP 配置变了（删除/改地址/改命令）就断开旧会话，避免继续用旧连接。
+        for (const old of before.mcp.servers) {
+          const current = saved.mcp.servers.find((item) => item.id === old.id);
+          const changed =
+            !current ||
+            current.url !== old.url ||
+            current.command !== old.command ||
+            (current.args || []).join('\u0000') !== (old.args || []).join('\u0000') ||
+            current.transport !== old.transport;
+          if (changed) resetMcpSession(old);
+        }
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshMediaState();

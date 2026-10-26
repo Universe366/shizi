@@ -80,6 +80,19 @@ export function closeChatStore(): void {
   database = null;
 }
 
+/** 备份用：VACUUM INTO 得到一致快照，不需要关库。 */
+export function backupChatStore(target: string): boolean {
+  try {
+    const store = db();
+    if (!store) return false;
+    store.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+    return fs.existsSync(target);
+  } catch (error) {
+    console.warn('[chat] 备份失败:', (error as Error).message);
+    return false;
+  }
+}
+
 interface ConversationRow {
   id: number;
   title: string;

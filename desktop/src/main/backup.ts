@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { checkpointLibrary, closeLibrary } from './library';
+import { backupChatStore, closeChatStore } from './chatStore';
+import { backupUsage, closeUsage } from './usage';
 import { restoreSettingsFromBackup, settingsForExport } from './settings';
 
 const FORMAT = 'bsub-data-backup';
@@ -81,6 +83,18 @@ export async function backupData(): Promise<{ canceled: boolean; path?: string }
     files['library.db'] = digest(dbTarget);
   }
 
+  // 对话与用量是独立库：用 VACUUM INTO 拿一致快照，避免直接拷贝正在写的库。
+  const chatFile = path.join(dataDir, 'chat.db');
+  if (fs.existsSync(chatFile)) {
+    const chatTarget = path.join(target, 'chat.db');
+    if (backupChatStore(chatTarget)) files['chat.db'] = digest(chatTarget);
+  }
+  const usageFile = path.join(dataDir, 'usage.db');
+  if (fs.existsSync(usageFile)) {
+    const usageTarget = path.join(target, 'usage.db');
+    if (backupUsage(usageTarget)) files['usage.db'] = digest(usageTarget);
+  }
+
   fs.writeFileSync(
     path.join(target, 'manifest.json'),
     JSON.stringify(manifest(files), null, 2),
@@ -91,7 +105,8 @@ export async function backupData(): Promise<{ canceled: boolean; path?: string }
     [
       '拾字 数据备份',
       '',
-      '包含 settings.json（不含 API Key / 桥 Token）与 library.db（字幕、总结、笔记、历史）。',
+      '包含 settings.json（不含 API Key / 桥 Token）、library.db（字幕、总结、笔记、历史）、',
+      'chat.db（对话历史与工具调用）与 usage.db（用量统计，存在时）。',
       '恢复后需要在设置里重新填写 API Key；桥 Token 会自动重新生成。',
       '',
       `应用版本：${app.getVersion()}`,
@@ -149,19 +164,26 @@ export async function restoreData(): Promise<{ canceled: boolean; restored?: boo
   }
 
   // 恢复前先给当前数据留一份，避免恢复错版本后无法回退。
+  // 对话/用量库先关掉再拷贝，避免拿到写了一半的 WAL。
+  closeChatStore();
+  closeUsage();
   const safety = path.join(dataDir, `pre-restore-${stamp()}`);
   fs.mkdirSync(safety, { recursive: true });
-  for (const name of ['settings.json', 'library.db']) {
+  for (const name of ['settings.json', 'library.db', 'chat.db', 'usage.db']) {
     const file = path.join(dataDir, name);
     if (fs.existsSync(file)) fs.copyFileSync(file, path.join(safety, name));
   }
 
   closeLibrary();
-  for (const name of ['library.db-wal', 'library.db-shm']) {
+  for (const name of ['library.db-wal', 'library.db-shm', 'chat.db-wal', 'chat.db-shm', 'usage.db-wal', 'usage.db-shm']) {
     const file = path.join(dataDir, name);
     if (fs.existsSync(file)) fs.rmSync(file, { force: true });
   }
   fs.copyFileSync(dbSource, path.join(dataDir, 'library.db'));
+  for (const name of ['chat.db', 'usage.db']) {
+    const backupSource = path.join(source, name);
+    if (fs.existsSync(backupSource)) fs.copyFileSync(backupSource, path.join(dataDir, name));
+  }
 
   // 设置用「合并」而不是覆盖：备份里的 Key 是空的，保留本机已填的 Key。
   if (fs.existsSync(settingsSource)) {

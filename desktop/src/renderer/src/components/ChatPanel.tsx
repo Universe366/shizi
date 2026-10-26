@@ -367,6 +367,11 @@ export function ChatPanel({
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
       setProfiles(snapshot.settings.ai.profiles || []);
+      setProfileId((current) =>
+        (snapshot.settings.ai.profiles || []).some((profile) => profile.id === current)
+          ? current
+          : ''
+      );
       autoReadChatRef.current = snapshot.settings.tts?.autoRead?.chat === true;
       setSkillId((current) =>
         snapshot.settings.skills.items.some((item) => item.id === current) ? current : ''
