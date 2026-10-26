@@ -10,6 +10,7 @@ import type {
 } from '../../shared/types';
 import {
   appendMessage,
+  branchConversation,
   conversationMarkdown,
   createConversation,
   deleteConversation,
@@ -101,6 +102,19 @@ export function registerChatHistoryIpc(): void {
         return ok(renameConversation(Number(payload?.id), String(payload?.title || '')));
       } catch (error) {
         return failure<boolean>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'chat:history-branch',
+    (_event, payload: { conversationId: number; keep: number }) => {
+      try {
+        return ok<ChatConversation | null>(
+          branchConversation(Number(payload?.conversationId), Number(payload?.keep) || 1)
+        );
+      } catch (error) {
+        return failure<ChatConversation | null>(error);
       }
     }
   );

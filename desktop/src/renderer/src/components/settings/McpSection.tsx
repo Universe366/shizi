@@ -265,6 +265,23 @@ export function McpSection({
             onChange={(event) => onChange({ ...value, maxToolRounds: Number(event.target.value) || 6 })}
           />
         </div>
+        <div className="settings-field">
+          <div className="settings-label">危险工具审批</div>
+          <select
+            className="settings-input"
+            value={value.approvalMode || 'write'}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                approvalMode: event.target.value as McpSettings['approvalMode']
+              })
+            }
+          >
+            <option value="write">写入类工具逐次确认（推荐）</option>
+            <option value="all">所有工具都确认</option>
+            <option value="off">不确认</option>
+          </select>
+        </div>
       </div>
 
       <div className="settings-label">调用参数（JSON）</div>

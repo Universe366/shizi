@@ -11,6 +11,7 @@ vi.mock('electron', () => ({
 
 import {
   appendMessage,
+  branchConversation,
   closeChatStore,
   conversationMarkdown,
   createConversation,
@@ -101,6 +102,23 @@ describe('对话持久化', () => {
     expect(listConversations(10).find((item) => item.id === conversation.id)?.profileId).toBe(
       'p2'
     );
+  });
+
+  it('从第 N 条分叉：复制前 N 条，原会话不变', () => {
+    const source = createConversation({
+      title: '分支源',
+      videoKey: 'BV9',
+      profileId: 'p9'
+    });
+    appendMessage(source.id, { role: 'user', content: 'q1' });
+    appendMessage(source.id, { role: 'assistant', content: 'a1' });
+    appendMessage(source.id, { role: 'user', content: 'q2' });
+    const branch = branchConversation(source.id, 2);
+    expect(branch).not.toBeNull();
+    expect(branch?.profileId).toBe('p9');
+    expect(listMessages(branch!.id).map((row) => row.content)).toEqual(['q1', 'a1']);
+    expect(listMessages(source.id).length).toBe(3);
+    expect(branch?.title).toContain('分支');
   });
 
   it('导出 Markdown 带标题、对话与来源', () => {

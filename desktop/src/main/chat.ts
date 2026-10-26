@@ -28,6 +28,7 @@ import { selectRelevantChunks } from './pageContext';
 import { APP_TOOL_DEFS, APP_TOOL_PREFIX, callAppTool } from './appTools';
 import { withDeadline } from './async';
 import { selectByAllowed } from '../shared/toolSelection';
+import { toolNeedsApproval } from '../shared/mcpApproval';
 
 const MAX_HISTORY = 16;
 const REQUEST_TIMEOUT_MS = 300000;
@@ -42,6 +43,8 @@ export interface ChatOptions {
   surface?: 'main' | 'pet';
   context?: string;
   page?: PageContext | null;
+  /** 指定平台（多模型对比用），不传则按任务槽位/当前平台解析 */
+  platform?: AiPlatform;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
@@ -51,6 +54,8 @@ export interface ChatOptions {
   mcpToolIds?: string[];
   /** 工具调用进度（开始/结束），用于对话里的工具卡片 */
   onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
+  /** 危险工具执行前确认；返回 false 表示用户拒绝。 */
+  onApproval?: (request: { name: string; detail: string }) => Promise<boolean>;
 }
 
 export interface ChatResult {
@@ -101,7 +106,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   const profile = options.profileId
     ? settings.ai.profiles.find((item) => item.id === options.profileId)
     : undefined;
-  let platform = platformForTask('chat', settings);
+  let platform = options.platform || platformForTask('chat', settings);
   if (profile?.platformId) {
     const target = settings.ai.platforms.find((item) => item.id === profile.platformId);
     if (target) platform = { ...target, model: profile.model || target.model };
@@ -382,6 +387,20 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         }
         const binding = activeBindings.find((item) => item.qualifiedName === call.name);
         if (!binding) return finish('工具不存在', false);
+        if (
+          options.onApproval &&
+          toolNeedsApproval(
+            binding.tool.name,
+            binding.tool.description,
+            settings.mcp.approvalMode
+          )
+        ) {
+          const allowed = await options.onApproval({
+            name: binding.tool.name,
+            detail: String(call.arguments || '').slice(0, 600)
+          });
+          if (!allowed) return finish('用户拒绝了这次工具调用', false);
+        }
         try {
           return finish(
             await callMcpTool(

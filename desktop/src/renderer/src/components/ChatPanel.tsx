@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Square, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, Copy, Download, GitBranch, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
+  AiPlatform,
   AssistantProfile,
+  ChatApprovalEvent,
+  ChatCompareResult,
   ChatConversation,
   ChatMessage,
   ChatToolEvent,
@@ -205,6 +208,22 @@ export function ChatPanel({
     }
   });
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
+  const [approvals, setApprovals] = useState<ChatApprovalEvent[]>([]);
+  const [platforms, setPlatforms] = useState<AiPlatform[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('chat-compare') || '[]');
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [comparing, setComparing] = useState(false);
+  const [comparison, setComparison] = useState<{
+    question: string;
+    results: ChatCompareResult[];
+  } | null>(null);
   const toolEventsRef = useRef<ChatToolEvent[]>([]);
   const autoReadChatRef = useRef(false);
   const conversationRef = useRef<number | null>(null);
@@ -334,6 +353,96 @@ export function ChatPanel({
     }
   };
 
+  const respondApproval = async (
+    approval: ChatApprovalEvent,
+    allow: boolean
+  ): Promise<void> => {
+    setApprovals((previous) =>
+      previous.filter((item) => item.approvalId !== approval.approvalId)
+    );
+    await window.bsub.chatApprove(approval.approvalId, allow);
+  };
+
+  const toggleComparePlatform = (id: string): void => {
+    const next = compareSelection.includes(id)
+      ? compareSelection.filter((item) => item !== id)
+      : compareSelection.length >= 3
+        ? compareSelection
+        : [...compareSelection, id];
+    setCompareSelection(next);
+    try {
+      localStorage.setItem('chat-compare', JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const runCompare = async (): Promise<void> => {
+    if (comparing) return;
+    if (compareSelection.length < 2) {
+      setError('至少选择 2 个平台做对比');
+      return;
+    }
+    const typing = input.trim();
+    const question =
+      typing || [...messages].reverse().find((message) => message.role === 'user')?.content || '';
+    if (!question) {
+      setError('先输入问题，或先发一条消息再对比');
+      return;
+    }
+    const outgoing = typing
+      ? [...messages, { role: 'user' as const, content: question }]
+      : messages;
+    setComparing(true);
+    setError(null);
+    try {
+      const context = await ensureContext();
+      const response = await window.bsub.chatCompare({
+        info: context.info,
+        lines: context.lines,
+        messages: outgoing.slice(-16).map((message) => ({
+          role: message.role,
+          content: message.content
+        })),
+        platformIds: compareSelection,
+        includePage
+      });
+      if (!response.ok) throw new Error(response.error);
+      setComparison({ question, results: response.data });
+      setCompareOpen(false);
+      if (typing) setInput('');
+    } catch (error) {
+      setError(`多模型对比失败：${(error as Error).message}`);
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const adoptComparison = async (result: ChatCompareResult): Promise<void> => {
+    const question = comparison?.question;
+    if (!question) return;
+    const last = messages[messages.length - 1];
+    const hasUser = last?.role === 'user' && last.content === question;
+    const base = hasUser ? messages : [...messages, { role: 'user' as const, content: question }];
+    setMessages([
+      ...base,
+      { role: 'assistant', content: result.text }
+    ]);
+    const conversation = await ensureConversation(question);
+    if (conversation) {
+      if (!hasUser) {
+        await window.bsub.chatHistoryAppend(conversation, { role: 'user', content: question });
+      }
+      await window.bsub.chatHistoryAppend(conversation, {
+        role: 'assistant',
+        content: result.text,
+        model: result.model
+      });
+      void refreshConversations();
+    }
+    setComparison(null);
+  };
+
   useEffect(() => {
     void (async () => {
       const response = await window.bsub.getSettings();
@@ -344,6 +453,7 @@ export function ChatPanel({
       setSkills(items);
       setSkillId((current) => (items.some((item) => item.id === current) ? current : ''));
       setProfiles(response.data.settings.ai.profiles || []);
+      setPlatforms(response.data.settings.ai.platforms || []);
       setProfileId((current) =>
         (response.data.settings.ai.profiles || []).some((profile) => profile.id === current)
           ? current
@@ -367,6 +477,7 @@ export function ChatPanel({
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
       setProfiles(snapshot.settings.ai.profiles || []);
+      setPlatforms(snapshot.settings.ai.platforms || []);
       setProfileId((current) =>
         (snapshot.settings.ai.profiles || []).some((profile) => profile.id === current)
           ? current
@@ -531,6 +642,7 @@ export function ChatPanel({
       ]);
       setToolEvents([]);
       toolEventsRef.current = [];
+      setApprovals([]);
       if (autoReadChatRef.current && event.text.trim()) {
         void speakText(event.text);
       }
@@ -590,13 +702,20 @@ export function ChatPanel({
       setStreaming(false);
       setStreamText('');
       setStatus('');
+      setApprovals([]);
       requestRef.current = '';
     });
     const offStatus = window.bsub.onChatStatus((event) => {
       if (event.requestId === requestRef.current) setStatus(event.status);
     });
-    const offTool = window.bsub.onChatTool((event) => {
+    const offApproval = window.bsub.onChatApproval((event) => {
       if (event.requestId !== requestRef.current) return;
+      setApprovals((previous) => [
+        ...previous.filter((item) => item.approvalId !== event.approvalId),
+        event
+      ]);
+    });
+    const offTool = window.bsub.onChatTool((event) => {      if (event.requestId !== requestRef.current) return;
       setToolEvents((previous) => {
         const next = [...previous];
         if (event.phase === 'start') {
@@ -622,6 +741,7 @@ export function ChatPanel({
       offError();
       offStatus();
       offTool();
+      offApproval();
     };
   }, []);
 
@@ -734,6 +854,7 @@ export function ChatPanel({
     setStreamText('');
     setToolEvents([]);
     toolEventsRef.current = [];
+    setApprovals([]);
     setStatus(isVideoPage ? '读取字幕…' : '读取页面…');
 
     const nextMessages: ChatMessage[] = [
@@ -782,6 +903,7 @@ export function ChatPanel({
   };
 
   const stop = () => {
+    setApprovals([]);
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
   };
 
@@ -803,6 +925,31 @@ export function ChatPanel({
     if (conversation) await window.bsub.chatHistoryTruncate(conversation, base.length);
     setMessages(base);
     await send(lastUser.content, false, base);
+  };
+
+  /** 从第 index 条消息处分叉：复制到新会话，原会话保留。 */
+  const branchAt = async (index: number): Promise<void> => {
+    if (streaming || !conversationRef.current) return;
+    const response = await window.bsub.chatHistoryBranch(conversationRef.current, index + 1);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    if (!response.data) return;
+    const created = response.data;
+    conversationRef.current = created.id;
+    setConversationId(created.id);
+    setMessages((previous) => previous.slice(0, index + 1));
+    if (created.profileId) {
+      setProfileId(created.profileId);
+      try {
+        localStorage.setItem('chat-profile', created.profileId);
+      } catch {
+        // ignore
+      }
+    }
+    setSavedNotice('已创建对话分支，可以继续追问');
+    void refreshConversations();
   };
 
   /** 编辑某条用户消息：先把这条之后的内容从界面和数据库里删掉。 */
@@ -1193,6 +1340,13 @@ export function ChatPanel({
                       >
                         <Copy size={11} />
                       </button>
+                      <button
+                        className="chat-action"
+                        title="从此回答新建分支"
+                        onClick={() => void branchAt(index)}
+                      >
+                        <GitBranch size={11} />
+                      </button>
                       {index === messages.length - 1 && (
                         <button
                           className="chat-action"
@@ -1220,6 +1374,13 @@ export function ChatPanel({
                     ) : null}
                     <div>{message.content}</div>
                     <div className="chat-msg-actions">
+                      <button
+                        className="chat-action"
+                        title="从这条消息新建分支"
+                        onClick={() => void branchAt(index)}
+                      >
+                        <GitBranch size={11} />
+                      </button>
                       <button
                         className="chat-action"
                         title="编辑这条消息并重发"
@@ -1370,6 +1531,33 @@ export function ChatPanel({
 
       {savedNotice && <div className="status-line chat-saved">{savedNotice}</div>}
 
+      {approvals.length > 0 && (
+        <div className="chat-approval-list">
+          {approvals.map((approval) => (
+            <div key={approval.approvalId} className="chat-approval-card">
+              <div className="chat-approval-title">
+                工具「{approval.name}」请求执行，是否允许？
+              </div>
+              <pre className="chat-approval-args">{approval.detail || '{}'}</pre>
+              <div className="chat-approval-actions">
+                <button
+                  className="mini-btn primary"
+                  onClick={() => void respondApproval(approval, true)}
+                >
+                  允许
+                </button>
+                <button
+                  className="mini-btn"
+                  onClick={() => void respondApproval(approval, false)}
+                >
+                  拒绝
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {composerOpen && activeTab && (
         <div className="chat-composer-panel">
           <div className="chat-composer-actions">
@@ -1429,6 +1617,15 @@ export function ChatPanel({
             >
               联网：{webSearch ? '开' : '关'}
             </button>
+            <button
+              className="mini-btn"
+              onClick={() => {
+                setCompareOpen((value) => !value);
+                setToolPanelOpen(false);
+              }}
+            >
+              多模型对比
+            </button>
             <button className="mini-btn" onClick={clear}>
               新对话
             </button>
@@ -1480,6 +1677,39 @@ export function ChatPanel({
                   </label>
                 );
               })}
+            </div>
+          )}
+          {compareOpen && (
+            <div className="chat-compare-panel">
+              <div className="settings-hint">
+                选 2–3 个平台，用同一个问题并排回答；对比模式不启用 MCP 工具与联网。
+              </div>
+              <div className="chat-compare-options">
+                {platforms.map((platform) => {
+                  const checked = compareSelection.includes(platform.id);
+                  return (
+                    <label key={platform.id} className="chat-tool-option" title={platform.model}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!checked && compareSelection.length >= 3}
+                        onChange={() => toggleComparePlatform(platform.id)}
+                      />
+                      <span>
+                        {platform.name} · {platform.model}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <button
+                className="mini-btn primary"
+                disabled={compareSelection.length < 2 || comparing}
+                onClick={() => void runCompare()}
+              >
+                {comparing ? <Loader2 size={12} className="spin" /> : null}
+                开始对比
+              </button>
             </div>
           )}
         </div>
@@ -1597,6 +1827,52 @@ export function ChatPanel({
           <Send size={12} /> 发送
         </button>
       </div>
+
+      {comparison && (
+        <div className="compare-overlay" onClick={() => setComparison(null)}>
+          <div className="compare-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="compare-head">
+              <span>多模型对比 · {comparison.question.slice(0, 50)}</span>
+              <button className="icon-btn" onClick={() => setComparison(null)}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className="compare-grid">
+              {comparison.results.map((result) => (
+                <div key={result.platformId} className="compare-col">
+                  <div className="compare-title">
+                    {result.platformName}
+                    <span>{result.model}</span>
+                  </div>
+                  {result.error ? (
+                    <div className="compare-error">{result.error}</div>
+                  ) : (
+                    <div className="compare-body">
+                      <Markdown content={result.text} />
+                    </div>
+                  )}
+                  <div className="compare-actions">
+                    <button
+                      className="mini-btn"
+                      disabled={!result.text}
+                      onClick={() => void window.bsub.writeClipboard(result.text)}
+                    >
+                      复制
+                    </button>
+                    <button
+                      className="mini-btn primary"
+                      disabled={!result.text}
+                      onClick={() => void adoptComparison(result)}
+                    >
+                      采用
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

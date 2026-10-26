@@ -48,6 +48,7 @@ export function UsageSection({ value, onChange }: Props) {
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [events, setEvents] = useState<UsageEvent[]>([]);
+  const [selectedDay, setSelectedDay] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -78,6 +79,33 @@ export function UsageSection({ value, onChange }: Props) {
       }, 0)
     : 0;
   const missingPrice = Boolean(summary?.byModel.some((row) => !priceFor(row.model, prices)));
+
+  const dayMap = new Map(
+    (summary?.byDay || []).map((row) => [
+      row.day,
+      {
+        ...row,
+        tokens: row.inputTokens + row.outputTokens
+      }
+    ])
+  );
+  const chartDays: Array<{ day: string; label: string; tokens: number; requests: number }> = [];
+  const today = new Date();
+  for (let offset = Math.min(days, 120) - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+      date.getDate()
+    ).padStart(2, '0')}`;
+    const row = dayMap.get(key);
+    chartDays.push({
+      day: key,
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      tokens: row?.tokens || 0,
+      requests: row?.requests || 0
+    });
+  }
+  const maxDayTokens = Math.max(1, ...chartDays.map((row) => row.tokens));
+  const selected = selectedDay ? dayMap.get(selectedDay) : null;
 
   const updatePrice = (model: string, patch: Partial<ModelPrice>) => {
     const current: ModelPrice = prices[model] || { input: 0, output: 0 };
@@ -175,6 +203,40 @@ export function UsageSection({ value, onChange }: Props) {
               部分模型还没有价格，成本只统计已配置的模型；可在下方补齐。
             </div>
           )}
+
+          <div className="usage-chart">
+            <div className="usage-chart-head">
+              <span>每日活动</span>
+              <span>
+                {selected
+                  ? `${selected.day} · ${selected.requests} 请求 · ${formatTokens(
+                      selected.inputTokens + selected.outputTokens
+                    )} tokens`
+                  : '点击柱子查看当天'}
+              </span>
+            </div>
+            <div className="usage-bars">
+              {chartDays.map((row) => (
+                <button
+                  key={row.day}
+                  className={`usage-bar${selectedDay === row.day ? ' is-active' : ''}`}
+                  title={`${row.day} · ${row.requests} 请求 · ${formatTokens(row.tokens)} tokens`}
+                  onClick={() => setSelectedDay(row.day)}
+                >
+                  <span
+                    className="usage-bar-fill"
+                    style={{
+                      height: `${Math.max(3, Math.round((row.tokens / maxDayTokens) * 100))}%`
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+            <div className="usage-chart-axis">
+              <span>{chartDays[0]?.label || ''}</span>
+              <span>{chartDays[chartDays.length - 1]?.label || ''}</span>
+            </div>
+          </div>
 
           {summary.byModel.length > 0 && (
             <>

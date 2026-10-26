@@ -73,6 +73,8 @@ import type {
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
+  ChatApprovalEvent,
+  ChatCompareResult,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -595,6 +597,14 @@ const api: BsubApi = {
 
   chat: (payload: ChatRequest) =>
     ipcRenderer.invoke('chat:send', payload) as Promise<Result<{ requestId: string }>>,
+  chatCompare: (payload: {
+    info: PageInfo;
+    lines: SubtitleLine[];
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    platformIds: string[];
+    includePage?: boolean;
+  }) =>
+    ipcRenderer.invoke('chat:compare', payload) as Promise<Result<ChatCompareResult[]>>,
   cancelChat: (requestId: string) =>
     ipcRenderer.invoke('chat:cancel', requestId) as Promise<void>,
   onChatDelta: (cb: (event: ChatDeltaEvent) => void) => on<ChatDeltaEvent>('chat:delta', cb),
@@ -602,6 +612,10 @@ const api: BsubApi = {
   onChatError: (cb: (event: ChatErrorEvent) => void) => on<ChatErrorEvent>('chat:error', cb),
   onChatStatus: (cb: (event: ChatStatusEvent) => void) => on<ChatStatusEvent>('chat:status', cb),
   onChatTool: (cb: (event: ChatToolEvent) => void) => on<ChatToolEvent>('chat:tool', cb),
+  onChatApproval: (cb: (event: ChatApprovalEvent) => void) =>
+    on<ChatApprovalEvent>('chat:approval', cb),
+  chatApprove: (approvalId: string, allow: boolean) =>
+    ipcRenderer.invoke('chat:approve', { approvalId, allow }) as Promise<Result<boolean>>,
   chatHistoryList: (limit?: number) =>
     ipcRenderer.invoke('chat:history-list', limit) as Promise<Result<ChatConversation[]>>,
   chatHistoryLatest: (videoKey: string) =>
@@ -636,6 +650,10 @@ const api: BsubApi = {
   chatHistoryProfile: (conversationId: number, profileId: string) =>
     ipcRenderer.invoke('chat:history-profile', { conversationId, profileId }) as Promise<
       Result<boolean>
+    >,
+  chatHistoryBranch: (conversationId: number, keep: number) =>
+    ipcRenderer.invoke('chat:history-branch', { conversationId, keep }) as Promise<
+      Result<ChatConversation | null>
     >,
   chatHistoryTruncate: (conversationId: number, keep: number) =>
     ipcRenderer.invoke('chat:history-truncate', { conversationId, keep }) as Promise<

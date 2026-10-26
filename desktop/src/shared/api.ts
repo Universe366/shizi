@@ -97,6 +97,8 @@ import type {
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
+  ChatApprovalEvent,
+  ChatCompareResult,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -447,6 +449,13 @@ export interface BsubApi {
   onAiReasoning(cb: (event: AiReasoningEvent) => void): () => void;
 
   chat(payload: ChatRequest): Promise<Result<{ requestId: string }>>;
+  chatCompare(payload: {
+    info: PageInfo;
+    lines: SubtitleLine[];
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    platformIds: string[];
+    includePage?: boolean;
+  }): Promise<Result<ChatCompareResult[]>>;
   cancelChat(requestId: string): Promise<void>;
   chatHistoryList(limit?: number): Promise<Result<ChatConversation[]>>;
   chatHistoryLatest(videoKey: string): Promise<Result<ChatConversation | null>>;
@@ -473,6 +482,10 @@ export interface BsubApi {
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;
   chatHistoryProfile(conversationId: number, profileId: string): Promise<Result<boolean>>;
+  chatHistoryBranch(
+    conversationId: number,
+    keep: number
+  ): Promise<Result<ChatConversation | null>>;
   chatHistoryTruncate(conversationId: number, keep: number): Promise<Result<boolean>>;
   chatHistoryDelete(id: number): Promise<Result<boolean>>;
   chatHistoryExport(id: number): Promise<Result<{ canceled: boolean; path?: string }>>;
@@ -481,6 +494,8 @@ export interface BsubApi {
   onChatError(cb: (event: ChatErrorEvent) => void): () => void;
   onChatStatus(cb: (event: ChatStatusEvent) => void): () => void;
   onChatTool(cb: (event: ChatToolEvent) => void): () => void;
+  onChatApproval(cb: (event: ChatApprovalEvent) => void): () => void;
+  chatApprove(approvalId: string, allow: boolean): Promise<Result<boolean>>;
 
   transcribe(requestId: string): Promise<Result<{ requestId: string }>>;
   cancelTranscribe(requestId: string): Promise<void>;

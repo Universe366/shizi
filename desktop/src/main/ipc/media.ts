@@ -20,6 +20,7 @@ import { batchUrls, parseVideoUrls } from '../urlbatch';
 import { summarize } from '../ai';
 import { readPageContext } from '../pageContext';
 import { chat } from '../chat';
+import { loadSettings } from '../settings';
 import { getPageInfo } from '../page';
 import { transcribe, transcribeFile } from '../asr';
 import { probeDuration } from '../media';
@@ -32,8 +33,7 @@ import type {
   AiDoneEvent,
   AiErrorEvent,
   AiReasoningEvent,
-  AiStatusEvent,
-  AsrDoneEvent,
+  AiStatusEvent,  AsrDoneEvent,
   AsrErrorEvent,
   AsrProgressEvent,
   BatchDoneEvent,
@@ -45,6 +45,7 @@ import type {
   ChatRequest,
   ChatStatusEvent,
   ChatToolEvent,
+  ChatCompareResult,
   OptimizeDoneEvent,
   OptimizeErrorEvent,
   OptimizeProgressEvent,
@@ -372,7 +373,100 @@ export const startUrlBatch = (
   return { ok: true, data: { requestId } };
 };
 
+interface PendingApproval {
+  requestId: string;
+  resolve: (allow: boolean) => void;
+  timer: NodeJS.Timeout;
+}
+
+const pendingApprovals = new Map<string, PendingApproval>();
+
+function settleRequestApprovals(requestId: string, allow = false): void {
+  for (const [approvalId, entry] of pendingApprovals) {
+    if (entry.requestId !== requestId) continue;
+    clearTimeout(entry.timer);
+    pendingApprovals.delete(approvalId);
+    entry.resolve(allow);
+  }
+}
+
 export function registerMediaIpc(ctx: IpcContext): void {
+  ipcMain.handle(
+    'chat:approve',
+    (
+      _event,
+      payload: { approvalId?: string; allow?: boolean }
+    ): { ok: true; data: boolean } => {
+      const entry = pendingApprovals.get(String(payload?.approvalId || ''));
+      if (!entry) return { ok: true, data: false };
+      clearTimeout(entry.timer);
+      pendingApprovals.delete(String(payload.approvalId));
+      entry.resolve(payload?.allow === true);
+      return { ok: true, data: true };
+    }
+  );
+
+  ipcMain.handle(
+    'chat:compare',
+    async (
+      _event,
+      payload: {
+        info: PageInfo;
+        lines: SubtitleLine[];
+        messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+        platformIds: string[];
+        includePage?: boolean;
+      }
+    ): Promise<{ ok: true; data: ChatCompareResult[] } | { ok: false; error: string }> => {
+      try {
+        const settings = loadSettings();
+        const ids = (payload.platformIds || []).slice(0, 3);
+        const platforms = ids
+          .map((id) => settings.ai.platforms.find((item) => item.id === id))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
+        if (!platforms.length) return { ok: false, error: '请选择至少一个模型平台' };
+        const page =
+          payload.includePage === false
+            ? null
+            : await readPageContext(ctx.tabs.activeWebContents());
+        const results = await Promise.all(
+          platforms.map(async (platform): Promise<ChatCompareResult> => {
+            try {
+              const result = await chat({
+                info: payload.info,
+                lines: Array.isArray(payload.lines) ? payload.lines : [],
+                messages: payload.messages as never,
+                platform,
+                page,
+                web: false,
+                mcpToolIds: [],
+                surface: 'main'
+              });
+              return {
+                platformId: platform.id,
+                platformName: platform.name,
+                model: result.model,
+                text: result.text,
+                error: ''
+              };
+            } catch (error) {
+              return {
+                platformId: platform.id,
+                platformName: platform.name,
+                model: platform.model,
+                text: '',
+                error: (error as Error)?.message || String(error)
+              };
+            }
+          })
+        );
+        return { ok: true, data: results };
+      } catch (error) {
+        return { ok: false, error: (error as Error)?.message || String(error) };
+      }
+    }
+  );
+
   ipcMain.handle(
     'ai:summarize',
     async (_event, payload: SummarizeRequest): Promise<Result<{ requestId: string }>> => {
@@ -503,7 +597,17 @@ export function registerMediaIpc(ctx: IpcContext): void {
             onStatus: (status) =>
               sendToSender('chat:status', { requestId, status } satisfies ChatStatusEvent),
             onTool: (event) =>
-              sendToSender('chat:tool', { requestId, ...event } satisfies ChatToolEvent)
+              sendToSender('chat:tool', { requestId, ...event } satisfies ChatToolEvent),
+            onApproval: ({ name, detail }) =>
+              new Promise<boolean>((resolve) => {
+                const approvalId = randomUUID();
+                const timer = setTimeout(() => {
+                  if (!pendingApprovals.delete(approvalId)) return;
+                  resolve(false);
+                }, 120000);
+                pendingApprovals.set(approvalId, { requestId, resolve, timer });
+                sendToSender('chat:approval', { requestId, approvalId, name, detail });
+              })
           });
           sendToSender('chat:done', {
             requestId,
@@ -521,6 +625,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
           console.warn('[chat] failed:', message);
           sendToSender('chat:error', { requestId, error: message } satisfies ChatErrorEvent);
         } finally {
+          settleRequestApprovals(requestId, false);
           chatControllers.delete(requestId);
         }
       })();

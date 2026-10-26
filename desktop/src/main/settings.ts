@@ -274,7 +274,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     enabled: false,
     servers: [],
     callTimeoutMs: 60000,
-    maxToolRounds: 6
+    maxToolRounds: 6,
+    approvalMode: 'write'
   },
   skills: {
     enabled: true,
@@ -1001,6 +1002,9 @@ function normalize(input: unknown): AppSettings {
       if (Number.isFinite(maxRounds)) {
         base.mcp.maxToolRounds = Math.min(12, Math.max(1, Math.round(maxRounds)));
       }
+      base.mcp.approvalMode = ['off', 'write', 'all'].includes(String(raw.mcp.approvalMode))
+        ? (raw.mcp.approvalMode as 'off' | 'write' | 'all')
+        : 'write';
       if (Array.isArray(raw.mcp.servers)) {
         base.mcp.servers = raw.mcp.servers
           .filter(

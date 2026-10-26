@@ -200,6 +200,15 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('MCP 审批模式保存', () => {
+    const settings = loadSettings();
+    settings.mcp.approvalMode = 'all';
+    saveSettings(settings);
+    expect(loadSettings().mcp.approvalMode).toBe('all');
+    settings.mcp.approvalMode = 'write';
+    saveSettings(settings);
+  });
+
   it('快捷取词设置保存', () => {
     const settings = loadSettings();
     settings.general.quickAsk = { enabled: true, accelerator: 'Control+Shift+X' };

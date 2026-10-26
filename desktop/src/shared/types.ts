@@ -1130,6 +1130,8 @@ export interface AppSettings {
     servers: McpServer[];
     callTimeoutMs: number;
     maxToolRounds: number;
+    /** 危险工具审批：off=不询问，write=写入类工具询问，all=全部询问 */
+    approvalMode: McpApprovalMode;
   };
   skills: {
     enabled: boolean;
@@ -1299,12 +1301,29 @@ export interface ChatToolEvent {
 }
 
 /** 主窗口里可勾选的 MCP 工具（已按服务器展开）。 */
+export type McpApprovalMode = 'off' | 'write' | 'all';
+
 export interface McpToolOption {
   id: string;
   serverId: string;
   serverName: string;
   name: string;
   description: string;
+}
+
+export interface ChatApprovalEvent {
+  requestId: string;
+  approvalId: string;
+  name: string;
+  detail: string;
+}
+
+export interface ChatCompareResult {
+  platformId: string;
+  platformName: string;
+  model: string;
+  text: string;
+  error: string;
 }
 
 export interface PageContextSummary {

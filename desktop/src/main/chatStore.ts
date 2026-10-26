@@ -292,8 +292,34 @@ export function appendMessage(
   };
 }
 
-export function setConversationProfile(id: number, profileId: string): boolean {
-  try {
+/** 从某条消息处分叉：复制前 keep 条到新会话，原会话保持不动。 */
+export function branchConversation(sourceId: number, keep: number): ChatConversation | null {
+  const source = listConversations(200).find((item) => item.id === Number(sourceId));
+  if (!source) return null;
+  const created = createConversation({
+    title: `${source.title} · 分支`,
+    videoKey: source.videoKey,
+    videoTitle: source.videoTitle,
+    profileId: source.profileId
+  });
+  const rows = listMessages(sourceId).slice(0, Math.max(1, Math.round(keep)));
+  for (const row of rows) {
+    appendMessage(created.id, {
+      role: row.role,
+      content: row.content,
+      reasoning: row.reasoning,
+      model: row.model,
+      images: row.images,
+      sources: row.sources,
+      webEngine: row.webEngine,
+      webNotice: row.webNotice,
+      tools: row.tools
+    });
+  }
+  return { ...created, messageCount: rows.length };
+}
+
+export function setConversationProfile(id: number, profileId: string): boolean {  try {
     const result = db()
       ?.prepare('UPDATE conversations SET profile_id = ?, updated_at = ? WHERE id = ?')
       .run(String(profileId || '').slice(0, 60), Date.now(), Number(id));
