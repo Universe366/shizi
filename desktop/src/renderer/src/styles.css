@@ -5646,6 +5646,203 @@ button:disabled {
   box-sizing: border-box;
 }
 
+/* ---------- 工作台：设置页同款左侧导航 ---------- */
+.studio-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 8px 16px 0;
+  box-sizing: border-box;
+}
+
+.studio-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  width: 100%;
+}
+
+.studio-split > .local-workbench {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+.studio-renders {
+  flex: 0 0 310px;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+  overflow: hidden;
+}
+
+.studio-renders .renders-panel {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  padding: 8px 0 0;
+}
+
+.studio-renders .renders-head {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.workbench-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  width: 100%;
+}
+
+.workbench-nav {
+  flex: 0 0 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  overflow-y: auto;
+}
+
+.workbench-nav-foot {
+  margin-top: auto;
+  padding: 8px 4px;
+}
+
+.workbench-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+}
+
+.workbench-file-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px 14px;
+  overflow-y: auto;
+}
+
+.workbench-content-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.workbench-content-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.workbench-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workbench-file-card,
+.workbench-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.workbench-toolbar {
+  justify-content: flex-start;
+}
+
+.workbench-lines {
+  min-height: 160px;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+}
+
+.workbench-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 42px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.workbench-home-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.workbench-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.workbench-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.workbench-card:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.workbench-card b {
+  font-size: 12.5px;
+}
+
+.workbench-card span {
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+
 .local-lines {
   flex: 1;
   min-height: 160px;

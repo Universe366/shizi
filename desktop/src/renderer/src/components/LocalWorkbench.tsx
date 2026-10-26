@@ -19,7 +19,6 @@ import { ResegmentDialog } from './ResegmentDialog';
 import { SynthesizeDialog } from './SynthesizeDialog';
 import { DubDialog } from './DubDialog';
 import { DownloadVideoDialog } from './DownloadVideoDialog';
-import { RendersPanel } from './RendersPanel';
 
 const LANGUAGES: Array<{ value: string; label: string }> = [
   { value: 'auto', label: '自动检测' },
@@ -492,7 +491,6 @@ export function LocalWorkbench() {
                     onDub={() => setDubOpen(true)}
                   />
                 </div>
-                <RendersPanel />
               </>
             )}
           </div>
