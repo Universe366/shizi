@@ -90,6 +90,8 @@ import type {
   UsageEvent,
   UsageSummary,
   TtsSettings,
+  ChatConversation,
+  StoredChatMessage,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -441,6 +443,30 @@ export interface BsubApi {
 
   chat(payload: ChatRequest): Promise<Result<{ requestId: string }>>;
   cancelChat(requestId: string): Promise<void>;
+  chatHistoryList(limit?: number): Promise<Result<ChatConversation[]>>;
+  chatHistoryLatest(videoKey: string): Promise<Result<ChatConversation | null>>;
+  chatHistoryCreate(input: {
+    title?: string;
+    videoKey?: string;
+    videoTitle?: string;
+  }): Promise<Result<ChatConversation>>;
+  chatHistoryMessages(id: number): Promise<Result<StoredChatMessage[]>>;
+  chatHistoryAppend(
+    conversationId: number,
+    message: {
+      role: 'user' | 'assistant';
+      content: string;
+      reasoning?: string;
+      model?: string;
+      images?: string[];
+      sources?: WebReference[];
+      webEngine?: string;
+      webNotice?: string;
+    }
+  ): Promise<Result<StoredChatMessage>>;
+  chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;
+  chatHistoryDelete(id: number): Promise<Result<boolean>>;
+  chatHistoryExport(id: number): Promise<Result<{ canceled: boolean; path?: string }>>;
   onChatDelta(cb: (event: ChatDeltaEvent) => void): () => void;
   onChatDone(cb: (event: ChatDoneEvent) => void): () => void;
   onChatError(cb: (event: ChatErrorEvent) => void): () => void;

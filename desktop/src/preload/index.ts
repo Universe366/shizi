@@ -66,6 +66,8 @@ import type {
   UsageEvent,
   UsageSummary,
   TtsSettings,
+  ChatConversation,
+  StoredChatMessage,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -594,6 +596,38 @@ const api: BsubApi = {
   onChatDone: (cb: (event: ChatDoneEvent) => void) => on<ChatDoneEvent>('chat:done', cb),
   onChatError: (cb: (event: ChatErrorEvent) => void) => on<ChatErrorEvent>('chat:error', cb),
   onChatStatus: (cb: (event: ChatStatusEvent) => void) => on<ChatStatusEvent>('chat:status', cb),
+  chatHistoryList: (limit?: number) =>
+    ipcRenderer.invoke('chat:history-list', limit) as Promise<Result<ChatConversation[]>>,
+  chatHistoryLatest: (videoKey: string) =>
+    ipcRenderer.invoke('chat:history-latest', videoKey) as Promise<Result<ChatConversation | null>>,
+  chatHistoryCreate: (input: { title?: string; videoKey?: string; videoTitle?: string }) =>
+    ipcRenderer.invoke('chat:history-create', input) as Promise<Result<ChatConversation>>,
+  chatHistoryMessages: (id: number) =>
+    ipcRenderer.invoke('chat:history-messages', id) as Promise<Result<StoredChatMessage[]>>,
+  chatHistoryAppend: (
+    conversationId: number,
+    message: {
+      role: 'user' | 'assistant';
+      content: string;
+      reasoning?: string;
+      model?: string;
+      images?: string[];
+      sources?: WebReference[];
+      webEngine?: string;
+      webNotice?: string;
+    }
+  ) =>
+    ipcRenderer.invoke('chat:history-append', { conversationId, message }) as Promise<
+      Result<StoredChatMessage>
+    >,
+  chatHistoryRename: (id: number, title: string) =>
+    ipcRenderer.invoke('chat:history-rename', { id, title }) as Promise<Result<boolean>>,
+  chatHistoryDelete: (id: number) =>
+    ipcRenderer.invoke('chat:history-delete', id) as Promise<Result<boolean>>,
+  chatHistoryExport: (id: number) =>
+    ipcRenderer.invoke('chat:history-export', id) as Promise<
+      Result<{ canceled: boolean; path?: string }>
+    >,
 
   transcribe: (requestId: string) =>
     ipcRenderer.invoke('asr:transcribe', { requestId }) as Promise<Result<{ requestId: string }>>,

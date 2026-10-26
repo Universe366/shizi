@@ -7,7 +7,8 @@ import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
 import { disposeDictation, initDictation } from './dictation';
-import { applyQuickAsk, disposeQuickAsk } from './quickAsk';
+import { disposeQuickAsk, applyQuickAsk } from './quickAsk';
+import { closeChatStore } from './chatStore';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
@@ -452,6 +453,7 @@ app.on('before-quit', () => {
   disposeMcpClients();
   disposeDictation();
   disposeQuickAsk();
+  closeChatStore();
   closeLibrary();
 });
 

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, ImagePlus, Loader2, Mic, Send, Square, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Plus, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
+  ChatConversation,
   ChatMessage,
   PageContextSummary,
   PageInfo,
   SkillItem,
+  StoredChatMessage,
   SubtitleLine,
   TabInfo,
   WebReference
@@ -99,6 +101,18 @@ function ReasoningBlock({ text, defaultOpen }: { text: string; defaultOpen: bool
   );
 }
 
+function fromStoredMessage(row: StoredChatMessage): ChatMessage {
+  return {
+    role: row.role,
+    content: row.content,
+    ...(row.reasoning ? { reasoning: row.reasoning } : {}),
+    ...(row.images.length ? { images: row.images } : {}),
+    ...(row.sources.length ? { sources: row.sources } : {}),
+    ...(row.webEngine ? { webEngine: row.webEngine } : {}),
+    ...(row.webNotice ? { webNotice: row.webNotice } : {})
+  };
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -137,6 +151,10 @@ export function ChatPanel({
   });
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [savedNotice, setSavedNotice] = useState('');
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const conversationRef = useRef<number | null>(null);
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderChunks = useRef<Blob[]>([]);
@@ -148,6 +166,53 @@ export function ChatPanel({
 
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
+
+  const refreshConversations = async (): Promise<void> => {
+    const response = await window.bsub.chatHistoryList(60);
+    if (response.ok) setConversations(response.data);
+  };
+
+  /** 第一条消息时创建会话；之后沿用同一个会话 id。 */
+  const ensureConversation = async (title: string): Promise<number | null> => {
+    if (conversationRef.current) return conversationRef.current;
+    const created = await window.bsub.chatHistoryCreate({
+      title: title.trim().slice(0, 40) || '新对话',
+      videoKey,
+      videoTitle: activeTab?.title || ''
+    });
+    if (!created.ok) return null;
+    conversationRef.current = created.data.id;
+    setConversationId(created.data.id);
+    void refreshConversations();
+    return created.data.id;
+  };
+
+  const openConversation = async (id: number): Promise<void> => {
+    const rows = await window.bsub.chatHistoryMessages(id);
+    if (!rows.ok) return;
+    conversationRef.current = id;
+    setConversationId(id);
+    setMessages(rows.data.map(fromStoredMessage));
+    setHistoryOpen(false);
+  };
+
+  const removeConversation = async (id: number): Promise<void> => {
+    const response = await window.bsub.chatHistoryDelete(id);
+    if (!response.ok) return;
+    if (conversationRef.current === id) {
+      conversationRef.current = null;
+      setConversationId(null);
+      setMessages([]);
+    }
+    void refreshConversations();
+  };
+
+  const exportConversation = async (id: number): Promise<void> => {
+    const response = await window.bsub.chatHistoryExport(id);
+    if (response.ok && !response.data.canceled) {
+      setSavedNotice(`已导出：${response.data.path || ''}`);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -191,7 +256,9 @@ export function ChatPanel({
       requestRef.current = '';
     }
     contextRef.current = null;
-    setMessages(loadChat(videoKey));
+    conversationRef.current = null;
+    setConversationId(null);
+    setMessages([]);
     setInput('');
     setStreamText('');
     setStatus('');
@@ -199,18 +266,68 @@ export function ChatPanel({
     setStreaming(false);
     setImages([]);
     setSavedNotice('');
+    let alive = true;
+    const load = async () => {
+      const list = await window.bsub.chatHistoryList(60);
+      if (alive && list.ok) setConversations(list.data);
+      if (!videoKey) return;
+      const latest = await window.bsub.chatHistoryLatest(videoKey);
+      if (!alive) return;
+      if (latest.ok && latest.data) {
+        const rows = await window.bsub.chatHistoryMessages(latest.data.id);
+        if (!alive) return;
+        conversationRef.current = latest.data.id;
+        setConversationId(latest.data.id);
+        if (rows.ok) setMessages(rows.data.map(fromStoredMessage));
+        const legacyKey = chatStorageKey(videoKey);
+        if (legacyKey) {
+          try {
+            localStorage.removeItem(legacyKey);
+          } catch {
+            // ignore
+          }
+        }
+        return;
+      }
+      // 旧版本只把对话存在 localStorage：首次进视频时迁移进数据库。
+      const legacy = loadChat(videoKey);
+      if (!legacy.length) return;
+      const created = await window.bsub.chatHistoryCreate({
+        title: legacy.find((message) => message.role === 'user')?.content.slice(0, 40) || '历史对话',
+        videoKey,
+        videoTitle: activeTab?.title || ''
+      });
+      if (!alive || !created.ok) return;
+      conversationRef.current = created.data.id;
+      setConversationId(created.data.id);
+      for (const message of legacy) {
+        await window.bsub.chatHistoryAppend(created.data.id, {
+          role: message.role,
+          content: message.content,
+          reasoning: message.reasoning,
+          images: message.images,
+          sources: message.sources,
+          webEngine: message.webEngine,
+          webNotice: message.webNotice
+        });
+      }
+      setMessages(legacy);
+      const legacyKey = chatStorageKey(videoKey);
+      if (legacyKey) {
+        try {
+          localStorage.removeItem(legacyKey);
+        } catch {
+          // ignore
+        }
+      }
+      const refreshed = await window.bsub.chatHistoryList(60);
+      if (alive && refreshed.ok) setConversations(refreshed.data);
+    };
+    void load();
+    return () => {
+      alive = false;
+    };
   }, [activeTab?.id, videoKey]);
-
-  useEffect(() => {
-    const key = chatStorageKey(videoKey);
-    if (!key) return;
-    try {
-      if (messages.length) localStorage.setItem(key, JSON.stringify(messages.slice(-60)));
-      else localStorage.removeItem(key);
-    } catch {
-      // 存储满了也不影响对话
-    }
-  }, [messages, videoKey]);
 
   useEffect(() => {
     let alive = true;
@@ -250,6 +367,19 @@ export function ChatPanel({
           ...(event.webError ? { webNotice: event.webError } : {})
         }
       ]);
+      const conversation = conversationRef.current;
+      if (conversation) {
+        void window.bsub.chatHistoryAppend(conversation, {
+          role: 'assistant',
+          content: event.text,
+          reasoning: event.reasoning,
+          model: event.model,
+          sources,
+          webEngine: event.webEngine,
+          webNotice: event.webError
+        });
+        void refreshConversations();
+      }
       setStreaming(false);
       setStreamText('');
       setStatus('');
@@ -423,8 +553,20 @@ export function ChatPanel({
       ...messages,
       { role: 'user', content, ...(images.length ? { images } : {}) }
     ];
+    const attachedImages = images;
     setMessages(nextMessages);
     setImages([]);
+
+    void (async () => {
+      const conversation = await ensureConversation(content || '图片提问');
+      if (!conversation) return;
+      await window.bsub.chatHistoryAppend(conversation, {
+        role: 'user',
+        content,
+        images: attachedImages
+      });
+      void refreshConversations();
+    })();
 
     try {
       const context = await ensureContext();
@@ -527,6 +669,8 @@ export function ChatPanel({
         // ignore
       }
     }
+    conversationRef.current = null;
+    setConversationId(null);
     setMessages([]);
     setImages([]);
     setStreamText('');
@@ -608,11 +752,19 @@ export function ChatPanel({
           )}
           <button
             className="mini-btn"
-            disabled={!messages.length && !streaming}
-            onClick={clear}
-            title="清空对话"
+            disabled={streaming}
+            onClick={() => setHistoryOpen((value) => !value)}
+            title="历史对话"
           >
-            <Trash2 size={12} /> 清空
+            <History size={12} /> 历史
+          </button>
+          <button
+            className="mini-btn"
+            disabled={(!messages.length && !streaming) || streaming}
+            onClick={clear}
+            title="开始新对话（旧对话保留在历史里）"
+          >
+            <Plus size={12} /> 新对话
           </button>
           {streaming && (
             <button className="mini-btn" onClick={stop} title="停止回答">
@@ -621,6 +773,56 @@ export function ChatPanel({
           )}
         </div>
       </div>
+
+      {historyOpen && (
+        <div className="chat-history-panel">
+          <div className="chat-history-head">
+            <span>历史对话（{conversations.length}）</span>
+            <button className="mini-btn" onClick={() => void refreshConversations()}>
+              刷新
+            </button>
+          </div>
+          {!conversations.length && (
+            <div className="settings-hint">还没有历史对话，发第一句话就会保存。</div>
+          )}
+          {conversations.map((conversation) => (
+            <div
+              key={conversation.id}
+              className={`chat-history-row${conversationId === conversation.id ? ' is-active' : ''}`}
+            >
+              <button
+                className="chat-history-main"
+                onClick={() => void openConversation(conversation.id)}
+              >
+                <span className="chat-history-title">{conversation.title}</span>
+                <span className="chat-history-meta">
+                  {[
+                    conversation.videoTitle,
+                    `${conversation.messageCount} 条`,
+                    new Date(conversation.updatedAt).toLocaleString('zh-CN')
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </button>
+              <button
+                className="chat-action"
+                title="导出 Markdown"
+                onClick={() => void exportConversation(conversation.id)}
+              >
+                <Download size={11} />
+              </button>
+              <button
+                className="chat-action"
+                title="删除对话"
+                onClick={() => void removeConversation(conversation.id)}
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!activeTab && <div className="panel-empty">打开一个网页或视频后开始对话</div>}
 

@@ -19,6 +19,7 @@ import { registerVideoIpc } from './ipc/video';
 import { registerUsageIpc } from './ipc/usage';
 import { registerOcrIpc } from './ipc/ocr';
 import { registerTtsIpc } from './ipc/tts';
+import { registerChatHistoryIpc } from './ipc/chatHistory';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -63,6 +64,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerOcrIpc();
 
   registerTtsIpc();
+
+  registerChatHistoryIpc();
 
   registerStartIpc();
 

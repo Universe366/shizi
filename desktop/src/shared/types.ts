@@ -620,6 +620,30 @@ export interface ModelPrice {
   output: number;
 }
 
+export interface ChatConversation {
+  id: number;
+  title: string;
+  videoKey: string;
+  videoTitle: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+}
+
+export interface StoredChatMessage {
+  id: number;
+  conversationId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  reasoning: string;
+  model: string;
+  images: string[];
+  sources: WebReference[];
+  webEngine: string;
+  webNotice: string;
+  createdAt: number;
+}
+
 export type TtsEngine = 'edge' | 'sapi' | 'openai';
 
 export interface TtsSettings {
