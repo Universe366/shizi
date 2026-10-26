@@ -767,7 +767,8 @@ export function ChatPanel({
         messages: nextMessages,
         skillIds: skillId ? [skillId] : [],
         profileId: profileId || undefined,
-        mcpToolIds: toolSelection ?? undefined,
+        // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
+        mcpToolIds: profileId ? undefined : toolSelection ?? undefined,
         includePage: forcePage ? true : includePage,
         web: webSearch
       });
@@ -1049,6 +1050,7 @@ export function ChatPanel({
                   <span className="chat-history-meta">
                     {[
                       conversation.videoTitle,
+                      profiles.find((profile) => profile.id === conversation.profileId)?.name,
                       `${conversation.messageCount} 条`,
                       new Date(conversation.updatedAt).toLocaleString('zh-CN')
                     ]
@@ -1442,6 +1444,11 @@ export function ChatPanel({
           </div>
           {toolPanelOpen && (
             <div className="chat-tool-panel">
+              {profileId && (
+                <div className="settings-hint">
+                  当前使用助手档案，工具由档案的「MCP 工具」设置决定；想手动勾选请先切回「无助手档案」。
+                </div>
+              )}
               <div className="chat-tool-panel-head">
                 <span>
                   本轮可用工具（{toolSelection === null ? '全部' : toolSelection.length}）

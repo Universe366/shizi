@@ -43,17 +43,21 @@ if (-not $engine) { throw '系统没有可用的 OCR 语言包' }
 $target = $Image
 if ($Scale -gt 1) {
   $src = [System.Drawing.Image]::FromFile($Image)
-  $width = [int]($src.Width * $Scale)
-  $height = [int]($src.Height * $Scale)
-  $bitmap = New-Object System.Drawing.Bitmap($width, $height)
-  $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-  $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $graphics.DrawImage($src, 0, 0, $width, $height)
-  $graphics.Dispose()
-  $src.Dispose()
-  $target = Join-Path ([IO.Path]::GetTempPath()) ('shizi-ocr-src-' + [guid]::NewGuid().ToString('N') + '.png')
-  $bitmap.Save($target, [System.Drawing.Imaging.ImageFormat]::Png)
-  $bitmap.Dispose()
+  if ($src.Width -lt 1600 -and $src.Height -lt 1600) {
+    $width = [int]($src.Width * $Scale)
+    $height = [int]($src.Height * $Scale)
+    $bitmap = New-Object System.Drawing.Bitmap($width, $height)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $graphics.DrawImage($src, 0, 0, $width, $height)
+    $graphics.Dispose()
+    $src.Dispose()
+    $target = Join-Path ([IO.Path]::GetTempPath()) ('shizi-ocr-src-' + [guid]::NewGuid().ToString('N') + '.png')
+    $bitmap.Save($target, [System.Drawing.Imaging.ImageFormat]::Png)
+    $bitmap.Dispose()
+  } else {
+    $src.Dispose()
+  }
 }
 
 $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($target)) ([Windows.Storage.StorageFile])
