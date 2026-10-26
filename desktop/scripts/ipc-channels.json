@@ -43,6 +43,7 @@
   "chat:history-list",
   "chat:history-messages",
   "chat:history-rename",
+  "chat:history-truncate",
   "chat:send",
   "clipboard:read",
   "clipboard:write",

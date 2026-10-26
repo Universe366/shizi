@@ -255,8 +255,30 @@ export function appendMessage(
   };
 }
 
-export function renameConversation(id: number, title: string): boolean {
-  const next = String(title || '').trim().slice(0, 80);
+/** 只保留前 keep 条消息（重新生成/编辑消息时截断后续内容）。 */
+export function truncateMessages(conversationId: number, keep: number): boolean {
+  try {
+    const store = db();
+    if (!store) return false;
+    const rows = store
+      .prepare(
+        'SELECT id FROM messages WHERE conversation_id = ? ORDER BY created_at ASC, id ASC'
+      )
+      .all(Number(conversationId)) as Array<{ id: number }>;
+    const remove = rows.slice(Math.max(0, Math.round(keep)));
+    if (!remove.length) return true;
+    const statement = store.prepare('DELETE FROM messages WHERE id = ?');
+    for (const row of remove) statement.run(Number(row.id));
+    store
+      .prepare('UPDATE conversations SET updated_at = ? WHERE id = ?')
+      .run(Date.now(), Number(conversationId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function renameConversation(id: number, title: string): boolean {  const next = String(title || '').trim().slice(0, 80);
   if (!next) return false;
   try {
     const result = db()

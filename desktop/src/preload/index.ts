@@ -622,6 +622,10 @@ const api: BsubApi = {
     >,
   chatHistoryRename: (id: number, title: string) =>
     ipcRenderer.invoke('chat:history-rename', { id, title }) as Promise<Result<boolean>>,
+  chatHistoryTruncate: (conversationId: number, keep: number) =>
+    ipcRenderer.invoke('chat:history-truncate', { conversationId, keep }) as Promise<
+      Result<boolean>
+    >,
   chatHistoryDelete: (id: number) =>
     ipcRenderer.invoke('chat:history-delete', id) as Promise<Result<boolean>>,
   chatHistoryExport: (id: number) =>

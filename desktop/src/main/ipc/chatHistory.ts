@@ -15,7 +15,8 @@ import {
   latestConversationForVideo,
   listConversations,
   listMessages,
-  renameConversation
+  renameConversation,
+  truncateMessages
 } from '../chatStore';
 
 function ok<T>(data: T): Result<T> {
@@ -95,6 +96,19 @@ export function registerChatHistoryIpc(): void {
     (_event, payload: { id: number; title: string }) => {
       try {
         return ok(renameConversation(Number(payload?.id), String(payload?.title || '')));
+      } catch (error) {
+        return failure<boolean>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'chat:history-truncate',
+    (_event, payload: { conversationId: number; keep: number }) => {
+      try {
+        return ok(
+          truncateMessages(Number(payload?.conversationId), Number(payload?.keep) || 0)
+        );
       } catch (error) {
         return failure<boolean>(error);
       }

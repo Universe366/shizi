@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Plus, Send, Square, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
   ChatConversation,
   ChatMessage,
@@ -539,7 +539,7 @@ export function ChatPanel({
     return context;
   };
 
-  const send = async (preset?: string, forcePage = false) => {
+  const send = async (preset?: string, forcePage = false, base?: ChatMessage[]) => {
     const content = String(preset ?? input).trim();
     if ((!content && !images.length) || streaming) return;
 
@@ -550,7 +550,7 @@ export function ChatPanel({
     setStatus(isVideoPage ? '读取字幕…' : '读取页面…');
 
     const nextMessages: ChatMessage[] = [
-      ...messages,
+      ...(base ?? messages),
       { role: 'user', content, ...(images.length ? { images } : {}) }
     ];
     const attachedImages = images;
@@ -593,6 +593,37 @@ export function ChatPanel({
 
   const stop = () => {
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
+  };
+
+  /** 重新生成最后一条回答：截断数据库与界面，再把同一个问题发一次。 */
+  const regenerate = async () => {
+    if (streaming) return;
+    let assistantIndex = -1;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === 'assistant') {
+        assistantIndex = index;
+        break;
+      }
+    }
+    if (assistantIndex < 0) return;
+    const base = messages.slice(0, assistantIndex);
+    const lastUser = [...base].reverse().find((message) => message.role === 'user');
+    if (!lastUser) return;
+    const conversation = conversationRef.current;
+    if (conversation) await window.bsub.chatHistoryTruncate(conversation, base.length);
+    setMessages(base);
+    await send(lastUser.content, false, base);
+  };
+
+  /** 编辑某条用户消息：先把这条之后的内容从界面和数据库里删掉。 */
+  const editMessage = async (index: number) => {
+    if (streaming) return;
+    const target = messages[index];
+    if (!target || target.role !== 'user') return;
+    const conversation = conversationRef.current;
+    if (conversation) await window.bsub.chatHistoryTruncate(conversation, index);
+    setMessages(messages.slice(0, index));
+    setInput(target.content);
   };
 
   const summarizePage = () => {
@@ -906,6 +937,15 @@ export function ChatPanel({
                       >
                         <Copy size={11} />
                       </button>
+                      {index === messages.length - 1 && (
+                        <button
+                          className="chat-action"
+                          title="重新生成"
+                          onClick={() => void regenerate()}
+                        >
+                          <RotateCcw size={11} />
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (
@@ -923,6 +963,15 @@ export function ChatPanel({
                       </div>
                     ) : null}
                     <div>{message.content}</div>
+                    <div className="chat-msg-actions">
+                      <button
+                        className="chat-action"
+                        title="编辑这条消息并重发"
+                        onClick={() => void editMessage(index)}
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

@@ -465,6 +465,7 @@ export interface BsubApi {
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;
+  chatHistoryTruncate(conversationId: number, keep: number): Promise<Result<boolean>>;
   chatHistoryDelete(id: number): Promise<Result<boolean>>;
   chatHistoryExport(id: number): Promise<Result<{ canceled: boolean; path?: string }>>;
   onChatDelta(cb: (event: ChatDeltaEvent) => void): () => void;

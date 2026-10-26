@@ -18,7 +18,8 @@ import {
   latestConversationForVideo,
   listConversations,
   listMessages,
-  renameConversation
+  renameConversation,
+  truncateMessages
 } from './chatStore';
 
 describe('对话持久化', () => {
@@ -72,6 +73,19 @@ describe('对话持久化', () => {
     expect(deleteConversation(conversation.id)).toBe(true);
     expect(listMessages(conversation.id)).toEqual([]);
     expect(latestConversationForVideo('BV2')).toBeNull();
+  });
+
+  it('按条数截断消息（重新生成/编辑）', () => {
+    const conversation = createConversation({ title: '截断', videoKey: 'BV4' });
+    appendMessage(conversation.id, { role: 'user', content: 'a' });
+    appendMessage(conversation.id, { role: 'assistant', content: 'b' });
+    appendMessage(conversation.id, { role: 'user', content: 'c' });
+    truncateMessages(conversation.id, 1);
+    const rows = listMessages(conversation.id);
+    expect(rows.length).toBe(1);
+    expect(rows[0].content).toBe('a');
+    truncateMessages(conversation.id, 5);
+    expect(listMessages(conversation.id).length).toBe(1);
   });
 
   it('导出 Markdown 带标题、对话与来源', () => {
