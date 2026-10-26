@@ -2,6 +2,7 @@ import { Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AppSettings, AsrDownloadProgress, AsrLocalStatus, AsrPlatform } from '../../../../shared/types';
 import { ModelChips, SettingsSection } from './SettingsSection';
+import { formatElapsed, useElapsedSeconds } from '../../lib/useElapsed';
 
 interface AsrSectionProps {
   draft: AppSettings;
@@ -61,6 +62,8 @@ export function AsrSection({
     'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
   >('cpu');
   const [gpuNames, setGpuNames] = useState<string[]>([]);
+  const [localNotice, setLocalNotice] = useState('');
+  const downloadElapsed = useElapsedSeconds(Boolean(download));
 
   const refreshStatus = () => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -323,7 +326,7 @@ export function AsrSection({
         )}
         {download && (
           <div className="settings-hint">
-            {download.message}
+            {download.message} · 已用 {formatElapsed(downloadElapsed)}
             {download.total > 0
               ? ` · ${Math.round(download.received / 1024 / 1024)} / ${Math.round(
                   download.total / 1024 / 1024
@@ -366,6 +369,7 @@ export function AsrSection({
             }
           />
         </div>
+        {localNotice && <div className="settings-hint">{localNotice}</div>}
         {localStatus && Object.keys(localStatus.models).length > 0 && (
           <div className="settings-group">
             <div className="settings-label">已下载模型（直接选用，不用找路径）</div>
@@ -374,8 +378,15 @@ export function AsrSection({
                 <span className="settings-hint" style={{ flex: 1 }}>
                   {MODEL_LABELS[id] || id}
                 </span>
-                <button className="mini-btn" onClick={() => updateAsrPlatform({ localModel: modelPath })}>
-                  使用
+                <button
+                  className="mini-btn"
+                  disabled={activeAsr.localModel === modelPath}
+                  onClick={() => {
+                    updateAsrPlatform({ localModel: modelPath });
+                    setLocalNotice(`已选用 ${MODEL_LABELS[id] || id}（记得保存设置）`);
+                  }}
+                >
+                  {activeAsr.localModel === modelPath ? '当前' : '使用'}
                 </button>
                 <button
                   className="mini-btn"
@@ -403,8 +414,15 @@ export function AsrSection({
                 <span className="settings-hint" style={{ flex: 1 }}>
                   {BINARY_LABELS[variant] || variant}
                 </span>
-                <button className="mini-btn" onClick={() => updateAsrPlatform({ localExe: exePath })}>
-                  使用
+                <button
+                  className="mini-btn"
+                  disabled={activeAsr.localExe === exePath}
+                  onClick={() => {
+                    updateAsrPlatform({ localExe: exePath });
+                    setLocalNotice(`已选用 ${BINARY_LABELS[variant] || variant}（记得保存设置）`);
+                  }}
+                >
+                  {activeAsr.localExe === exePath ? '当前' : '使用'}
                 </button>
                 <button
                   className="mini-btn"

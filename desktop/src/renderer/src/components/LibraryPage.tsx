@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Clapperboard, Library, X } from 'lucide-react';
 import { LibraryPanel } from './LibraryPanel';
-import { RendersPanel } from './RendersPanel';
 import { LocalWorkbench } from './LocalWorkbench';
 
 /** 工作台：资料库 + 成片与本地处理。 */
@@ -60,7 +59,6 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
       ) : (
         <div className="studio-panel">
           <LocalWorkbench />
-          <RendersPanel />
         </div>
       )}
     </div>
