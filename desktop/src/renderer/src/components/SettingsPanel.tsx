@@ -22,6 +22,7 @@ import { ExportDefaultsSection } from './settings/ExportDefaultsSection';
 import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
 import { TaskModelSection } from './settings/TaskModelSection';
+import { TtsSection } from './settings/TtsSection';
 import { UsageSection } from './settings/UsageSection';
 import { UpdateSection } from './settings/UpdateSection';
 import { Loader2, Save, Search } from 'lucide-react';
@@ -1160,6 +1161,13 @@ export function SettingsPanel({
         setEditingAsrId={setEditingAsrId}
         platformStatus={platformStatusNode}
       />
+      )}
+
+      {show('ai') && (
+        <TtsSection
+          value={draft.tts}
+          onChange={(patch) => setDraft({ ...draft, tts: { ...draft.tts, ...patch } })}
+        />
       )}
 
       {show('ai') && (

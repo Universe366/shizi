@@ -89,6 +89,7 @@ import type {
   PageContextSummary,
   UsageEvent,
   UsageSummary,
+  TtsSettings,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -308,6 +309,11 @@ export interface BsubApi {
     lang?: string;
   }): Promise<Result<{ text: string; ms: number }>>;
   ocrStatus(): Promise<Result<{ available: boolean }>>;
+  /** 文字朗读：主进程合成音频，返回 dataURL。 */
+  ttsSpeak(payload: { text: string; override?: TtsSettings }): Promise<
+    Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
+  >;
+  ttsVoices(): Promise<Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>>;
   finishWizard(): Promise<Result<SettingsSnapshot>>;
   setWizardVisible(visible: boolean): Promise<Result<SettingsSnapshot>>;
   setSidebarWidth(width: number): Promise<Result<SettingsSnapshot>>;

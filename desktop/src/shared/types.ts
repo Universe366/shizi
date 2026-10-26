@@ -620,6 +620,32 @@ export interface ModelPrice {
   output: number;
 }
 
+export type TtsEngine = 'edge' | 'sapi' | 'openai';
+
+export interface TtsSettings {
+  enabled: boolean;
+  engine: TtsEngine;
+  /** edge: zh-CN-XiaoxiaoNeural；sapi: 系统音色名；openai: alloy 等 */
+  voice: string;
+  /** 0.5–2.0 */
+  rate: number;
+  /** 0–100 */
+  volume: number;
+  /** 自动朗读哪些内容 */
+  autoRead: {
+    chat: boolean;
+    summary: boolean;
+    note: boolean;
+  };
+  /** OpenAI 兼容 /audio/speech */
+  openai: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    voice: string;
+  };
+}
+
 export interface McpServer {
   id: string;
   name: string;
@@ -1003,6 +1029,7 @@ export interface AppSettings {
     /** 用户覆盖的模型价格（每 100 万 token，人民币） */
     prices: Record<string, ModelPrice>;
   };
+  tts: TtsSettings;
   asr: AsrSettings;
   prompt: {
     activeId: string;

@@ -65,6 +65,7 @@ import type {
   UpdateStatus,
   UsageEvent,
   UsageSummary,
+  TtsSettings,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -468,6 +469,14 @@ const api: BsubApi = {
     >,
   ocrStatus: () =>
     ipcRenderer.invoke('ocr:status') as Promise<Result<{ available: boolean }>>,
+  ttsSpeak: (payload: { text: string; override?: TtsSettings }) =>
+    ipcRenderer.invoke('tts:speak', payload) as Promise<
+      Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
+    >,
+  ttsVoices: () =>
+    ipcRenderer.invoke('tts:voices') as Promise<
+      Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>
+    >,
   finishWizard: () =>
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>

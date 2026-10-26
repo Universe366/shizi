@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ImagePlus, Loader2, Send, Square, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Copy, ImagePlus, Loader2, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
   ChatMessage,
   PageContextSummary,
@@ -12,6 +12,7 @@ import type {
 import { Markdown } from './Markdown';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult } from '../lib/asrStore';
+import { speakText } from '../lib/speech';
 
 const SUGGESTIONS = [
   '这个视频的核心观点是什么？',
@@ -632,6 +633,22 @@ export function ChatPanel({
                         {message.webNotice}
                       </div>
                     )}
+                    <div className="chat-msg-actions">
+                      <button
+                        className="chat-action"
+                        title="朗读回答"
+                        onClick={() => void speakText(message.content)}
+                      >
+                        <Volume2 size={11} />
+                      </button>
+                      <button
+                        className="chat-action"
+                        title="复制回答"
+                        onClick={() => void window.bsub.writeClipboard(message.content)}
+                      >
+                        <Copy size={11} />
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>

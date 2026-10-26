@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, Loader2, Sparkles, Square } from 'lucide-react';
+import { AlertTriangle, Copy, Loader2, Sparkles, Square, Volume2 } from 'lucide-react';
 import type {
   Chapter,
   PageInfo,
@@ -14,6 +14,7 @@ import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
+import { speakText } from '../lib/speech';
 
 function newRequestId(): string {
   try {
@@ -469,6 +470,15 @@ export function SummaryPanel({
               }}
             >
               <Copy size={12} /> {copied ? '已复制' : ''}
+            </button>
+          )}
+          {summary && (
+            <button
+              className="mini-btn"
+              title="朗读总结"
+              onClick={() => void speakText(summary)}
+            >
+              <Volume2 size={12} />
             </button>
           )}
           {summary && <ExportMenu info={info} track={track} lines={lines} summary={summary} />}

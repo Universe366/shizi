@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Markdown } from './components/Markdown';
+import { speakText, stopSpeech } from './lib/speech';
 import { parseReminder, formatReminder } from '../../shared/reminder';
 import type {
   ChatMessage,
@@ -462,15 +463,7 @@ export function PetWindow() {
       ]);
       setEmotion('happy');
       if (speak && finalText) {
-        try {
-          const utterance = new SpeechSynthesisUtterance(finalText.slice(0, 400));
-          utterance.lang = 'zh-CN';
-          utterance.rate = speechRate;
-          speechSynthesis.cancel();
-          speechSynthesis.speak(utterance);
-        } catch {
-          // 忽略
-        }
+        void speakText(finalText);
       }
       if (happyTimer.current) window.clearTimeout(happyTimer.current);
       happyTimer.current = window.setTimeout(() => setEmotion('idle'), 2500);
@@ -580,7 +573,7 @@ export function PetWindow() {
     const next = !speak;
     setSpeak(next);
     localStorage.setItem('pet-speak', next ? '1' : '0');
-    if (!next) speechSynthesis.cancel();
+    if (!next) stopSpeech();
   };
 
   /** 打开气泡并把它带到前台状态：关掉菜单/挂件/历史，焦点给输入框。 */

@@ -110,4 +110,26 @@ describe('任务槽位 / 用量设置', () => {
     settings.usage.enabled = true;
     saveSettings(settings);
   });
+
+  it('朗读设置与 TTS Key 持久化，导出时清空', () => {
+    const settings = loadSettings();
+    settings.tts.engine = 'openai';
+    settings.tts.rate = 1.5;
+    settings.tts.autoRead.chat = true;
+    settings.tts.openai.apiKey = 'tts-key';
+    saveSettings(settings);
+
+    const loaded = loadSettings();
+    expect(loaded.tts.engine).toBe('openai');
+    expect(loaded.tts.rate).toBe(1.5);
+    expect(loaded.tts.autoRead.chat).toBe(true);
+    expect(loaded.tts.openai.apiKey).toBe('tts-key');
+    expect(stripSecrets(loaded).tts.openai.apiKey).toBe('');
+
+    settings.tts.engine = 'edge';
+    settings.tts.rate = 1;
+    settings.tts.autoRead.chat = false;
+    settings.tts.openai.apiKey = '';
+    saveSettings(settings);
+  });
 });

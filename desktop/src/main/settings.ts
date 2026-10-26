@@ -218,6 +218,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     enabled: true,
     prices: {}
   },
+  tts: {
+    enabled: true,
+    engine: 'edge',
+    voice: 'zh-CN-XiaoxiaoNeural',
+    rate: 1,
+    volume: 100,
+    autoRead: { chat: false, summary: false, note: false },
+    openai: {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: '',
+      model: 'gpt-4o-mini-tts',
+      voice: 'alloy'
+    }
+  },
   asr: {
     activeId: 'siliconflow',
     platforms: ASR_PRESETS.map((platform) => ({
@@ -725,6 +739,32 @@ function normalize(input: unknown): AppSettings {
       }
     }
 
+    if (raw.tts && typeof raw.tts === 'object') {
+      base.tts.enabled = raw.tts.enabled !== false;
+      const engines = ['edge', 'sapi', 'openai'];
+      base.tts.engine = engines.includes(raw.tts.engine as string)
+        ? (raw.tts.engine as (typeof engines)[number] as AppSettings['tts']['engine'])
+        : 'edge';
+      base.tts.voice = String(raw.tts.voice || base.tts.voice).slice(0, 120);
+      const rate = Number(raw.tts.rate);
+      if (Number.isFinite(rate)) base.tts.rate = Math.min(2, Math.max(0.5, Math.round(rate * 10) / 10));
+      const volume = Number(raw.tts.volume);
+      if (Number.isFinite(volume)) base.tts.volume = Math.min(100, Math.max(0, Math.round(volume)));
+      const auto = raw.tts.autoRead;
+      if (auto && typeof auto === 'object') {
+        base.tts.autoRead.chat = auto.chat === true;
+        base.tts.autoRead.summary = auto.summary === true;
+        base.tts.autoRead.note = auto.note === true;
+      }
+      const openai = raw.tts.openai;
+      if (openai && typeof openai === 'object') {
+        base.tts.openai.baseUrl = String(openai.baseUrl || '').trim().slice(0, 300);
+        base.tts.openai.apiKey = String(openai.apiKey || '');
+        base.tts.openai.model = String(openai.model || '').trim().slice(0, 120);
+        base.tts.openai.voice = String(openai.voice || '').trim().slice(0, 60);
+      }
+    }
+
     if (raw.asr && typeof raw.asr === 'object') {
       // 旧默认值（120s / 1 并发 / 20MB / 120s 超时）是历史遗留：
       // 与插件对齐后应迁移到 600s / 4 并发 / 50MB / 180s。
@@ -1117,6 +1157,7 @@ function openSecrets(settings: AppSettings): AppSettings {
   for (const platform of settings.ai.platforms) {
     platform.extraKeys = (platform.extraKeys || []).map((key) => openSecret(key));
   }
+  settings.tts.openai.apiKey = openSecret(settings.tts.openai.apiKey);
   return settings;
 }
 
@@ -1129,6 +1170,7 @@ function sealSecrets(settings: AppSettings): AppSettings {
   for (const platform of clone.ai.platforms) {
     platform.extraKeys = (platform.extraKeys || []).map((key) => sealSecret(key));
   }
+  clone.tts.openai.apiKey = sealSecret(clone.tts.openai.apiKey);
   return clone;
 }
 
@@ -1140,6 +1182,7 @@ export function stripSecrets(settings: AppSettings): AppSettings {
   });
   for (const platform of clone.ai.platforms) platform.extraKeys = [];
   clone.bridge.token = '';
+  clone.tts.openai.apiKey = '';
   return clone;
 }
 
@@ -1222,6 +1265,7 @@ function maskSettings(settings: AppSettings): AppSettings {
   }
   for (const platform of clone.asr.platforms) platform.apiKey = maskSecret(platform.apiKey);
   for (const platform of clone.search.platforms) platform.apiKey = maskSecret(platform.apiKey);
+  clone.tts.openai.apiKey = maskSecret(clone.tts.openai.apiKey);
   return clone;
 }
 
@@ -1258,6 +1302,10 @@ function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
       current.search.platforms.find((item) => item.id === platform.id)?.apiKey || ''
     );
   }
+  merged.tts.openai.apiKey = resolveSecret(
+    merged.tts.openai.apiKey,
+    current.tts.openai.apiKey || ''
+  );
   return merged;
 }
 
