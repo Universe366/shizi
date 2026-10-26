@@ -2026,6 +2026,113 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* 输入框工具栏：+ 面板、工具勾选与工具调用卡片 */
+.chat-composer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.chat-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chat-tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.chat-tool-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--faint);
+  margin-bottom: 2px;
+}
+
+.chat-tool-panel-head span {
+  flex: 1;
+}
+
+.chat-tool-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text);
+  padding: 2px 3px;
+  border-radius: 5px;
+}
+
+.chat-tool-option:hover {
+  background: var(--surface-2);
+}
+
+.chat-tool-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 6px 0 2px 30px;
+}
+
+.chat-tool-cards-title {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.chat-tool-card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: var(--surface-2);
+}
+
+.chat-tool-card.is-error {
+  border-left-color: #c2483d;
+}
+
+.chat-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+}
+
+.chat-tool-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-tool-state {
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.chat-tool-detail {
+  margin-top: 3px;
+  font-size: 9.5px;
+  color: var(--faint);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 64px;
+  overflow: hidden;
+}
+
 .chat-thinking {
   display: inline-flex;
   gap: 6px;

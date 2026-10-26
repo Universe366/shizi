@@ -1241,6 +1241,8 @@ export interface ChatRequest {
   lines: SubtitleLine[];
   messages: ChatMessage[];
   skillIds?: string[];
+  /** 本次对话允许使用的 MCP 工具（`serverId__toolName`）；不传 = 全部，空数组 = 不用 MCP */
+  mcpToolIds?: string[];
   /** 是否把当前网页正文/选中内容带给模型（默认 true） */
   includePage?: boolean;
   /** 本次对话强制联网检索（覆盖设置里的自动检索策略） */
@@ -1249,6 +1251,25 @@ export interface ChatRequest {
   context?: string;
   /** 调用来源：main = 主窗口对话；pet = 桌面即时助手（用独立系统提示词） */
   surface?: 'main' | 'pet';
+}
+
+export interface ChatToolEvent {
+  requestId: string;
+  phase: 'start' | 'done';
+  /** 展示名（已去掉 serverId 前缀） */
+  name: string;
+  /** 启动时是参数摘要，完成时是结果摘要 */
+  detail?: string;
+  ok?: boolean;
+}
+
+/** 主窗口里可勾选的 MCP 工具（已按服务器展开）。 */
+export interface McpToolOption {
+  id: string;
+  serverId: string;
+  serverName: string;
+  name: string;
+  description: string;
 }
 
 export interface PageContextSummary {

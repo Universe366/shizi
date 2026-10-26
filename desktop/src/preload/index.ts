@@ -70,6 +70,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpToolOption,
+  ChatToolEvent,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -598,6 +600,7 @@ const api: BsubApi = {
   onChatDone: (cb: (event: ChatDoneEvent) => void) => on<ChatDoneEvent>('chat:done', cb),
   onChatError: (cb: (event: ChatErrorEvent) => void) => on<ChatErrorEvent>('chat:error', cb),
   onChatStatus: (cb: (event: ChatStatusEvent) => void) => on<ChatStatusEvent>('chat:status', cb),
+  onChatTool: (cb: (event: ChatToolEvent) => void) => on<ChatToolEvent>('chat:tool', cb),
   chatHistoryList: (limit?: number) =>
     ipcRenderer.invoke('chat:history-list', limit) as Promise<Result<ChatConversation[]>>,
   chatHistoryLatest: (videoKey: string) =>
@@ -767,6 +770,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:read-resource', { server, uri }) as Promise<Result<string>>,
   mcpPrompts: (server: McpServer) =>
     ipcRenderer.invoke('mcp:prompts', server) as Promise<Result<McpPrompt[]>>,
+  mcpAllTools: () =>
+    ipcRenderer.invoke('mcp:all-tools') as Promise<Result<McpToolOption[]>>,
   mcpPrompt: (server: McpServer, name: string, args: Record<string, string>) =>
     ipcRenderer.invoke('mcp:prompt', { server, name, args }) as Promise<Result<string>>,
   importSkill: () =>

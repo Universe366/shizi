@@ -120,6 +120,7 @@
   "library:tags",
   "library:vacuum",
   "local:import",
+  "mcp:all-tools",
   "mcp:call",
   "mcp:prompt",
   "mcp:prompts",

@@ -3,6 +3,8 @@ import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Pencil
 import type {
   ChatConversation,
   ChatMessage,
+  ChatToolEvent,
+  McpToolOption,
   PageContextSummary,
   PageInfo,
   SkillItem,
@@ -154,6 +156,20 @@ export function ChatPanel({
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [toolPanelOpen, setToolPanelOpen] = useState(false);
+  const [toolOptions, setToolOptions] = useState<McpToolOption[]>([]);
+  const [toolSelection, setToolSelection] = useState<string[] | null>(() => {
+    try {
+      const raw = localStorage.getItem('chat-tools');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map(String) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
   const conversationRef = useRef<number | null>(null);
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -211,6 +227,46 @@ export function ChatPanel({
     const response = await window.bsub.chatHistoryExport(id);
     if (response.ok && !response.data.canceled) {
       setSavedNotice(`已导出：${response.data.path || ''}`);
+    }
+  };
+
+  const openToolPanel = async (): Promise<void> => {
+    setComposerOpen(true);
+    setToolPanelOpen(true);
+    const response = await window.bsub.mcpAllTools();
+    if (response.ok) setToolOptions(response.data);
+    else setError(response.error);
+  };
+
+  const toggleTool = (id: string): void => {
+    const all = toolOptions.map((tool) => tool.id);
+    const current = toolSelection === null ? all : toolSelection;
+    const next = current.includes(id)
+      ? current.filter((item) => item !== id)
+      : [...current, id];
+    setToolSelection(next);
+    try {
+      localStorage.setItem('chat-tools', JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const selectAllTools = (): void => {
+    setToolSelection(null);
+    try {
+      localStorage.removeItem('chat-tools');
+    } catch {
+      // ignore
+    }
+  };
+
+  const selectNoTools = (): void => {
+    setToolSelection([]);
+    try {
+      localStorage.setItem('chat-tools', '[]');
+    } catch {
+      // ignore
     }
   };
 
@@ -427,11 +483,30 @@ export function ChatPanel({
     const offStatus = window.bsub.onChatStatus((event) => {
       if (event.requestId === requestRef.current) setStatus(event.status);
     });
+    const offTool = window.bsub.onChatTool((event) => {
+      if (event.requestId !== requestRef.current) return;
+      setToolEvents((previous) => {
+        const next = [...previous];
+        if (event.phase === 'start') {
+          next.push(event);
+        } else {
+          for (let index = next.length - 1; index >= 0; index -= 1) {
+            if (next[index].name === event.name && next[index].phase === 'start') {
+              next[index] = { ...next[index], ...event, phase: 'done' };
+              return next;
+            }
+          }
+          next.push(event);
+        }
+        return next.slice(-8);
+      });
+    });
     return () => {
       offDelta();
       offDone();
       offError();
       offStatus();
+      offTool();
     };
   }, []);
 
@@ -547,6 +622,7 @@ export function ChatPanel({
     setError(null);
     setStreaming(true);
     setStreamText('');
+    setToolEvents([]);
     setStatus(isVideoPage ? '读取字幕…' : '读取页面…');
 
     const nextMessages: ChatMessage[] = [
@@ -579,6 +655,7 @@ export function ChatPanel({
         lines: context.lines,
         messages: nextMessages,
         skillIds: skillId ? [skillId] : [],
+        mcpToolIds: toolSelection ?? undefined,
         includePage: forcePage ? true : includePage,
         web: webSearch
       });
@@ -978,6 +1055,26 @@ export function ChatPanel({
             </div>
           ))}
 
+          {toolEvents.length > 0 && (
+            <div className="chat-tool-cards">
+              <div className="chat-tool-cards-title">本轮工具调用</div>
+              {toolEvents.map((tool, toolIndex) => (
+                <div
+                  key={`${tool.name}-${toolIndex}-${tool.phase}`}
+                  className={`chat-tool-card${tool.ok === false ? ' is-error' : ''}`}
+                >
+                  <div className="chat-tool-head">
+                    <span className="chat-tool-name">{tool.name}</span>
+                    <span className="chat-tool-state">
+                      {tool.phase === 'start' ? '调用中…' : tool.ok === false ? '失败' : '完成'}
+                    </span>
+                  </div>
+                  {tool.detail && <div className="chat-tool-detail">{tool.detail}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+
           {streaming && (
             <div className="chat-msg assistant">
               <div className="chat-avatar">AI</div>
@@ -1077,10 +1174,94 @@ export function ChatPanel({
               已选中 {pageContext.selectionChars.toLocaleString('zh-CN')} 字
             </span>
           )}
+          <span className="chat-context-chip" title="粗略估算，仅供参考">
+            ≈{' '}
+            {Math.ceil(
+              ((input.length || 0) + (includePage ? pageContext?.chars || 0 : 0)) / 1.6
+            ).toLocaleString('zh-CN')}{' '}
+            tokens
+          </span>
         </div>
       )}
 
       {savedNotice && <div className="status-line chat-saved">{savedNotice}</div>}
+
+      {composerOpen && activeTab && (
+        <div className="chat-composer-panel">
+          <div className="chat-composer-actions">
+            <button className="mini-btn" onClick={() => void openToolPanel()}>
+              MCP 工具{toolSelection ? ` · ${toolSelection.length}` : ''}
+            </button>
+            <button className="mini-btn" onClick={() => imageInputRef.current?.click()}>
+              图片
+            </button>
+            <button className="mini-btn" onClick={() => setIncludePage((value) => !value)}>
+              页面：{includePage ? '开' : '关'}
+            </button>
+            <button
+              className="mini-btn"
+              onClick={() => {
+                const next = !webSearch;
+                setWebSearch(next);
+                try {
+                  localStorage.setItem('chat-web', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              联网：{webSearch ? '开' : '关'}
+            </button>
+            <button className="mini-btn" onClick={clear}>
+              新对话
+            </button>
+            <button
+              className="mini-btn"
+              onClick={() => {
+                setComposerOpen(false);
+                setToolPanelOpen(false);
+              }}
+            >
+              收起
+            </button>
+          </div>
+          {toolPanelOpen && (
+            <div className="chat-tool-panel">
+              <div className="chat-tool-panel-head">
+                <span>
+                  本轮可用工具（{toolSelection === null ? '全部' : toolSelection.length}）
+                </span>
+                <button className="mini-btn" onClick={selectAllTools}>
+                  全选
+                </button>
+                <button className="mini-btn" onClick={selectNoTools}>
+                  不用 MCP
+                </button>
+              </div>
+              {!toolOptions.length && (
+                <div className="settings-hint">
+                  没有可用工具：先在「设置 → 插件与集成 → MCP」添加并启用服务。
+                </div>
+              )}
+              {toolOptions.map((tool) => {
+                const checked = toolSelection === null || toolSelection.includes(tool.id);
+                return (
+                  <label key={tool.id} className="chat-tool-option" title={tool.description}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleTool(tool.id)}
+                    />
+                    <span>
+                      {tool.serverName} · {tool.name}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         className="chat-composer"
@@ -1118,6 +1299,13 @@ export function ChatPanel({
           </select>
         )}
         <button
+          className={`icon-btn${composerOpen ? ' is-active' : ''}`}
+          title="更多工具（在输入框输入 / 也可打开）"
+          onClick={() => setComposerOpen((value) => !value)}
+        >
+          <Plus size={14} />
+        </button>
+        <button
           className="icon-btn"
           title="添加图片（也可粘贴/拖入）"
           disabled={!activeTab || streaming || images.length >= 2}
@@ -1144,6 +1332,11 @@ export function ChatPanel({
             }
           }}
           onKeyDown={(event) => {
+            if (event.key === '/' && !input.trim()) {
+              event.preventDefault();
+              setComposerOpen(true);
+              return;
+            }
             const enterSends = sendOnEnter
               ? event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey
               : event.key === 'Enter' && (event.ctrlKey || event.metaKey);

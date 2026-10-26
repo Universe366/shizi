@@ -44,6 +44,7 @@ import type {
   ChatErrorEvent,
   ChatRequest,
   ChatStatusEvent,
+  ChatToolEvent,
   OptimizeDoneEvent,
   OptimizeErrorEvent,
   OptimizeProgressEvent,
@@ -492,13 +493,16 @@ export function registerMediaIpc(ctx: IpcContext): void {
             surface: payload.surface === 'pet' ? 'pet' : 'main',
             context: payload.context,
             page,
+            mcpToolIds: payload.mcpToolIds,
             signal: controller.signal,
             onDelta: (delta) =>
               sendToSender('chat:delta', { requestId, delta } satisfies ChatDeltaEvent),
             onReasoning: (reasoning) =>
               sendToSender('chat:delta', { requestId, delta: '', reasoning } satisfies ChatDeltaEvent),
             onStatus: (status) =>
-              sendToSender('chat:status', { requestId, status } satisfies ChatStatusEvent)
+              sendToSender('chat:status', { requestId, status } satisfies ChatStatusEvent),
+            onTool: (event) =>
+              sendToSender('chat:tool', { requestId, ...event } satisfies ChatToolEvent)
           });
           sendToSender('chat:done', {
             requestId,

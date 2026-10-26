@@ -1,6 +1,12 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { session } from 'electron';
-import type { McpPrompt, McpResource, McpServer, McpTool } from '../shared/types';
+import type {
+  McpPrompt,
+  McpResource,
+  McpServer,
+  McpTool,
+  McpToolOption
+} from '../shared/types';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const sessionIds = new Map<string, string>();
@@ -541,6 +547,32 @@ export async function getMcpPrompt(
     })
     .join('\n\n')
     .slice(0, 20000);
+}
+
+/** 把已启用服务器的工具展开成可勾选列表（对话输入框的工具栏用）。 */
+export async function listAllMcpTools(servers: McpServer[]): Promise<McpToolOption[]> {
+  const options: McpToolOption[] = [];
+  for (const server of servers.filter(
+    (item) => item.enabled && (item.transport === 'stdio' ? item.command : item.url)
+  )) {
+    try {
+      const tools = await listMcpTools(server);
+      const allowed = server.toolNames || [];
+      for (const tool of tools) {
+        if (allowed.length && !allowed.includes(tool.name)) continue;
+        options.push({
+          id: `${server.id}__${tool.name}`,
+          serverId: server.id,
+          serverName: server.name,
+          name: tool.name,
+          description: tool.description
+        });
+      }
+    } catch {
+      // 单个服务连不上不影响其它服务
+    }
+  }
+  return options;
 }
 
 export async function callMcpTool(  server: McpServer,

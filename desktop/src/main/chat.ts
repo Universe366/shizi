@@ -21,12 +21,13 @@ import {
 } from './search';
 import type { SearchMeta } from './search';
 import { listMcpTools, callMcpTool } from './mcp';
-import type { McpServer, McpTool } from '../shared/types';
+import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
 import { skillPrompt } from './skills';
 import type { PageContext } from './pageContext';
 import { selectRelevantChunks } from './pageContext';
 import { APP_TOOL_DEFS, APP_TOOL_PREFIX, callAppTool } from './appTools';
 import { withDeadline } from './async';
+import { selectByAllowed } from '../shared/toolSelection';
 
 const MAX_HISTORY = 16;
 const REQUEST_TIMEOUT_MS = 300000;
@@ -45,6 +46,10 @@ export interface ChatOptions {
   onReasoning?: (delta: string) => void;
   /** 联网检索/准备阶段的状态，给侧栏显示，避免长时间只有「正在回答…」 */
   onStatus?: (status: string) => void;
+  /** 本轮允许的 MCP 工具；undefined = 全部，[] = 不用 MCP */
+  mcpToolIds?: string[];
+  /** 工具调用进度（开始/结束），用于对话里的工具卡片 */
+  onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
 }
 
 export interface ChatResult {
@@ -297,15 +302,26 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     }
   }
 
+  const activeBindings = selectByAllowed(toolBindings, options.mcpToolIds);
+
   const localTools = appToolsEnabled ? APP_TOOL_DEFS : [];
 
-  if (toolBindings.length || localTools.length) {
+  const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
+    try {
+      options.onTool?.(event);
+    } catch {
+      // 展示失败不影响工具调用
+    }
+  };
+  const displayName = (name: string) => name.replace(/^[^_]+__/, '');
+
+  if (activeBindings.length || localTools.length) {
     const result = await chatToolLoop(
       platform,
       messages,
       [
         ...localTools,
-        ...toolBindings.map((binding) => ({
+        ...activeBindings.map((binding) => ({
           name: binding.qualifiedName,
           description: binding.tool.description,
           parameters: binding.tool.inputSchema
@@ -325,24 +341,36 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         } catch {
           args = {};
         }
+        const name = displayName(call.name);
+        emitTool({
+          phase: 'start',
+          name,
+          detail: String(call.arguments || '').slice(0, 200)
+        });
+        const finish = (content: string, ok = true): string => {
+          emitTool({ phase: 'done', name, detail: content.slice(0, 280), ok });
+          return content;
+        };
         if (call.name.startsWith(APP_TOOL_PREFIX)) {
           try {
-            return await callAppTool(call.name, args);
+            return finish(await callAppTool(call.name, args));
           } catch (error) {
-            return `本地工具执行失败：${(error as Error).message}`;
+            return finish(`本地工具执行失败：${(error as Error).message}`, false);
           }
         }
-        const binding = toolBindings.find((item) => item.qualifiedName === call.name);
-        if (!binding) return '工具不存在';
+        const binding = activeBindings.find((item) => item.qualifiedName === call.name);
+        if (!binding) return finish('工具不存在', false);
         try {
-          return await callMcpTool(
-            binding.server,
-            binding.tool.name,
-            args,
-            settings.mcp.callTimeoutMs || 60000
+          return finish(
+            await callMcpTool(
+              binding.server,
+              binding.tool.name,
+              args,
+              settings.mcp.callTimeoutMs || 60000
+            )
           );
         } catch (error) {
-          return `工具调用失败：${(error as Error).message}`;
+          return finish(`工具调用失败：${(error as Error).message}`, false);
         }
       }
     );

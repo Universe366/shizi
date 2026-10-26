@@ -8,6 +8,7 @@ import type {
   McpTool,
   McpResource,
   McpPrompt,
+  McpToolOption,
   PageInfo,
   QualityReport,
   Result,
@@ -16,7 +17,15 @@ import type {
   SubtitleLine,
   WebReference
 } from '../../shared/types';
-import { callMcpTool, getMcpPrompt, listMcpPrompts, listMcpResources, listMcpTools, readMcpResource } from '../mcp';
+import {
+  callMcpTool,
+  getMcpPrompt,
+  listAllMcpTools,
+  listMcpPrompts,
+  listMcpResources,
+  listMcpTools,
+  readMcpResource
+} from '../mcp';
 import { fetchSkillFromUrl, readSkillFile, readSkillFolder } from '../skills';
 import { checkSubtitles } from '../quality';
 import { generateChapters } from '../chapters';
@@ -67,6 +76,18 @@ export function registerToolsIpc(ctx: IpcContext): void {
       return failure<SkillItem | null>(error);
     }
   });
+
+  ipcMain.handle(
+    'mcp:all-tools',
+    async (): Promise<Result<McpToolOption[]>> => {
+      try {
+        const settings = loadSettings();
+        return { ok: true, data: await listAllMcpTools(settings.mcp.servers) };
+      } catch (error) {
+        return failure<McpToolOption[]>(error);
+      }
+    }
+  );
 
   ipcMain.handle(
     'mcp:resources',

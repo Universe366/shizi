@@ -34,6 +34,10 @@ vi.mock('electron', () => ({
           result = {
             messages: [{ role: 'user', content: { type: 'text', text: '提示词正文' } }]
           };
+        } else if (body.method === 'tools/list') {
+          result = {
+            tools: [{ name: 'echo', description: '回声', inputSchema: { type: 'object' } }]
+          };
         }
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }), {
           status: 200,
@@ -44,7 +48,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { getMcpPrompt, listMcpPrompts, listMcpResources, readMcpResource } from './mcp';
+import { getMcpPrompt, listAllMcpTools, listMcpPrompts, listMcpResources, readMcpResource } from './mcp';
 
 const server: McpServer = {
   id: 'test',
@@ -79,5 +83,21 @@ describe('MCP 资源与提示词', () => {
     expect(text).toContain('提示词正文');
     expect(state.calls).toContain('prompts/list');
     expect(state.calls).toContain('prompts/get');
+  });
+
+  it('展开可勾选工具：跳过禁用服务与未授权工具', async () => {
+    const options = await listAllMcpTools([
+      { ...server, id: 'a', name: '服务 A' },
+      { ...server, id: 'b', name: '服务 B', toolNames: ['other'] },
+      { ...server, id: 'c', name: '停用', enabled: false },
+      { ...server, id: 'd', name: '无地址', url: '' }
+    ]);
+    expect(options).toHaveLength(1);
+    expect(options[0]).toMatchObject({
+      id: 'a__echo',
+      serverId: 'a',
+      serverName: '服务 A',
+      name: 'echo'
+    });
   });
 });

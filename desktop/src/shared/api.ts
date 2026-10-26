@@ -94,6 +94,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpToolOption,
+  ChatToolEvent,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -474,6 +476,7 @@ export interface BsubApi {
   onChatDone(cb: (event: ChatDoneEvent) => void): () => void;
   onChatError(cb: (event: ChatErrorEvent) => void): () => void;
   onChatStatus(cb: (event: ChatStatusEvent) => void): () => void;
+  onChatTool(cb: (event: ChatToolEvent) => void): () => void;
 
   transcribe(requestId: string): Promise<Result<{ requestId: string }>>;
   cancelTranscribe(requestId: string): Promise<void>;
@@ -562,6 +565,7 @@ export interface BsubApi {
   mcpResources(server: McpServer): Promise<Result<McpResource[]>>;
   mcpReadResource(server: McpServer, uri: string): Promise<Result<string>>;
   mcpPrompts(server: McpServer): Promise<Result<McpPrompt[]>>;
+  mcpAllTools(): Promise<Result<McpToolOption[]>>;
   mcpPrompt(
     server: McpServer,
     name: string,
