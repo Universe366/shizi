@@ -627,7 +627,17 @@ export interface McpServer {
   token: string;
   headers: Record<string, string>;
   enabled: boolean;
-  transport: 'http' | 'sse';
+  transport: 'http' | 'sse' | 'stdio';
+  /** stdio：可执行文件（例如 npx / uvx / node / python） */
+  command?: string;
+  /** stdio：参数列表 */
+  args?: string[];
+  /** stdio：工作目录 */
+  cwd?: string;
+  /** stdio：额外环境变量 */
+  env?: Record<string, string>;
+  /** 只允许这些工具；空数组 = 全部允许 */
+  toolNames?: string[];
 }
 
 export interface McpTool {

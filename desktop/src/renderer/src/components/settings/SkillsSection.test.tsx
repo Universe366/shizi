@@ -19,6 +19,8 @@ function props(overrides: Record<string, unknown> = {}) {
     value: { enabled: true, items: [skill] } as AppSettings['skills'],
     onToggle: vi.fn(),
     onImport: vi.fn(),
+    onImportUrl: vi.fn(),
+    onImportFolder: vi.fn(),
     onCreate: vi.fn(),
     onUpdate: vi.fn(),
     onRemove: vi.fn(),

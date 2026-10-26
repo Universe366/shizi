@@ -17,6 +17,7 @@ import { registerPetToolsIpc } from './ipc/petTools';
 import { registerAsrSetupIpc } from './ipc/asrSetup';
 import { registerVideoIpc } from './ipc/video';
 import { registerUsageIpc } from './ipc/usage';
+import { registerOcrIpc } from './ipc/ocr';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -57,6 +58,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerShotIpc();
 
   registerUsageIpc();
+
+  registerOcrIpc();
 
   registerStartIpc();
 

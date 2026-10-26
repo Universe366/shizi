@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { AppSettings, SkillItem } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
@@ -8,20 +9,25 @@ interface SkillsSectionProps {
   value: SkillSettings;
   onToggle: (enabled: boolean) => void;
   onImport: () => void;
+  onImportUrl: (url: string) => void;
+  onImportFolder: () => void;
   onCreate: () => void;
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
   onRemove: (id: string) => void;
 }
 
-/** Skills：技能提示词开关、导入 SKILL.md、新建/编辑/删除技能。 */
+/** Skills：技能提示词开关、导入 SKILL.md（文件/链接/文件夹）、新建/编辑/删除技能。 */
 export function SkillsSection({
   value,
   onToggle,
   onImport,
+  onImportUrl,
+  onImportFolder,
   onCreate,
   onUpdate,
   onRemove
 }: SkillsSectionProps) {
+  const [url, setUrl] = useState('');
   return (
     <SettingsSection title="Skills" defaultOpen={false}>
       <label className="settings-check">
@@ -36,8 +42,30 @@ export function SkillsSection({
         <button className="mini-btn" onClick={onImport}>
           <Plus size={12} /> 导入 SKILL.md
         </button>
+        <button className="mini-btn" onClick={onImportFolder}>
+          <Plus size={12} /> 导入文件夹
+        </button>
         <button className="mini-btn" onClick={onCreate}>
           <Plus size={12} /> 新建技能
+        </button>
+      </div>
+      <div className="settings-inline">
+        <input
+          className="settings-input"
+          placeholder="https://raw.githubusercontent.com/.../SKILL.md"
+          spellCheck={false}
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+        <button
+          className="mini-btn"
+          disabled={!url.trim()}
+          onClick={() => {
+            onImportUrl(url.trim());
+            setUrl('');
+          }}
+        >
+          从链接导入
         </button>
       </div>
 

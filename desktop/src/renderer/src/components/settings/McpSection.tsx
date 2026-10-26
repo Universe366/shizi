@@ -73,13 +73,6 @@ export function McpSection({
               <Trash2 size={12} />
             </button>
           </div>
-          <input
-            className="settings-input"
-            placeholder="https://example.com/mcp"
-            value={server.url}
-            spellCheck={false}
-            onChange={(event) => onUpdateServer(server.id, { url: event.target.value })}
-          />
           <select
             className="settings-input"
             value={server.transport}
@@ -91,16 +84,82 @@ export function McpSection({
           >
             <option value="http">HTTP JSON-RPC</option>
             <option value="sse">SSE 传输</option>
+            <option value="stdio">本地进程（stdio）</option>
           </select>
-          <input
-            className="settings-input"
-            type="password"
-            placeholder="Token（可选）"
-            value={server.token}
-            spellCheck={false}
-            autoComplete="off"
-            onChange={(event) => onUpdateServer(server.id, { token: event.target.value })}
-          />
+
+          {server.transport === 'stdio' ? (
+            <>
+              <div className="settings-hint">
+                会以当前用户身份启动本机命令，只添加你信任的服务。
+              </div>
+              <input
+                className="settings-input"
+                placeholder="启动命令，例如 npx / uvx / node"
+                value={server.command || ''}
+                spellCheck={false}
+                onChange={(event) => onUpdateServer(server.id, { command: event.target.value })}
+              />
+              <div className="settings-label">参数（每行一个）</div>
+              <textarea
+                className="settings-textarea"
+                rows={3}
+                spellCheck={false}
+                value={(server.args || []).join('\n')}
+                onChange={(event) =>
+                  onUpdateServer(server.id, {
+                    args: event.target.value
+                      .split('\n')
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                  })
+                }
+              />
+              <div className="settings-label">工作目录（可选）</div>
+              <input
+                className="settings-input"
+                value={server.cwd || ''}
+                spellCheck={false}
+                onChange={(event) => onUpdateServer(server.id, { cwd: event.target.value })}
+              />
+              <div className="settings-label">环境变量（KEY=VALUE，每行一个）</div>
+              <textarea
+                className="settings-textarea"
+                rows={2}
+                spellCheck={false}
+                value={Object.entries(server.env || {})
+                  .map(([key, value]) => `${key}=${value}`)
+                  .join('\n')}
+                onChange={(event) => {
+                  const env: Record<string, string> = {};
+                  for (const line of event.target.value.split('\n')) {
+                    const index = line.indexOf('=');
+                    if (index <= 0) continue;
+                    env[line.slice(0, index).trim()] = line.slice(index + 1).trim();
+                  }
+                  onUpdateServer(server.id, { env });
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <input
+                className="settings-input"
+                placeholder="https://example.com/mcp"
+                value={server.url}
+                spellCheck={false}
+                onChange={(event) => onUpdateServer(server.id, { url: event.target.value })}
+              />
+              <input
+                className="settings-input"
+                type="password"
+                placeholder="Token（可选）"
+                value={server.token}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(event) => onUpdateServer(server.id, { token: event.target.value })}
+              />
+            </>
+          )}
           <button
             className="mini-btn"
             disabled={testing === server.id}
@@ -110,16 +169,36 @@ export function McpSection({
           </button>
           {tools[server.id]?.length ? (
             <div className="mcp-tools">
-              {tools[server.id].map((tool) => (
-                <button
-                  key={tool.name}
-                  className="mcp-tool"
-                  title={tool.description}
-                  onClick={() => onCall(server, tool)}
-                >
-                  {tool.name}
-                </button>
-              ))}
+              {tools[server.id].map((tool) => {
+                const allowed = server.toolNames || [];
+                const checked = !allowed.length || allowed.includes(tool.name);
+                return (
+                  <span key={tool.name} className="mcp-tool-row">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      title="允许在对话中使用这个工具"
+                      onChange={(event) => {
+                        const all = tools[server.id].map((item) => item.name);
+                        const next = new Set(allowed.length ? allowed : all);
+                        if (event.target.checked) next.add(tool.name);
+                        else next.delete(tool.name);
+                        const names = [...next];
+                        onUpdateServer(server.id, {
+                          toolNames: names.length === all.length ? [] : names
+                        });
+                      }}
+                    />
+                    <button
+                      className="mcp-tool"
+                      title={tool.description}
+                      onClick={() => onCall(server, tool)}
+                    >
+                      {tool.name}
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           ) : null}
         </div>

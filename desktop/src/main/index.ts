@@ -5,6 +5,7 @@ import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
 import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
+import { disposeMcpClients } from './mcp';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
@@ -444,6 +445,7 @@ app.on('before-quit', () => {
   unregisterPetShortcuts();
   disposeUpdater();
   stopBridge();
+  disposeMcpClients();
   closeLibrary();
 });
 

@@ -695,6 +695,29 @@ export function PetWindow() {
     }
   };
 
+  /** 本地系统 OCR 优先；失败/没识别到文字时回退到 AI 视觉。 */
+  const extractText = async (dataUrl: string) => {
+    try {
+      const local = await window.bsub.ocrRecognize({ dataUrl });
+      if (local.ok && local.data.text.trim()) {
+        const text = local.data.text.trim();
+        setAnswer(text);
+        setHistory((items) => [...items, { role: 'assistant', text }]);
+        flash(`已提取 ${text.length} 字（本地 OCR ${local.data.ms}ms）`);
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // 剪贴板不可用不影响展示
+        }
+        return;
+      }
+      flash('本地 OCR 没识别到文字，改用 AI 识别…');
+    } catch {
+      // 忽略，走 AI 兜底
+    }
+    await ask(OCR_PROMPT, { image: dataUrl, cleanup: 'ocr' });
+  };
+
   /** 统一处理「框选结果」：本地按钮和全局快捷键共用。 */
   const handleShotResult = async (result: {
     action: 'image' | 'chat' | 'ocr';
@@ -710,10 +733,11 @@ export function PetWindow() {
       return;
     }
     setShot(result.dataUrl);
-    await ask(result.action === 'ocr' ? OCR_PROMPT : SHOT_PROMPT, {
-      image: result.dataUrl,
-      cleanup: result.action === 'ocr' ? 'ocr' : undefined
-    });
+    if (result.action === 'ocr') {
+      await extractText(result.dataUrl);
+      return;
+    }
+    await ask(SHOT_PROMPT, { image: result.dataUrl });
   };
 
   /** 框选截图：动作条里选「识别图片 / 对话 / 提取文字」。 */
@@ -1563,7 +1587,7 @@ ${result.data.text}`
               <button className="mini-btn" onClick={() => void ask('这张图里是什么？', { image: shot })}>
                 这是什么
               </button>
-              <button className="mini-btn" onClick={() => void ask(OCR_PROMPT, { image: shot })}>
+              <button className="mini-btn" onClick={() => void extractText(shot)}>
                 提取文字
               </button>
               <button

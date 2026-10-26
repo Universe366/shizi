@@ -462,6 +462,12 @@ const api: BsubApi = {
   clearUsage: () => ipcRenderer.invoke('usage:clear') as Promise<Result<{ removed: number }>>,
   exportUsage: () =>
     ipcRenderer.invoke('usage:export') as Promise<Result<{ canceled: boolean; path?: string }>>,
+  ocrRecognize: (payload: { dataUrl?: string; path?: string; lang?: string }) =>
+    ipcRenderer.invoke('ocr:recognize', payload) as Promise<
+      Result<{ text: string; ms: number }>
+    >,
+  ocrStatus: () =>
+    ipcRenderer.invoke('ocr:status') as Promise<Result<{ available: boolean }>>,
   finishWizard: () =>
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>
@@ -703,6 +709,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:call', { server, name, args }) as Promise<Result<string>>,
   importSkill: () =>
     ipcRenderer.invoke('skills:import') as Promise<Result<SkillItem | null>>,
+  importSkillUrl: (url: string) =>
+    ipcRenderer.invoke('skills:import-url', url) as Promise<Result<SkillItem>>,
+  importSkillFolder: () =>
+    ipcRenderer.invoke('skills:import-folder') as Promise<Result<SkillItem[]>>,
 
   exportBatch: (payload: { ids: number[]; kind: 'subtitles' | 'summary' }) =>
     ipcRenderer.invoke('export:batch', payload) as Promise<

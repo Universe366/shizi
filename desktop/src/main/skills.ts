@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { session } from 'electron';
 import type { AppSettings, SkillItem } from '../shared/types';
 
 function parseFrontmatter(text: string): { data: Record<string, string>; body: string } {
@@ -39,6 +40,33 @@ export function readSkillFile(file: string): SkillItem {
   const text = fs.readFileSync(file, 'utf8');
   const fallback = file.split(/[\\/]/).pop()?.replace(/\.md$/i, '') || '导入技能';
   return parseSkillMarkdown(text, fallback);
+}
+
+/** 从链接导入 SKILL.md（GitHub raw / 任意 http(s) 文本）。 */
+export async function fetchSkillFromUrl(input: string): Promise<SkillItem> {
+  const url = String(input || '').trim();
+  if (!/^https?:\/\//i.test(url)) throw new Error('请填写 http(s) 链接');
+  const response = await session.defaultSession.fetch(url, {
+    method: 'GET',
+    headers: { accept: 'text/plain, text/markdown, */*' },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
+  const text = await response.text();
+  if (text.length > 200_000) throw new Error('SKILL.md 太大（超过 200KB）');
+  const fallback = url.split('/').pop()?.replace(/\.md$/i, '') || '导入技能';
+  return parseSkillMarkdown(text, decodeURIComponent(fallback));
+}
+
+/** 从文件夹里批量读取 SKILL.md（只扫一层，避免误读整盘）。 */
+export function readSkillFolder(folder: string): SkillItem[] {
+  const items: SkillItem[] = [];
+  for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (!/^SKILL\.md$/i.test(entry.name)) continue;
+    items.push(readSkillFile(folder + '/' + entry.name));
+  }
+  return items;
 }
 
 export function skillPrompt(settings: AppSettings, skillIds?: string[]): string {

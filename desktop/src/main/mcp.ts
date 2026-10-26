@@ -1,3 +1,4 @@
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { session } from 'electron';
 import type { McpServer, McpTool } from '../shared/types';
 
@@ -228,14 +229,178 @@ async function rpc(
   id: number,
   timeoutMs = 40000
 ): Promise<JsonRpcResult | null> {
+  if (server.transport === 'stdio') {
+    return stdioRequest(server, method, params, timeoutMs);
+  }
   if (server.transport === 'sse') {
     return rpcSse(server, { jsonrpc: '2.0', id, method, params }, id, timeoutMs);
   }
   return rpcHttp(server, method, params, id, timeoutMs);
 }
 
+// ---------------------------------------------------------------------------
+// stdio 传输：本地 MCP 服务（npx / uvx / node / python）通过 stdin/stdout 走
+// 换行分隔的 JSON-RPC。进程由我们拉起，退出/禁用时负责回收。
+// ---------------------------------------------------------------------------
+
+interface StdioPending {
+  resolve: (result: JsonRpcResult | null) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+interface StdioClient {
+  child: ChildProcessWithoutNullStreams;
+  buffer: string;
+  seq: number;
+  pending: Map<number, StdioPending>;
+  initialized: boolean;
+}
+
+const stdioClients = new Map<string, StdioClient>();
+
+function stdioKey(server: McpServer): string {
+  return `${server.id}|${server.command || ''}|${(server.args || []).join(' ')}`;
+}
+
+function settleAll(client: StdioClient, error: Error): void {
+  for (const pending of client.pending.values()) {
+    clearTimeout(pending.timer);
+    pending.reject(error);
+  }
+  client.pending.clear();
+}
+
+function handleStdioLine(client: StdioClient, line: string): void {
+  const text = line.trim();
+  if (!text) return;
+  let message: JsonRpcResponse;
+  try {
+    message = JSON.parse(text) as JsonRpcResponse;
+  } catch {
+    return;
+  }
+  if (typeof message.id !== 'number') return;
+  const pending = client.pending.get(message.id);
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  client.pending.delete(message.id);
+  if (message.error) {
+    pending.reject(
+      new Error(`MCP 调用出错（${message.error.code ?? '?'}）：${message.error.message || ''}`)
+    );
+    return;
+  }
+  pending.resolve((message.result as JsonRpcResult | undefined) ?? null);
+}
+
+function startStdio(server: McpServer): StdioClient {
+  const key = stdioKey(server);
+  const existing = stdioClients.get(key);
+  if (existing && existing.child.exitCode === null && !existing.child.killed) return existing;
+
+  const command = String(server.command || '').trim();
+  if (!command) throw new Error('stdio MCP 没有填写启动命令（例如 npx）');
+  const child = spawn(command, [...(server.args || [])], {
+    cwd: server.cwd || undefined,
+    env: { ...process.env, ...(server.env || {}) },
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+    shell: process.platform === 'win32'
+  });
+  const client: StdioClient = {
+    child,
+    buffer: '',
+    seq: 0,
+    pending: new Map(),
+    initialized: false
+  };
+  stdioClients.set(key, client);
+
+  child.stdout.on('data', (chunk: Buffer) => {
+    client.buffer += chunk.toString('utf8');
+    let index = client.buffer.indexOf('\n');
+    while (index >= 0) {
+      const line = client.buffer.slice(0, index);
+      client.buffer = client.buffer.slice(index + 1);
+      handleStdioLine(client, line);
+      index = client.buffer.indexOf('\n');
+    }
+  });
+  child.stderr.on('data', (chunk: Buffer) => {
+    const text = String(chunk).trim();
+    if (text) console.warn(`[mcp stdio:${server.name}]`, text.slice(0, 500));
+  });
+  const cleanup = () => {
+    settleAll(client, new Error('MCP stdio 进程已退出'));
+    stdioClients.delete(key);
+  };
+  child.on('exit', cleanup);
+  child.on('error', (error) => {
+    settleAll(client, error);
+    stdioClients.delete(key);
+  });
+  return client;
+}
+
+function stdioRequest(
+  server: McpServer,
+  method: string,
+  params: unknown,
+  timeoutMs = 40000
+): Promise<JsonRpcResult | null> {
+  const client = startStdio(server);
+  const id = ++client.seq;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      client.pending.delete(id);
+      reject(new Error(`MCP stdio 超时（${Math.round(timeoutMs / 1000)} 秒）：${method}`));
+    }, timeoutMs);
+    client.pending.set(id, { resolve, reject, timer });
+    const payload = JSON.stringify({
+      jsonrpc: '2.0',
+      id,
+      method,
+      ...(params === undefined ? {} : { params })
+    });
+    client.child.stdin.write(`${payload}\n`, (error) => {
+      if (!error) return;
+      clearTimeout(timer);
+      client.pending.delete(id);
+      reject(error);
+    });
+  });
+}
+
+function stdioNotify(server: McpServer, method: string, params?: unknown): void {
+  try {
+    const client = startStdio(server);
+    client.child.stdin.write(
+      `${JSON.stringify({ jsonrpc: '2.0', method, ...(params === undefined ? {} : { params }) })}\n`
+    );
+  } catch {
+    // 通知失败不影响后续调用
+  }
+}
+
+/** 退出应用/禁用服务时回收所有 stdio 子进程，避免留下孤儿进程。 */
+export function disposeMcpClients(): void {
+  for (const client of stdioClients.values()) {
+    try {
+      client.child.kill();
+    } catch {
+      // ignore
+    }
+  }
+  stdioClients.clear();
+}
+
 async function notifyInitialized(server: McpServer): Promise<void> {
   try {
+    if (server.transport === 'stdio') {
+      stdioNotify(server, 'notifications/initialized');
+      return;
+    }
     if (server.transport === 'sse') {
       await rpcSse(server, { jsonrpc: '2.0', method: 'notifications/initialized' }, null, 10000);
     } else {
@@ -247,6 +412,23 @@ async function notifyInitialized(server: McpServer): Promise<void> {
 }
 
 async function ensureSession(server: McpServer): Promise<void> {
+  if (server.transport === 'stdio') {
+    const client = startStdio(server);
+    if (client.initialized) return;
+    await rpc(
+      server,
+      'initialize',
+      {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'shizi', version: '1.0.0' }
+      },
+      nextId()
+    );
+    await notifyInitialized(server);
+    client.initialized = true;
+    return;
+  }
   if (sessionIds.has(serverKey(server))) return;
   await rpc(
     server,
@@ -299,4 +481,14 @@ export async function callMcpTool(
 
 export function resetMcpSession(server: McpServer): void {
   sessionIds.delete(serverKey(server));
+  const client = stdioClients.get(stdioKey(server));
+  if (client) {
+    settleAll(client, new Error('MCP 会话已重置'));
+    try {
+      client.child.kill();
+    } catch {
+      // ignore
+    }
+    stdioClients.delete(stdioKey(server));
+  }
 }

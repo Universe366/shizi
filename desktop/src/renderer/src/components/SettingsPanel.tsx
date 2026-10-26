@@ -241,7 +241,12 @@ export function SettingsPanel({
           token: '',
           headers: {},
           enabled: true,
-          transport: 'http'
+          transport: 'http',
+          command: '',
+          args: [],
+          cwd: '',
+          env: {},
+          toolNames: []
         }
       ]
     });
@@ -332,6 +337,32 @@ export function SettingsPanel({
       updateSkills({ items: [...draft.skills.items, response.data] });
       setMessage(`已导入技能：${response.data.name}`);
     }
+  };
+
+  const importSkillUrl = async (url: string) => {
+    if (!draft) return;
+    const response = await window.bsub.importSkillUrl(url);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    updateSkills({ items: [...draft.skills.items, response.data] });
+    setMessage(`已导入技能：${response.data.name}`);
+  };
+
+  const importSkillFolder = async () => {
+    if (!draft) return;
+    const response = await window.bsub.importSkillFolder();
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    if (!response.data.length) {
+      setMessage('文件夹里没有找到 SKILL.md');
+      return;
+    }
+    updateSkills({ items: [...draft.skills.items, ...response.data] });
+    setMessage(`已导入 ${response.data.length} 个技能`);
   };
 
   const updateSearch = (patch: Partial<AppSettings['search']>) => {
@@ -1251,6 +1282,8 @@ export function SettingsPanel({
         value={draft.skills}
         onToggle={(enabled) => updateSkills({ enabled })}
         onImport={() => void importSkill()}
+        onImportUrl={(url) => void importSkillUrl(url)}
+        onImportFolder={() => void importSkillFolder()}
         onCreate={addSkill}
         onUpdate={(id, patch) => updateSkill(id, patch)}
         onRemove={removeSkill}

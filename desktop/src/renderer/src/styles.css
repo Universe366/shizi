@@ -2355,6 +2355,12 @@ button:disabled {
   gap: 4px;
 }
 
+.mcp-tool-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .mcp-tool {
   padding: 4px 7px;
   border: 1px solid var(--border);

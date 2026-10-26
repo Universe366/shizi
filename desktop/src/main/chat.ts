@@ -276,15 +276,20 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   const appToolsEnabled = settings.ai.appTools !== false;
   const toolBindings: Array<{ server: McpServer; tool: McpTool; qualifiedName: string }> = [];
   if (settings.mcp.enabled) {
-    for (const server of settings.mcp.servers.filter((item) => item.enabled && item.url)) {
+    for (const server of settings.mcp.servers.filter(
+      (item) => item.enabled && (item.transport === 'stdio' ? item.command : item.url)
+    )) {
       try {
         const tools = await listMcpTools(server);
+        const allowed = server.toolNames || [];
         toolBindings.push(
-          ...tools.map((tool) => ({
-            server,
-            tool,
-            qualifiedName: `${server.id}__${tool.name}`
-          }))
+          ...tools
+            .filter((tool) => !allowed.length || allowed.includes(tool.name))
+            .map((tool) => ({
+              server,
+              tool,
+              qualifiedName: `${server.id}__${tool.name}`
+            }))
         );
       } catch (error) {
         console.warn('[mcp] 连接失败', server.name, (error as Error).message);

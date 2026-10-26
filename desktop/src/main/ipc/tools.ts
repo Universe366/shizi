@@ -15,7 +15,7 @@ import type {
   WebReference
 } from '../../shared/types';
 import { callMcpTool, listMcpTools } from '../mcp';
-import { readSkillFile } from '../skills';
+import { fetchSkillFromUrl, readSkillFile, readSkillFolder } from '../skills';
 import { checkSubtitles } from '../quality';
 import { generateChapters } from '../chapters';
 import { testSearch } from '../search';
@@ -63,6 +63,27 @@ export function registerToolsIpc(ctx: IpcContext): void {
       return { ok: true, data: readSkillFile(file) };
     } catch (error) {
       return failure<SkillItem | null>(error);
+    }
+  });
+
+  ipcMain.handle('skills:import-url', async (_event, url: string): Promise<Result<SkillItem>> => {
+    try {
+      return { ok: true, data: await fetchSkillFromUrl(String(url || '')) };
+    } catch (error) {
+      return failure<SkillItem>(error);
+    }
+  });
+
+  ipcMain.handle('skills:import-folder', async (): Promise<Result<SkillItem[]>> => {
+    try {
+      const picked = await dialog.showOpenDialog(ctx.win, {
+        title: '导入技能文件夹（读取其中的 SKILL.md）',
+        properties: ['openDirectory']
+      });
+      if (picked.canceled || !picked.filePaths[0]) return { ok: true, data: [] };
+      return { ok: true, data: readSkillFolder(picked.filePaths[0]) };
+    } catch (error) {
+      return failure<SkillItem[]>(error);
     }
   });
 

@@ -301,6 +301,13 @@ export interface BsubApi {
   usageEvents(limit?: number): Promise<Result<UsageEvent[]>>;
   clearUsage(): Promise<Result<{ removed: number }>>;
   exportUsage(): Promise<Result<{ canceled: boolean; path?: string }>>;
+  /** 本地 OCR（Windows 系统 OCR）。 */
+  ocrRecognize(payload: {
+    dataUrl?: string;
+    path?: string;
+    lang?: string;
+  }): Promise<Result<{ text: string; ms: number }>>;
+  ocrStatus(): Promise<Result<{ available: boolean }>>;
   finishWizard(): Promise<Result<SettingsSnapshot>>;
   setWizardVisible(visible: boolean): Promise<Result<SettingsSnapshot>>;
   setSidebarWidth(width: number): Promise<Result<SettingsSnapshot>>;
@@ -512,6 +519,8 @@ export interface BsubApi {
   testMcp(server: McpServer): Promise<Result<McpTool[]>>;
   callMcp(server: McpServer, name: string, args: Record<string, unknown>): Promise<Result<string>>;
   importSkill(): Promise<Result<SkillItem | null>>;
+  importSkillUrl(url: string): Promise<Result<SkillItem>>;
+  importSkillFolder(): Promise<Result<SkillItem[]>>;
 
   exportBatch(payload: { ids: number[]; kind: 'subtitles' | 'summary' }): Promise<
     Result<{ canceled: true } | { dir: string; exported: number; skipped: string[] }>

@@ -899,7 +899,28 @@ function normalize(input: unknown): AppSettings {
                   )
                 : {},
             enabled: server.enabled !== false,
-            transport: server.transport === 'sse' ? 'sse' : 'http'
+            transport:
+              server.transport === 'sse'
+                ? 'sse'
+                : server.transport === 'stdio'
+                  ? 'stdio'
+                  : 'http',
+            command: String(server.command || '').trim(),
+            args: Array.isArray(server.args)
+              ? server.args.map((arg) => String(arg)).filter((arg) => arg.trim())
+              : [],
+            cwd: String(server.cwd || '').trim(),
+            env:
+              server.env && typeof server.env === 'object'
+                ? Object.fromEntries(
+                    Object.entries(server.env)
+                      .filter(([key, value]) => key && value)
+                      .map(([key, value]) => [String(key), String(value)])
+                  )
+                : {},
+            toolNames: Array.isArray(server.toolNames)
+              ? server.toolNames.map((name) => String(name)).filter(Boolean)
+              : []
           }));
       }
     }
