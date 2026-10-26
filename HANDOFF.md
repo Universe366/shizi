@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-26
-> 适用版本：桌面 **0.38.28** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.38.28`（`d4ac00d`）
-> 最新 Release：`v0.38.28`
+> 适用版本：桌面 **0.38.29** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.38.29`
+> 最新 Release：`v0.38.29`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.28` 通过 |
+| 发布 CI | `v0.38.29` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.28，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.29，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -126,6 +126,20 @@
 - **起始页**：小组件顺序可调；快捷方式始终可拖 + 铅笔直接编辑；添加入口常驻；支持上传自定义壁纸；搜索下拉层级修复。
 
 ## 2. 最近发生了什么（避免重复劳动）
+
+### 0.38.29（2026-10-26，本地 ASR / 工作台 / 工具栏）
+
+1. **本地 ASR 模型管理**：`localAsrStatus` 列已下载模型/构建；`asr:delete-model`、
+   `asr:delete-binary`；设置页可直接「使用」或删除；本地平台路径为空时自动从
+   `localStatus` 补齐。缺 whisper.cpp 时给出明确提示，避免“只下模型”导致找不到 exe。
+2. **更多模型/语言**：medium、large-v3-turbo（固定 size/SHA-256）；语言增加 ko/fr/de/es/ru。
+3. **工作台本地处理**：`LocalWorkbench` + `video:pick-local`、`video:transcribe-local`、
+   `video:save-local`；独立完成转写/断句/翻译/保存/成片/配音，不复用侧栏状态。
+4. **字幕工具栏自定义**：`shared/subtitleToolbar.ts`；`general.subtitleToolbar`；
+   设置 → 页面与阅读可勾选；`SubtitlesPanel` 用 `display:none` 隐藏。
+5. 空状态按钮对齐修复（`.panel-empty-actions .primary-btn` 去掉 margin-top）。
+6. 发布：GitHub Release `v0.38.29`；`latest.yml` 与 `/releases/latest` 已指向该版本；
+   插件保持 2.18.8。
 
 ### 0.38.28（2026-10-26，断句 / 翻译 / 成片 / 下载 / 配音）
 
@@ -444,9 +458,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.28 测试/冒烟通过
+- [x] 0.38.29 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.28`
+- [x] 最新 Release 指向 `v0.38.29`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
