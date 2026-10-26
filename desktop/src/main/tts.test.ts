@@ -20,7 +20,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { edgeSynthesize, openaiSynthesize, sapiSynthesize } from './tts';
+import { edgeSynthesize, listVoices, openaiSynthesize, sapiSynthesize } from './tts';
 
 interface FakeSocket {
   binaryType: string;
@@ -122,6 +122,9 @@ describe('TTS 合成', () => {
   it.skipIf(process.platform !== 'win32')(
     'sapi：离线合成 WAV',
     async () => {
+      // CI/精简系统可能没有安装任何语音包，此时跳过（实现会抛出明确错误）。
+      const voices = await listVoices();
+      if (!voices.sapi.length) return;
       const audio = await sapiSynthesize('系统语音测试', { voice: '', rate: 1, volume: 80 });
       expect(audio.subarray(0, 4).toString()).toBe('RIFF');
       expect(audio.length).toBeGreaterThan(1000);

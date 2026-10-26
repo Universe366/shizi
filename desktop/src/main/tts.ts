@@ -229,7 +229,11 @@ export async function sapiSynthesize(
       '-Volume',
       String(options.volume)
     ]);
-    return fs.readFileSync(out);
+    const audio = fs.readFileSync(out);
+    if (audio.length < 1000) {
+      throw new Error('系统语音没有生成音频（当前系统可能没有安装语音包）');
+    }
+    return audio;
   } finally {
     try {
       fs.rmSync(out, { force: true });

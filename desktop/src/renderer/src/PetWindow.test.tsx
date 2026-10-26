@@ -392,12 +392,12 @@ describe('PetWindow', () => {
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
     expect(screen.getByText('截图（框选）')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText('截图（框选）')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('截图（框选）')).toBeNull());
 
     await openBubble();
     expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull();
+    await waitFor(() => expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull());
     expect(api.petBlur).toHaveBeenCalled();
   });
 
