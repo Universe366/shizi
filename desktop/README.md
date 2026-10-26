@@ -1,12 +1,12 @@
 # 拾字 · 桌面端
 
-Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.38.26**。
+Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.38.27**。
 
 开发中的浏览器/AI 能力：
 
 - 历史、书签、下载（暂停/继续/取消）、阅读模式、标签搜索、退出恢复标签；
 - 垂直标签栏：折叠 / 悬停飞出、拖宽、固定 / 分组、标签搜索、悬停预览、多选与键盘导航（Edge 式）；
-- 网页播放倍速：地址栏倍速按钮 + Global Speed 风格面板（预设/步进/滑块/保持音调）、快捷键、按站点记忆；
+- 网页播放倍速：地址栏倍速按钮 + Global Speed 风格面板（预设/步进/滑块/保持音调）、可自定义快捷键（默认 `Shift+←/→`）、按站点记忆；
 - 任意网页对话（正文 + 选中内容），划词工具条（解释/翻译/总结），可把网页总结存进本地库；
 - YouTube 官方/自动字幕抓取、总结与入库；
 - 本地音视频 / 播客 RSS 导入 → 语音识别 → 入库；
@@ -63,7 +63,7 @@ docs/          V1 方案
 - 前进、后退、刷新/停止、新建/关闭标签
 - 打开 B 站首页，页面内新窗口请求自动转为新标签
 - 启动时通过 CDP 注入 `page-bridge.js`，页面加载后日志可见 `bridge=2.18.8`
-- Patina 风格界面：浅/深色自动跟随系统，侧栏「字幕 / 总结 / 对话 / 库 / 设置」
+- Patina 风格界面：浅/深色自动跟随系统，侧栏「字幕 / 总结 / 对话」；**库**独立成整页（地址栏库按钮 / 起始页 / `Ctrl+Shift+4`）
 - **M2 字幕面板**：视频信息卡（封面 / 标题 / UP / 时长 / BV / 播放量）、字幕轨列表（多轨 + AI 标识）、字幕正文下载、跟随播放高亮、点击字幕跳转、未登录提示与登录入口；支持**导入本地 `.srt` / `.vtt`**（不联网）
 - **M3 本地库**：SQLite（`node:sqlite`，无需重编译原生模块）、一键入库、视频列表、标题/UP/标签/合集/字幕搜索（多词按 AND 匹配，FTS5 trigram，短词退化 LIKE）、已总结标记与排序、**标签与合集**（库顶部「＋合集」新建、选择视频后批量加入；详情里增删、列表按标签/合集筛选；标签可重命名/合并/删除，合集可重命名/删除）、**条目详情**（离线字幕阅读 + 保存的总结 + 直接导出）、点击搜索结果回到对应时间、删除入库视频（二次确认并说明连带删除范围）
 - **库多选**：在库里点「选择」后批量总结、加标签/合集或删除；并发数与操作结果即时可见
@@ -88,7 +88,7 @@ docs/          V1 方案
 - **导出**：6 种格式（MD/SRT/VTT/ASS/TXT/JSON）+ 4 种 Markdown 模板
 - **AI 优化**：批量校对，逐条 diff 勾选应用
 - **字幕翻译**：保留时间轴，原文/译文/双语视图，可随字幕导出
-- **语音转录**：无官方字幕时用音轨转写，支持 M4A/WAV 与多传输回退；也可以接**本地 whisper.cpp**，音频只在本机处理、不联网上传；设置里可一键下载 whisper.cpp 与 tiny/base/small 模型（校验 SHA-256），也可以手动指定
+- **语音转录**：无官方字幕时用音轨转写，支持 M4A/WAV 与多传输回退；也可以接**本地 whisper.cpp**，音频只在本机处理、不联网上传；设置里可一键下载 whisper.cpp（CPU / Vulkan / CUDA 11.8 / 12.4）与 tiny/base/small 模型（校验 SHA-256），默认存到程序安装目录，也支持检测显卡后自动选择
 - **AI 对话**：基于当前字幕流式提问，支持停止/清空/建议问题、图片、思维链折叠、本轮 Skills 选择
 - **侧栏交互**：拖拽调宽、拖到窄处折叠、标题栏换边、折叠图标随侧别变化
 - **多平台**：AI 28 家（含 Anthropic 原生协议）、检索 12 家、ASR 4 家（含本地 whisper.cpp），每平台独立 Key/模型/地址；详见 `docs/PLATFORMS.md`
@@ -108,8 +108,8 @@ npm run dist
 
 | 文件 | 说明 |
 |---|---|
-| `release/shizi-setup-0.38.26.exe` | NSIS 安装包，可选安装目录 |
-| `release/shizi-0.38.26-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
+| `release/shizi-setup-0.38.27.exe` | NSIS 安装包，可选安装目录 |
+| `release/shizi-0.38.27-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
 | `release/latest.yml` | 自动更新元数据 |
 | `release/shizi-extension-v2.18.8.zip` | 浏览器插件（由 CI 打包） |
 
@@ -117,21 +117,21 @@ npm run dist
 
 ### 发布
 
-发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.38.26`）同时提供插件 zip 和桌面端安装包/绿色包。
+发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.38.27`）同时提供插件 zip 和桌面端安装包/绿色包。
 这样插件更新检查（读 `/releases/latest`）和桌面自动更新（读最新 Release 里的 `latest.yml`）都正常。
 
 > 不要再用插件版本 `v2.x` 打 tag：GitHub 按 semver 会把旧的高版本 Release 当成 Latest，桌面自动更新会读错。
 
-1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.38.26 --no-git-tag-version`）。
+1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.38.27 --no-git-tag-version`）。
 2. 插件有改动时同步 `shizi-extension/CHANGELOG.md` 与 `manifest.json` 版本（当前 2.18.6）。
 3. `npm run dist` 本地确认能构建。
 4. `npm run release:notes` 生成发布说明。
 5. 打 tag 并推送：
 
 ```bash
-git tag -a v0.38.26 -m "桌面端 0.38.26 + 插件 2.18.8"
+git tag -a v0.38.27 -m "桌面端 0.38.27 + 插件 2.18.8"
 git push origin master
-git push origin master v0.38.26
+git push origin master v0.38.27
 ```
 
 GitHub Actions（`.github/workflows/desktop-release.yml`）会在 Windows runner 上重新构建，

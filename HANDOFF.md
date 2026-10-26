@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-26
-> 适用版本：桌面 **0.38.26** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.38.26`（`a8f60f6`）
-> 最新 Release：`v0.38.26`
+> 适用版本：桌面 **0.38.27** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.38.27`
+> 最新 Release：`v0.38.27`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -21,14 +21,14 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 103 个文件 / 636 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 103 个文件 / 638 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.26` 通过 |
+| 发布 CI | `v0.38.27` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.26，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.27，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -126,6 +126,27 @@
 - **起始页**：小组件顺序可调；快捷方式始终可拖 + 铅笔直接编辑；添加入口常驻；支持上传自定义壁纸；搜索下拉层级修复。
 
 ## 2. 最近发生了什么（避免重复劳动）
+
+### 0.38.27（2026-10-26，倍速快捷键 / 本地 ASR GPU / 库整页 / 核对重试）
+
+1. **倍速快捷键**：媒体动作进入 `shared/shortcuts.ts`（scope=`media`），默认
+   `Shift+→/←` 调速、`Alt+Shift+0` 复位、`Alt+Shift+S` 面板；主进程把
+   `effectiveShortcuts` 通过 `mediaState` 下发给页内脚本，由脚本按 `event.code` 匹配。
+   不要在 `actionForStroke` 里处理 media scope，否则主进程会先吞掉、页内脚本收不到。
+2. **本地 ASR 安装位置**：`localAsrDir()` 优先 `path.dirname(app.getPath('exe'))/models/whisper`，
+   不可写才回退 userData；旧目录自动搬一次；设置页显示实际路径。
+3. **本地 ASR GPU**：`LOCAL_BINARIES` 固定 CPU / Vulkan（lemonade v1.8.4）/ CUDA 11.8 / CUDA 12.4，
+   SHA-256 校验；“检测显卡”用 `Win32_VideoController` 自动选构建。本机 AMD RX 9060 XT
+   已用 Vulkan 构建实测转写成功（`ggml_vulkan: Found 2 Vulkan devices`）。
+4. **库整页**：侧栏移除“库”，`LibraryPage` 复用 `LibraryPanel` 作为 `.page-host` 整页；
+   地址栏库按钮 / 起始页 / 命令面板 / `Ctrl+Shift+4` 进入，Esc 关闭。
+5. **核对重试**：语义判定首次 JSON 解析失败时，用扩展端同款 `claim/evidence` 紧凑提示重试一次；
+   仍失败才 `formatError`（保留证据 + note）。桌面端以前把 note 显示出来，扩展端静默降级，
+   所以看起来“扩展更好”。
+
+测试：103 文件 / 638 用例；新增媒体快捷键、库整页、GPU 状态等覆盖。冒烟 `E2E 19/19`。
+发布：GitHub Release `v0.38.27`（setup / green / extension zip / latest.yml），桌面 checks 通过，
+`/releases/latest` 已指向该版本；插件保持 2.18.8（无功能变化）。
 
 ### 0.38.26（2026-10-26，快捷键 / 本地 ASR / 字幕导入）
 
@@ -404,9 +425,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.26 测试/冒烟通过
+- [x] 0.38.27 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.26`
+- [x] 最新 Release 指向 `v0.38.27`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
