@@ -200,6 +200,57 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('轮盘设置保存并补足 8 个扇区', () => {
+    const settings = loadSettings();
+    settings.general.radial = {
+      enabled: true,
+      hotkey: 'Control+Alt+R',
+      sectors: ['summary', 'chat']
+    };
+    saveSettings(settings);
+    const saved = loadSettings().general.radial;
+    expect(saved.enabled).toBe(true);
+    expect(saved.sectors).toHaveLength(8);
+    expect(saved.sectors[0]).toBe('summary');
+    expect(saved.sectors[7]).toBe('none');
+    settings.general.radial = {
+      enabled: false,
+      hotkey: 'Control+Alt+R',
+      sectors: ['summary', 'chat', 'newChat', 'library', 'settings', 'start', 'find', 'reader']
+    };
+    saveSettings(settings);
+  });
+
+  it('下载默认选项保存', () => {
+    const settings = loadSettings();
+    settings.general.download = {
+      quality: '1080',
+      audioOnly: true,
+      audioFormat: 'mp3',
+      cover: true,
+      subtitles: true,
+      metadata: true
+    };
+    saveSettings(settings);
+    expect(loadSettings().general.download).toEqual({
+      quality: '1080',
+      audioOnly: true,
+      audioFormat: 'mp3',
+      cover: true,
+      subtitles: true,
+      metadata: true
+    });
+    settings.general.download = {
+      quality: 'best',
+      audioOnly: false,
+      audioFormat: 'm4a',
+      cover: false,
+      subtitles: false,
+      metadata: false
+    };
+    saveSettings(settings);
+  });
+
   it('快捷方式缺协议时自动补 https，不再被过滤', () => {
     const settings = loadSettings();
     settings.general.startShortcuts = [

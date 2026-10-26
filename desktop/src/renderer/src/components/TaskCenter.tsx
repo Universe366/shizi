@@ -144,7 +144,7 @@ export function TaskCenter({
   };
 
   return (
-    <div className="task-drawer" role="dialog" aria-label="任务中心">
+    <div className="task-drawer" role="region" aria-label="任务中心">
       <div className="task-head">
         <span className="task-head-title">任务与导出</span>
         <button

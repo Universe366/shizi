@@ -293,6 +293,17 @@ export function SummaryPanel({
     if (!chosen) {
       const cached = fallback();
       if (cached) return cached;
+      const saved = await window.bsub.savedSubtitles(currentInfo);
+      if (saved.ok && saved.data.length) {
+        const savedTrack = saved.data[0];
+        const savedBody = await window.bsub.getTrackBody(savedTrack.url);
+        if (savedBody.ok && savedBody.data.lines.length) {
+          setInfo(currentInfo);
+          setTrack(savedTrack);
+          setLines(savedBody.data.lines);
+          return { info: currentInfo, track: savedTrack, lines: savedBody.data.lines };
+        }
+      }
       if (needLogin) {
         throw new Error('需要登录 B 站才能获取 AI 字幕；请先点「登录 B 站」，或点「转写」/「导入字幕」后重试');
       }

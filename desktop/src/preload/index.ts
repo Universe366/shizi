@@ -56,6 +56,7 @@ import type {
   StoredSummary,
   WebReference,
   SubtitleBundle,
+  SubtitleTrack,
   SubtitleLine,
   SummarizeRequest,
   SummaryRef,
@@ -79,6 +80,7 @@ import type {
   KbStatus,
   KbHit,
   KbProgress,
+  ConvertTargetResult,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -103,6 +105,7 @@ import type {
   HistoryEntry,
   Bookmark,
   DownloadRecord,
+  OnlineDownloadOptions,
   PageContextSummary,
   PodcastFeed,
   PageDocument
@@ -119,6 +122,13 @@ const api: BsubApi = {
   readClipboard: () => ipcRenderer.invoke('clipboard:read') as Promise<string>,
   foregroundWindow: () => ipcRenderer.invoke('window:foreground'),
   readPetFile: (path: string) => ipcRenderer.invoke('pet:read-file', path),
+  filePath: (file: File) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
   petFilePath: (file: File) => {
     try {
       return webUtils.getPathForFile(file);
@@ -282,6 +292,8 @@ const api: BsubApi = {
     >,
   getSubtitles: (expectSignature?: string, tabId?: string) =>
     ipcRenderer.invoke('page:subtitles', expectSignature, tabId) as Promise<Result<SubtitleBundle>>,
+  savedSubtitles: (info: PageInfo) =>
+    ipcRenderer.invoke('page:saved-subtitles', info) as Promise<Result<SubtitleTrack[]>>,
   readSelection: () =>
     ipcRenderer.invoke('page:selection') as Promise<
       Result<{ title: string; url: string; selection: string }>
@@ -490,6 +502,30 @@ const api: BsubApi = {
   kbAsk: (question: string) =>
     ipcRenderer.invoke('kb:ask', question) as Promise<Result<{ text: string; hits: KbHit[] }>>,
   onKbProgress: (cb: (progress: KbProgress) => void) => on<KbProgress>('kb:progress', cb),
+  pickConvertFiles: () =>
+    ipcRenderer.invoke('convert:pick') as Promise<Result<string[]>>,
+  runConvert: (paths: string[], target: string) =>
+    ipcRenderer.invoke('convert:run', { paths, target }) as Promise<Result<{ requestId: string }>>,
+  cancelConvert: (requestId: string) => {
+    void ipcRenderer.invoke('convert:cancel', requestId);
+  },
+  revealConverted: (file: string) => {
+    void ipcRenderer.invoke('convert:reveal', file);
+  },
+  onConvertProgress: (
+    cb: (event: {
+      requestId: string;
+      file: string;
+      index: number;
+      total: number;
+      percent: number;
+      message: string;
+    }) => void
+  ) => on('convert:progress', cb),
+  onConvertDone: (cb: (event: { requestId: string; files: ConvertTargetResult[] }) => void) =>
+    on('convert:done', cb),
+  onConvertError: (cb: (event: { requestId: string; error: string }) => void) =>
+    on('convert:error', cb),
   ttsSpeak: (payload: { text: string; override?: TtsSettings }) =>
     ipcRenderer.invoke('tts:speak', payload) as Promise<
       Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
@@ -529,6 +565,7 @@ const api: BsubApi = {
   onSettingsChanged: (cb: (snapshot: SettingsSnapshot) => void) =>
     on<SettingsSnapshot>('settings:changed', cb),
   onTrayAction: (cb: (action: string) => void) => on<string>('tray:action', cb),
+  onRadialOpen: (cb: () => void) => on<unknown>('radial:open', () => cb()),
   onWebContextAction: (
     cb: (event: { action: string; text: string; url: string }) => void
   ) => on<{ action: string; text: string; url: string }>('web:context-action', cb),
@@ -847,8 +884,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('video:batch-synthesize', payload) as Promise<
       Result<{ requestId: string; dir: string; total: number } | { canceled: true }>
     >,
-  downloadOnlineVideo: (url: string) =>
-    ipcRenderer.invoke('video:download', { url }) as Promise<Result<{ requestId: string }>>,
+  downloadOnlineVideo: (
+    payload: string | { url: string; options?: OnlineDownloadOptions }
+  ) =>
+    ipcRenderer.invoke('video:download', payload) as Promise<Result<{ requestId: string }>>,
   cancelOnlineDownload: (requestId: string) =>
     ipcRenderer.send('video:download-cancel', requestId),
   onDownloadDone: (cb: (event: { requestId: string; path: string }) => void) =>

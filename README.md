@@ -46,7 +46,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | Windows 桌面端 | `desktop/` | Electron 45 + React 19 + TypeScript + SQLite |
 | 浏览器插件 | `shizi-extension/` | Chrome / Edge MV3 + 原生 JS |
 
-当前版本：**桌面 0.39.2 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
+当前版本：**桌面 0.39.3 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
 
 ## 功能
 
@@ -96,6 +96,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 - 地址栏搜索（B 站 / 必应 / Google / 自定义）、起始页快捷方式与壁纸。
 - 网页倍速面板与快捷键、按站点记忆、画中画、弹幕与评论；地址栏紧凑 URL、11 个搜索引擎、书签建议、复制/粘贴/外部打开。
 - 桌面宠物：拖拽/停靠/缩放、自由调整气泡宽高与字号、语音、截图标注、待办提醒、**任意应用快捷取词**。
+- 快捷轮盘：全局热键呼出 8 方位轮盘，扇区可配置（总结/对话/工作台/设置等）；下载支持画质、仅音频、封面、字幕与元数据。
+- 文件转换：工作台「文件转换」页支持拖入视频/音频/图片，环形格式选择，本机 ffmpeg 批量转换。
 - 界面：浅色 / 深色 / 跟随系统，9 套配色（海盐蓝、松林绿、深海青、极光紫、玫瑰粉、樱花、琥珀、石墨、自定义），密度、字号、侧栏与标签栏可调。
 - 全局截图、OCR 取字、AI 悬停球。
 
@@ -134,7 +136,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 
 ### 桌面端（推荐）
 
-1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.39.2.exe`（安装版）或 `shizi-0.39.2-win-x64-green.zip`（绿色版）。
+1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.39.3.exe`（安装版）或 `shizi-0.39.3-win-x64-green.zip`（绿色版）。
 2. 打开「设置 → AI 与语音」：选平台、填 Base URL、模型和 API Key，点「测试连接」。
 3. 打开任意 B 站视频，左侧即可抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -169,7 +171,7 @@ node panel-test.js           # 520 项
 
 环境：Node 24.x（`node:sqlite` 需要 22+）；Node 版本不对会直接报错。
 
-当前测试基线：**134 个测试文件 / 768 个用例**，冒烟 **E2E 19/19**，插件 **520 项**。
+当前测试基线：**136 个测试文件 / 775 个用例**，冒烟 **E2E 19/19**，插件 **520 项**。
 
 ## 架构
 
@@ -209,7 +211,7 @@ desktop/
 
 ## 版本
 
-- 桌面端：**0.39.2**（2026-10-27）
+- 桌面端：**0.39.3**（2026-10-27）
 - 插件：**2.18.8**
 - 变更记录：[`desktop/CHANGELOG.md`](desktop/CHANGELOG.md)、[`shizi-extension/CHANGELOG.md`](shizi-extension/CHANGELOG.md)
 

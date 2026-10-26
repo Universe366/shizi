@@ -127,6 +127,7 @@ export function StartPage({
   const [todoDraft, setTodoDraft] = useState('');
   const [shortcuts, setShortcuts] = useState<StartShortcut[]>([]);
   const [shortcutBackup, setShortcutBackup] = useState<StartShortcut[]>([]);
+  const [activeGroup, setActiveGroup] = useState('全部');
   const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
   const [wallpaperImage, setWallpaperImage] = useState('');
   const [bingWallpaper, setBingWallpaper] = useState<{ url: string; copyright: string } | null>(
@@ -393,6 +394,15 @@ export function StartPage({
     }
     return Array.from(map.entries());
   }, [shortcuts]);
+
+  const visibleGroups =
+    activeGroup === '全部' ? groups : groups.filter(([group]) => group === activeGroup);
+
+  useEffect(() => {
+    if (activeGroup !== '全部' && !groups.some(([group]) => group === activeGroup)) {
+      setActiveGroup('全部');
+    }
+  }, [activeGroup, groups]);
 
   const moveShortcutTo = (fromId: string, group: string, targetId?: string) => {
     const fromIndex = shortcuts.findIndex((item) => item.id === fromId);
@@ -736,6 +746,40 @@ export function StartPage({
           </div>
         </section>
 
+        <section className="start-portal">
+          <aside className="start-categories" aria-label="导航分组">
+            <div className="start-categories-title">我的导航</div>
+            {['全部', ...groups.map(([group]) => group)].map((group) => (
+              <button
+                key={group}
+                className={`start-category${activeGroup === group ? ' is-active' : ''}`}
+                onClick={() => setActiveGroup(group)}
+              >
+                <span>{group}</span>
+                <span className="start-category-count">
+                  {group === '全部'
+                    ? shortcuts.length
+                    : groups.find(([name]) => name === group)?.[1].length || 0}
+                </span>
+              </button>
+            ))}
+            <button
+              className="start-category-add"
+              onClick={() =>
+                setEditing({
+                  label: '',
+                  url: '',
+                  group: activeGroup === '全部' ? '常用' : activeGroup
+                })
+              }
+            >
+              ＋ 添加网址
+            </button>
+            {groups.length > 1 && (
+              <div className="start-categories-hint">拖动网址可排序 / 换组</div>
+            )}
+          </aside>
+          <div className="start-portal-main">
         {editMode && (
           <div className="start-widget-manager">
             <span className="start-widget-order-label">小组件</span>
@@ -1016,7 +1060,10 @@ export function StartPage({
             })}
           </div>
 
-          {groups.map(([group, items]) => (
+          {visibleGroups.length === 0 && (
+            <div className="start-widget-empty">这个分组还没有网址，点左侧「添加网址」。</div>
+          )}
+          {visibleGroups.map(([group, items]) => (
             <div className="start-shortcut-group" key={group}>
               <div
                 className="start-shortcut-group-title"
@@ -1130,6 +1177,8 @@ export function StartPage({
               </span>
               <span className="start-shortcut-label">添加</span>
             </button>
+          </div>
+        </section>
           </div>
         </section>
 

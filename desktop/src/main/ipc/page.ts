@@ -4,6 +4,7 @@ import type {
   PageInfo,
   Result,
   SubtitleBundle,
+  SubtitleTrack,
   TrackBody
 } from '../../shared/types';
 import {
@@ -18,6 +19,7 @@ import { pageContextSummary, readPageContext } from '../pageContext';
 import { resolveBilibiliCollection } from '../biliCollection';
 import { applyCorrectionToLines } from '../correction';
 import { loadSettings } from '../settings';
+import { listSavedTracks } from '../library/savedTracks';
 import { failure, type IpcContext } from './shared';
 import { compressDataUrl } from '../imageData';
 
@@ -113,6 +115,17 @@ export function registerPageIpc(ctx: IpcContext): void {
         return { ok: true, data: await resolveBilibiliCollection(String(input || '')) };
       } catch (error) {
         return failure<CollectionResolveResult>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'page:saved-subtitles',
+    async (_event, info: PageInfo): Promise<Result<SubtitleTrack[]>> => {
+      try {
+        return { ok: true, data: listSavedTracks(info) };
+      } catch (error) {
+        return failure<SubtitleTrack[]>(error);
       }
     }
   );

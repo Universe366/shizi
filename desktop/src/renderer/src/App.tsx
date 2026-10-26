@@ -10,6 +10,8 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { ReaderMode } from './components/ReaderMode';
 import { StartPage } from './components/StartPage';
+import { RadialMenu } from './components/RadialMenu';
+import type { WheelActionId } from '../../shared/types';
 import { lazy, Suspense } from 'react';
 import { requestSummaryPanel } from './lib/summaryRequest';
 import { speakText } from './lib/speech';
@@ -22,7 +24,7 @@ const LibraryPage = lazy(() =>
 );
 import { nextTabId, tabIdByNumber } from './lib/tabs';
 import { useDropImport } from './lib/dropImport';
-import { useBrowserOverlayAuto } from './lib/browserOverlay';
+import { overlayVisible, useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
 import { DictationListener } from './components/DictationListener';
@@ -77,10 +79,31 @@ export default function App() {
     });
     return () => cancelAnimationFrame(frame);
   }, [tabPeek.open, tabPeek.width, verticalTabs, tabs.length]);
+
+  // 折叠的垂直标签栏探出时是 DOM 浮层，原生网页视图会盖住它；
+  // 暂时隐藏网页，收起后按现有浮层状态恢复。
+  useEffect(() => {
+    if (!tabPeek.open) return;
+    void window.bsub.setBrowserVisible(false);
+    return () => {
+      void window.bsub.setBrowserVisible(!overlayVisible());
+    };
+  }, [tabPeek.open]);
   const [bookmarked, setBookmarked] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
   const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
+  const [radialOpen, setRadialOpen] = useState(false);
+  const [radialSectors, setRadialSectors] = useState<WheelActionId[]>([
+    'summary',
+    'chat',
+    'newChat',
+    'library',
+    'settings',
+    'start',
+    'find',
+    'reader'
+  ]);
   const shortcutMap = useMemo(() => effectiveShortcuts(shortcutOverrides), [shortcutOverrides]);
   const runShortcutRef = useRef<(action: ShortcutActionId) => void>(() => undefined);
 
@@ -217,6 +240,7 @@ export default function App() {
   useEffect(() => window.bsub.onReaderRequest(() => setReaderOpen(true)), []);
   // 桌宠里的「打开设置」：主进程把窗口叫到前台后，这里负责真的切到设置页。
   useEffect(() => window.bsub.onOpenSettings(() => setSettingsOpen(true)), []);
+  useEffect(() => window.bsub.onRadialOpen(() => setRadialOpen(true)), []);
   useEffect(
     () =>
       window.bsub.onWebContextAction(({ action, text }) => {
@@ -307,6 +331,7 @@ export default function App() {
       if (response.ok) {
         setFontScale(response.data.settings.general.fontScale || 1);
         setShortcutOverrides(response.data.settings.general.shortcuts || {});
+        setRadialSectors(response.data.settings.general.radial?.sectors || []);
         applyAppearance(response.data.settings.general);
         applyLayout(response.data);
         if (!response.data.settings.general.wizardDone) setWizard(response.data);
@@ -315,6 +340,7 @@ export default function App() {
     return window.bsub.onSettingsChanged((snapshot) => {
       setFontScale(snapshot.settings.general.fontScale || 1);
       setShortcutOverrides(snapshot.settings.general.shortcuts || {});
+      setRadialSectors(snapshot.settings.general.radial?.sectors || []);
       applyAppearance(snapshot.settings.general);
       applyLayout(snapshot);
       if (snapshot.settings.general.wizardDone) setWizard(null);
@@ -603,6 +629,46 @@ export default function App() {
     }
   };
 
+  const runRadial = (action: WheelActionId) => {
+    setRadialOpen(false);
+    if (action === 'summary') {
+      setSettingsOpen(false);
+      setLibraryOpen(false);
+      setStartOpen(false);
+      setSection('summary');
+      window.setTimeout(() => requestSummaryPanel('summary'), 80);
+    } else if (action === 'chat') {
+      setSettingsOpen(false);
+      setLibraryOpen(false);
+      setStartOpen(false);
+      setSection('chat');
+    } else if (action === 'newChat') {
+      setSettingsOpen(false);
+      setLibraryOpen(false);
+      setStartOpen(false);
+      setSection('chat');
+      window.setTimeout(() => window.dispatchEvent(new Event('bsub:chat-new')), 120);
+    } else if (action === 'library') {
+      setSettingsOpen(false);
+      setStartOpen(false);
+      setLibraryOpen(true);
+    } else if (action === 'settings') {
+      setLibraryOpen(false);
+      setStartOpen(false);
+      setSettingsOpen(true);
+    } else if (action === 'start') {
+      setSettingsOpen(false);
+      setLibraryOpen(false);
+      setStartOpen(true);
+    } else if (action === 'find') {
+      setFindOpen(true);
+    } else if (action === 'reader') {
+      setReaderOpen(true);
+    } else if (action === 'reload') {
+      void window.bsub.reload();
+    }
+  };
+
   return (
     <div
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
@@ -742,6 +808,12 @@ export default function App() {
         onClose={() => setHub(null)}
         onOpenUrl={(url) => void window.bsub.openUrl(url)}
         onSelectTab={(id) => void window.bsub.activateTab(id)}
+      />
+      <RadialMenu
+        open={radialOpen}
+        sectors={radialSectors}
+        onAction={runRadial}
+        onClose={() => setRadialOpen(false)}
       />
       <ReaderMode
         open={readerOpen}

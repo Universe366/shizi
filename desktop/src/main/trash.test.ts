@@ -28,6 +28,7 @@ import {
   setVideoTags,
   vacuumLibrary
 } from './library';
+import { listSavedTracks, savedTrackLines, setTrackUrl } from './library/savedTracks';
 
 const info: PageInfo = {
   kind: 'video',
@@ -65,6 +66,29 @@ describe('回收站与 schema 迁移', () => {
   afterAll(() => {
     closeLibrary();
     fs.rmSync(state.dir, { recursive: true, force: true });
+  });
+
+  it('转写字幕入库后能按视频重新加载', () => {
+    const savedInfo = { ...info, bvid: 'BV1test00009', title: '转写保存测试' };
+    const result = ingestVideo({
+      info: savedInfo,
+      track: {
+        lan: 'asr',
+        lanDoc: '语音转录',
+        url: 'library://pending',
+        isAi: false,
+        aiStatus: null,
+        source: 'asr'
+      },
+      lines: [{ start: 0, end: 2, text: '转写第一句' }]
+    });
+    setTrackUrl(result.trackId, `library://track/${result.trackId}`);
+    const tracks = listSavedTracks(savedInfo);
+    expect(tracks.some((item) => item.url === `library://track/${result.trackId}`)).toBe(true);
+    expect(savedTrackLines(result.trackId)[0].text).toBe('转写第一句');
+    removeVideos([result.videoId]);
+    const entry = listTrash().find((item) => item.title === '转写保存测试');
+    if (entry) deleteTrash(entry.id);
   });
 
   it('删除进入回收站，恢复后字幕/总结/笔记/标签/合集都回来', () => {

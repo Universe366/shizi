@@ -6,6 +6,7 @@ import { applyProxy } from '../proxy';
 import { applyDictation } from '../dictation';
 import { applyQuickAsk } from '../quickAsk';
 import { resetMcpSession } from '../mcp';
+import { applyRadial } from '../radial';
 import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
@@ -216,6 +217,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         await applyProxy(saved);
         applyDictation(saved);
         applyQuickAsk(saved);
+        applyRadial(saved, () => ctx.win);
         registerPetShortcuts();
         applyPetSettings();
         await restartBridge(ctx.win);

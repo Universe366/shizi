@@ -18,8 +18,10 @@ import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
 import { resolveLocalWhisperPaths, runLocalWhisper, toSimplified } from './localAsr';
 
-const CHUNK_BYTES = 2 * 1024 * 1024;
+const CHUNK_BYTES = 4 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
+/** 同一个音轨的下载只跑一次：两个入口同时点转录时共享同一个 Promise。 */
+const activeDownloads = new Map<string, Promise<string>>();
 
 function audioCachePath(info: PageInfo): string {
   const dir = path.join(app.getPath('userData'), 'cache', 'asr-audio');
@@ -121,6 +123,23 @@ function chooseFormat(platform: AsrPlatform, settings: AsrSettings): 'm4a' | 'wa
 }
 
 async function downloadAudio(
+  wc: WebContents,
+  info: PageInfo,
+  dir: string,
+  onProgress: Progress,
+  signal?: AbortSignal
+): Promise<string> {
+  const key = audioCachePath(info);
+  const existing = activeDownloads.get(key);
+  if (existing) return existing;
+  const task = downloadAudioOnce(wc, info, dir, onProgress, signal).finally(() => {
+    activeDownloads.delete(key);
+  });
+  activeDownloads.set(key, task);
+  return task;
+}
+
+async function downloadAudioOnce(
   wc: WebContents,
   info: PageInfo,
   dir: string,

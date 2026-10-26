@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Download, FolderOpen, Loader2, Search } from 'lucide-react';
-import type { LibraryVideo } from '../../../shared/types';
+import type { DownloadSettings, LibraryVideo } from '../../../shared/types';
 import { formatDuration } from '../lib/format';
+
+const DEFAULT_OPTIONS: DownloadSettings = {
+  quality: 'best',
+  audioOnly: false,
+  audioFormat: 'm4a',
+  cover: false,
+  subtitles: false,
+  metadata: false
+};
 
 /** 下载视频：优先从资料库直接选，也支持粘贴外部链接交给 yt-dlp。 */
 export function DownloadVideoDialog({
@@ -20,6 +29,7 @@ export function DownloadVideoDialog({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [donePath, setDonePath] = useState('');
+  const [options, setOptions] = useState<DownloadSettings>(DEFAULT_OPTIONS);
 
   useEffect(() => {
     if (!open) return;
@@ -31,11 +41,30 @@ export function DownloadVideoDialog({
     setQuery('');
     setLoading(true);
     void window.bsub
-      .listLibrary()
+      .getSettings()
       .then((response) => {
-        if (response.ok) setLibrary(response.data.videos.slice(0, 200));
+        if (response.ok) {
+          setOptions({ ...DEFAULT_OPTIONS, ...(response.data.settings.general.download || {}) });
+        }
       })
       .finally(() => setLoading(false));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setLoading(true);
+    void window.bsub
+      .listLibrary()
+      .then((response) => {
+        if (alive && response.ok) setLibrary(response.data.videos.slice(0, 200));
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, [open]);
 
   useEffect(() => {
@@ -76,7 +105,7 @@ export function DownloadVideoDialog({
     }
     setBusy(true);
     setMessage('已提交下载任务…');
-    const response = await window.bsub.downloadOnlineVideo?.(value);
+    const response = await window.bsub.downloadOnlineVideo?.({ url: value, options });
     if (!response) {
       setBusy(false);
       setMessage('当前版本不支持在线下载');
@@ -123,6 +152,71 @@ export function DownloadVideoDialog({
           >
             在线链接
           </button>
+        </div>
+
+        <div className="download-options">
+          <select
+            className="mini-select"
+            value={options.quality}
+            disabled={options.audioOnly}
+            title="视频清晰度上限"
+            onChange={(event) =>
+              setOptions({ ...options, quality: event.target.value as DownloadSettings['quality'] })
+            }
+          >
+            <option value="best">最佳画质</option>
+            <option value="2160">4K / 2160p</option>
+            <option value="1080">1080p</option>
+            <option value="720">720p</option>
+            <option value="480">480p</option>
+          </select>
+          <label className="download-option">
+            <input
+              type="checkbox"
+              checked={options.audioOnly}
+              onChange={(event) => setOptions({ ...options, audioOnly: event.target.checked })}
+            />
+            仅音频
+          </label>
+          {options.audioOnly && (
+            <select
+              className="mini-select"
+              value={options.audioFormat}
+              onChange={(event) =>
+                setOptions({
+                  ...options,
+                  audioFormat: event.target.value as DownloadSettings['audioFormat']
+                })
+              }
+            >
+              <option value="m4a">M4A</option>
+              <option value="mp3">MP3</option>
+            </select>
+          )}
+          <label className="download-option">
+            <input
+              type="checkbox"
+              checked={options.cover}
+              onChange={(event) => setOptions({ ...options, cover: event.target.checked })}
+            />
+            封面
+          </label>
+          <label className="download-option">
+            <input
+              type="checkbox"
+              checked={options.subtitles}
+              onChange={(event) => setOptions({ ...options, subtitles: event.target.checked })}
+            />
+            字幕
+          </label>
+          <label className="download-option">
+            <input
+              type="checkbox"
+              checked={options.metadata}
+              onChange={(event) => setOptions({ ...options, metadata: event.target.checked })}
+            />
+            元数据
+          </label>
         </div>
 
         {source === 'library' ? (

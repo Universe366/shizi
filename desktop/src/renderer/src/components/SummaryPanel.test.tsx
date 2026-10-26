@@ -55,6 +55,7 @@ function installBsub(options: { saved?: boolean; pageError?: string } = {}) {
         diagnostics: {}
       }
     })),
+    savedSubtitles: vi.fn(async () => ({ ok: true as const, data: [] })),
     getSummary: vi.fn(async () =>
       options.saved
         ? { ok: true as const, data: { content: '# 已保存的总结', model: 'deepseek', updatedAt: 0 } }

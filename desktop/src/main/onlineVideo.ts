@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import ffmpegStatic from 'ffmpeg-static';
 import { app } from 'electron';
+import type { OnlineDownloadOptions } from '../shared/types';
 
 /**
  * 在线视频下载：按需获取固定版本 yt-dlp，调用它下载 B 站/YouTube 等。
@@ -143,7 +144,8 @@ export interface OnlineDownloadResult {
 export async function downloadOnlineVideo(
   url: string,
   onProgress: (percent: number, message: string) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: OnlineDownloadOptions = {}
 ): Promise<OnlineDownloadResult> {
   const target = String(url || '').trim();
   let parsed: URL;
@@ -157,20 +159,35 @@ export async function downloadOnlineVideo(
   const outputDir = path.join(app.getPath('downloads'), 'Shizi');
   fs.mkdirSync(outputDir, { recursive: true });
   const resultFile = path.join(os.tmpdir(), `shizi-ytdlp-${Date.now()}.txt`);
+  const quality = options.quality || 'best';
+  const audioOnly = options.audioOnly === true;
+  const format = audioOnly
+    ? 'ba/b'
+    : quality === 'best'
+      ? 'bv*+ba/b'
+      : `bv*[height<=${quality}]+ba/b[height<=${quality}]`;
   const args = [
     '--no-playlist',
     '--newline',
     '--no-warnings',
     '-f',
-    'bv*+ba/b',
-    '--merge-output-format',
-    'mp4',
+    format,
     '-o',
     path.join(outputDir, '%(title).80s [%(id)s].%(ext)s'),
     '--print-to-file',
     'after_move:filepath',
     resultFile
   ];
+  if (audioOnly) {
+    args.push('--extract-audio', '--audio-format', options.audioFormat === 'mp3' ? 'mp3' : 'm4a');
+  } else {
+    args.push('--merge-output-format', 'mp4');
+  }
+  if (options.cover !== false) args.push('--write-thumbnail', '--convert-thumbnails', 'jpg');
+  if (options.subtitles === true) {
+    args.push('--write-subs', '--write-auto-subs', '--sub-langs', 'all', '--convert-subs', 'srt');
+  }
+  if (options.metadata === true) args.push('--write-info-json', '--write-description');
   if (ffmpegStatic) args.push('--ffmpeg-location', ffmpegStatic);
   args.push(target);
 

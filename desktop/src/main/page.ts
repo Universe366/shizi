@@ -8,6 +8,7 @@ import type {
 } from '../shared/types';
 import { loadSettings } from './settings';
 import { fetchViewPoints } from './biliExtra';
+import { savedTrackLines } from './library/savedTracks';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
 const CHROME = process.versions.chrome;
@@ -329,6 +330,12 @@ export async function triggerSubtitleMenu(wc: WebContents): Promise<void> {
 }
 
 export async function getTrackBody(url: string): Promise<TrackBody> {
+  if (url.startsWith('library://track/')) {
+    const trackId = Number(url.slice('library://track/'.length));
+    const lines = Number.isFinite(trackId) ? savedTrackLines(trackId) : [];
+    if (!lines.length) throw new Error('已保存的字幕为空');
+    return { lines };
+  }
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error('不支持的字幕地址协议');

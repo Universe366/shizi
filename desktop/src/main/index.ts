@@ -8,6 +8,7 @@ import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
 import { disposeDictation, initDictation } from './dictation';
 import { disposeQuickAsk, applyQuickAsk } from './quickAsk';
+import { applyRadial, disposeRadial } from './radial';
 import { closeChatStore } from './chatStore';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
@@ -218,6 +219,7 @@ function createWindow(): void {
   registerIpc(mainWindow, tabManager);
   initDictation(mainWindow, loadSettings());
   applyQuickAsk(loadSettings());
+  applyRadial(loadSettings(), () => mainWindow);
   tabManager.setSuspendMinutes(loadSettings().general.suspendMinutes);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -463,6 +465,7 @@ app.on('before-quit', () => {
   disposeMcpClients();
   disposeDictation();
   disposeQuickAsk();
+  disposeRadial();
   closeChatStore();
   closeLibrary();
 });

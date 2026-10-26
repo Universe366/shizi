@@ -3,7 +3,13 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app, dialog, ipcMain } from 'electron';
 import { pathToFileURL } from 'node:url';
-import type { PageInfo, Result, SubtitleLine, SynthesizeRequest } from '../../shared/types';
+import type {
+  OnlineDownloadOptions,
+  PageInfo,
+  Result,
+  SubtitleLine,
+  SynthesizeRequest
+} from '../../shared/types';
 import { createJob, finishJob, updateJob } from '../library';
 import { getLibraryDetail } from '../library/videos';
 import { ingestVideo } from '../library';
@@ -494,10 +500,12 @@ export function registerVideoIpc(ctx: IpcContext): void {
     'video:download',
     async (
       _event,
-      payload: { url: string }
+      payload: string | { url: string; options?: OnlineDownloadOptions }
     ): Promise<Result<{ requestId: string }>> => {
       try {
-        const url = String(payload?.url || '').trim();
+        const url = String(typeof payload === 'string' ? payload : payload?.url || '').trim();
+        const options =
+          typeof payload === 'string' ? {} : (payload?.options || {}) as OnlineDownloadOptions;
         if (!/^https?:\/\//i.test(url)) return { ok: false, error: '请填写 http/https 链接' };
         const requestId = randomUUID();
         const controller = new AbortController();
@@ -518,7 +526,8 @@ export function registerVideoIpc(ctx: IpcContext): void {
                   updateJob(requestId, { progress, message })
                 );
               },
-              controller.signal
+              controller.signal,
+              options
             );
             trackJob(() => finishJob(requestId, 'done', null, '下载完成'));
             ctx.send('download:done', { requestId, path: result.path });

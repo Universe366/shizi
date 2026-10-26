@@ -15,6 +15,8 @@ import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
+import { DownloadSection } from './settings/DownloadSection';
+import { RadialSection } from './settings/RadialSection';
 import { KnowledgeSection } from './settings/KnowledgeSection';
 import { OcrSection } from './settings/OcrSection';
 import { QuickAskSection } from './settings/QuickAskSection';
@@ -1145,6 +1147,10 @@ export function SettingsPanel({
       {show('general') && (
         <>
           <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <DownloadSection
+            value={draft.general.download}
+            onChange={(next) => updateGeneral({ download: next })}
+          />
           <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>
@@ -1175,6 +1181,10 @@ export function SettingsPanel({
             }
           />
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <RadialSection
+            value={draft.general.radial}
+            onChange={(next) => updateGeneral({ radial: next })}
+          />
         </>
       )}
 

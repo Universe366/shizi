@@ -1153,6 +1153,12 @@ export function ChatPanel({
     setStreaming(false);
   };
 
+  useEffect(() => {
+    const handler = () => clear();
+    window.addEventListener('bsub:chat-new', handler);
+    return () => window.removeEventListener('bsub:chat-new', handler);
+  }, [clear]);
+
   /** 麦克风输入：录一段音，交给主进程走现有 ASR，再填进输入框。 */
   const toggleVoice = async () => {
     if (voiceState === 'recording') {

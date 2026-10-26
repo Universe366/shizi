@@ -49,6 +49,7 @@ import type {
   SettingsSnapshot,
   StoredSummary,
   SubtitleBundle,
+  SubtitleTrack,
   SubtitleLine,
   SummarizeRequest,
   SummaryRef,
@@ -86,6 +87,7 @@ import type {
   HistoryEntry,
   Bookmark,
   DownloadRecord,
+  OnlineDownloadOptions,
   PageContextSummary,
   UsageEvent,
   UsageSummary,
@@ -103,6 +105,7 @@ import type {
   KbStatus,
   KbHit,
   KbProgress,
+  ConvertTargetResult,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -206,6 +209,7 @@ export interface BsubApi {
   getPageDocument(): Promise<Result<PageDocument>>;
   resolveCollection(input: string): Promise<Result<CollectionResolveResult>>;
   getSubtitles(expectSignature?: string, tabId?: string): Promise<Result<SubtitleBundle>>;
+  savedSubtitles(info: PageInfo): Promise<Result<SubtitleTrack[]>>;
   /** 当前页面选中的文字（桌宠「问选中」，不抽整页正文）。 */
   readSelection(): Promise<Result<{ title: string; url: string; selection: string }>>;
   /** 截当前标签页，返回 data URL（桌宠「看屏幕」/识图）。 */
@@ -329,6 +333,22 @@ export interface BsubApi {
   kbSearch(question: string): Promise<Result<KbHit[]>>;
   kbAsk(question: string): Promise<Result<{ text: string; hits: KbHit[] }>>;
   onKbProgress(cb: (progress: KbProgress) => void): () => void;
+  pickConvertFiles(): Promise<Result<string[]>>;
+  runConvert(paths: string[], target: string): Promise<Result<{ requestId: string }>>;
+  cancelConvert(requestId: string): void;
+  revealConverted(file: string): void;
+  onConvertProgress(
+    cb: (event: {
+      requestId: string;
+      file: string;
+      index: number;
+      total: number;
+      percent: number;
+      message: string;
+    }) => void
+  ): () => void;
+  onConvertDone(cb: (event: { requestId: string; files: ConvertTargetResult[] }) => void): () => void;
+  onConvertError(cb: (event: { requestId: string; error: string }) => void): () => void;
   /** 文字朗读：主进程合成音频，返回 dataURL。 */
   ttsSpeak(payload: { text: string; override?: TtsSettings }): Promise<
     Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
@@ -360,6 +380,7 @@ export interface BsubApi {
   ): Promise<Result<{ kind: 'image' | 'text'; name: string; dataUrl?: string; text?: string }>>;
   /** Electron 32+ 移除了 File.path，拖入文件要经 webUtils 取真实路径 */
   petFilePath(file: File): string;
+  filePath(file: File): string;
   transcribeVoice(dataUrl: string): Promise<Result<{ text: string }>>;
   tabPreview(id: string): Promise<{ dataUrl: string; title: string; url: string } | null>;
   getTabGroups(): Promise<TabGroup[]>;
@@ -408,6 +429,7 @@ export interface BsubApi {
   importSettings(): Promise<Result<{ canceled: boolean; snapshot?: SettingsSnapshot }>>;
   onSettingsChanged(cb: (snapshot: SettingsSnapshot) => void): () => void;
   onTrayAction(cb: (action: string) => void): () => void;
+  onRadialOpen(cb: () => void): () => void;
   onWebContextAction(
     cb: (event: { action: string; text: string; url: string }) => void
   ): () => void;
@@ -622,7 +644,9 @@ export interface BsubApi {
     mode?: 'hard' | 'soft';
     style?: SubtitleStyle;
   }): Promise<Result<{ requestId: string; dir: string; total: number } | { canceled: true }>>;
-  downloadOnlineVideo?(url: string): Promise<Result<{ requestId: string }>>;
+  downloadOnlineVideo?(
+    payload: string | { url: string; options?: OnlineDownloadOptions }
+  ): Promise<Result<{ requestId: string }>>;
   cancelOnlineDownload?(requestId: string): void;
   onDownloadDone?(cb: (event: { requestId: string; path: string }) => void): () => void;
   onDownloadError?(cb: (event: { requestId: string; error: string }) => void): () => void;

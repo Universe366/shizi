@@ -22,6 +22,7 @@ import { registerTtsIpc } from './ipc/tts';
 import { registerChatHistoryIpc } from './ipc/chatHistory';
 import { registerDictationIpc } from './ipc/dictation';
 import { registerKnowledgeIpc } from './ipc/knowledge';
+import { registerConvertIpc } from './ipc/convert';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -72,6 +73,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerDictationIpc();
 
   registerKnowledgeIpc();
+
+  registerConvertIpc();
 
   registerStartIpc();
 

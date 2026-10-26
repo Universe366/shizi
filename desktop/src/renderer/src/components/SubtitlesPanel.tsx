@@ -727,17 +727,20 @@ export function SubtitlesPanel({
             aiStatus: null,
             source: cachedAsr?.source || 'asr'
           };
-          const displayTracks = cachedAsr
-            ? [
-                ...tracks.filter(
-                  (item) => item.source !== 'asr' && item.source !== 'import'
-                ),
-                localTrack
-              ]
-            : tracks;
+          const savedResponse = infoData
+            ? await window.bsub.savedSubtitles(infoData)
+            : null;
+          const savedTracks = savedResponse?.ok ? savedResponse.data : [];
+          const localTracks = cachedAsr ? [localTrack] : savedTracks;
+          const displayTracks = [
+            ...tracks.filter((item) => item.source !== 'asr' && item.source !== 'import'),
+            ...localTracks
+          ];
           setBundle({ ...subtitlesResult.data, tracks: displayTracks });
           const initialTrack =
-            cachedAsr && tracks.length === 0 ? localTrack : pickTrack(tracks, infoData);
+            cachedAsr && tracks.length === 0
+              ? localTrack
+              : pickTrack(tracks, infoData) || savedTracks[0] || null;
           setTrack(initialTrack);
           if (
             (initialTrack?.source === 'asr' || initialTrack?.source === 'import') &&

@@ -21,6 +21,7 @@ import { summarize } from '../ai';
 import { readPageContext } from '../pageContext';
 import { chat } from '../chat';
 import { loadSettings } from '../settings';
+import { setTrackUrl } from '../library/savedTracks';
 import { getPageInfo } from '../page';
 import { transcribe, transcribeFile } from '../asr';
 import { probeDuration } from '../media';
@@ -681,6 +682,24 @@ export function registerMediaIpc(ctx: IpcContext): void {
             },
             controller.signal
           );
+          // 转写完成立即入库：重开视频时能从 library://track/<id> 直接加载，不用再转一遍。
+          try {
+            const saved = ingestVideo({
+              info,
+              track: {
+                lan: 'asr',
+                lanDoc: '语音转录',
+                url: `library://pending-${requestId}`,
+                isAi: false,
+                aiStatus: null,
+                source: 'asr'
+              },
+              lines: result.lines
+            });
+            setTrackUrl(saved.trackId, `library://track/${saved.trackId}`);
+          } catch (error) {
+            console.warn('[asr] 保存到资料库失败:', (error as Error).message);
+          }
           ctx.send('asr:done', {
             requestId,
             lines: result.lines,

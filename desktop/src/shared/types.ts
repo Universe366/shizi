@@ -1,5 +1,44 @@
 import type { SearchEngineId } from './searchEngines';
 
+export type DownloadQuality = 'best' | '2160' | '1080' | '720' | '480';
+
+export type WheelActionId =
+  | 'summary'
+  | 'chat'
+  | 'newChat'
+  | 'library'
+  | 'settings'
+  | 'start'
+  | 'find'
+  | 'reader'
+  | 'reload'
+  | 'none';
+
+export interface RadialSettings {
+  enabled: boolean;
+  hotkey: string;
+  /** 固定 8 个扇区，顺序从正上方开始顺时针 */
+  sectors: WheelActionId[];
+}
+
+export interface DownloadSettings {
+  quality: DownloadQuality;
+  audioOnly: boolean;
+  audioFormat: 'm4a' | 'mp3';
+  cover: boolean;
+  subtitles: boolean;
+  metadata: boolean;
+}
+
+export interface OnlineDownloadOptions {
+  quality?: DownloadQuality;
+  audioOnly?: boolean;
+  audioFormat?: 'm4a' | 'mp3';
+  cover?: boolean;
+  subtitles?: boolean;
+  metadata?: boolean;
+}
+
 export interface TabInfo {
   id: string;
   title: string;
@@ -1108,6 +1147,10 @@ export interface AppSettings {
     uiGlass: boolean;
     /** 界面动效 */
     uiMotion: boolean;
+    /** 在线视频下载默认选项 */
+    download: DownloadSettings;
+    /** 鼠标轮盘 */
+    radial: RadialSettings;
   };
   ai: {
     activeId: string;
@@ -1359,6 +1402,11 @@ export interface ChatCompareResult {
   model: string;
   text: string;
   error: string;
+}
+
+export interface ConvertTargetResult {
+  source: string;
+  output: string;
 }
 
 export interface KbStatus {

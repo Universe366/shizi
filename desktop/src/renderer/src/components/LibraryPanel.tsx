@@ -110,6 +110,7 @@ export function LibraryPanel() {
   const [notice, setNotice] = useState('');
   const [synthOpen, setSynthOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadBusyId, setDownloadBusyId] = useState<number | null>(null);
   const [synthData, setSynthData] = useState<{
     videoPath: string;
     title: string;
@@ -1257,9 +1258,27 @@ export function LibraryPanel() {
               selectMode={selectMode}
               selected={selectedIds.has(video.id)}
               cursor={video.id === cursorId}
+              downloading={downloadBusyId === video.id}
               onToggleSelect={toggleSelect}
               onOpen={openDetail}
               onDelete={(item) => setPendingDelete(item)}
+              onDownload={(item) => {
+                void (async () => {
+                  setDownloadBusyId(item.id);
+                  setNotice(`正在提交下载：${item.title}`);
+                  const snapshot = await window.bsub.getSettings();
+                  const response = await window.bsub.downloadOnlineVideo?.({
+                    url: item.url,
+                    options: snapshot.ok ? snapshot.data.settings.general.download : undefined
+                  });
+                  setDownloadBusyId(null);
+                  setNotice(
+                    response?.ok
+                      ? `已开始下载：${item.title}（进度见右下角「任务」）`
+                      : response?.error || '当前版本不支持下载'
+                  );
+                })();
+              }}
             />
           ))}
 

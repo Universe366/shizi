@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import type { LibraryVideo } from '../../../shared/types';
 import { formatDate } from '../lib/format';
 import { metaLine } from '../lib/libraryView';
@@ -8,9 +8,11 @@ interface LibraryVideoRowProps {
   selectMode: boolean;
   selected: boolean;
   cursor?: boolean;
+  downloading?: boolean;
   onToggleSelect: (id: number, shift?: boolean) => void;
   onOpen: (video: LibraryVideo) => void;
   onDelete: (video: LibraryVideo) => void;
+  onDownload?: (video: LibraryVideo) => void;
 }
 
 /** 库列表的一行：封面 / 标题 / 元信息 / 删除按钮，选择模式下换成复选框。 */
@@ -20,8 +22,10 @@ export function LibraryVideoRow({
   selected,
   onToggleSelect,
   cursor = false,
+  downloading = false,
   onOpen,
-  onDelete
+  onDelete,
+  onDownload
 }: LibraryVideoRowProps) {
   const activate = () => {
     if (selectMode) onToggleSelect(video.id, false);
@@ -71,16 +75,31 @@ export function LibraryVideoRow({
         </div>
       </div>
       {!selectMode && (
-        <button
-          className="lib-delete"
-          title="从库中删除"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(video);
-          }}
-        >
-          <Trash2 size={13} />
-        </button>
+        <>
+          {onDownload && (
+            <button
+              className="lib-delete lib-download"
+              title={downloading ? '正在提交下载…' : '下载这个视频'}
+              disabled={downloading}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDownload(video);
+              }}
+            >
+              <Download size={13} />
+            </button>
+          )}
+          <button
+            className="lib-delete"
+            title="从库中删除"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(video);
+            }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </>
       )}
     </div>
   );

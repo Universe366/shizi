@@ -12,7 +12,8 @@ import type {
   SearchPlatform,
   SettingsSnapshot,
   SubtitleStyle,
-  ThemeMode
+  ThemeMode,
+  WheelActionId
 } from '../shared/types';
 import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
@@ -213,7 +214,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     customCss: '',
     uiRadius: 14,
     uiGlass: true,
-    uiMotion: true
+    uiMotion: true,
+    download: {
+      quality: 'best',
+      audioOnly: false,
+      audioFormat: 'm4a',
+      cover: false,
+      subtitles: false,
+      metadata: false
+    },
+    radial: {
+      enabled: false,
+      hotkey: 'Control+Alt+R',
+      sectors: ['summary', 'chat', 'newChat', 'library', 'settings', 'start', 'find', 'reader']
+    }
   },
   ai: {
     activeId: 'deepseek',
@@ -634,6 +648,50 @@ function normalize(input: unknown): AppSettings {
         : 14;
       base.general.uiGlass = raw.general.uiGlass !== false;
       base.general.uiMotion = raw.general.uiMotion !== false;
+      if (raw.general.download && typeof raw.general.download === 'object') {
+        const download = raw.general.download as unknown as Record<string, unknown>;
+        base.general.download = {
+          quality: (['best', '2160', '1080', '720', '480'] as string[]).includes(
+            String(download.quality)
+          )
+            ? (download.quality as 'best' | '2160' | '1080' | '720' | '480')
+            : 'best',
+          audioOnly: download.audioOnly === true,
+          audioFormat: download.audioFormat === 'mp3' ? 'mp3' : 'm4a',
+          cover: download.cover === true,
+          subtitles: download.subtitles === true,
+          metadata: download.metadata === true
+        };
+      }
+      if (raw.general.radial && typeof raw.general.radial === 'object') {
+        const radial = raw.general.radial as {
+          enabled?: unknown;
+          hotkey?: unknown;
+          sectors?: unknown;
+        };
+        const allowed: WheelActionId[] = [
+          'summary',
+          'chat',
+          'newChat',
+          'library',
+          'settings',
+          'start',
+          'find',
+          'reader',
+          'reload',
+          'none'
+        ];
+        const sectors = Array.isArray(radial.sectors)
+          ? radial.sectors
+              .map(String)
+              .filter((id): id is WheelActionId => allowed.includes(id as WheelActionId))
+          : [];
+        base.general.radial = {
+          enabled: radial.enabled === true,
+          hotkey: String(radial.hotkey || 'Control+Alt+R').trim().slice(0, 60) || 'Control+Alt+R',
+          sectors: [...sectors, ...Array(8).fill('none')].slice(0, 8) as WheelActionId[]
+        };
+      }
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])
             .filter(
