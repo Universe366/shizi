@@ -21,7 +21,7 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 108 个文件 / 653 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 108 个文件 / 654 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
@@ -428,7 +428,7 @@
 | 风险 | 说明 |
 |---|---|
 | 巨型文件 | `ipc.ts` 43 行 / `library.ts` 102 行（入口/桶）/ `SettingsPanel.tsx` 1.30k / `LibraryPanel.tsx` 1.41k / `index.ts` 346 行（托盘/会话/下载/日志/开发探针/窗口策略/关闭流程已拆到 shell.ts、downloadsHook.ts、log.ts、devHooks.ts、windowPolicy.ts、sessionRestore.ts、windowLifecycle.ts） |
-| 桌面 E2E 覆盖窄 | 13 条主流程 E2E（设置/库/笔记/回收站/任务/AI 校验/历史导出/启动通道/桌宠窗口/框选截图）；渲染层组件测试 59 文件 / 283 用例，启动/托盘/会话/下载/桌宠几何与截图坐标已有 64 条单测；`createWindow()` 的窗口装配本身仍无测试 |
+| 桌面 E2E 覆盖窄 | 19 条主流程 E2E（窗口与 preload、标签页、设置读写、字幕入库、笔记、回收站、任务中心、AI 校验、历史导出、启动只读通道、启动落盘、标签增强、垂直栏、设置页与起始页、桌宠窗口与布局、框选截图、隐藏落设置、起始页按钮、关闭确认弹窗）；渲染层组件测试 63 文件 / 377 用例，主进程与 shared 共 45 文件 / 277 用例（含启动/托盘/会话恢复/下载钩子/桌宠几何/框选坐标）；`createWindow()` 的窗口装配本身仍无测试 |
 | `any` | 已清零；外部响应统一用具体结构或 `shared/json.ts` 读取器 |
 | 双端重复 | 插件和桌面各有一套 AI/设置/导出实现 |
 | `PageInfo` B 站中心 | 新内容源仍要改多处 |
@@ -457,11 +457,11 @@
 
 下一步（一次只做一个模块，每步跑 `npm run verify` + channel diff）：
 
-1. UI 层：`LibraryPanel` / `SettingsPanel` 的 section 已拆完，渲染层组件测试 58 文件 / 269 用例；渲染层剩余工作已收口；
+1. UI 层：`LibraryPanel` / `SettingsPanel` 的 section 已拆完，渲染层组件测试 63 文件 / 377 用例；渲染层剩余工作已收口；
 2. 保持 `any` 为零：新增外部接口时先写响应结构或复用 `shared/json.ts`；
 3. `SettingsPanel` / `LibraryPanel` 已完成 section 化（渲染层拆分收口）；
 4. `SettingsPanel` memo 评估：15 个 section 都接收整份 `draft`，只加 `React.memo` 不会减少重渲染；要收益必须先按 section 切分 `draft`（改动面大、风险中），暂缓。
-5. `index.ts` 进展：托盘（`shell.ts`）、下载钩子（`downloadsHook.ts`）、会话保存/恢复（`shell.ts` + `sessionRestore.ts`）、窗口策略（`windowPolicy.ts`）已抽出，入口 403 → 346 行；这四块现有 44 条单测兜底（含关闭流程与首帧引导）。**下一步只剩 `createWindow()` 的 BrowserWindow 创建与事件接线**（TabManager/IPC 注册必须在窗口就绪后调用），拆它之前建议先给窗口工厂补注入点。
+5. `index.ts` 进展：托盘（`shell.ts`）、下载钩子（`downloadsHook.ts`）、会话保存/恢复（`shell.ts` + `sessionRestore.ts`）、窗口策略（`windowPolicy.ts`）已抽出，入口 403 → 346 行；这四块加上关闭流程/首帧引导现有 52 条单测兜底（windowPolicy 14 / sessionRestore 7 / shell+tray 9 / downloadsHook 7 / windowLifecycle 15）。**下一步只剩 `createWindow()` 的 BrowserWindow 创建与事件接线**（TabManager/IPC 注册必须在窗口就绪后调用），拆它之前建议先给窗口工厂补注入点。
 
 不要一次拆多个域；`index.ts` 先补启动回归测试再动。
 
