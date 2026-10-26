@@ -410,7 +410,7 @@ export default function App() {
     { id: 'section-subtitles', label: '打开面板：字幕', hint: 'Ctrl+Shift+1', run: () => setSection('subtitles') },
     { id: 'section-summary', label: '打开面板：总结', run: () => setSection('summary') },
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
-    { id: 'section-library', label: '打开库', run: () => handleSectionSelect('library') },
+    { id: 'section-library', label: '打开工作台', run: () => handleSectionSelect('library') },
     { id: 'section-settings', label: '打开设置', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
     { id: 'start-page', label: '打开起始页', hint: 'Ctrl+T', run: () => setStartOpen(true) },
     { id: 'settings-page', label: '打开设置页', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },

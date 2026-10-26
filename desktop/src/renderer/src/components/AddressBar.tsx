@@ -319,7 +319,7 @@ export function AddressBar({
         <Star size={15} fill={bookmarked ? 'currentColor' : 'none'} />
       </button>
 
-      <button className="nav-btn" title="库：字幕 / 总结 / 笔记 / 合集" onClick={onOpenLibrary}>
+      <button className="nav-btn" title="工作台：资料库 / 成片" onClick={onOpenLibrary}>
         <Library size={15} />
       </button>
 

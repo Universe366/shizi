@@ -19,6 +19,9 @@ import {
   setTranslationResult
 } from '../lib/translationStore';
 import { ExportMenu } from './ExportMenu';
+import { ResegmentDialog } from './ResegmentDialog';
+import { SynthesizeDialog } from './SynthesizeDialog';
+import { DubDialog } from './DubDialog';
 import { SubtitleVideoHeader } from './SubtitleVideoHeader';
 import { SubtitleOptimizeProgress, SubtitleTranslateBar } from './SubtitleTranslateBar';
 import { SubtitleOptimizePanel, SubtitleQualityCard } from './SubtitleOptimizePanel';
@@ -44,6 +47,19 @@ const TITLE_STOPWORDS = new Set([
   '可能', '需要', '提供', '支持', '使用', '实现', '第一', '第二', '第三',
   '最后', '开始', '结束', '全集', '高清', '完整版', '最新', '天花板'
 ]);
+
+function localVideoPathOf(url: string): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'file:') return '';
+    let filePath = decodeURIComponent(parsed.pathname);
+    if (/^\/[A-Za-z]:/.test(filePath)) filePath = filePath.slice(1);
+    return filePath;
+  } catch {
+    return '';
+  }
+}
 
 function titleKeywords(info: PageInfo | null): string[] {
   if (!info) return [];
@@ -211,6 +227,9 @@ export function SubtitlesPanel({
   const [translating, setTranslating] = useState(false);
   const [translateProgress, setTranslateProgress] = useState(0);
   const [translateMessage, setTranslateMessage] = useState('');
+  const [translateContext, setTranslateContext] = useState(true);
+  const [translateReflect, setTranslateReflect] = useState(false);
+  const [translateFreeFallback, setTranslateFreeFallback] = useState(false);
   const translateRequestRef = useRef('');
   const [optimizing, setOptimizing] = useState(false);
   const [optimizeProgress, setOptimizeProgress] = useState(0);
@@ -219,6 +238,11 @@ export function SubtitlesPanel({
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
   const optimizeRequestRef = useRef('');
   const [quality, setQuality] = useState<QualityReport | null>(null);
+  const [resegmentOpen, setResegmentOpen] = useState(false);
+  const [resegmentUndo, setResegmentUndo] = useState(false);
+  const [synthesizeOpen, setSynthesizeOpen] = useState(false);
+  const [dubOpen, setDubOpen] = useState(false);
+  const resegmentUndoRef = useRef<SubtitleLine[] | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
   const [checkingQuality, setCheckingQuality] = useState(false);
@@ -414,6 +438,20 @@ export function SubtitlesPanel({
     lastTimeRef.current = null;
   }, [track?.url, track?.source]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void window.bsub.getSettings?.().then((response) => {
+      if (cancelled || !response?.ok) return;
+      const general = response.data.settings.general;
+      setTranslateContext(general.translateContext !== false);
+      setTranslateReflect(general.translateReflect === true);
+      setTranslateFreeFallback(general.translateFreeFallback === true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const startTranslate = async () => {
     if (!lines.length || translating || !effectiveTarget) return;
     const requestId = (() => {
@@ -428,7 +466,16 @@ export function SubtitlesPanel({
     setTranslateProgress(0);
     setTranslateMessage('准备翻译…');
     setError(null);
-    const started = await window.bsub.translate({ requestId, lines, target: effectiveTarget });
+    const started = await window.bsub.translate({
+      requestId,
+      lines,
+      target: effectiveTarget,
+      options: {
+        useContext: translateContext,
+        reflect: translateReflect,
+        freeFallback: translateFreeFallback
+      }
+    });
     if (!started.ok) {
       translateRequestRef.current = '';
       setTranslating(false);
@@ -1118,6 +1165,37 @@ export function SubtitlesPanel({
     window.setTimeout(() => setSaveMessage(''), 3500);
   };
 
+  const applyResegment = (next: SubtitleLine[]) => {
+    if (!next.length) return;
+    resegmentUndoRef.current = lines;
+    setResegmentUndo(true);
+    setLines(next);
+    setSuggestions(null);
+    setSelectedSuggestions(new Set());
+    setTranslated(null);
+    setTranslatedLang('');
+    setViewMode('original');
+    if (track) clearTranslationResult(videoKey, track.url);
+    if ((track?.source === 'asr' || track?.source === 'import') && infoRef.current) {
+      setAsrResult(videoKey, infoRef.current, next, track.source, track.lanDoc);
+    }
+    setSaveMessage(`已断句：${lines.length} → ${next.length} 行`);
+    window.setTimeout(() => setSaveMessage(''), 5000);
+  };
+
+  const undoResegment = () => {
+    const previous = resegmentUndoRef.current;
+    if (!previous) return;
+    setLines(previous);
+    if ((track?.source === 'asr' || track?.source === 'import') && infoRef.current) {
+      setAsrResult(videoKey, infoRef.current, previous, track.source, track.lanDoc);
+    }
+    resegmentUndoRef.current = null;
+    setResegmentUndo(false);
+    setSaveMessage('已撤销断句');
+    window.setTimeout(() => setSaveMessage(''), 3000);
+  };
+
   const startAsr = async () => {
     if (!info || asrRunning) return;
     const requestId = (() => {
@@ -1230,6 +1308,14 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            disabled={!lines.length || asrRunning || optimizing}
+            title="合并碎句、拆分长句（不改写字幕文字）"
+            onClick={() => setResegmentOpen(true)}
+          >
+            断句
+          </button>
+          <button
+            className="mini-btn"
             disabled={!lines.length || translating}
             title="用 AI 翻译当前字幕"
             onClick={() => setTranslateOpen((value) => !value)}
@@ -1288,6 +1374,8 @@ export function SubtitlesPanel({
             lines={lines}
             translated={translated}
             translationLanguage={translatedLang}
+            onSynthesize={() => setSynthesizeOpen(true)}
+            onDub={() => setDubOpen(true)}
           />
           <button
             className={`mini-btn${follow ? ' is-active' : ''}`}
@@ -1352,7 +1440,16 @@ export function SubtitlesPanel({
         </div>
       )}
 
-      {saveMessage && <div className="save-status">{saveMessage}</div>}
+      {saveMessage && (
+        <div className="save-status">
+          {saveMessage}
+          {resegmentUndo && (
+            <button className="mini-btn" style={{ marginLeft: 8 }} onClick={undoResegment}>
+              撤销断句
+            </button>
+          )}
+        </div>
+      )}
 
       <SubtitleTranslateBar
         open={translateOpen}
@@ -1363,6 +1460,12 @@ export function SubtitlesPanel({
         translating={translating}
         progress={translateProgress}
         message={translateMessage}
+        useContext={translateContext}
+        reflect={translateReflect}
+        freeFallback={translateFreeFallback}
+        onToggleContext={setTranslateContext}
+        onToggleReflect={setTranslateReflect}
+        onToggleFreeFallback={setTranslateFreeFallback}
         onTargetLang={setTargetLang}
         onCustomTarget={setCustomTarget}
         onStart={() => void startTranslate()}
@@ -1640,6 +1743,27 @@ export function SubtitlesPanel({
           {bundle?.identity && <span className="mono" title={bundle.identity}>{bundle.identity}</span>}
         </div>
       )}
+      <ResegmentDialog
+        open={resegmentOpen}
+        lines={lines}
+        onClose={() => setResegmentOpen(false)}
+        onApply={applyResegment}
+      />
+      <SynthesizeDialog
+        open={synthesizeOpen}
+        videoPath={localVideoPathOf(info?.url || '')}
+        title={info?.title || '字幕视频'}
+        lines={lines}
+        translated={translated}
+        onClose={() => setSynthesizeOpen(false)}
+      />
+      <DubDialog
+        open={dubOpen}
+        videoPath={localVideoPathOf(info?.url || '')}
+        title={info?.title || '字幕视频'}
+        lines={lines}
+        onClose={() => setDubOpen(false)}
+      />
     </div>
   );
 }

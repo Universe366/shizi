@@ -17,7 +17,9 @@ export function ExportMenu({
   lines,
   summary,
   translated,
-  translationLanguage
+  translationLanguage,
+  onSynthesize,
+  onDub
 }: {
   info: PageInfo | null;
   track: SubtitleTrack | null;
@@ -25,6 +27,8 @@ export function ExportMenu({
   summary?: string;
   translated?: SubtitleLine[] | null;
   translationLanguage?: string;
+  onSynthesize?: () => void;
+  onDub?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,6 +98,31 @@ export function ExportMenu({
               {format.id === defaultFormat ? '（默认）' : ''}
             </button>
           ))}
+          {onSynthesize && (
+            <>
+              <div className="export-separator" />
+              <button
+                className="export-item"
+                onClick={() => {
+                  setOpen(false);
+                  onSynthesize();
+                }}
+              >
+                视频成片…
+              </button>
+              {onDub && (
+                <button
+                  className="export-item"
+                  onClick={() => {
+                    setOpen(false);
+                    onDub();
+                  }}
+                >
+                  配音…
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
       {message && <div className="export-toast">{message}</div>}

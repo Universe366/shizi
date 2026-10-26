@@ -9,14 +9,40 @@ import type {
   PromptTemplate,
   SearchPlatform,
   SettingsSnapshot,
+  SubtitleStyle,
   ThemeMode
 } from '../shared/types';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { parseShortcut } from '../shared/shortcutKeys';
 import { shortcutAction } from '../shared/shortcuts';
+import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
+
+function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
+  const raw = (value || {}) as Partial<SubtitleStyle>;
+  const number = (input: unknown, fallback: number, min: number, max: number) => {
+    const parsed = Number(input);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.round(parsed))) : fallback;
+  };
+  return {
+    ...DEFAULT_SUBTITLE_STYLE,
+    fontName: String(raw.fontName || DEFAULT_SUBTITLE_STYLE.fontName).slice(0, 60),
+    fontSize: number(raw.fontSize, DEFAULT_SUBTITLE_STYLE.fontSize, 20, 120),
+    primaryColor: /^#[0-9a-f]{6}$/i.test(String(raw.primaryColor || ''))
+      ? String(raw.primaryColor)
+      : DEFAULT_SUBTITLE_STYLE.primaryColor,
+    outlineColor: /^#[0-9a-f]{6}$/i.test(String(raw.outlineColor || ''))
+      ? String(raw.outlineColor)
+      : DEFAULT_SUBTITLE_STYLE.outlineColor,
+    outline: number(raw.outline, DEFAULT_SUBTITLE_STYLE.outline, 0, 10),
+    shadow: number(raw.shadow, DEFAULT_SUBTITLE_STYLE.shadow, 0, 10),
+    marginV: number(raw.marginV, DEFAULT_SUBTITLE_STYLE.marginV, 0, 300),
+    bilingual: raw.bilingual === true,
+    alignment: number(raw.alignment, DEFAULT_SUBTITLE_STYLE.alignment, 1, 9)
+  };
+}
 
 export const DEFAULT_PROMPT =
   '整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
@@ -138,6 +164,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petVoiceShortcut: true,
     petChatShortcut: true,
     shortcuts: {},
+    translateContext: true,
+    translateReflect: false,
+    translateConcurrency: 2,
+    translateFreeFallback: false,
+    subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
+    subtitlePresets: [],
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -437,6 +469,29 @@ function normalize(input: unknown): AppSettings {
           if (text && parseShortcut(text)) base.general.shortcuts[id] = text;
         }
       }
+      base.general.translateContext = raw.general.translateContext !== false;
+      base.general.translateReflect = raw.general.translateReflect === true;
+      const translateConcurrency = Number(raw.general.translateConcurrency);
+      base.general.translateConcurrency = Number.isFinite(translateConcurrency)
+        ? Math.min(3, Math.max(1, Math.round(translateConcurrency)))
+        : 2;
+      base.general.translateFreeFallback = raw.general.translateFreeFallback === true;
+      base.general.subtitleStyle = sanitizeSubtitleStyle(raw.general.subtitleStyle);
+      const rawPresets = Array.isArray(raw.general.subtitlePresets)
+        ? raw.general.subtitlePresets
+        : [];
+      base.general.subtitlePresets = rawPresets
+        .filter(
+          (item): item is { name: string; style: SubtitleStyle } =>
+            Boolean(item) &&
+            typeof item === 'object' &&
+            typeof (item as { name?: unknown }).name === 'string'
+        )
+        .slice(0, 12)
+        .map((item) => ({
+          name: String(item.name).slice(0, 40) || '未命名',
+          style: sanitizeSubtitleStyle(item.style)
+        }));
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))

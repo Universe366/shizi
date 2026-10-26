@@ -171,6 +171,7 @@
   "start:hot",
   "start:weather",
   "subtitle:pick-file",
+  "subtitle:resegment",
   "sync:choose",
   "sync:pull",
   "sync:push",
@@ -219,6 +220,14 @@
   "update:status",
   "urlbatch:cancel",
   "urlbatch:start",
+  "video:batch-synthesize",
+  "video:download",
+  "video:download-cancel",
+  "video:dub",
+  "video:dub-cancel",
+  "video:synthesize",
+  "video:synthesize-cancel",
+  "video:tts-voices",
   "voice:transcribe",
   "window:foreground"
 ]

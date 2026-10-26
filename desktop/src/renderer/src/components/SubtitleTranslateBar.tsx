@@ -8,6 +8,12 @@ interface SubtitleTranslateBarProps {
   translating: boolean;
   progress: number;
   message: string;
+  useContext: boolean;
+  reflect: boolean;
+  freeFallback: boolean;
+  onToggleContext: (value: boolean) => void;
+  onToggleReflect: (value: boolean) => void;
+  onToggleFreeFallback: (value: boolean) => void;
   onTargetLang: (value: string) => void;
   onCustomTarget: (value: string) => void;
   onStart: () => void;
@@ -27,6 +33,12 @@ export function SubtitleTranslateBar({
   translating,
   progress,
   message,
+  useContext,
+  reflect,
+  freeFallback,
+  onToggleContext,
+  onToggleReflect,
+  onToggleFreeFallback,
   onTargetLang,
   onCustomTarget,
   onStart,
@@ -67,6 +79,36 @@ export function SubtitleTranslateBar({
         >
           开始翻译
         </button>
+        <label className="settings-check" title="把上一批/下一批的原文也带给模型，术语和语气更一致">
+          <input
+            type="checkbox"
+            checked={useContext}
+            disabled={translating}
+            onChange={(event) => onToggleContext(event.target.checked)}
+          />
+          上下文
+        </label>
+        <label className="settings-check" title="译完再让模型对照原文复查一遍（耗时约翻倍）">
+          <input
+            type="checkbox"
+            checked={reflect}
+            disabled={translating}
+            onChange={(event) => onToggleReflect(event.target.checked)}
+          />
+          反思
+        </label>
+        <label
+          className="settings-check"
+          title="AI 不可用/失败时改用 MyMemory 免费翻译（字幕文本会发给第三方）"
+        >
+          <input
+            type="checkbox"
+            checked={freeFallback}
+            disabled={translating}
+            onChange={(event) => onToggleFreeFallback(event.target.checked)}
+          />
+          免费兜底
+        </label>
         {translating && (
           <button className="mini-btn" onClick={onStop}>
             停止

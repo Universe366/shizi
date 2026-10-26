@@ -57,6 +57,9 @@ import type {
   WebReference,
   UpdateStatus,
   ExportPayload,
+  SynthesizeRequest,
+  SynthesizeDoneEvent,
+  SubtitleStyle,
   SaveTextPayload,
   SaveTextResult,
   LibraryIngestPayload,
@@ -433,6 +436,12 @@ export interface BsubApi {
   onAsrDownloadProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
   pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
+  /** 智能断句：只合并/拆分，不改写字幕文字 */
+  resegmentSubtitles?(payload: {
+    requestId?: string;
+    lines: SubtitleLine[];
+    options: { maxChars: number; minDuration: number; useAi: boolean };
+  }): Promise<Result<{ lines: SubtitleLine[]; mode: string; note: string }>>;
 
   translate(payload: TranslateRequest): Promise<Result<{ requestId: string }>>;
   cancelTranslate(requestId: string): Promise<void>;
@@ -492,6 +501,32 @@ export interface BsubApi {
     Result<{ canceled: true } | { dir: string; exported: number; skipped: string[] }>
   >;
   exportVideo(payload: ExportPayload): Promise<Result<{ path: string } | { canceled: true }>>;
+  synthesizeVideo(payload: SynthesizeRequest): Promise<
+    Result<{ requestId: string; path: string } | { canceled: true }>
+  >;
+  cancelSynthesize?(requestId: string): void;
+  batchSynthesize?(payload: {
+    ids: number[];
+    mode?: 'hard' | 'soft';
+    style?: SubtitleStyle;
+  }): Promise<Result<{ requestId: string; dir: string; total: number } | { canceled: true }>>;
+  downloadOnlineVideo?(url: string): Promise<Result<{ requestId: string }>>;
+  cancelOnlineDownload?(requestId: string): void;
+  onDownloadDone?(cb: (event: { requestId: string; path: string }) => void): () => void;
+  onDownloadError?(cb: (event: { requestId: string; error: string }) => void): () => void;
+  listTtsVoices?(): Promise<Result<{ voices: string[] }>>;
+  dubVideo?(payload: {
+    videoPath: string;
+    title: string;
+    lines: SubtitleLine[];
+    voice?: string;
+    mode: 'audio' | 'video';
+  }): Promise<Result<{ requestId: string; path: string } | { canceled: true }>>;
+  cancelDub?(requestId: string): void;
+  onDubDone?(cb: (event: { requestId: string; path: string }) => void): () => void;
+  onDubError?(cb: (event: { requestId: string; error: string }) => void): () => void;
+  onSynthesizeDone?(cb: (event: SynthesizeDoneEvent) => void): () => void;
+  onSynthesizeError?(cb: (event: { requestId: string; error: string }) => void): () => void;
   saveTextFile(payload: SaveTextPayload): Promise<Result<SaveTextResult>>;
 
   zoomIn(): Promise<void>;

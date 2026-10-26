@@ -11,6 +11,7 @@ interface LibraryListHeaderProps {
   onToggleFilters: () => void;
   onNewCollection: () => void;
   onImport: () => void;
+  onDownload: () => void;
   onOpenTrash: () => void;
   onToggleSelect: () => void;
   onRefresh: () => void;
@@ -28,6 +29,7 @@ export function LibraryListHeader({
   onToggleFilters,
   onNewCollection,
   onImport,
+  onDownload,
   onOpenTrash,
   onToggleSelect,
   onRefresh
@@ -46,6 +48,9 @@ export function LibraryListHeader({
           </button>
           <button className="mini-btn" onClick={onImport}>
             导入链接
+          </button>
+          <button className="mini-btn" title="下载在线视频文件（B 站 / YouTube 等）" onClick={onDownload}>
+            下载视频
           </button>
           <button
             className={`mini-btn${filtersOpen || filterActive ? ' is-active' : ''}`}

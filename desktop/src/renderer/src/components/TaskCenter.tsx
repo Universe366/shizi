@@ -16,7 +16,11 @@ export const JOB_TYPE_LABEL: Record<JobType, string> = {
   optimize: '校对',
   'batch-summary': '批量总结',
   'url-batch': '链接批量',
-  'collection-summary': '合集对比'
+  'collection-summary': '合集对比',
+  synthesize: '成片',
+  'batch-synthesize': '批量成片',
+  'online-download': '在线下载',
+  dub: '配音'
 };
 
 export const JOB_STATUS_LABEL: Record<JobStatus, string> = {

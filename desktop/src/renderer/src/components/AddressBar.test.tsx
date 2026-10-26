@@ -104,7 +104,7 @@ describe('AddressBar', () => {
     fireEvent.click(screen.getByTitle('起始页'));
     expect(p.onOpenStart).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTitle(/^库：/));
+    fireEvent.click(screen.getByTitle(/^工作台：/));
     expect(p.onOpenLibrary).toHaveBeenCalled();
 
     fireEvent.click(screen.getByTitle('菜单'));

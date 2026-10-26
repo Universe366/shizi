@@ -10,6 +10,7 @@ interface LibraryBulkBarProps {
   onSummarize: () => void;
   onExportSubtitles: () => void;
   onExportSummary: () => void;
+  onSynthesize: () => void;
   exporting: boolean;
   onAddTag: () => void;
   onAddCollection: () => void;
@@ -33,6 +34,7 @@ export function LibraryBulkBar({
   onSummarize,
   onExportSubtitles,
   onExportSummary,
+  onSynthesize,
   exporting,
   onAddTag,
   onAddCollection,
@@ -56,6 +58,9 @@ export function LibraryBulkBar({
       </button>
       <button className="mini-btn" disabled={!count || exporting} onClick={onExportSummary}>
         导出总结
+      </button>
+      <button className="mini-btn" disabled={!count} onClick={onSynthesize}>
+        批量成片
       </button>
       <select
         className="mini-select"

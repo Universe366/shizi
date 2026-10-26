@@ -45,6 +45,8 @@ import type {
   LibraryTranscriptionItem,
   FindResult,
   ExportPayload,
+  SynthesizeRequest,
+  SynthesizeDoneEvent,
   SaveTextPayload,
   SaveTextResult,
   LayoutRect,
@@ -586,6 +588,14 @@ const api: BsubApi = {
     ipcRenderer.invoke('subtitle:pick-file') as Promise<
       Result<{ name: string; text: string } | null>
     >,
+  resegmentSubtitles: (payload: {
+    requestId?: string;
+    lines: SubtitleLine[];
+    options: { maxChars: number; minDuration: number; useAi: boolean };
+  }) =>
+    ipcRenderer.invoke('subtitle:resegment', payload) as Promise<
+      Result<{ lines: SubtitleLine[]; mode: string; note: string }>
+    >,
 
   translate: (payload: TranslateRequest) =>
     ipcRenderer.invoke('translate:start', payload) as Promise<Result<{ requestId: string }>>,
@@ -685,6 +695,48 @@ const api: BsubApi = {
     ipcRenderer.invoke('export:save', payload) as Promise<
       Result<{ path: string } | { canceled: true }>
     >,
+  synthesizeVideo: (payload: SynthesizeRequest) =>
+    ipcRenderer.invoke('video:synthesize', payload) as Promise<
+      Result<{ requestId: string; path: string } | { canceled: true }>
+    >,
+  cancelSynthesize: (requestId: string) => ipcRenderer.send('video:synthesize-cancel', requestId),
+  batchSynthesize: (payload: {
+    ids: number[];
+    mode?: 'hard' | 'soft';
+    style?: SynthesizeRequest['style'];
+  }) =>
+    ipcRenderer.invoke('video:batch-synthesize', payload) as Promise<
+      Result<{ requestId: string; dir: string; total: number } | { canceled: true }>
+    >,
+  downloadOnlineVideo: (url: string) =>
+    ipcRenderer.invoke('video:download', { url }) as Promise<Result<{ requestId: string }>>,
+  cancelOnlineDownload: (requestId: string) =>
+    ipcRenderer.send('video:download-cancel', requestId),
+  onDownloadDone: (cb: (event: { requestId: string; path: string }) => void) =>
+    on<{ requestId: string; path: string }>('download:done', cb),
+  onDownloadError: (cb: (event: { requestId: string; error: string }) => void) =>
+    on<{ requestId: string; error: string }>('download:error', cb),
+  listTtsVoices: () =>
+    ipcRenderer.invoke('video:tts-voices') as Promise<Result<{ voices: string[] }>>,
+  dubVideo: (payload: {
+    videoPath: string;
+    title: string;
+    lines: SubtitleLine[];
+    voice?: string;
+    mode: 'audio' | 'video';
+  }) =>
+    ipcRenderer.invoke('video:dub', payload) as Promise<
+      Result<{ requestId: string; path: string } | { canceled: true }>
+    >,
+  cancelDub: (requestId: string) => ipcRenderer.send('video:dub-cancel', requestId),
+  onDubDone: (cb: (event: { requestId: string; path: string }) => void) =>
+    on<{ requestId: string; path: string }>('dub:done', cb),
+  onDubError: (cb: (event: { requestId: string; error: string }) => void) =>
+    on<{ requestId: string; error: string }>('dub:error', cb),
+  onSynthesizeDone: (cb: (event: SynthesizeDoneEvent) => void) =>
+    on<SynthesizeDoneEvent>('synthesize:done', cb),
+  onSynthesizeError: (cb: (event: { requestId: string; error: string }) => void) =>
+    on<{ requestId: string; error: string }>('synthesize:error', cb),
   saveTextFile: (payload: SaveTextPayload) =>
     ipcRenderer.invoke('file:save-text', payload) as Promise<Result<SaveTextResult>>
 };

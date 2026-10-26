@@ -26,6 +26,7 @@ import { probeDuration } from '../media';
 import { downloadPodcastAudio, loadPodcastFeed } from '../podcast';
 import { translateLines } from '../translate';
 import { optimizeLines } from '../optimize';
+import { resegmentLines, type ResegmentOptions } from '../resegment';
 import type {
   AiDeltaEvent,
   AiDoneEvent,
@@ -816,6 +817,39 @@ export function registerMediaIpc(ctx: IpcContext): void {
     asrControllers.get(requestId)?.abort();
   });
 
+  ipcMain.handle(
+    'subtitle:resegment',
+    async (
+      _event,
+      payload: {
+        requestId?: string;
+        lines: SubtitleLine[];
+        options: ResegmentOptions;
+      }
+    ): Promise<Result<{ lines: SubtitleLine[]; mode: string; note: string }>> => {
+      try {
+        if (!payload || !Array.isArray(payload.lines) || !payload.lines.length) {
+          return { ok: false, error: '没有可断句的字幕' };
+        }
+        const requestId = payload.requestId || randomUUID();
+        const controller = new AbortController();
+        aiControllers.set(requestId, controller);
+        try {
+          const result = await resegmentLines(
+            payload.lines,
+            payload.options,
+            controller.signal
+          );
+          return { ok: true, data: result };
+        } finally {
+          aiControllers.delete(requestId);
+        }
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
   // 本地字幕文件导入：只读小文件；解析在渲染层做，便于预览/测试。
   ipcMain.handle(
     'subtitle:pick-file',
@@ -875,7 +909,9 @@ export function registerMediaIpc(ctx: IpcContext): void {
                 message
               } satisfies TranslateProgressEvent);
             },
-            controller.signal
+            controller.signal,
+            undefined,
+            payload.options
           );
           ctx.send('translate:done', {
             requestId,

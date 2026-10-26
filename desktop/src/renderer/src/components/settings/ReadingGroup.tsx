@@ -1,4 +1,5 @@
 import type { AppSettings } from '../../../../shared/types';
+import { DEFAULT_SUBTITLE_STYLE } from '../../../../shared/ass';
 import {
   MEDIA_MAX_RATE,
   MEDIA_MIN_RATE,
@@ -134,6 +135,117 @@ export function ReadingGroup({ value, onChange }: Props) {
           >
             清除站点记忆
           </button>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="字幕与翻译">
+        <div className="settings-hint">翻译默认行为；断句和成片参数在对应弹窗里单独调。</div>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.translateContext !== false}
+            onChange={(event) => onChange({ translateContext: event.target.checked })}
+          />
+          翻译时带前后文（术语和语气更一致，提示词略长）
+        </label>
+
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.translateReflect === true}
+            onChange={(event) => onChange({ translateReflect: event.target.checked })}
+          />
+          译完让 AI 对照原文反思一次（耗时约翻倍）
+        </label>
+
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.translateFreeFallback === true}
+            onChange={(event) => onChange({ translateFreeFallback: event.target.checked })}
+          />
+          AI 不可用/失败时用 MyMemory 免费翻译兜底（字幕文本会发给第三方）
+        </label>
+
+        <div className="settings-field">
+          <div className="settings-label">翻译并发批数（1-3）</div>
+          <select
+            className="settings-input"
+            value={String(value.translateConcurrency ?? 2)}
+            onChange={(event) => onChange({ translateConcurrency: Number(event.target.value) })}
+          >
+            <option value="1">1 · 最稳</option>
+            <option value="2">2 · 推荐</option>
+            <option value="3">3 · 最快（可能触发限流）</option>
+          </select>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="成片样式">
+        <div className="settings-hint">
+          默认样式；成片弹窗里还能临时改，并「保存为预设」。
+        </div>
+        <div className="settings-inline">
+          <div className="settings-field">
+            <div className="settings-label">字号</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={20}
+              max={120}
+              value={value.subtitleStyle?.fontSize ?? DEFAULT_SUBTITLE_STYLE.fontSize}
+              onChange={(event) =>
+                onChange({
+                  subtitleStyle: {
+                    ...DEFAULT_SUBTITLE_STYLE,
+                    ...value.subtitleStyle,
+                    fontSize: Number(event.target.value) || DEFAULT_SUBTITLE_STYLE.fontSize
+                  }
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">距底部</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={0}
+              max={300}
+              value={value.subtitleStyle?.marginV ?? DEFAULT_SUBTITLE_STYLE.marginV}
+              onChange={(event) =>
+                onChange({
+                  subtitleStyle: {
+                    ...DEFAULT_SUBTITLE_STYLE,
+                    ...value.subtitleStyle,
+                    marginV: Number(event.target.value) || 0
+                  }
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">描边</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={0}
+              max={10}
+              value={value.subtitleStyle?.outline ?? DEFAULT_SUBTITLE_STYLE.outline}
+              onChange={(event) =>
+                onChange({
+                  subtitleStyle: {
+                    ...DEFAULT_SUBTITLE_STYLE,
+                    ...value.subtitleStyle,
+                    outline: Number(event.target.value) || 0
+                  }
+                })
+              }
+            />
+          </div>
+        </div>
+        <div className="settings-hint">
+          已保存 {value.subtitlePresets?.length || 0} 个预设（在成片弹窗里保存/套用）。
         </div>
       </SettingsSection>
     </>

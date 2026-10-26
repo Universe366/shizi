@@ -22,6 +22,7 @@ type DetailTab = 'subtitles' | 'summary' | 'note';
 interface LibraryDetailViewProps {
   activeVideo: LibraryVideo | null;
   detail: LibraryDetail | null;
+  onSynthesize?: () => void;
   allTags: LibraryTag[];
   allCollections: LibraryCollection[];
   tagDraft: string;
@@ -77,6 +78,7 @@ export function LibraryDetailView(props: LibraryDetailViewProps) {
   const {
     activeVideo,
     detail,
+    onSynthesize,
     allTags,
     allCollections,
     tagDraft,
@@ -132,6 +134,7 @@ export function LibraryDetailView(props: LibraryDetailViewProps) {
       <LibraryDetailHeader
         video={activeVideo}
         detail={detail}
+        onSynthesize={onSynthesize}
         tags={allTags}
         tagDraft={tagDraft}
         onTagDraft={setTagDraft}

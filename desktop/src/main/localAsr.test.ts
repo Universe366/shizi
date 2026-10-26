@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { AsrPlatform } from '../shared/types';
 import {
+  detectSilences,
   parseWhisperJson,
   parseWhisperOutput,
   parseWhisperStdout,
@@ -114,5 +115,57 @@ describe('resolveLocalWhisperPaths', () => {
     expect(() =>
       resolveLocalWhisperPaths(platform({ localExe: exe, localModel: path.join(temp, 'none.bin') }))
     ).toThrow(/找不到模型文件/);
+  });
+});
+
+describe('词级时间戳切分', () => {  it('超长段落按 token offsets 切成多行', () => {
+    const tokens = [
+      'This',
+      ' is',
+      ' a',
+      ' long',
+      ' sentence',
+      ' that',
+      ' should',
+      ' be',
+      ' split',
+      ' into',
+      ' multiple',
+      ' readable',
+      ' lines',
+      ' by',
+      ' tokens.'
+    ];
+    const json = JSON.stringify({
+      transcription: [
+        {
+          offsets: { from: 0, to: 4000 },
+          text: tokens.join(''),
+          tokens: tokens.map((text, index) => ({
+            text,
+            offsets: { from: index * 250, to: (index + 1) * 250 }
+          }))
+        }
+      ]
+    });
+    const segments = parseWhisperJson(json);
+    expect(segments.length).toBeGreaterThan(1);
+    expect(segments[0].start).toBe(0);
+    expect(segments[segments.length - 1].end).toBeLessThanOrEqual(4);
+    expect(segments.map((item) => item.text).join(' ')).toContain('tokens');
+  });
+});
+
+describe('静音检测', () => {
+  it('解析 ffmpeg silencedetect 日志', () => {
+    const ranges = detectSilences(
+      [
+        '[silencedetect @ 0000] silence_start: 1.2',
+        '[silencedetect @ 0000] silence_end: 2.4 | silence_duration: 1.2',
+        '[silencedetect @ 0000] silence_start: 5',
+        '[silencedetect @ 0000] silence_end: 5.2 | silence_duration: 0.2'
+      ].join('\n')
+    );
+    expect(ranges).toEqual([{ start: 1.2, end: 2.4 }]);
   });
 });

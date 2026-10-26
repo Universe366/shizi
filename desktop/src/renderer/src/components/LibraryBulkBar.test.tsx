@@ -16,6 +16,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onSummarize: vi.fn(),
     onExportSubtitles: vi.fn(),
     onExportSummary: vi.fn(),
+    onSynthesize: vi.fn(),
     exporting: false,
     onAddTag: vi.fn(),
     onAddCollection: vi.fn(),

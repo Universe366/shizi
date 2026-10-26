@@ -49,7 +49,10 @@ export const abortControllers = {
   translate: new Map<string, AbortController>(),
   optimize: new Map<string, AbortController>(),
   batch: new Map<string, AbortController>(),
-  urlBatch: new Map<string, AbortController>()
+  urlBatch: new Map<string, AbortController>(),
+  synthesize: new Map<string, AbortController>(),
+  download: new Map<string, AbortController>(),
+  dub: new Map<string, AbortController>()
 };
 
 /** 按 requestId 找任意域上的取消句柄。 */
@@ -61,6 +64,9 @@ export function findAbortController(id: string): AbortController | undefined {
     abortControllers.translate.get(id) ||
     abortControllers.optimize.get(id) ||
     abortControllers.batch.get(id) ||
-    abortControllers.urlBatch.get(id)
+    abortControllers.urlBatch.get(id) ||
+    abortControllers.synthesize.get(id) ||
+    abortControllers.download.get(id) ||
+    abortControllers.dub.get(id)
   );
 }

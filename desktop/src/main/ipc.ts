@@ -15,6 +15,7 @@ import { registerStartIpc } from './ipc/start';
 import { registerSyncIpc } from './ipc/sync';
 import { registerPetToolsIpc } from './ipc/petTools';
 import { registerAsrSetupIpc } from './ipc/asrSetup';
+import { registerVideoIpc } from './ipc/video';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -49,6 +50,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerMediaIpc(ctx);
 
   registerAsrSetupIpc(ctx);
+
+  registerVideoIpc(ctx);
 
   registerShotIpc();
 

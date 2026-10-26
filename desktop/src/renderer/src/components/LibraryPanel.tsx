@@ -8,6 +8,7 @@ import type {
   LibraryCollection,
   LibraryDetail,
   LibraryList,
+  SubtitleLine,
   LibrarySearchResult,
   LibrarySort,
   LibraryTag,
@@ -20,6 +21,8 @@ import type {
 import { formatBytes, formatDateTime, formatDuration } from '../lib/format';
 import { LINE_PAGE, metaLine, safeFilename } from '../lib/libraryView';
 import { ConfirmDialog } from './ConfirmDialog';
+import { SynthesizeDialog } from './SynthesizeDialog';
+import { DownloadVideoDialog } from './DownloadVideoDialog';
 import { LibraryBulkBar } from './LibraryBulkBar';
 import { LibraryBulkCollectionDialog } from './LibraryBulkCollectionDialog';
 import { LibraryCollectionSummaryDialog } from './LibraryCollectionSummaryDialog';
@@ -105,6 +108,13 @@ export function LibraryPanel() {
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [notice, setNotice] = useState('');
+  const [synthOpen, setSynthOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [synthData, setSynthData] = useState<{
+    videoPath: string;
+    title: string;
+    lines: SubtitleLine[];
+  } | null>(null);
   const [summaryCollection, setSummaryCollection] = useState<LibraryCollection | null>(null);
   const [collectionSummary, setCollectionSummary] = useState<CollectionSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -580,6 +590,23 @@ export function LibraryPanel() {
     flash(`已开始批量总结 ${ids.length} 个视频，进度见底部任务按钮`);
   };
 
+  const startBulkSynthesize = async () => {
+    if (!selectedIds.size) return;
+    const ids = [...selectedIds];
+    const response = await window.bsub.batchSynthesize?.({ ids });
+    if (!response) {
+      setError('当前版本不支持批量成片');
+      return;
+    }
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    if ('canceled' in response.data) return;
+    exitSelect();
+    flash(`已提交 ${ids.length} 个成片任务，进度见底部任务按钮`);
+  };
+
   const createStandaloneCollection = async () => {
     const name = newCollectionName.trim();
     if (!name) return;
@@ -935,12 +962,44 @@ export function LibraryPanel() {
       )
     : [];
 
+  const openSynthesize = () => {
+    const raw = detail?.video.url || '';
+    let videoPath = '';
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol === 'file:') {
+        videoPath = decodeURIComponent(parsed.pathname);
+        if (/^\/[A-Za-z]:/.test(videoPath)) videoPath = videoPath.slice(1);
+      }
+    } catch {
+      // ignore
+    }
+    if (!videoPath) {
+      setNotice('成片只支持本地视频；在线视频请先下载成本地文件');
+      window.setTimeout(() => setNotice(''), 4000);
+      return;
+    }
+    if (!detail?.bundle?.lines.length) {
+      setNotice('这个条目还没有字幕，无法合成');
+      window.setTimeout(() => setNotice(''), 3000);
+      return;
+    }
+    setSynthData({
+      videoPath,
+      title: detail.video.title,
+      lines: detail.bundle.lines
+    });
+    setSynthOpen(true);
+  };
+
   if (selectedId != null) {
     return (
-      <LibraryDetailView
-        activeVideo={activeVideo}
-        detail={detail}
-        allTags={allTags}
+      <>
+        <LibraryDetailView
+          activeVideo={activeVideo}
+          detail={detail}
+          onSynthesize={openSynthesize}
+          allTags={allTags}
         allCollections={allCollections}
         tagDraft={tagDraft}
         collectionDraft={collectionDraft}
@@ -989,6 +1048,16 @@ export function LibraryPanel() {
         loadNoteVersion={loadNoteVersion}
         confirmDelete={confirmDelete}
       />
+        {synthData && (
+          <SynthesizeDialog
+            open={synthOpen}
+            videoPath={synthData.videoPath}
+            title={synthData.title}
+            lines={synthData.lines}
+            onClose={() => setSynthOpen(false)}
+          />
+        )}
+      </>
     );
   }
 
@@ -1005,6 +1074,7 @@ export function LibraryPanel() {
         onToggleFilters={() => setFiltersOpen((value) => !value)}
         onNewCollection={() => setNewCollectionOpen(true)}
         onImport={() => setImportOpen(true)}
+        onDownload={() => setDownloadOpen(true)}
         onOpenTrash={openTrash}
         onToggleSelect={() => {
           if (selectMode) exitSelect();
@@ -1043,6 +1113,7 @@ export function LibraryPanel() {
           onSummarize={() => void startBulkSummary()}
           onExportSubtitles={() => void exportSelected('subtitles')}
           onExportSummary={() => void exportSelected('summary')}
+          onSynthesize={() => void startBulkSynthesize()}
           exporting={exporting}
           onAddTag={() => openBulkInput('tag')}
           onAddCollection={() => setBulkCollectionOpen(true)}
@@ -1404,6 +1475,7 @@ export function LibraryPanel() {
         onPurge={(item) => void purgeTrashItem(item)}
         onClearAll={() => void clearAllTrash()}
       />
+      <DownloadVideoDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
     </div>
   );
 }

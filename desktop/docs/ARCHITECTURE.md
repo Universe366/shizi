@@ -390,9 +390,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.27）；
+  - 桌面端 `desktop/package.json`（例如 0.38.28）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.27`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.28`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -614,6 +614,27 @@ node panel-test.js     # 至少跑这个
   主进程转发 `app:selection-action`，App 切到「对话」并把动作派发给 `ChatPanel`；
 - `ChatPanel` 自动发送带引用的提示词，并强制 `includePage`，页面正文仍作为不可信资料；
 - 站点如果拦截内联样式，工具条可能没有圆角/阴影，但按钮与事件仍然可用。
+
+### 13.10.1 智能断句 / 翻译 / 成片
+
+- **断句**：`main/resegment.ts` 先按规则合并“碎句/未结束句”，再按标点与字数拆分；
+  可选 AI 只返回行号分组（`[[1,2],[3]]`），由程序拼接文本，禁止模型改写字幕。
+  IPC `subtitle:resegment`；渲染层 `ResegmentDialog` 预览、应用、撤销。
+- **翻译**：`main/translate.ts` 按 40 行/6000 字分批，可 1-3 并发；批间带前后文，
+  术语表来自 `correction.glossary`；可选反思 pass。默认值在
+  `general.translateContext / translateReflect / translateConcurrency`。
+- **成片**：`shared/ass.ts` 生成 ASS（含双语 Secondary 轨）；
+  `main/synthesize.ts` 调 ffmpeg：硬字幕 `-vf ass=...` 输出 MP4，软字幕 `-c copy -c:s srt`
+  输出 MKV；进度从 `-progress pipe:1` 解析，任务类型 `synthesize`。
+  `ipc/video.ts` 负责保存对话框、后台任务和 `exports` 记录（kind=`video-hard/soft`）；
+  工作台「成片」页签读 `exports` 表。
+- **在线下载**：`main/onlineVideo.ts` 首次按需下载固定版本 yt-dlp（SHA-256、Range 续传）到
+  `tools/`，再 `spawn` 下载到 `下载/Shizi`；只接受 http/https、不加 shell。
+- **配音**：`main/dub.ts` 写 PowerShell SAPI 脚本逐条合成 WAV，按字幕槽位用
+  `atempo`/`apad` 对齐后 concat；可只出 M4A 或替换视频音轨。仅 Windows，实验性。
+- **批量成片**：`video:batch-synthesize` 读库条目详情，仅处理 `file://` 本地视频，
+  跳过无字幕/非本地条目，统一输出目录并逐个登记 exports。
+
 
 ### 13.11 播客 / RSS 导入
 

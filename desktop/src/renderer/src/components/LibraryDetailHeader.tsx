@@ -7,6 +7,7 @@ import { ExportMenu } from './ExportMenu';
 interface LibraryDetailHeaderProps {
   video: LibraryVideo | null;
   detail: LibraryDetail | null;
+  onSynthesize?: () => void;
   tags: LibraryTag[];
   tagDraft: string;
   onTagDraft: (value: string) => void;
@@ -21,6 +22,7 @@ interface LibraryDetailHeaderProps {
 export function LibraryDetailHeader({
   video,
   detail,
+  onSynthesize,
   tags,
   tagDraft,
   onTagDraft,
@@ -46,6 +48,7 @@ export function LibraryDetailHeader({
               track={detail.bundle.track}
               lines={detail.bundle.lines}
               summary={detail.summary?.content}
+              onSynthesize={onSynthesize}
             />
           )}
           <button

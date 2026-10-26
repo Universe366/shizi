@@ -348,7 +348,11 @@ export type JobType =
   | 'optimize'
   | 'batch-summary'
   | 'url-batch'
-  | 'collection-summary';
+  | 'collection-summary'
+  | 'synthesize'
+  | 'batch-synthesize'
+  | 'online-download'
+  | 'dub';
 
 export type JobStatus = 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
 
@@ -850,6 +854,18 @@ export interface AppSettings {
     petChatShortcut: boolean;
     /** 应用内快捷键覆盖：动作 id → 存储格式（例如 Ctrl+Shift+Digit3） */
     shortcuts: Record<string, string>;
+    /** 翻译：批间带前后文 */
+    translateContext: boolean;
+    /** 翻译：译完后让 AI 对照原文反思一次 */
+    translateReflect: boolean;
+    /** 翻译并发批数（1-3） */
+    translateConcurrency: number;
+    /** 翻译：LLM 不可用/失败时用免费 MyMemory 翻译兜底 */
+    translateFreeFallback: boolean;
+    /** 成片默认样式 */
+    subtitleStyle: SubtitleStyle;
+    /** 成片样式预设（最多 12 个） */
+    subtitlePresets: Array<{ name: string; style: SubtitleStyle }>;
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
@@ -1129,10 +1145,44 @@ export interface AsrErrorEvent {
   error: string;
 }
 
+export interface SubtitleStyle {
+  fontName: string;
+  fontSize: number;
+  primaryColor: string;
+  outlineColor: string;
+  outline: number;
+  shadow: number;
+  marginV: number;
+  bilingual: boolean;
+  alignment: number;
+}
+
+export interface SynthesizeRequest {
+  requestId: string;
+  videoPath: string;
+  title: string;
+  lines: SubtitleLine[];
+  translatedLines?: SubtitleLine[];
+  mode: 'hard' | 'soft';
+  style: SubtitleStyle;
+}
+
+export interface SynthesizeDoneEvent {
+  requestId: string;
+  path: string;
+  canceled?: boolean;
+}
+
 export interface TranslateRequest {
   requestId: string;
   lines: SubtitleLine[];
   target: string;
+  options?: {
+    useContext?: boolean;
+    reflect?: boolean;
+    concurrency?: number;
+    freeFallback?: boolean;
+  };
 }
 
 export interface TranslateProgressEvent {
