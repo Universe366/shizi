@@ -38,6 +38,8 @@ import type {
   GlossaryTerm,
   McpServer,
   McpTool,
+  McpResource,
+  McpPrompt,
   SkillItem,
   PromptTemplate,
   SearchPlatform,
@@ -95,6 +97,8 @@ export function SettingsPanel({
   const [correctionPreview, setCorrectionPreview] = useState('');
   const [correctionTesting, setCorrectionTesting] = useState(false);
   const [mcpTools, setMcpTools] = useState<Record<string, McpTool[]>>({});
+  const [mcpResources, setMcpResources] = useState<Record<string, McpResource[]>>({});
+  const [mcpPrompts, setMcpPrompts] = useState<Record<string, McpPrompt[]>>({});
   const [mcpTesting, setMcpTesting] = useState('');
   const [mcpArgs, setMcpArgs] = useState('{}');
   const [mcpResult, setMcpResult] = useState('');
@@ -276,9 +280,31 @@ export function SettingsPanel({
       } else {
         setError(response.error);
       }
+      const [resources, prompts] = await Promise.all([
+        window.bsub.mcpResources(server),
+        window.bsub.mcpPrompts(server)
+      ]);
+      if (resources.ok) {
+        setMcpResources((previous) => ({ ...previous, [server.id]: resources.data }));
+      }
+      if (prompts.ok) {
+        setMcpPrompts((previous) => ({ ...previous, [server.id]: prompts.data }));
+      }
     } finally {
       setMcpTesting('');
     }
+  };
+
+  const readMcpResource = async (server: McpServer, uri: string) => {
+    setMcpResult(`读取资源 ${uri}…`);
+    const response = await window.bsub.mcpReadResource(server, uri);
+    setMcpResult(response.ok ? response.data : `读取失败：${response.error}`);
+  };
+
+  const getMcpPrompt = async (server: McpServer, name: string) => {
+    setMcpResult(`读取提示词 ${name}…`);
+    const response = await window.bsub.mcpPrompt(server, name, {});
+    setMcpResult(response.ok ? response.data : `读取失败：${response.error}`);
   };
 
   const callMcp = async (server: McpServer, tool: McpTool) => {
@@ -1289,6 +1315,8 @@ export function SettingsPanel({
         value={draft.mcp}
         testing={mcpTesting}
         tools={mcpTools}
+        resources={mcpResources}
+        prompts={mcpPrompts}
         args={mcpArgs}
         result={mcpResult}
         onChange={(next) => updateMcp(next)}
@@ -1298,6 +1326,8 @@ export function SettingsPanel({
         onRemoveServer={removeMcpServer}
         onTest={(server) => void testMcp(server)}
         onCall={(server, tool) => void callMcp(server, tool)}
+        onReadResource={(server, uri) => void readMcpResource(server, uri)}
+        onGetPrompt={(server, name) => void getMcpPrompt(server, name)}
       />
       )}
 

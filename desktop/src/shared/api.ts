@@ -92,6 +92,8 @@ import type {
   TtsSettings,
   ChatConversation,
   StoredChatMessage,
+  McpResource,
+  McpPrompt,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -557,6 +559,14 @@ export interface BsubApi {
 
   testMcp(server: McpServer): Promise<Result<McpTool[]>>;
   callMcp(server: McpServer, name: string, args: Record<string, unknown>): Promise<Result<string>>;
+  mcpResources(server: McpServer): Promise<Result<McpResource[]>>;
+  mcpReadResource(server: McpServer, uri: string): Promise<Result<string>>;
+  mcpPrompts(server: McpServer): Promise<Result<McpPrompt[]>>;
+  mcpPrompt(
+    server: McpServer,
+    name: string,
+    args: Record<string, string>
+  ): Promise<Result<string>>;
   importSkill(): Promise<Result<SkillItem | null>>;
   importSkillUrl(url: string): Promise<Result<SkillItem>>;
   importSkillFolder(): Promise<Result<SkillItem[]>>;

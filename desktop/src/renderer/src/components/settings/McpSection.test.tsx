@@ -23,6 +23,8 @@ function props(overrides: Record<string, unknown> = {}) {
     tools: {},
     args: '{}',
     result: '',
+    resources: {},
+    prompts: {},
     onChange: vi.fn(),
     onArgs: vi.fn(),
     onAddServer: vi.fn(),
@@ -30,6 +32,8 @@ function props(overrides: Record<string, unknown> = {}) {
     onRemoveServer: vi.fn(),
     onTest: vi.fn(),
     onCall: vi.fn(),
+    onReadResource: vi.fn(),
+    onGetPrompt: vi.fn(),
     ...overrides
   };
 }

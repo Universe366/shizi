@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { session } from 'electron';
-import type { McpServer, McpTool } from '../shared/types';
+import type { McpPrompt, McpResource, McpServer, McpTool } from '../shared/types';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const sessionIds = new Map<string, string>();
@@ -456,8 +456,94 @@ export async function listMcpTools(server: McpServer): Promise<McpTool[]> {
     }));
 }
 
-export async function callMcpTool(
+interface McpResourceRow {
+  uri?: string;
+  name?: string;
+  description?: string;
+  mimeType?: string;
+}
+
+interface McpPromptRow {
+  name?: string;
+  description?: string;
+  arguments?: Array<{ name?: string; description?: string; required?: boolean }>;
+}
+
+export async function listMcpResources(server: McpServer): Promise<McpResource[]> {
+  await ensureSession(server);
+  const result = await rpc(server, 'resources/list', {}, nextId());
+  const rows = Array.isArray((result as { resources?: McpResourceRow[] })?.resources)
+    ? ((result as { resources: McpResourceRow[] }).resources as McpResourceRow[])
+    : [];
+  return rows
+    .filter((item) => item?.uri)
+    .map((item) => ({
+      uri: String(item.uri),
+      name: String(item.name || item.uri),
+      description: String(item.description || ''),
+      mimeType: String(item.mimeType || '')
+    }));
+}
+
+/** 读取一个资源；二进制资源用占位说明，不把 base64 塞进设置页。 */
+export async function readMcpResource(server: McpServer, uri: string): Promise<string> {
+  await ensureSession(server);
+  const result = (await rpc(server, 'resources/read', { uri }, nextId())) as {
+    contents?: Array<{ text?: string; blob?: string; mimeType?: string }>;
+  } | null;
+  const rows = Array.isArray(result?.contents) ? result.contents : [];
+  const text = rows
+    .map((row) => {
+      if (row?.text) return String(row.text);
+      if (row?.blob) return `（二进制资源 ${row.mimeType || ''}，${row.blob.length} 字符 base64）`;
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
+  return text.slice(0, 20000);
+}
+
+export async function listMcpPrompts(server: McpServer): Promise<McpPrompt[]> {
+  await ensureSession(server);
+  const result = await rpc(server, 'prompts/list', {}, nextId());
+  const rows = Array.isArray((result as { prompts?: McpPromptRow[] })?.prompts)
+    ? ((result as { prompts: McpPromptRow[] }).prompts as McpPromptRow[])
+    : [];
+  return rows
+    .filter((item) => item?.name)
+    .map((item) => ({
+      name: String(item.name),
+      description: String(item.description || ''),
+      arguments: (item.arguments || []).map((arg) => ({
+        name: String(arg?.name || ''),
+        description: String(arg?.description || ''),
+        required: arg?.required === true
+      }))
+    }));
+}
+
+export async function getMcpPrompt(
   server: McpServer,
+  name: string,
+  args: Record<string, string>
+): Promise<string> {
+  await ensureSession(server);
+  const result = (await rpc(server, 'prompts/get', { name, arguments: args }, nextId())) as {
+    messages?: Array<{ role?: string; content?: { type?: string; text?: string } }>;
+  } | null;
+  return (result?.messages || [])
+    .map((message) => {
+      const text =
+        message?.content?.type === 'text'
+          ? String(message.content.text || '')
+          : JSON.stringify(message?.content || {});
+      return `${message?.role === 'assistant' ? 'AI' : '用户'}：${text}`;
+    })
+    .join('\n\n')
+    .slice(0, 20000);
+}
+
+export async function callMcpTool(  server: McpServer,
   name: string,
   args: Record<string, unknown>,
   timeoutMs = 40000

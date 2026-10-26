@@ -1,5 +1,5 @@
 import { Loader2, Plus, Trash2 } from 'lucide-react';
-import type { AppSettings, McpServer, McpTool } from '../../../../shared/types';
+import type { AppSettings, McpPrompt, McpResource, McpServer, McpTool } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
 
 type McpSettings = AppSettings['mcp'];
@@ -8,6 +8,8 @@ interface McpSectionProps {
   value: McpSettings;
   testing: string;
   tools: Record<string, McpTool[]>;
+  resources: Record<string, McpResource[]>;
+  prompts: Record<string, McpPrompt[]>;
   args: string;
   result: string;
   onChange: (next: McpSettings) => void;
@@ -17,13 +19,17 @@ interface McpSectionProps {
   onRemoveServer: (id: string) => void;
   onTest: (server: McpServer) => void;
   onCall: (server: McpServer, tool: McpTool) => void;
+  onReadResource: (server: McpServer, uri: string) => void;
+  onGetPrompt: (server: McpServer, name: string) => void;
 }
 
-/** MCP 服务：服务列表、连接测试、工具列表、超时/轮数与手动调用参数。 */
+/** MCP 服务：服务列表、连接测试、工具/资源/提示词、超时/轮数与手动调用参数。 */
 export function McpSection({
   value,
   testing,
   tools,
+  resources,
+  prompts,
   args,
   result,
   onChange,
@@ -32,7 +38,9 @@ export function McpSection({
   onUpdateServer,
   onRemoveServer,
   onTest,
-  onCall
+  onCall,
+  onReadResource,
+  onGetPrompt
 }: McpSectionProps) {
   return (
     <SettingsSection title="MCP 服务" defaultOpen={false}>
@@ -199,6 +207,34 @@ export function McpSection({
                   </span>
                 );
               })}
+            </div>
+          ) : null}
+          {resources[server.id]?.length ? (
+            <div className="mcp-tools">
+              {resources[server.id].map((resource) => (
+                <button
+                  key={resource.uri}
+                  className="mcp-tool"
+                  title={`${resource.uri}\n${resource.description}`}
+                  onClick={() => onReadResource(server, resource.uri)}
+                >
+                  资源 · {resource.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {prompts[server.id]?.length ? (
+            <div className="mcp-tools">
+              {prompts[server.id].map((prompt) => (
+                <button
+                  key={prompt.name}
+                  className="mcp-tool"
+                  title={prompt.description}
+                  onClick={() => onGetPrompt(server, prompt.name)}
+                >
+                  提示词 · {prompt.name}
+                </button>
+              ))}
             </div>
           ) : null}
         </div>

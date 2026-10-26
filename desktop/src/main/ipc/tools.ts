@@ -6,6 +6,8 @@ import type {
   CorrectionRuleGroup,
   McpServer,
   McpTool,
+  McpResource,
+  McpPrompt,
   PageInfo,
   QualityReport,
   Result,
@@ -14,7 +16,7 @@ import type {
   SubtitleLine,
   WebReference
 } from '../../shared/types';
-import { callMcpTool, listMcpTools } from '../mcp';
+import { callMcpTool, getMcpPrompt, listMcpPrompts, listMcpResources, listMcpTools, readMcpResource } from '../mcp';
 import { fetchSkillFromUrl, readSkillFile, readSkillFolder } from '../skills';
 import { checkSubtitles } from '../quality';
 import { generateChapters } from '../chapters';
@@ -65,6 +67,56 @@ export function registerToolsIpc(ctx: IpcContext): void {
       return failure<SkillItem | null>(error);
     }
   });
+
+  ipcMain.handle(
+    'mcp:resources',
+    async (_event, server: McpServer): Promise<Result<McpResource[]>> => {
+      try {
+        return { ok: true, data: await listMcpResources(server) };
+      } catch (error) {
+        return failure<McpResource[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:read-resource',
+    async (_event, payload: { server: McpServer; uri: string }): Promise<Result<string>> => {
+      try {
+        return { ok: true, data: await readMcpResource(payload.server, payload.uri) };
+      } catch (error) {
+        return failure<string>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:prompts',
+    async (_event, server: McpServer): Promise<Result<McpPrompt[]>> => {
+      try {
+        return { ok: true, data: await listMcpPrompts(server) };
+      } catch (error) {
+        return failure<McpPrompt[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:prompt',
+    async (
+      _event,
+      payload: { server: McpServer; name: string; args: Record<string, string> }
+    ): Promise<Result<string>> => {
+      try {
+        return {
+          ok: true,
+          data: await getMcpPrompt(payload.server, payload.name, payload.args || {})
+        };
+      } catch (error) {
+        return failure<string>(error);
+      }
+    }
+  );
 
   ipcMain.handle('skills:import-url', async (_event, url: string): Promise<Result<SkillItem>> => {
     try {

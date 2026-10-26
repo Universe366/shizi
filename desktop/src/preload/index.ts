@@ -68,6 +68,8 @@ import type {
   TtsSettings,
   ChatConversation,
   StoredChatMessage,
+  McpResource,
+  McpPrompt,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -759,6 +761,14 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:test', server) as Promise<Result<McpTool[]>>,
   callMcp: (server: McpServer, name: string, args: Record<string, unknown>) =>
     ipcRenderer.invoke('mcp:call', { server, name, args }) as Promise<Result<string>>,
+  mcpResources: (server: McpServer) =>
+    ipcRenderer.invoke('mcp:resources', server) as Promise<Result<McpResource[]>>,
+  mcpReadResource: (server: McpServer, uri: string) =>
+    ipcRenderer.invoke('mcp:read-resource', { server, uri }) as Promise<Result<string>>,
+  mcpPrompts: (server: McpServer) =>
+    ipcRenderer.invoke('mcp:prompts', server) as Promise<Result<McpPrompt[]>>,
+  mcpPrompt: (server: McpServer, name: string, args: Record<string, string>) =>
+    ipcRenderer.invoke('mcp:prompt', { server, name, args }) as Promise<Result<string>>,
   importSkill: () =>
     ipcRenderer.invoke('skills:import') as Promise<Result<SkillItem | null>>,
   importSkillUrl: (url: string) =>

@@ -696,6 +696,19 @@ export interface McpTool {
   inputSchema?: unknown;
 }
 
+export interface McpResource {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+}
+
+export interface McpPrompt {
+  name: string;
+  description: string;
+  arguments: Array<{ name: string; description: string; required: boolean }>;
+}
+
 export interface SkillItem {
   id: string;
   name: string;
