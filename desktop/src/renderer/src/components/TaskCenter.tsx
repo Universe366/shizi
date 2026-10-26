@@ -20,7 +20,8 @@ export const JOB_TYPE_LABEL: Record<JobType, string> = {
   synthesize: '成片',
   'batch-synthesize': '批量成片',
   'online-download': '在线下载',
-  dub: '配音'
+  dub: '配音',
+  'local-transcribe': '本地转录'
 };
 
 export const JOB_STATUS_LABEL: Record<JobStatus, string> = {

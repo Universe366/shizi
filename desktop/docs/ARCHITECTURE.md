@@ -390,9 +390,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.28）；
+  - 桌面端 `desktop/package.json`（例如 0.38.29）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.28`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.29`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -634,6 +634,12 @@ node panel-test.js     # 至少跑这个
   `atempo`/`apad` 对齐后 concat；可只出 M4A 或替换视频音轨。仅 Windows，实验性。
 - **批量成片**：`video:batch-synthesize` 读库条目详情，仅处理 `file://` 本地视频，
   跳过无字幕/非本地条目，统一输出目录并逐个登记 exports。
+- **工作台本地处理**：`LocalWorkbench` 用 `video:pick-local / transcribe-local / save-local`
+  独立完成选文件 → 转写 → 断句/翻译 → 保存/成片/配音；不读写侧栏的 SubtitlesPanel 状态。
+- **字幕工具栏**：`shared/subtitleToolbar.ts` 是唯一动作清单；显示项存
+  `general.subtitleToolbar`，面板用 `display:none` 隐藏，不卸载正在运行的任务。
+- **本地 ASR 模型管理**：`localAsrStatus` 返回 models/binaries；`asr:delete-model`、
+  `asr:delete-binary` 删除文件；设置页自动把已下载构建/模型填入空路径，避免“下了但没选”。
 
 
 ### 13.11 播客 / RSS 导入

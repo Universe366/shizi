@@ -20,6 +20,21 @@ interface AsrSectionProps {
   platformStatus: (kind: 'ai' | 'asr' | 'search') => ReactNode;
 }
 
+const MODEL_LABELS: Record<string, string> = {
+  tiny: 'tiny（74MB）',
+  base: 'base（141MB）',
+  small: 'small（465MB）',
+  medium: 'medium（1.5GB）',
+  'large-v3-turbo': 'large-v3-turbo（1.6GB）'
+};
+
+const BINARY_LABELS: Record<string, string> = {
+  cpu: 'CPU',
+  vulkan: 'Vulkan（AMD/NVIDIA/Intel）',
+  cuda118: 'CUDA 11.8',
+  cuda124: 'CUDA 12.4'
+};
+
 /** 语音识别：平台/协议、Key、模型探测、切片与并发等转录参数。 */
 export function AsrSection({
   draft,
@@ -39,7 +54,9 @@ export function AsrSection({
 }: AsrSectionProps) {
   const [localStatus, setLocalStatus] = useState<AsrLocalStatus | null>(null);
   const [download, setDownload] = useState<AsrDownloadProgress | null>(null);
-  const [modelChoice, setModelChoice] = useState<'tiny' | 'base' | 'small'>('base');
+  const [modelChoice, setModelChoice] = useState<
+    'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
+  >('base');
   const [binaryVariant, setBinaryVariant] = useState<
     'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
   >('cpu');
@@ -126,6 +143,23 @@ export function AsrSection({
     else if (/amd|radeon|intel|arc/.test(text)) setBinaryVariant('vulkan');
     else setBinaryVariant('cpu');
   };
+
+  useEffect(() => {
+    if (!isLocal || !localStatus) return;
+    if (!activeAsr.localExe && localStatus.binary) {
+      updateAsrPlatform({ localExe: localStatus.binary });
+    }
+    if (!activeAsr.localModel) {
+      const first =
+        localStatus.models.tiny ||
+        localStatus.models.base ||
+        localStatus.models.small ||
+        localStatus.models.medium ||
+        localStatus.models['large-v3-turbo'];
+      if (first) updateAsrPlatform({ localModel: first });
+    }
+    // 只在本地平台且路径为空时自动补齐，避免覆盖用户手选路径。
+  }, [localStatus, isLocal]);
 
   return (
 <SettingsSection title="语音识别（ASR）" defaultOpen={false}>
@@ -227,11 +261,17 @@ export function AsrSection({
           <select
             className="settings-input"
             value={modelChoice}
-            onChange={(event) => setModelChoice(event.target.value as 'tiny' | 'base' | 'small')}
+            onChange={(event) =>
+              setModelChoice(
+                event.target.value as 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
+              )
+            }
           >
             <option value="tiny">tiny（约 74MB，最快）</option>
             <option value="base">base（约 141MB，推荐）</option>
             <option value="small">small（约 465MB，更准）</option>
+            <option value="medium">medium（约 1.5GB，高质量）</option>
+            <option value="large-v3-turbo">large-v3-turbo（约 1.6GB，大模型加速版）</option>
           </select>
           <button
             className="mini-btn primary"
@@ -301,11 +341,76 @@ export function AsrSection({
           {localStatus?.models?.tiny ? ' · tiny ✓' : ''}
           {localStatus?.models?.base ? ' · base ✓' : ''}
           {localStatus?.models?.small ? ' · small ✓' : ''}
+          {localStatus?.models?.medium ? ' · medium ✓' : ''}
+          {localStatus?.models?.['large-v3-turbo'] ? ' · large-v3-turbo ✓' : ''}
         </div>
         <div className="settings-hint">
           保存位置：{localStatus?.dir || '读取中…'}
           {localStatus?.note ? `（${localStatus.note}）` : ''}
         </div>
+        {localStatus && !localStatus.binary && (
+          <div className="settings-hint" style={{ color: '#c0392b' }}>
+            还没有 whisper.cpp 可执行文件：请在上面选择构建并点「下载 whisper.cpp」，否则转写会提示找不到可执行文件。
+          </div>
+        )}
+        {localStatus && Object.keys(localStatus.models).length > 0 && (
+          <div className="settings-group">
+            <div className="settings-label">已下载模型（直接选用，不用找路径）</div>
+            {Object.entries(localStatus.models).map(([id, modelPath]) => (
+              <div className="settings-inline" key={id}>
+                <span className="settings-hint" style={{ flex: 1 }}>
+                  {MODEL_LABELS[id] || id}
+                </span>
+                <button className="mini-btn" onClick={() => updateAsrPlatform({ localModel: modelPath })}>
+                  使用
+                </button>
+                <button
+                  className="mini-btn"
+                  onClick={async () => {
+                    const response = await window.bsub.deleteAsrModel?.(
+                      id as 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
+                    );
+                    if (response?.ok) {
+                      setLocalStatus(response.data.status);
+                      if (activeAsr.localModel === modelPath) updateAsrPlatform({ localModel: '' });
+                    }
+                  }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {localStatus && Object.keys(localStatus.binaries).length > 0 && (
+          <div className="settings-group">
+            <div className="settings-label">已下载 whisper.cpp</div>
+            {Object.entries(localStatus.binaries).map(([variant, exePath]) => (
+              <div className="settings-inline" key={variant}>
+                <span className="settings-hint" style={{ flex: 1 }}>
+                  {BINARY_LABELS[variant] || variant}
+                </span>
+                <button className="mini-btn" onClick={() => updateAsrPlatform({ localExe: exePath })}>
+                  使用
+                </button>
+                <button
+                  className="mini-btn"
+                  onClick={async () => {
+                    const response = await window.bsub.deleteAsrBinary?.(
+                      variant as 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
+                    );
+                    if (response?.ok) {
+                      setLocalStatus(response.data.status);
+                      if (activeAsr.localExe === exePath) updateAsrPlatform({ localExe: '' });
+                    }
+                  }}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="settings-inline">
           <button
             className="mini-btn primary"
@@ -495,6 +600,11 @@ export function AsrSection({
           <option value="zh">中文</option>
           <option value="en">英文</option>
           <option value="ja">日文</option>
+          <option value="ko">韩文</option>
+          <option value="fr">法文</option>
+          <option value="de">德文</option>
+          <option value="es">西班牙文</option>
+          <option value="ru">俄文</option>
         </select>
       </div>
       {isLocal ? (

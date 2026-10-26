@@ -426,13 +426,21 @@ export interface BsubApi {
   onAsrError(cb: (event: AsrErrorEvent) => void): () => void;
   /** 本地 whisper.cpp：已下载的模型/可执行文件 */
   localAsrStatus?(): Promise<Result<AsrLocalStatus>>;
-  downloadAsrModel?(id: 'tiny' | 'base' | 'small'): Promise<Result<{ path: string }>>;
+  downloadAsrModel?(
+    id: 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
+  ): Promise<Result<{ path: string }>>;
   downloadAsrBinary?(variant?: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'): Promise<
     Result<{ path: string }>
   >;
   /** 读取本机显卡名称（用于选择 CUDA / Vulkan 构建） */
   detectGpu?(): Promise<Result<{ names: string[] }>>;
   cancelAsrDownload?(key: string): void;
+  deleteAsrModel?(id: 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'): Promise<
+    Result<{ removed: boolean; status: AsrLocalStatus }>
+  >;
+  deleteAsrBinary?(variant: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'): Promise<
+    Result<{ removed: boolean; status: AsrLocalStatus }>
+  >;
   onAsrDownloadProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
   pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
@@ -525,6 +533,30 @@ export interface BsubApi {
   cancelDub?(requestId: string): void;
   onDubDone?(cb: (event: { requestId: string; path: string }) => void): () => void;
   onDubError?(cb: (event: { requestId: string; error: string }) => void): () => void;
+  pickLocalMedia?(): Promise<
+    Result<{ path: string; name: string; duration: number } | { canceled: true }>
+  >;
+  transcribeLocalVideo?(path: string, language?: string): Promise<Result<{ requestId: string }>>;
+  cancelLocalTranscribe?(requestId: string): void;
+  onLocalTransProgress?(
+    cb: (event: { requestId: string; percent: number; message: string }) => void
+  ): () => void;
+  onLocalTransDone?(
+    cb: (event: {
+      requestId: string;
+      lines: SubtitleLine[];
+      name: string;
+      duration: number;
+      path: string;
+    }) => void
+  ): () => void;
+  onLocalTransError?(cb: (event: { requestId: string; error: string }) => void): () => void;
+  saveLocalTranscript?(payload: {
+    path: string;
+    name: string;
+    duration: number;
+    lines: SubtitleLine[];
+  }): Promise<Result<{ videoId: number }>>;
   onSynthesizeDone?(cb: (event: SynthesizeDoneEvent) => void): () => void;
   onSynthesizeError?(cb: (event: { requestId: string; error: string }) => void): () => void;
   saveTextFile(payload: SaveTextPayload): Promise<Result<SaveTextResult>>;

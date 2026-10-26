@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { app, session } from 'electron';
 
-export type LocalModelId = 'tiny' | 'base' | 'small';
+export type LocalModelId = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo';
 export type LocalBinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
 
 interface RemoteFile {
@@ -41,6 +41,24 @@ export const LOCAL_MODELS: Record<LocalModelId, RemoteFile & { label: string }> 
     urls: [
       'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
       'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin'
+    ]
+  },
+  medium: {
+    label: 'medium · 高质量、很慢（约 1.5GB）',
+    size: 1533763059,
+    sha256: '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208',
+    urls: [
+      'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin'
+    ]
+  },
+  'large-v3-turbo': {
+    label: 'large-v3-turbo · 大模型加速版（约 1.6GB）',
+    size: 1624555275,
+    sha256: '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69',
+    urls: [
+      'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin',
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin'
     ]
   }
 };
@@ -386,6 +404,27 @@ export function localAsrStatus(): {
     binary: found ? binaries[found] || null : null,
     note
   };
+}
+
+export function deleteLocalModel(id: LocalModelId): boolean {
+  const file = localModelPath(id);
+  try {
+    if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+    return !fs.existsSync(file);
+  } catch {
+    return false;
+  }
+}
+
+export function deleteLocalBinary(variant: LocalBinaryVariant): boolean {
+  const dir = localAsrDir();
+  try {
+    fs.rmSync(path.join(dir, LOCAL_BINARIES[variant].dir), { recursive: true, force: true });
+    fs.rmSync(path.join(dir, `${LOCAL_BINARIES[variant].dir}.zip`), { force: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** 读取显卡名称，供「检测显卡」按钮选择 CUDA / Vulkan。 */

@@ -3,6 +3,8 @@ import type { Result } from '../../shared/types';
 import type { IpcContext } from './shared';
 import { failure } from './shared';
 import {
+  deleteLocalBinary,
+  deleteLocalModel,
   detectGpuNames,
   downloadLocalModel,
   downloadWhisperBinary,
@@ -69,6 +71,28 @@ export function registerAsrSetupIpc(ctx: IpcContext): void {
       }
     }
   );
+
+  ipcMain.handle('asr:delete-model', (_event, id: LocalModelId) => {
+    try {
+      return {
+        ok: true as const,
+        data: { removed: deleteLocalModel(id), status: localAsrStatus() }
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  ipcMain.handle('asr:delete-binary', (_event, variant: LocalBinaryVariant) => {
+    try {
+      return {
+        ok: true as const,
+        data: { removed: deleteLocalBinary(variant), status: localAsrStatus() }
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
   ipcMain.handle('asr:gpu-info', async (): Promise<Result<{ names: string[] }>> => {
     try {

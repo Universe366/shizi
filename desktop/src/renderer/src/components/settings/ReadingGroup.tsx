@@ -1,6 +1,10 @@
 import type { AppSettings } from '../../../../shared/types';
 import { DEFAULT_SUBTITLE_STYLE } from '../../../../shared/ass';
 import {
+  DEFAULT_SUBTITLE_TOOLBAR,
+  SUBTITLE_TOOLBAR_ITEMS
+} from '../../../../shared/subtitleToolbar';
+import {
   MEDIA_MAX_RATE,
   MEDIA_MIN_RATE,
   MEDIA_SLIDER_MAX,
@@ -178,6 +182,30 @@ export function ReadingGroup({ value, onChange }: Props) {
             <option value="2">2 · 推荐</option>
             <option value="3">3 · 最快（可能触发限流）</option>
           </select>
+        </div>
+
+        <div className="settings-label">字幕面板工具栏显示（取消勾选可隐藏小功能）</div>
+        <div className="settings-inline" style={{ flexWrap: 'wrap', gap: 8 }}>
+          {SUBTITLE_TOOLBAR_ITEMS.map((item) => {
+            const current = value.subtitleToolbar || DEFAULT_SUBTITLE_TOOLBAR;
+            const checked = current.includes(item.id);
+            return (
+              <label className="settings-check" key={item.id}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) =>
+                    onChange({
+                      subtitleToolbar: event.target.checked
+                        ? [...current, item.id]
+                        : current.filter((id) => id !== item.id)
+                    })
+                  }
+                />
+                {item.label}
+              </label>
+            );
+          })}
         </div>
       </SettingsSection>
 

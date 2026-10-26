@@ -2,9 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { app, dialog, ipcMain } from 'electron';
-import type { Result, SynthesizeRequest } from '../../shared/types';
+import { pathToFileURL } from 'node:url';
+import type { PageInfo, Result, SubtitleLine, SynthesizeRequest } from '../../shared/types';
 import { createJob, finishJob, updateJob } from '../library';
 import { getLibraryDetail } from '../library/videos';
+import { ingestVideo } from '../library';
+import { transcribeFile } from '../asr';
+import { probeDuration } from '../media';
+import { loadSettings } from '../settings';
 import { addExportRecord } from '../library/exports';
 import { synthesizeVideo } from '../synthesize';
 import { downloadOnlineVideo } from '../onlineVideo';
@@ -32,6 +37,173 @@ function filePathFromUrl(url: string): string {
 }
 
 export function registerVideoIpc(ctx: IpcContext): void {
+  ipcMain.handle(
+    'video:pick-local',
+    async (): Promise<
+      Result<{ path: string; name: string; duration: number } | { canceled: true }>
+    > => {
+      try {
+        const picked = await dialog.showOpenDialog(ctx.win, {
+          title: '选择本地音视频',
+          properties: ['openFile'],
+          filters: [
+            {
+              name: '音视频',
+              extensions: ['mp4', 'mkv', 'mov', 'webm', 'flv', 'mp3', 'm4a', 'wav', 'aac', 'flac', 'ogg']
+            }
+          ]
+        });
+        if (picked.canceled || !picked.filePaths[0]) return { ok: true, data: { canceled: true } };
+        const file = picked.filePaths[0];
+        return {
+          ok: true,
+          data: {
+            path: file,
+            name: path.basename(file),
+            duration: await probeDuration(file)
+          }
+        };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'video:transcribe-local',
+    async (
+      _event,
+      payload: { path: string; language?: string }
+    ): Promise<Result<{ requestId: string }>> => {
+      try {
+        const file = path.resolve(String(payload?.path || ''));
+        if (!fs.existsSync(file)) return { ok: false, error: '找不到文件' };
+        const requestId = randomUUID();
+        const controller = new AbortController();
+        abortControllers.asr.set(requestId, controller);
+        trackJob(() =>
+          createJob({
+            id: requestId,
+            type: 'local-transcribe',
+            title: `本地转录 · ${path.basename(file)}`
+          })
+        );
+        void (async () => {
+          try {
+            const duration = await probeDuration(file);
+            const name = path.basename(file);
+            const info: PageInfo = {
+              kind: 'local',
+              bvid: null,
+              aid: null,
+              cid: null,
+              epId: null,
+              seasonId: null,
+              page: 1,
+              partTitle: '',
+              parts: [],
+              title: name,
+              owner: '本地文件',
+              desc: '',
+              duration,
+              url: pathToFileURL(file).toString(),
+              signature: `local:${file}`
+            };
+            const settings = loadSettings();
+            if (payload.language) settings.asr.language = payload.language;
+            const result = await transcribeFile(
+              file,
+              info,
+              (_stage, percent, message) => {
+                trackJob(() =>
+                  updateJob(requestId, {
+                    progress: Math.min(99, Math.max(0, Math.round(percent))),
+                    message
+                  })
+                );
+                ctx.send('localtrans:progress', { requestId, percent, message });
+              },
+              controller.signal,
+              settings
+            );
+            trackJob(() => finishJob(requestId, 'done', null, `完成 · ${result.lines.length} 行`));
+            ctx.send('localtrans:done', {
+              requestId,
+              lines: result.lines,
+              name,
+              duration,
+              path: file
+            });
+          } catch (error) {
+            const message = controller.signal.aborted
+              ? '已取消'
+              : (error as Error)?.message || String(error);
+            trackJob(() =>
+              finishJob(requestId, controller.signal.aborted ? 'cancelled' : 'failed', message)
+            );
+            ctx.send('localtrans:error', { requestId, error: message });
+          } finally {
+            abortControllers.asr.delete(requestId);
+          }
+        })();
+        return { ok: true, data: { requestId } };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  ipcMain.handle('video:transcribe-cancel', (_event, requestId: string) => {
+    abortControllers.asr.get(requestId)?.abort();
+  });
+
+  ipcMain.handle(
+    'video:save-local',
+    async (
+      _event,
+      payload: { path: string; name: string; duration: number; lines: SubtitleLine[] }
+    ): Promise<Result<{ videoId: number }>> => {
+      try {
+        const file = path.resolve(String(payload?.path || ''));
+        if (!fs.existsSync(file)) return { ok: false, error: '找不到文件' };
+        if (!payload.lines?.length) return { ok: false, error: '没有字幕' };
+        const info: PageInfo = {
+          kind: 'local',
+          bvid: null,
+          aid: null,
+          cid: null,
+          epId: null,
+          seasonId: null,
+          page: 1,
+          partTitle: '',
+          parts: [],
+          title: payload.name || path.basename(file),
+          owner: '本地文件',
+          desc: '',
+          duration: Number(payload.duration) || 0,
+          url: pathToFileURL(file).toString(),
+          signature: `local:${file}`
+        };
+        const ingested = ingestVideo({
+          info,
+          track: {
+            lan: 'zh-CN',
+            lanDoc: '中文',
+            url: `local:${file}`,
+            isAi: false,
+            aiStatus: null,
+            source: 'local'
+          },
+          lines: payload.lines
+        });
+        ctx.send('library:changed', null);
+        return { ok: true, data: { videoId: ingested.videoId } };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
   ipcMain.handle(
     'video:synthesize',
     async (

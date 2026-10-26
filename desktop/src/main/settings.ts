@@ -17,6 +17,7 @@ import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { parseShortcut } from '../shared/shortcutKeys';
 import { shortcutAction } from '../shared/shortcuts';
 import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
+import { DEFAULT_SUBTITLE_TOOLBAR } from '../shared/subtitleToolbar';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 
@@ -170,6 +171,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     translateFreeFallback: false,
     subtitleStyle: { ...DEFAULT_SUBTITLE_STYLE },
     subtitlePresets: [],
+    subtitleToolbar: [...DEFAULT_SUBTITLE_TOOLBAR],
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -492,6 +494,11 @@ function normalize(input: unknown): AppSettings {
           name: String(item.name).slice(0, 40) || '未命名',
           style: sanitizeSubtitleStyle(item.style)
         }));
+      base.general.subtitleToolbar = Array.isArray(raw.general.subtitleToolbar)
+        ? (raw.general.subtitleToolbar as unknown[])
+            .map((item) => String(item))
+            .filter((item) => DEFAULT_SUBTITLE_TOOLBAR.includes(item as never))
+        : [...DEFAULT_SUBTITLE_TOOLBAR];
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))

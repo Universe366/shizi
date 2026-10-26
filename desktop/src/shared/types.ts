@@ -352,7 +352,8 @@ export type JobType =
   | 'synthesize'
   | 'batch-synthesize'
   | 'online-download'
-  | 'dub';
+  | 'dub'
+  | 'local-transcribe';
 
 export type JobStatus = 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
 
@@ -866,6 +867,8 @@ export interface AppSettings {
     subtitleStyle: SubtitleStyle;
     /** 成片样式预设（最多 12 个） */
     subtitlePresets: Array<{ name: string; style: SubtitleStyle }>;
+    /** 字幕面板工具栏显示的按钮 id */
+    subtitleToolbar: string[];
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
@@ -1127,7 +1130,9 @@ export interface AsrDownloadProgress {
 
 export interface AsrLocalStatus {
   dir: string;
-  models: Partial<Record<'tiny' | 'base' | 'small', string>>;
+  models: Partial<
+    Record<'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo', string>
+  >;
   binaries: Partial<Record<'cpu' | 'vulkan' | 'cuda118' | 'cuda124', string>>;
   binary: string | null;
   note: string;

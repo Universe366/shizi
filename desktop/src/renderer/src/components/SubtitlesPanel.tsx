@@ -28,6 +28,7 @@ import { SubtitleOptimizePanel, SubtitleQualityCard } from './SubtitleOptimizePa
 import { SubtitleLineRow } from './SubtitleLineRow';
 import { SubtitleTrackPicker } from './SubtitleTrackPicker';
 import { formatDuration } from '../lib/format';
+import { DEFAULT_SUBTITLE_TOOLBAR, SUBTITLE_TOOLBAR_IDS } from '../../../shared/subtitleToolbar';
 
 function minCoverageOf(duration: number): number {
   if (!Number.isFinite(duration) || duration <= 0) return 0;
@@ -210,6 +211,8 @@ export function SubtitlesPanel({
   const [loadingLines, setLoadingLines] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [follow, setFollow] = useState(true);
+  const [toolbar, setToolbar] = useState<string[]>([...DEFAULT_SUBTITLE_TOOLBAR]);
+  const show = (id: string) => toolbar.includes(id);
   const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [collectionImporting, setCollectionImporting] = useState(false);
@@ -446,6 +449,13 @@ export function SubtitlesPanel({
       setTranslateContext(general.translateContext !== false);
       setTranslateReflect(general.translateReflect === true);
       setTranslateFreeFallback(general.translateFreeFallback === true);
+      if (Array.isArray(general.subtitleToolbar)) {
+        setToolbar(
+          (general.subtitleToolbar as string[]).filter((id) =>
+            (SUBTITLE_TOOLBAR_IDS as string[]).includes(id)
+          )
+        );
+      }
     });
     return () => {
       cancelled = true;
@@ -1272,6 +1282,7 @@ export function SubtitlesPanel({
         <div className="toolbar-actions">
           <button
             className="mini-btn primary"
+            style={{ display: show('ingest') ? undefined : 'none' }}
             disabled={!info || !track || !lines.length || saving}
             title="把当前字幕保存到本地库"
             onClick={() => void ingest()}
@@ -1280,6 +1291,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('collection') ? undefined : 'none' }}
             disabled={!info?.url || collectionImporting || info.kind === 'youtube'}
             title="把当前视频所在的 UP 合集或多 P 全部入库（不自动总结）"
             onClick={() => void importCollection()}
@@ -1288,6 +1300,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('asr') ? undefined : 'none' }}
             disabled={!info || asrRunning || info.kind === 'youtube'}
             title={
               info?.kind === 'youtube'
@@ -1300,6 +1313,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('import') ? undefined : 'none' }}
             disabled={!info}
             title="导入本地 .srt / .vtt 字幕文件（不联网）"
             onClick={() => void importSubtitles()}
@@ -1308,6 +1322,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('resegment') ? undefined : 'none' }}
             disabled={!lines.length || asrRunning || optimizing}
             title="合并碎句、拆分长句（不改写字幕文字）"
             onClick={() => setResegmentOpen(true)}
@@ -1316,6 +1331,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('translate') ? undefined : 'none' }}
             disabled={!lines.length || translating}
             title="用 AI 翻译当前字幕"
             onClick={() => setTranslateOpen((value) => !value)}
@@ -1324,6 +1340,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('optimize') ? undefined : 'none' }}
             disabled={!lines.length || optimizing}
             title="用 AI 校对错别字、同音字和专有名词"
             onClick={() => void startOptimize()}
@@ -1332,6 +1349,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('summary') ? undefined : 'none' }}
             disabled={!lines.length}
             title="跳到总结页并用当前字幕生成总结"
             onClick={() => onOpenSummary?.()}
@@ -1340,6 +1358,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('chapters') ? undefined : 'none' }}
             disabled={!lines.length}
             title="用 AI 按内容切章节，并在总结页查看 / 点击跳转"
             onClick={() => onOpenChapters?.()}
@@ -1348,6 +1367,7 @@ export function SubtitlesPanel({
           </button>
           <button
             className="mini-btn"
+            style={{ display: show('quality') ? undefined : 'none' }}
             disabled={!lines.length || checkingQuality}
             title="检查时间轴、覆盖率、语速、重复等问题"
             onClick={() => void checkQuality()}
@@ -1368,17 +1388,20 @@ export function SubtitlesPanel({
               <option value="bilingual">双语</option>
             </select>
           )}
-          <ExportMenu
-            info={info}
-            track={track}
-            lines={lines}
-            translated={translated}
-            translationLanguage={translatedLang}
-            onSynthesize={() => setSynthesizeOpen(true)}
-            onDub={() => setDubOpen(true)}
-          />
+          <span style={{ display: show('export') ? undefined : 'none' }}>
+            <ExportMenu
+              info={info}
+              track={track}
+              lines={lines}
+              translated={translated}
+              translationLanguage={translatedLang}
+              onSynthesize={() => setSynthesizeOpen(true)}
+              onDub={() => setDubOpen(true)}
+            />
+          </span>
           <button
             className={`mini-btn${follow ? ' is-active' : ''}`}
+            style={{ display: show('follow') ? undefined : 'none' }}
             title={follow ? '跟随播放：开' : '跟随播放：关'}
             onClick={() => setFollow((value) => !value)}
           >

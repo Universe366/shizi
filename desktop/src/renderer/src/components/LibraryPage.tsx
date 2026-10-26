@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Clapperboard, Library, X } from 'lucide-react';
+import { Clapperboard, Library, MonitorPlay, X } from 'lucide-react';
 import { LibraryPanel } from './LibraryPanel';
 import { RendersPanel } from './RendersPanel';
+import { LocalWorkbench } from './LocalWorkbench';
 
-/** 工作台：资料库 + 成片，承接跨视频的检索、导出与合成。 */
+/** 工作台：资料库 + 成片 + 本地处理。 */
 export function LibraryPage({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'library' | 'renders'>('library');
+  const [tab, setTab] = useState<'library' | 'renders' | 'local'>('library');
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -50,14 +51,22 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
         >
           <Clapperboard size={13} /> 成片
         </button>
+        <button
+          className={`workbench-tab${tab === 'local' ? ' is-active' : ''}`}
+          onClick={() => setTab('local')}
+        >
+          <MonitorPlay size={13} /> 本地处理
+        </button>
       </div>
 
       {tab === 'library' ? (
         <div className="library-page-body">
           <LibraryPanel />
         </div>
-      ) : (
+      ) : tab === 'renders' ? (
         <RendersPanel />
+      ) : (
+        <LocalWorkbench />
       )}
     </div>
   );

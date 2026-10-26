@@ -575,13 +575,21 @@ const api: BsubApi = {
   onAsrError: (cb: (event: AsrErrorEvent) => void) => on<AsrErrorEvent>('asr:error', cb),
   localAsrStatus: () =>
     ipcRenderer.invoke('asr:local-status') as Promise<Result<AsrLocalStatus>>,
-  downloadAsrModel: (id: 'tiny' | 'base' | 'small') =>
+  downloadAsrModel: (id: 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo') =>
     ipcRenderer.invoke('asr:download-model', id) as Promise<Result<{ path: string }>>,
   downloadAsrBinary: (variant: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124' = 'cpu') =>
     ipcRenderer.invoke('asr:download-binary', variant) as Promise<Result<{ path: string }>>,
   detectGpu: () =>
     ipcRenderer.invoke('asr:gpu-info') as Promise<Result<{ names: string[] }>>,
   cancelAsrDownload: (key: string) => ipcRenderer.send('asr:cancel-download', key),
+  deleteAsrModel: (id: 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo') =>
+    ipcRenderer.invoke('asr:delete-model', id) as Promise<
+      Result<{ removed: boolean; status: AsrLocalStatus }>
+    >,
+  deleteAsrBinary: (variant: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124') =>
+    ipcRenderer.invoke('asr:delete-binary', variant) as Promise<
+      Result<{ removed: boolean; status: AsrLocalStatus }>
+    >,
   onAsrDownloadProgress: (cb: (event: AsrDownloadProgress) => void) =>
     on<AsrDownloadProgress>('asr:download-progress', cb),
   pickSubtitleFile: () =>
@@ -733,6 +741,44 @@ const api: BsubApi = {
     on<{ requestId: string; path: string }>('dub:done', cb),
   onDubError: (cb: (event: { requestId: string; error: string }) => void) =>
     on<{ requestId: string; error: string }>('dub:error', cb),
+  pickLocalMedia: () =>
+    ipcRenderer.invoke('video:pick-local') as Promise<
+      Result<{ path: string; name: string; duration: number } | { canceled: true }>
+    >,
+  transcribeLocalVideo: (path: string, language?: string) =>
+    ipcRenderer.invoke('video:transcribe-local', { path, language }) as Promise<
+      Result<{ requestId: string }>
+    >,
+  cancelLocalTranscribe: (requestId: string) =>
+    ipcRenderer.send('video:transcribe-cancel', requestId),
+  onLocalTransProgress: (
+    cb: (event: { requestId: string; percent: number; message: string }) => void
+  ) => on<{ requestId: string; percent: number; message: string }>('localtrans:progress', cb),
+  onLocalTransDone: (
+    cb: (event: {
+      requestId: string;
+      lines: SubtitleLine[];
+      name: string;
+      duration: number;
+      path: string;
+    }) => void
+  ) =>
+    on<{
+      requestId: string;
+      lines: SubtitleLine[];
+      name: string;
+      duration: number;
+      path: string;
+    }>('localtrans:done', cb),
+  onLocalTransError: (cb: (event: { requestId: string; error: string }) => void) =>
+    on<{ requestId: string; error: string }>('localtrans:error', cb),
+  saveLocalTranscript: (payload: {
+    path: string;
+    name: string;
+    duration: number;
+    lines: SubtitleLine[];
+  }) =>
+    ipcRenderer.invoke('video:save-local', payload) as Promise<Result<{ videoId: number }>>,
   onSynthesizeDone: (cb: (event: SynthesizeDoneEvent) => void) =>
     on<SynthesizeDoneEvent>('synthesize:done', cb),
   onSynthesizeError: (cb: (event: { requestId: string; error: string }) => void) =>

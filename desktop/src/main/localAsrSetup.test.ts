@@ -13,7 +13,12 @@ vi.mock('electron', () => ({
   session: { defaultSession: { fetch: vi.fn() } }
 }));
 
-import { LOCAL_MODELS, localAsrStatus, localModelPath } from './localAsrSetup';
+import {
+  LOCAL_MODELS,
+  deleteLocalModel,
+  localAsrStatus,
+  localModelPath
+} from './localAsrSetup';
 
 beforeAll(() => {
   state.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-asr-setup-'));
@@ -25,7 +30,7 @@ afterAll(() => {
 
 describe('本地 ASR 下载配置', () => {
   it('模型元数据完整（SHA-256 / 大小）', () => {
-    for (const id of ['tiny', 'base', 'small'] as const) {
+    for (const id of ['tiny', 'base', 'small', 'medium', 'large-v3-turbo'] as const) {
       expect(LOCAL_MODELS[id].sha256).toMatch(/^[0-9a-f]{64}$/);
       expect(LOCAL_MODELS[id].size).toBeGreaterThan(1_000_000);
       expect(LOCAL_MODELS[id].urls.length).toBeGreaterThan(0);
@@ -46,5 +51,7 @@ describe('本地 ASR 下载配置', () => {
     expect(status.models.tiny).toBeUndefined();
     fs.writeFileSync(path.join(dir, 'ggml-tiny.bin'), Buffer.alloc(LOCAL_MODELS.tiny.size));
     expect(localAsrStatus().models.tiny).toBe(path.join(dir, 'ggml-tiny.bin'));
+    expect(deleteLocalModel('tiny')).toBe(true);
+    expect(localAsrStatus().models.tiny).toBeUndefined();
   });
 });
