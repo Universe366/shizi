@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   BookOpen,
   Bot,
+  Captions,
   DatabaseBackup,
   Globe,
   LayoutPanelLeft,
@@ -31,8 +32,14 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'reading',
     label: '页面与阅读',
-    description: '选区工具条、字幕跟随、播放倍速',
+    description: '选区工具条与页面行为',
     icon: BookOpen
+  },
+  {
+    id: 'subtitles',
+    label: '字幕与播放',
+    description: '字幕跟随、倍速、翻译、成片样式与工具栏',
+    icon: Captions
   },
   { id: 'efficiency', label: '效率工具', description: 'AI 悬浮球与桌面宠物', icon: Sparkles },
   { id: 'ai', label: 'AI 与语音', description: 'AI 平台、语音识别、提示词与校对', icon: Bot },

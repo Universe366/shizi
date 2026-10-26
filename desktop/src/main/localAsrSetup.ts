@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { app } from 'electron';
+import { app, session } from 'electron';
 
 export type LocalModelId = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo';
 export type LocalBinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
@@ -121,37 +121,27 @@ export interface DownloadProgress {
   message: string;
 }
 
-function writable(dir: string): boolean {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.accessSync(dir, fs.constants.W_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+let migrated = false;
 
-/** 旧版本把模型放在 userData 里；换到安装目录后自动搬一次。 */
-function migrateLegacy(target: string): void {
-  const legacy = path.join(app.getPath('userData'), 'models', 'whisper');
-  if (path.resolve(legacy) === path.resolve(target)) return;
-  if (!fs.existsSync(legacy)) return;
+function moveDirectory(from: string, to: string): void {
+  if (path.resolve(from) === path.resolve(to)) return;
+  if (!fs.existsSync(from)) return;
   let entries: fs.Dirent[] = [];
   try {
-    entries = fs.readdirSync(legacy, { withFileTypes: true });
+    entries = fs.readdirSync(from, { withFileTypes: true });
   } catch {
     return;
   }
   for (const entry of entries) {
-    const from = path.join(legacy, entry.name);
-    const to = path.join(target, entry.name);
-    if (fs.existsSync(to)) continue;
+    const source = path.join(from, entry.name);
+    const target = path.join(to, entry.name);
+    if (fs.existsSync(target)) continue;
     try {
-      fs.renameSync(from, to);
+      fs.renameSync(source, target);
     } catch {
       try {
-        fs.cpSync(from, to, { recursive: true });
-        fs.rmSync(from, { recursive: true, force: true });
+        fs.cpSync(source, target, { recursive: true });
+        fs.rmSync(source, { recursive: true, force: true });
       } catch {
         // 搬不动就留着，不影响新下载
       }
@@ -160,19 +150,17 @@ function migrateLegacy(target: string): void {
 }
 
 /**
- * 模型/二进制优先放软件安装目录（绿色版就是程序目录）；
- * 安装到 Program Files 等不可写位置时退回 userData，并把实际目录显示在设置里。
+ * 模型/二进制固定放 userData：软件更新会替换安装目录，放程序目录会导致每次更新后模型消失。
+ * 旧版本存在安装目录的模型会自动搬一次。
  */
 export function localAsrDir(): string {
-  const base = path.dirname(app.getPath('exe'));
-  const primary = path.join(base, 'models', 'whisper');
-  if (writable(primary)) {
-    migrateLegacy(primary);
-    return primary;
+  const stable = path.join(app.getPath('userData'), 'models', 'whisper');
+  fs.mkdirSync(stable, { recursive: true });
+  if (!migrated) {
+    migrated = true;
+    moveDirectory(path.join(path.dirname(app.getPath('exe')), 'models', 'whisper'), stable);
   }
-  const fallback = path.join(app.getPath('userData'), 'models', 'whisper');
-  fs.mkdirSync(fallback, { recursive: true });
-  return fallback;
+  return stable;
 }
 
 export function localModelPath(id: LocalModelId): string {
@@ -220,7 +208,11 @@ async function downloadTo(
 ): Promise<void> {
   const temp = `${target}.download`;
   let lastError: Error | null = null;
-  const attemptsPerUrl = 3;
+  const attemptsPerUrl = 4;
+  const transports = [
+    (url: string, init: RequestInit) => fetch(url, init),
+    (url: string, init: RequestInit) => session.defaultSession.fetch(url, init)
+  ];
 
   // 已完整下载过（上次校验失败除外）就直接校验返回。
   if (sizeOf(temp) === file.size) {
@@ -261,7 +253,8 @@ async function downloadTo(
       let lastReport = 0;
       let lastPercent = -1;
       try {
-        const response = await fetch(url, {
+        const requestUrl = url;
+        const response = await transports[attempt % transports.length](requestUrl, {
           signal: controller.signal,
           redirect: 'follow',
           headers: start > 0 ? { Range: `bytes=${start}-` } : undefined
@@ -480,8 +473,7 @@ export function localAsrStatus(): {
   }
   const preferred: LocalBinaryVariant[] = ['cuda124', 'cuda118', 'vulkan', 'cpu'];
   const found = preferred.find((variant) => binaries[variant]);
-  const primary = path.join(path.dirname(app.getPath('exe')), 'models', 'whisper');
-  const note = writable(primary) ? '模型保存在软件目录' : '安装目录不可写，已退回用户数据目录';
+  const note = '模型保存在用户数据目录，软件更新不会丢';
   return {
     dir,
     models,

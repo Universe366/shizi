@@ -114,7 +114,7 @@ export function registerRecordsIpc(ctx: IpcContext): void {
           includeTimestamps: payload.includeTimestamps ?? settings.export.includeTimestamps,
           filenamePattern: payload.filenamePattern || settings.export.filenamePattern,
           template: payload.template || settings.export.template,
-          assFontSize: payload.assFontSize || settings.export.assFontSize,
+          assFontSize: payload.assFontSize || settings.general.subtitleStyle.fontSize,
           estimateTimestamps: payload.estimateTimestamps ?? settings.export.estimateTimestamps
         });
         let target = payload.savePath;
@@ -201,7 +201,7 @@ export function registerRecordsIpc(ctx: IpcContext): void {
               lines: detail.bundle.lines,
               includeTimestamps: settings.export.includeTimestamps,
               filenamePattern: settings.export.filenamePattern,
-              assFontSize: settings.export.assFontSize,
+              assFontSize: settings.general.subtitleStyle.fontSize,
               estimateTimestamps: settings.export.estimateTimestamps
             });
             const name = uniqueFileName(used, safeFileBase(built.filename), built.ext);

@@ -6,6 +6,7 @@ import { ExportMenu } from './ExportMenu';
 import { ResegmentDialog } from './ResegmentDialog';
 import { SynthesizeDialog } from './SynthesizeDialog';
 import { DubDialog } from './DubDialog';
+import { DownloadVideoDialog } from './DownloadVideoDialog';
 
 const LANGUAGES: Array<{ value: string; label: string }> = [
   { value: 'auto', label: '自动检测' },
@@ -33,6 +34,7 @@ export function LocalWorkbench() {
   const [resegmentOpen, setResegmentOpen] = useState(false);
   const [synthOpen, setSynthOpen] = useState(false);
   const [dubOpen, setDubOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const translateId = useRef('');
   const [translating, setTranslating] = useState(false);
 
@@ -189,8 +191,16 @@ export function LocalWorkbench() {
       {!file && (
         <div className="renders-empty">
           <Upload size={22} />
-          <div>还没有选择文件</div>
+          <div>选一个本地视频开始，或先下载在线视频</div>
           <div className="settings-hint">支持 mp4 / mkv / mov / mp3 / m4a / wav 等</div>
+          <div className="settings-inline" style={{ justifyContent: 'center' }}>
+            <button className="mini-btn primary" onClick={() => void pick()}>
+              <FileVideo size={12} /> 选择本地视频
+            </button>
+            <button className="mini-btn" onClick={() => setDownloadOpen(true)}>
+              下载在线视频
+            </button>
+          </div>
         </div>
       )}
 
@@ -306,6 +316,7 @@ export function LocalWorkbench() {
             lines={lines}
             onClose={() => setDubOpen(false)}
           />
+          <DownloadVideoDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
         </>
       )}
     </div>

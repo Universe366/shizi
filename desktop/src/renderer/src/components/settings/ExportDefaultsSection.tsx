@@ -57,16 +57,6 @@ export function ExportDefaultsSection({ value, onChange }: ExportDefaultsSection
         <option value="meeting">会议纪要</option>
       </select>
 
-      <div className="settings-label">ASS 字号</div>
-      <input
-        className="settings-input"
-        type="number"
-        min={12}
-        max={96}
-        value={value.assFontSize}
-        onChange={(event) => patch({ assFontSize: Number(event.target.value) || 28 })}
-      />
-
       <label className="settings-check">
         <input
           type="checkbox"

@@ -14,6 +14,7 @@ import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { ReadingGroup } from './settings/ReadingGroup';
+import { SubtitleGroup } from './settings/SubtitleGroup';
 import { SessionsGroup } from './settings/SessionsGroup';
 import { McpSection } from './settings/McpSection';
 import { ExportDefaultsSection } from './settings/ExportDefaultsSection';
@@ -1069,6 +1070,9 @@ export function SettingsPanel({
       )}
       {show('reading') && (
         <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+      )}
+      {show('subtitles') && (
+        <SubtitleGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
       )}
       {show('efficiency') && (
         <>

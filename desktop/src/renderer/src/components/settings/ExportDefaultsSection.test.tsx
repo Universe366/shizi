@@ -48,11 +48,4 @@ describe('ExportDefaultsSection', () => {
     });
     expect(p.onChange).toHaveBeenCalledWith({ ...value, filenamePattern: '{title}' });
   });
-
-  it('字号输入为空时回退 28', () => {
-    const p = props();
-    render(<ExportDefaultsSection {...p} />);
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '' } });
-    expect(p.onChange).toHaveBeenCalledWith({ ...value, assFontSize: 28 });
-  });
 });
