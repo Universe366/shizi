@@ -2,6 +2,11 @@ import { Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { AiPlatform, AppSettings } from '../../../../shared/types';
 import { ModelChips, SettingsSection } from './SettingsSection';
+import {
+  capabilityKey,
+  effectiveModelCapabilities,
+  inferModelCapabilities
+} from '../../../../shared/modelCapabilities';
 
 interface AiSectionProps {
   draft: AppSettings;
@@ -150,6 +155,54 @@ export function AiSection({
         <option key={model} value={model} />
       ))}
     </datalist>
+
+    {(() => {
+      const key = capabilityKey(active.id, active.model);
+      const inferred = inferModelCapabilities(active.kind, active.model);
+      const override = draft.ai.capabilities?.[key] || {};
+      const capability = effectiveModelCapabilities(active.kind, active.model, override);
+      const setCapability = (patch: { vision?: boolean; audio?: boolean }) =>
+        updateAi({
+          capabilities: {
+            ...(draft.ai.capabilities || {}),
+            [key]: { ...override, ...patch }
+          }
+        });
+      return (
+        <div className="model-capabilities">
+          <div className="model-capabilities-head">
+            <span className="settings-label">模型能力</span>
+            <span className="settings-hint">
+              {inferred.vision || inferred.audio ? '已自动识别，可手动覆盖' : '未识别到图片/音频能力'}
+            </span>
+          </div>
+          <div className="model-capabilities-chips">
+            <label className="model-capability is-locked" title="文本输入始终启用">
+              <input type="checkbox" checked readOnly disabled /> 文本
+            </label>
+            <label className="model-capability" title="关闭后对话框不会向该模型发送图片">
+              <input
+                type="checkbox"
+                checked={capability.vision}
+                onChange={(event) => setCapability({ vision: event.target.checked })}
+              />
+              图片
+            </label>
+            <label className="model-capability" title="音频输入能力；仅在支持音频的接口/模型上使用">
+              <input
+                type="checkbox"
+                checked={capability.audio}
+                onChange={(event) => setCapability({ audio: event.target.checked })}
+              />
+              音频
+            </label>
+          </div>
+          <div className="settings-hint">
+            识别依据模型名（如 gpt-4o / claude / gemini / qwen-vl）；识别不准时在这里改。
+          </div>
+        </div>
+      );
+    })()}
 
     <div className="settings-label">API Key</div>
     <div className="settings-inline">

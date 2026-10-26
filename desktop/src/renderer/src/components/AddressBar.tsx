@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Globe, Home, Library, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
-import type { HistoryEntry, TabInfo } from '../../../shared/types';
+import type { Bookmark as BookmarkItem, HistoryEntry, TabInfo } from '../../../shared/types';
+import { SEARCH_ENGINES, searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
+import { compactUrl } from '../../../shared/url';
 import { formatMediaRate } from '../../../shared/media';
 import type { HubSection } from './BrowserHub';
-
-type SearchEngineId = 'bilibili' | 'bing' | 'google' | 'custom';
-
-const ENGINES: Array<{ id: SearchEngineId; label: string }> = [
-  { id: 'bing', label: '必应' },
-  { id: 'google', label: 'Google' },
-  { id: 'bilibili', label: 'B 站' },
-  { id: 'custom', label: '自定义' }
-];
 
 export function AddressBar({
   tab,
@@ -39,6 +32,7 @@ export function AddressBar({
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
   const [suggestions, setSuggestions] = useState<HistoryEntry[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [suggestIndex, setSuggestIndex] = useState(-1);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -93,7 +87,31 @@ export function AddressBar({
     await window.bsub.saveSettings(settings);
   };
 
-  const engineLabel = ENGINES.find((item) => item.id === engine)?.label || '必应';
+  const engineLabel = searchEngineLabel(engine);
+
+  const loadBookmarks = () => {
+    if (bookmarks.length) return;
+    void window.bsub.listBookmarks().then((response) => {
+      if (response.ok) setBookmarks(response.data);
+    });
+  };
+
+  const matchedBookmarks = (() => {
+    const text = value.trim().toLowerCase();
+    if (!text) return [];
+    return bookmarks
+      .filter(
+        (item) =>
+          item.title.toLowerCase().includes(text) || item.url.toLowerCase().includes(text)
+      )
+      .slice(0, 4);
+  })();
+
+  const pasteAndGo = async () => {
+    const text = (await window.bsub.readClipboard()).trim();
+    if (!text) return;
+    void window.bsub.navigate(text);
+  };
 
   useEffect(() => {
     if (!suggestOpen) return;
@@ -144,7 +162,12 @@ export function AddressBar({
     else if (choice === 'downloads') onOpenHub('downloads');
     else if (choice === 'tabs') onOpenHub('tabs');
     else if (choice === 'reader') onOpenReader();
+    else if (choice === 'zoom-in') void window.bsub.zoomIn();
+    else if (choice === 'zoom-out') void window.bsub.zoomOut();
     else if (choice === 'zoom') void window.bsub.zoomReset();
+    else if (choice === 'copy') void window.bsub.writeClipboard(tab?.url ?? '');
+    else if (choice === 'paste') void pasteAndGo();
+    else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
     else if (choice === 'start') onOpenStart();
   };
 
@@ -161,8 +184,14 @@ export function AddressBar({
       { id: 'downloads', label: '下载' },
       { id: 'tabs', label: '标签页' },
       { type: 'separator' },
+      { id: 'copy', label: '复制当前网址' },
+      { id: 'paste', label: '粘贴并打开' },
+      { id: 'external', label: '在外部浏览器打开' },
       { id: 'reader', label: '阅读模式（Alt+R）' },
+      { id: 'zoom-in', label: '放大（Ctrl++）' },
+      { id: 'zoom-out', label: '缩小（Ctrl+-）' },
       { id: 'zoom', label: `重置缩放（${Math.round((tab?.zoom ?? 1) * 100)}%）` },
+      { type: 'separator' },
       { id: 'start', label: '起始页' }
     ]);
     runMenuChoice(choice);
@@ -206,7 +235,7 @@ export function AddressBar({
         </button>
         {engineOpen && (
           <div className="address-engine-menu" role="menu">
-            {ENGINES.map((item) => (
+            {SEARCH_ENGINES.map((item) => (
               <button
                 key={item.id}
                 className={item.id === engine ? 'is-active' : ''}
@@ -223,7 +252,8 @@ export function AddressBar({
         <Globe size={13} />
         <input
           ref={inputRef}
-          value={editing ? value : tab?.url ?? ''}
+          value={editing ? value : compactUrl(tab?.url ?? '')}
+          title={tab?.url ?? ''}
           placeholder={`在${engineLabel}搜索，或输入网址 / BV 号`}
           spellCheck={false}
           onChange={(event) => {
@@ -235,6 +265,7 @@ export function AddressBar({
             setValue(tab?.url ?? '');
             setSuggestOpen(true);
             setSuggestIndex(-1);
+            loadBookmarks();
             event.currentTarget.select();
           }}
           onBlur={() => {
@@ -280,6 +311,27 @@ export function AddressBar({
             <span className="address-suggest-title">用{engineLabel}搜索「{value.trim()}」</span>
             <span className="address-suggest-url">Enter</span>
           </button>
+        </div>
+      )}
+
+      {suggestOpen && matchedBookmarks.length > 0 && (
+        <div className="address-suggest" role="listbox">
+          {matchedBookmarks.map((item) => (
+            <button
+              key={item.id}
+              className="address-suggest-item"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setSuggestOpen(false);
+                setEditing(false);
+                inputRef.current?.blur();
+                void window.bsub.navigate(item.url);
+              }}
+            >
+              <span className="address-suggest-title">★ {item.title || item.url}</span>
+              <span className="address-suggest-url">{item.url}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -348,6 +400,18 @@ export function AddressBar({
             <button onClick={() => { setMenuOpen(false); onOpenHub('tabs'); }}>标签页</button>
             <div className="address-menu-sep" />
             <button onClick={() => { setMenuOpen(false); onOpenReader(); }}>阅读模式（Alt+R）</button>
+            <button onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(tab?.url ?? ''); }}>
+              复制当前网址
+            </button>
+            <button onClick={() => { setMenuOpen(false); void pasteAndGo(); }}>
+              粘贴并打开
+            </button>
+            <button onClick={() => { setMenuOpen(false); if (tab?.url) void window.bsub.openExternal(tab.url); }}>
+              在外部浏览器打开
+            </button>
+            <div className="address-menu-sep" />
+            <button onClick={() => { setMenuOpen(false); void window.bsub.zoomIn(); }}>放大</button>
+            <button onClick={() => { setMenuOpen(false); void window.bsub.zoomOut(); }}>缩小</button>
             <button onClick={() => { setMenuOpen(false); void window.bsub.zoomReset(); }}>
               重置缩放（{Math.round((tab?.zoom ?? 1) * 100)}%）
             </button>

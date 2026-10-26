@@ -1,3 +1,5 @@
+import type { SearchEngineId } from './searchEngines';
+
 export interface TabInfo {
   id: string;
   title: string;
@@ -55,6 +57,12 @@ export interface VideoPart {
   duration: number;
 }
 
+export interface VideoPoint {
+  title: string;
+  start: number;
+  end: number;
+}
+
 export interface PageInfo {
   ok?: boolean;
   kind: string;
@@ -75,6 +83,8 @@ export interface PageInfo {
   cover?: string;
   stat?: { view: number; danmaku: number };
   pubdate?: number;
+  /** B 站官方分段/章节（view_points）；有值时总结按它组织，不再让 AI 另造章节。 */
+  viewPoints?: VideoPoint[];
 }
 
 export interface SubtitleTrack {
@@ -650,6 +660,12 @@ export interface ChatConversation {
   messageCount: number;
 }
 
+export interface ChatAttachment {
+  name: string;
+  chars: number;
+  text: string;
+}
+
 export interface StoredChatMessage {
   id: number;
   conversationId: number;
@@ -662,6 +678,7 @@ export interface StoredChatMessage {
   webEngine: string;
   webNotice: string;
   tools: ChatToolRecord[];
+  attachments: ChatAttachment[];
   createdAt: number;
 }
 
@@ -1034,7 +1051,7 @@ export interface AppSettings {
     petTodos: PetTodo[];
     petY: number;
     /** 地址栏/起始页搜索用哪个引擎（默认必应，浏览器式） */
-    searchEngine: 'bilibili' | 'bing' | 'google' | 'custom';
+    searchEngine: SearchEngineId;
     /** 老配置的搜索引擎默认值迁移标记 */
     searchEngineMigrated: boolean;
     /** 起始页自定义快捷方式 */
@@ -1077,8 +1094,10 @@ export interface AppSettings {
       enabled: boolean;
       accelerator: string;
     };
-    /** 主题强调色（#rrggbb） */
+    /** 主题强调色（#rrggbb），colorScheme=custom 时生效 */
     accentColor: string;
+    /** 预设配色 id（见 shared/colorSchemes.ts）；custom 使用 accentColor */
+    colorScheme: string;
     /** 界面密度 */
     density: 'comfortable' | 'compact';
     /** 自定义 CSS（追加到界面） */
@@ -1100,6 +1119,8 @@ export interface AppSettings {
     taskModels: Partial<Record<AiTask, AiTaskModel>>;
     /** 助手档案 */
     profiles: AssistantProfile[];
+    /** 按「平台/模型」覆盖自动识别的能力（图片/音频） */
+    capabilities: Record<string, { vision?: boolean; audio?: boolean }>;
   };
   usage: {
     /** 记录 token 用量（关闭后不再写库） */
@@ -1274,6 +1295,8 @@ export interface ChatMessage {
   webNotice?: string;
   /** 这一轮调用过的工具（持久化到对话库） */
   tools?: ChatToolRecord[];
+  /** 用户上传的文本附件（只保存截断后的文本） */
+  attachments?: ChatAttachment[];
 }
 
 export interface ChatRequest {

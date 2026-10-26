@@ -252,6 +252,12 @@ export function PetWindow() {
   const [hydrated, setHydrated] = useState(false);
   const [bubbleW, setBubbleW] = useState(440);
   const [bubbleH, setBubbleH] = useState(480);
+  const [sizePanelOpen, setSizePanelOpen] = useState(false);
+  const [sizeDraft, setSizeDraft] = useState({ w: 440, h: 480 });
+  const [fontScale, setFontScale] = useState(() => {
+    const stored = Number(localStorage.getItem('pet-font-scale'));
+    return Number.isFinite(stored) && stored >= 0.8 && stored <= 1.5 ? stored : 1;
+  });
   const [resizing, setResizing] = useState<{ w: number; h: number } | null>(null);
   const [below, setBelow] = useState(false);
   const [buttons, setButtons] = useState<string[]>([
@@ -819,7 +825,7 @@ export function PetWindow() {
     flash(`气泡 ${width}×${height}`);
   };
 
-  /** 拖角自由调整：上/下按翻转方向增长，宽度向右增长；拖动时显示尺寸。 */
+  /** 拖角/拖边自由调整：上/下按翻转方向增长，宽度向右增长；拖动时显示尺寸。 */
   const startResize = (
     event: React.MouseEvent,
     axes: { width?: boolean; height?: boolean } = { width: true, height: true }
@@ -832,9 +838,9 @@ export function PetWindow() {
     const move = (moveEvent: MouseEvent) => {
       const dx = moveEvent.screenX - start.sx;
       const dy = moveEvent.screenY - start.sy;
-      const width = axes.width ? Math.min(760, Math.max(320, start.w + dx)) : start.w;
+      const width = axes.width ? Math.min(980, Math.max(280, start.w + dx)) : start.w;
       const height = axes.height
-        ? Math.min(820, Math.max(260, start.h + (below ? dy : -dy)))
+        ? Math.min(960, Math.max(180, start.h + (below ? dy : -dy)))
         : start.h;
       last = { w: width, h: height };
       setBubbleW(width);
@@ -852,16 +858,30 @@ export function PetWindow() {
     window.addEventListener('mouseup', up);
   };
 
-  /** 在紧凑 / 舒适 / 大窗之间循环，按钮点起来可预期，不用拖角猜方向。 */
-  const cycleBubbleSize = () => {
-    const presets: Array<[number, number]> = [
-      [360, 340],
-      [440, 480],
-      [620, 680]
-    ];
-    const index = presets.findIndex(([width]) => width === bubbleW);
-    const next = presets[(index + 1) % presets.length];
-    void applyBubblePreset(next[0], next[1]);
+  const openSizePanel = () => {
+    setSizeDraft({ w: bubbleW, h: bubbleH });
+    setSizePanelOpen(true);
+  };
+
+  const applySizeDraft = async (width = sizeDraft.w, height = sizeDraft.h) => {
+    const w = Math.min(980, Math.max(280, Math.round(Number(width) || 440)));
+    const h = Math.min(960, Math.max(180, Math.round(Number(height) || 480)));
+    setBubbleW(w);
+    setBubbleH(h);
+    setSizeDraft({ w, h });
+    setSizePanelOpen(false);
+    await window.bsub.resizeBubble(w, h, true);
+    flash(`气泡 ${w}×${h}`);
+  };
+
+  const changeFontScale = (next: number) => {
+    const value = Math.min(1.5, Math.max(0.8, Math.round(next * 10) / 10));
+    setFontScale(value);
+    try {
+      localStorage.setItem('pet-font-scale', String(value));
+    } catch {
+      // ignore
+    }
   };
 
   /** 新对话：清掉上下文与回答，附件保留（想继续问图就不用重截）。 */
@@ -1174,6 +1194,7 @@ ${result.data.text}`
       style={{
         ['--pet-size' as string]: `${petSize}px`,
         ['--pet-bubble-w' as string]: `${bubbleW}px`,
+        ['--pet-font-scale' as string]: String(fontScale),
         ['--pet-opacity' as string]: String(petOpacity)
       }}
       onContextMenu={(event) => {
@@ -1394,10 +1415,10 @@ ${result.data.text}`
                 </button>
               )}
               <button
-                className="pet-size"
-                title={`气泡大小：${bubbleW}×${bubbleH}（点击切换紧凑 / 舒适 / 大窗）`}
-                aria-label="切换气泡大小"
-                onClick={() => cycleBubbleSize()}
+                className={`pet-size${sizePanelOpen ? ' is-active' : ''}`}
+                title={`气泡大小：${bubbleW}×${bubbleH}（点击自由调整）`}
+                aria-label="调整气泡大小"
+                onClick={() => (sizePanelOpen ? setSizePanelOpen(false) : openSizePanel())}
               >
                 ⤢
               </button>
@@ -1415,6 +1436,78 @@ ${result.data.text}`
               </button>
             </div>
           </div>
+
+          {sizePanelOpen && (
+            <div className="pet-size-panel">
+              <div className="pet-size-panel-head">
+                <span>气泡大小</span>
+                <button className="pet-close" title="关闭" onClick={() => setSizePanelOpen(false)}>
+                  ×
+                </button>
+              </div>
+              <div className="pet-size-presets">
+                {[
+                  { label: '紧凑', w: 360, h: 340 },
+                  { label: '舒适', w: 440, h: 480 },
+                  { label: '大窗', w: 620, h: 680 },
+                  { label: '超高', w: 520, h: 820 }
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    className="mini-btn"
+                    onClick={() => setSizeDraft({ w: preset.w, h: preset.h })}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <label className="pet-size-row">
+                <span>宽</span>
+                <input
+                  type="range"
+                  min={280}
+                  max={980}
+                  step={10}
+                  value={sizeDraft.w}
+                  onChange={(event) => setSizeDraft((draft) => ({ ...draft, w: Number(event.target.value) }))}
+                />
+                <b>{sizeDraft.w}</b>
+              </label>
+              <label className="pet-size-row">
+                <span>高</span>
+                <input
+                  type="range"
+                  min={180}
+                  max={960}
+                  step={10}
+                  value={sizeDraft.h}
+                  onChange={(event) => setSizeDraft((draft) => ({ ...draft, h: Number(event.target.value) }))}
+                />
+                <b>{sizeDraft.h}</b>
+              </label>
+              <label className="pet-size-row">
+                <span>字号</span>
+                <input
+                  type="range"
+                  min={0.8}
+                  max={1.5}
+                  step={0.1}
+                  value={fontScale}
+                  onChange={(event) => changeFontScale(Number(event.target.value))}
+                />
+                <b>{Math.round(fontScale * 100)}%</b>
+              </label>
+              <div className="pet-size-actions">
+                <button className="mini-btn" onClick={() => setSizeDraft({ w: 440, h: 480 })}>
+                  重置
+                </button>
+                <button className="mini-btn primary" onClick={() => void applySizeDraft()}>
+                  应用
+                </button>
+              </div>
+              <div className="pet-size-hint">也可以直接拖气泡的右边缘 / 下边缘 / 右下角。</div>
+            </div>
+          )}
 
           {historyOpen && (
             <div className="pet-history-panel">

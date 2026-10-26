@@ -1,4 +1,5 @@
 import type { AppSettings } from '../../../../shared/types';
+import { SEARCH_ENGINES } from '../../../../shared/searchEngines';
 import { SettingsSection } from './SettingsSection';
 
 type General = AppSettings['general'];
@@ -17,13 +18,15 @@ export function AddressSearchGroup({ value, onChange }: Props) {
         className="settings-input"
         value={value.searchEngine || 'bing'}
         onChange={(event) =>
-          onChange({ searchEngine: event.target.value as 'bilibili' | 'bing' | 'google' | 'custom' })
+          onChange({ searchEngine: event.target.value as AppSettings['general']['searchEngine'] })
         }
       >
-        <option value="bilibili">B 站站内搜索</option>
-        <option value="bing">必应</option>
-        <option value="google">Google</option>
-        <option value="custom">自定义</option>
+        {SEARCH_ENGINES.map((engine) => (
+          <option key={engine.id} value={engine.id}>
+            {engine.label}
+            {engine.id === 'bilibili' ? '（站内搜索）' : ''}
+          </option>
+        ))}
       </select>
       {value.searchEngine === 'custom' && (
         <input

@@ -7,6 +7,7 @@ import type {
   TrackBody
 } from '../shared/types';
 import { loadSettings } from './settings';
+import { fetchViewPoints } from './biliExtra';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
 const CHROME = process.versions.chrome;
@@ -227,7 +228,11 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
 
   const info: PageInfo = { ...raw };
   if (info.bvid) {
-    const view = await fetchView(info.bvid);
+    // 视频信息与官方分段并行请求：分段失败/超时都不影响页面信息。
+    const [view, points] = await Promise.all([
+      fetchView(info.bvid),
+      info.cid ? fetchViewPoints(info.bvid, Number(info.cid)) : Promise.resolve([])
+    ]);
     if (view) {
       info.cover = normalizeImage(view.pic);
       info.stat = {
@@ -236,6 +241,7 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
       };
       info.pubdate = Number(view.pubdate) || undefined;
     }
+    if (points.length >= 2) info.viewPoints = points;
   }
   return info;
 }

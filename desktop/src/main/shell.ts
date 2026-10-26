@@ -1,4 +1,4 @@
-import { app, Menu, nativeImage, Tray } from 'electron';
+import { app, Menu, nativeImage, Tray, type MenuItemConstructorOptions } from 'electron';
 import type { TabManager } from './tabs';
 import { saveSession } from './session';
 
@@ -12,11 +12,28 @@ export interface TrayOptions {
   iconPath: string | null;
   tooltip: string;
   onShow: () => void;
+  onHide?: () => void;
   onQuit: () => void;
+  onStart?: () => void;
+  onLibrary?: () => void;
+  onSettings?: () => void;
+  onCheckUpdate?: () => void;
+  getVisible?: () => boolean;
 }
 
 export function createTray(options: TrayOptions): Tray | null {
-  const { iconPath, tooltip, onShow, onQuit } = options;
+  const {
+    iconPath,
+    tooltip,
+    onShow,
+    onHide,
+    onQuit,
+    onStart,
+    onLibrary,
+    onSettings,
+    onCheckUpdate,
+    getVisible
+  } = options;
   if (!iconPath) {
     console.warn('[tray] 找不到 tray.png，跳过托盘');
     return null;
@@ -25,19 +42,29 @@ export function createTray(options: TrayOptions): Tray | null {
     const image = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
     const tray = new Tray(image);
     tray.setToolTip(tooltip);
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: '显示主窗口', click: onShow },
-        { type: 'separator' },
-        {
-          label: '退出',
-          click: () => {
-            app.quit();
-            onQuit();
-          }
+    const template: MenuItemConstructorOptions[] = [
+      {
+        label: '显示 / 隐藏主窗口',
+        click: () => {
+          if (getVisible?.()) onHide?.();
+          else onShow();
         }
-      ])
-    );
+      }
+    ];
+    if (onStart) template.push({ label: '起始页', click: onStart });
+    if (onLibrary) template.push({ label: '工作台', click: onLibrary });
+    if (onSettings) template.push({ label: '设置', click: onSettings });
+    template.push({ type: 'separator' });
+    if (onCheckUpdate) template.push({ label: '检查更新', click: onCheckUpdate });
+    template.push({
+      label: '退出',
+      click: () => {
+        app.quit();
+        onQuit();
+      }
+    });
+    tray.setContextMenu(Menu.buildFromTemplate(template));
+    tray.on('click', onShow);
     tray.on('double-click', onShow);
     console.log('[tray] ready');
     return tray;

@@ -98,6 +98,7 @@ import type {
   ChatToolEvent,
   ChatToolRecord,
   ChatApprovalEvent,
+  ChatAttachment,
   ChatCompareResult,
   KbStatus,
   KbHit,
@@ -392,7 +393,7 @@ export interface BsubApi {
     Result<{ city: string; temperature: number; description: string; high: number; low: number }>
   >;
   /** 起始页 B 站热搜 */
-  startHotSearch(): Promise<Result<string[]>>;
+  startHotSearch(force?: boolean): Promise<Result<string[]>>;
   /** 云同步：选择文件夹 */
   chooseSyncFolder(): Promise<Result<string | null>>;
   syncStatus(folder: string): Promise<
@@ -405,6 +406,7 @@ export interface BsubApi {
   exportSettings(): Promise<Result<{ canceled: boolean; path?: string }>>;
   importSettings(): Promise<Result<{ canceled: boolean; snapshot?: SettingsSnapshot }>>;
   onSettingsChanged(cb: (snapshot: SettingsSnapshot) => void): () => void;
+  onTrayAction(cb: (action: string) => void): () => void;
   testSearch(
     query: string,
     override?: { platform?: SearchPlatform; search?: AppSettings['search'] }
@@ -486,6 +488,7 @@ export interface BsubApi {
       webEngine?: string;
       webNotice?: string;
       tools?: ChatToolRecord[];
+      attachments?: ChatAttachment[];
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;

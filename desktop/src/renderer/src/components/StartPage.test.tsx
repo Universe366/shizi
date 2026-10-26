@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StartPage } from './StartPage';
 
 function installBsub() {
@@ -92,6 +92,62 @@ describe('StartPage', () => {
     expect(p.onOpenHistory).toHaveBeenCalled();
     expect(p.onOpenTasks).toHaveBeenCalled();
     expect(p.onOpenSettings).toHaveBeenCalled();
+  });
+
+  it('输入时展示搜索建议，点击建议直接跳转', () => {
+    installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    const input = screen.getByPlaceholderText(/在 必应 搜索/);
+    fireEvent.change(input, { target: { value: '字幕工具' } });
+    fireEvent.click(screen.getByText(/在 必应 搜索“字幕工具”/));
+    expect(p.onNavigate).toHaveBeenCalledWith('字幕工具');
+  });
+
+  it('编辑模式可以隐藏天气小组件', async () => {
+    const api = installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByText('编辑'));
+    const checkbox = document.querySelector(
+      '.start-widget-toggle input'
+    ) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    const last = api.saveSettings.mock.calls.at(-1)?.[0] as {
+      general: { startWidgets: string[] };
+    };
+    expect(last.general.startWidgets).not.toContain('weather');
+    await waitFor(() => expect(document.querySelector('.start-weather-widget')).toBeNull());
+  });
+
+  it('待办可以删除', async () => {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [{ id: 1, text: '测试待办', done: false }] as never[],
+            startShortcuts: [],
+            startWallpaper: 'aurora',
+            startWeather: true,
+            startCity: '上海',
+            startHotSearch: true
+          }
+        },
+        version: '0.39.1'
+      }
+    }));
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('测试待办')).toBeTruthy());
+    fireEvent.click(document.querySelector('.start-todo-remove') as HTMLElement);
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    const last = api.saveSettings.mock.calls.at(-1)?.[0] as {
+      general: { petTodos: unknown[] };
+    };
+    expect(last.general.petTodos).toEqual([]);
   });
 
   it('展示最近的库条目，点击打开', async () => {

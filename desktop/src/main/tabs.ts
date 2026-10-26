@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { FindResult, LayoutRect, TabGroup, TabInfo } from '../shared/types';
+import type { SearchEngineId } from '../shared/searchEngines';
 import { normalizeUrl } from './url';
 import { neighborAfterClose } from './tabOrder';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
@@ -129,7 +130,7 @@ function bridgeSource(): string {
   throw new Error('找不到 page-bridge.js，请先运行 npm run sync:bridge');
 }
 
-function searchPref(): { engine: 'bilibili' | 'bing' | 'google' | 'custom'; customUrl: string } {
+function searchPref(): { engine: SearchEngineId; customUrl: string } {
   const general = loadSettings().general;
   return { engine: general.searchEngine || 'bing', customUrl: general.searchEngineCustom || '' };
 }

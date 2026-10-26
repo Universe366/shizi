@@ -7,12 +7,17 @@ import { buildVerifyBlock, verifySummary } from './verify';
 import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
 import { optimizeLines } from './optimize';
+import { packMergeGroups } from '../shared/summarizeMerge';
 
 const MAX_TRANSCRIPT_CHARS = 200000;
 const REQUEST_TIMEOUT_MS = 300000;
 // 长视频：超过这个字符数就走「分段总结 → 合并」，不再截断中间内容。
-const DIRECT_SUMMARY_CHARS = 40000;
-const SUMMARY_CHUNK_CHARS = 40000;
+// 18k 是保守值：中文约 1 字 ≈ 1 token，加上输出与格式说明仍能塞进 32k 上下文模型。
+const DIRECT_SUMMARY_CHARS = 18000;
+const SUMMARY_CHUNK_CHARS = 18000;
+// 最终合并的输入预算：超过就先把分段结果做一轮分层合并，避免 2 小时视频撑爆上下文。
+const MERGE_INPUT_CHARS = 48000;
+const MERGE_GROUP_CHARS = 18000;
 
 const CHUNK_SYSTEM =
   '你是视频字幕整理助手。用户会给你一部长视频中的一段字幕。' +
@@ -72,6 +77,18 @@ function clock(seconds: number): string {
   return h > 0
     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** 官方分段转成提示词块；没有就返回空串。 */
+function officialSegmentsBlock(info: PageInfo): string {
+  const points = info.viewPoints || [];
+  if (points.length < 2) return '';
+  return [
+    '【视频官方分段（必须沿用这些分段作为章节，不要另造章节标题）】',
+    ...points.map(
+      (point) => `- ${clock(point.start)} ~ ${clock(point.end)} ${point.title}`
+    )
+  ].join('\n');
 }
 
 export function buildTranscript(info: PageInfo, lines: SubtitleLine[]): string {
@@ -148,12 +165,14 @@ function chunkPrompt(options: {
   to: number;
   background: string;
   text: string;
+  official?: string;
 }): string {
   return [
     options.title ? `视频：${options.title}${options.part ? ` · ${options.part}` : ''}` : '',
     options.background
       ? `【视频背景（辅助理解，不要照抄）】\n${options.background}`
       : '',
+    options.official || '',
     `这是第 ${options.index}/${options.total} 段字幕，时间范围约 ${clock(options.from)} ~ ${clock(
       options.to
     )}。`,
@@ -162,7 +181,7 @@ function chunkPrompt(options: {
     '- 要点列表（尽量具体：数字、结论、步骤、例子、人物）',
     '- 若出现值得原样保留的说法，用 `> 引用` 格式直接摘录',
     '不要给每条要点都标时间；只有极少数确实需要跳转的位置才写 `[mm:ss]`（整段最多一两处）。',
-    '不要写总结性的收尾语，直接给提取结果。',
+    '每段提取控制在 800~1500 字，宁精不滥；不要写总结性的收尾语，直接给提取结果。',
     '下面是这一段字幕原文：',
     options.text
   ]
@@ -179,6 +198,7 @@ function mergePrompt(options: {
   referencesBlock: string;
   chunkCount: number;
   chunkSummaries: string;
+  official?: string;
 }): string {
   return [
     options.title ? `视频：${options.title}` : '',
@@ -186,9 +206,12 @@ function mergePrompt(options: {
     options.duration ? `时长：${options.duration}` : '',
     options.spanText,
     options.extraContext,
+    options.official || '',
+    options.official || '',
     options.referencesBlock,
     `下面是这部视频**分成 ${options.chunkCount} 段**分别提取的内容，请把它们**合并成一篇完整、连贯的总结**。`,
     '要求：',
+    '- **如果给了「视频官方分段」，必须沿用它的章节标题与顺序，不要再另造章节**',
     '- 按时间顺序组织，覆盖**全片**（不要只写开头，也不要遗漏后面的段落）',
     '- 合并重复内容，保持逻辑连贯；同一主题分散在多段的要归并到一起',
     '- 保留具体数字、结论、步骤与例子',
@@ -199,6 +222,41 @@ function mergePrompt(options: {
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/** 分层合并的中间层：只做去重与串联，不套最终总结格式。 */
+async function mergeFragments(options: {
+  platform: AiPlatform;
+  settings: ReturnType<typeof loadSettings>;
+  fragments: string[];
+  signal?: AbortSignal;
+}): Promise<string> {
+  const messages = [
+    {
+      role: 'system' as const,
+      content:
+        '你是视频字幕整理助手。请把下面同一部长视频相邻段落的提取结果合并成一段更紧凑的中间稿：' +
+        '按时间顺序、去重、保留具体数字/结论/步骤/例子，不要写开场白或收尾语。'
+    },
+    {
+      role: 'user' as const,
+      content: options.fragments.join('\n\n---\n\n')
+    }
+  ];
+  const chatOptions = {
+    temperature: 0.2,
+    maxTokens: 3500,
+    timeoutMs: 420000,
+    signal: options.signal,
+    task: 'summary' as const
+  };
+  const result =
+    options.settings.ai.stream === false
+      ? await chatOnce(options.platform, messages, chatOptions)
+      : await chatStream(options.platform, messages, chatOptions);
+  const text = (result.text || result.reasoning || '').trim();
+  if (!text) throw new Error('中间层合并为空');
+  return text;
 }
 
 async function summarizeInChunks(options: {
@@ -220,8 +278,13 @@ async function summarizeInChunks(options: {
   const chunks = chunkTranscript(lines, SUMMARY_CHUNK_CHARS);
   const total = chunks.length;
   const background = options.metaBlock.slice(0, 900);
+  const official = officialSegmentsBlock(info);
   const summaries: string[] = new Array(total).fill('');
-  const chunkMaxTokens = Math.min(settings.ai.maxTokens || 8192, 8192);
+  // 段数越多，单段输出越克制：细节留给最终合并时再展开，避免 10 段 × 8k token 撑爆上下文。
+  const chunkMaxTokens = Math.min(
+    settings.ai.maxTokens || 8192,
+    total >= 10 ? 3072 : total >= 6 ? 4096 : 6144
+  );
 
   const summarizeChunk = async (index: number): Promise<void> => {
     if (options.signal?.aborted) throw new Error('已终止');
@@ -252,7 +315,8 @@ async function summarizeInChunks(options: {
           from: chunk.start,
           to: index + 1 < total ? chunks[index + 1].start : info.duration || chunk.end,
           background,
-          text: chunk.text
+          text: chunk.text,
+          official
         })
       }
     ];
@@ -263,14 +327,14 @@ async function summarizeInChunks(options: {
         ? await chatOnce(platform, chunkMessages, {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
-            timeoutMs: 240000,
+            timeoutMs: 420000,
             signal: options.signal,
             task: 'summary'
           })
         : await chatStream(platform, chunkMessages, {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
-            timeoutMs: 240000,
+            timeoutMs: 420000,
             signal: options.signal,
             task: 'summary'
           });
@@ -284,20 +348,72 @@ async function summarizeInChunks(options: {
   };
 
   // 两路并发：长视频（尤其 40 分钟以上）串行分段会把总时长翻倍；两路足够快，
-  // 又不会像全并发那样一把打满平台限流。
+  // 又不会像全并发那样一把打满平台限流。单段失败不再拖垮整篇总结。
   let nextChunk = 0;
+  let failures = 0;
+  const chunkErrors: Error[] = [];
   const workers = Array.from({ length: Math.min(2, total) }, async () => {
     while (true) {
       const index = nextChunk;
       nextChunk += 1;
       if (index >= total) return;
-      await summarizeChunk(index);
+      try {
+        await summarizeChunk(index);
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        failures += 1;
+        const failure = error as Error;
+        chunkErrors.push(failure);
+        console.warn('[m4] chunk failed', index + 1, '/', total, failure.message);
+        options.onStatus?.(`第 ${index + 1}/${total} 段失败，继续其余段落…`);
+      }
     }
   });
   await Promise.all(workers);
 
-  const doneSummaries = summaries.filter(Boolean);
-  if (!doneSummaries.length) throw new Error('分段总结为空（模型没有返回内容）');
+  let doneSummaries = summaries.filter(Boolean);
+  if (!doneSummaries.length) {
+    const last = chunkErrors[chunkErrors.length - 1];
+    throw new Error(
+      `长视频分段总结全部失败${last ? `：${last.message}` : '（模型没有返回内容）'}`
+    );
+  }
+  if (failures) {
+    options.onStatus?.(`有 ${failures} 段失败，已用其余 ${doneSummaries.length} 段合并`);
+  }
+
+  // 2 小时以上的视频可能有 10+ 段；先把分段结果做分层合并，避免最终 prompt 超出上下文。
+  let mergedSum = doneSummaries.join('\n\n---\n\n');
+  let round = 0;
+  while (mergedSum.length > MERGE_INPUT_CHARS && doneSummaries.length > 1 && round < 4) {
+    const groups = packMergeGroups(doneSummaries, MERGE_GROUP_CHARS);
+    if (groups.length <= 1) break;
+    options.onStatus?.(
+      `分段较多，先合并中间层（第 ${round + 1} 轮，${groups.length} 组）…`
+    );
+    const reduced: string[] = [];
+    for (const group of groups) {
+      if (group.length === 1) {
+        reduced.push(group[0]);
+        continue;
+      }
+      reduced.push(
+        await mergeFragments({
+          platform,
+          settings,
+          fragments: group,
+          signal: options.signal
+        }).catch((error) => {
+          if (options.signal?.aborted) throw error;
+          options.onStatus?.(`中间层合并失败，保留原始分段：${(error as Error).message}`);
+          return group.join('\n\n').slice(0, MERGE_GROUP_CHARS);
+        })
+      );
+    }
+    doneSummaries = reduced;
+    mergedSum = reduced.join('\n\n---\n\n');
+    round += 1;
+  }
 
   options.onStatus?.(`正在合并 ${total} 段总结…`);
   const messages = [
@@ -317,7 +433,8 @@ async function summarizeInChunks(options: {
         extraContext: options.metaBlock,
         referencesBlock: options.referencesBlock,
         chunkCount: total,
-        chunkSummaries: doneSummaries.join('\n\n---\n\n')
+        chunkSummaries: doneSummaries.join('\n\n---\n\n'),
+        official
       })
     }
   ];
@@ -329,23 +446,30 @@ async function summarizeInChunks(options: {
     task: 'summary' as const
   };
 
-  if (settings.ai.stream === false) {
-    const merged = await chatOnce(platform, messages, chatOptions);
+  try {
+    if (settings.ai.stream === false) {
+      const merged = await chatOnce(platform, messages, chatOptions);
+      const text = (merged.text || merged.reasoning || '').trim();
+      if (!text) throw new Error('合并总结为空');
+      options.onDelta?.(text);
+      if (merged.reasoning) options.onReasoning?.(merged.reasoning);
+      return { text, chunks: total };
+    }
+
+    const merged = await chatStream(platform, messages, {
+      ...chatOptions,
+      onDelta: options.onDelta,
+      onReasoning: options.onReasoning
+    });
     const text = (merged.text || merged.reasoning || '').trim();
     if (!text) throw new Error('合并总结为空');
-    options.onDelta?.(text);
-    if (merged.reasoning) options.onReasoning?.(merged.reasoning);
     return { text, chunks: total };
+  } catch (error) {
+    // 最后一步合并失败时退回分层结果，总比整篇总结失败好。
+    if (options.signal?.aborted) throw error;
+    options.onStatus?.(`合并失败，返回分段结果：${(error as Error).message}`);
+    return { text: doneSummaries.join('\n\n---\n\n'), chunks: total };
   }
-
-  const merged = await chatStream(platform, messages, {
-    ...chatOptions,
-    onDelta: options.onDelta,
-    onReasoning: options.onReasoning
-  });
-  const text = (merged.text || merged.reasoning || '').trim();
-  if (!text) throw new Error('合并总结为空');
-  return { text, chunks: total };
 }
 
 export async function summarize(options: SummarizeOptions): Promise<{ text: string; model: string; verification?: VerificationSummary }> {
@@ -423,7 +547,8 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     ...(settings.search.useVideoMeta !== false && info.desc
       ? [`视频简介：${info.desc.slice(0, 2000)}`]
       : []),
-    ...(commentsBlock ? [commentsBlock] : [])
+    ...(commentsBlock ? [commentsBlock] : []),
+    ...(officialSegmentsBlock(info) ? [officialSegmentsBlock(info)] : [])
   ].join('\n');
 
   const userContent = [

@@ -1,14 +1,10 @@
 import { LocalWorkbench } from './LocalWorkbench';
-import { RendersPanel } from './RendersPanel';
 
-/** 成片与处理：左侧本地工作流，右侧成片记录，互不挤占。 */
+/** 成片与处理：一条连续流水线，从素材到成片再到记录，不再用左右分栏或步骤页切开。 */
 export function StudioPanel() {
   return (
-    <div className="studio-split">
+    <div className="studio-pipeline-page">
       <LocalWorkbench />
-      <aside className="studio-renders" aria-label="成片记录">
-        <RendersPanel />
-      </aside>
     </div>
   );
 }

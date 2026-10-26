@@ -1,25 +1,14 @@
-export type SearchEngine = 'bilibili' | 'bing' | 'google' | 'custom';
+import { buildSearchUrl, type SearchEngineId } from '../shared/searchEngines';
+
+export type SearchEngine = SearchEngineId;
 
 export interface SearchPreference {
   engine?: SearchEngine;
   customUrl?: string;
 }
 
-const SEARCH_TEMPLATES: Record<Exclude<SearchEngine, 'custom'>, string> = {
-  bilibili: 'https://search.bilibili.com/all?keyword=',
-  bing: 'https://www.bing.com/search?q=',
-  google: 'https://www.google.com/search?q='
-};
-
-/** 自定义模板必须含 {q}；否则退回必应搜索。 */
 function searchUrl(raw: string, pref?: SearchPreference): string {
-  const engine = pref?.engine || 'bing';
-  if (engine === 'custom') {
-    const template = String(pref?.customUrl || '').trim();
-    if (template.includes('{q}')) return template.replace('{q}', encodeURIComponent(raw));
-    return `${SEARCH_TEMPLATES.bing}${encodeURIComponent(raw)}`;
-  }
-  return `${SEARCH_TEMPLATES[engine]}${encodeURIComponent(raw)}`;
+  return buildSearchUrl(pref?.engine || 'bing', raw, pref?.customUrl || '');
 }
 
 export function normalizeUrl(input: string, pref?: SearchPreference): string {

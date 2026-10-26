@@ -74,6 +74,16 @@ export async function generateChapters(
   lines: SubtitleLine[],
   signal?: AbortSignal
 ): Promise<Chapter[]> {
+  // 视频自带官方分段时直接沿用：再让 AI 造一套章节会重复且对不上进度条。
+  const official = (info.viewPoints || [])
+    .filter((point) => point.title.trim() && point.end > point.start)
+    .map((point) => ({
+      start: point.start,
+      end: point.end,
+      title: point.title.slice(0, 60)
+    }));
+  if (official.length >= 2) return official;
+
   const settings = loadSettings();
   const platform = platformForTask('chapters', settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');

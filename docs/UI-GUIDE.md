@@ -127,6 +127,22 @@ ChatPanel
 
 **注意**：选了助手档案时，请求不再下发 `mcpToolIds`，避免手动勾选覆盖档案配置。
 
+### AI 平台与模型能力
+
+- 能力推断：`shared/modelCapabilities.ts`（文本始终可用，图片/音频按模型名与平台类型推断）。
+- 用户覆盖：`settings.ai.capabilities[capabilityKey(platformId, model)] = { vision, audio }`。
+- 设置 UI：`AiSection.tsx` 的「模型能力」三个 chip；文本只读，图片/音频可勾选。
+- 对话拦截：`ChatPanel` 根据当前档案/平台/模型计算 `visionEnabled`；关闭时不给选图片、发送前报错。主进程 `chat.ts` 也会二次校验，避免绕过 UI。
+- 新增能力（如视频输入）：先扩 `ModelCapability` 与推断规则，再接 UI/请求；不要只在 renderer 判断。
+
+### 文本附件 / 引用 / 快捷指令
+
+- 附件：`＋ → 文本附件`，支持 txt/md/srt/vtt/json/csv 等，最多 3 个、每个 1MB、截断 30k 字符；存 `messages.attachments_json`。
+- 发给模型时 `expandForModel()` 把附件文本拼进 content；界面只显示 `.chat-attachment-chip`，不把整段文本铺进气泡。
+- 引用：消息操作里的 Quote 图标，下一次发送会在 content 前加 `> 引用：…` 块；发送后清空。
+- 快捷指令：`＋` 面板底部「总结 / 待办 / 时间线 / 提问清单」，直接调用 `send(prompt)`。
+- 新增附件类型：改 `addTextFiles()` 的扩展名/大小限制与 API 的 `ChatAttachment` 类型；不要只在前端限制。
+
 ## 4. 样式约定
 
 - 全部在 `renderer/src/styles.css`，按组件分块，不要新增 CSS-in-JS。
@@ -156,10 +172,98 @@ node tools/ui-shots.mjs        # artifacts/ui/{start-page,settings-page,vertical
 
 截图确认后，把需要的图复制到 `docs/screenshots/`，并更新 README 引用。
 
-## 6. 验证清单
+## 6. 起始页
+
+文件：`renderer/src/components/StartPage.tsx`（单文件，含搜索、快捷方式、小组件、壁纸）。
+
+### 配色
+
+- 预设：`shared/colorSchemes.ts`（9 套，浅色/深色各有 accent + soft）。
+- 设置：`general.colorScheme`；`custom` 时使用 `general.accentColor`。
+- 应用：`lib/appearance.ts` 的 `applyAppearance()` 监听系统深浅色变化，切换 CSS 变量 `--accent` / `--accent-soft`。
+- 新增配色：只改 `COLOR_SCHEMES`，不要在每个组件里写死颜色。
+
+### 布局
+
+```
+start-hero-v2        时钟 / 问候 / 壁纸 / 搜索 / 常用站
+start-widget-manager 编辑模式的组件开关与排序（只在 editMode 出现）
+start-widget-grid    天气 / 待办 / 热搜 / 最近入库 / 最近访问
+start-shortcut-area  内置入口 + 自定义快捷方式（可分组、拖拽）
+start-footnote       编辑提示、导入/导出设置
+```
+
+### 状态与持久化
+
+| 状态 | 存在哪 |
+|---|---|
+| 搜索引擎 | `general.searchEngine`（共享 `shared/searchEngines.ts`） |
+| 快捷方式 | `general.startShortcuts` |
+| 组件顺序/可见性 | `general.startWidgets`：**数组同时表示「显示」与「顺序」**，不在数组里即隐藏 |
+| 天气/热搜开关 | `general.startWeather`、`general.startHotSearch`（兼容旧配置） |
+| 壁纸 | `general.startWallpaper` / `startWallpaperImage` |
+| 搜索历史 | `localStorage: start-search-history`（最多 8 条） |
+
+**加组件**：
+
+1. 在 `WIDGET_LABELS` 与 `ALL_WIDGETS` 加 id；
+2. 在 `settings.ts` 的 `startWidgets` 默认值里加 id；
+3. 渲染一个 `.start-widget-card`，条件用 `widgetVisible(id)`；
+4. 需要后端数据时加 IPC，并处理失败空态。
+
+**注意**：组件顺序用 `orderOf(id)` 设置 CSS `order`；隐藏的组件不渲染，不要只靠 CSS 隐藏。
+
+## 7. 地址栏与浏览器
+
+- 地址栏：`components/AddressBar.tsx`。
+- 历史/书签/下载/标签页：`components/BrowserHub.tsx`。
+- 标签栏：`components/TabStrip.tsx`。
+- URL 展示：`shared/url.ts` 的 `compactUrl()`（去协议、`www.`、末尾斜杠；保留 query，去掉 hash）。
+- 搜索引擎：`shared/searchEngines.ts`，地址栏、起始页、设置页共用；新增引擎只改这一处。
+- 地址栏菜单优先用 `window.bsub.popupMenu()` 的系统菜单（网页视图会盖住 HTML 菜单）；没有该 API 时才回退 HTML 菜单。
+- 地址栏聚焦时展示完整 URL，失焦回到紧凑形式；不要在聚焦时也压缩，否则编辑会误删协议。
+
+改浏览器功能后至少跑：`AddressBar.test.tsx`、`BrowserHub.test.tsx`、`TabStrip.test.tsx` 和 `npm run smoke`。
+
+## 8. 托盘与桌宠
+
+### 托盘
+
+- 创建：`main/shell.ts` 的 `createTray(options)`；入口在 `main/index.ts`。
+- 菜单：显示/隐藏主窗口、起始页、工作台、设置、检查更新、退出。
+- 点击托盘图标显示窗口；双击同样显示；tooltip 带版本号。
+- 起始页/工作台/设置通过 `mainWindow.webContents.send('tray:action', action)` 通知渲染层，`App.tsx` 监听后切换 overlay。
+- 新增托盘项：在 `TrayOptions` 加回调 → `index.ts` 传入 → `shell.tray.test.ts` 补断言。
+- 托盘是**原生层**，不要直接操作 React state；一律发 `tray:action`。
+
+### 桌宠气泡
+
+- 尺寸：点击 ⤢ 打开 `.pet-size-panel`，可拖宽高滑杆（280–980 × 180–960）、选预设、调字号（80%–150%）。
+- 持久化：尺寸走 `general.petBubbleWidth/Height` + `resizeBubble(w,h,true)`；字号走 `localStorage: pet-font-scale`。
+- 拖拽：右边缘、下/上边缘、右下角（`.pet-resize*`）仍可用；主进程 `resizeBubble()` 负责最终 clamp，改上下限要同时改 renderer 滑杆与 main clamp。
+- 不要再把 ⤢ 改成「循环预设」，用户需要的是自由尺寸。
+
+## 9. 成片与处理流水线
+
+文件：`components/StudioPanel.tsx` + `components/LocalWorkbench.tsx`。
+
+- **不要**再拆成左侧步骤导航或左右分栏；它是一条连续流水线：
+  `选择素材 → 生成字幕 → 整理字幕 → 出成片 → 成片记录`。
+- 每一步是一个 `.pipeline-step`，步骤之间用 `.pipeline-connector` 连接；步骤头部有编号、标题、状态。
+- 步骤内可以有空态，但下一个步骤始终可见；跳转用 `scrollToStep(id)`，不要切走页面。
+- 成片记录 `RendersPanel` 放在流水线底部，不再占用右侧栏。
+- 新增步骤：在 JSX 里加 section + connector，并保持 `id` 稳定（`step-source` 等），滚动定位依赖它。
+
+## 10. 长视频总结的 UI
+
+- 状态文案来自 `main/ai.ts` 的 `onStatus`：分段进度、失败段数、中间层合并、最终合并。
+- 分段阈值 18k 字符，分段结果超过 48k 字符走分层合并；单段失败不会中断整篇。
+- 改这段逻辑时至少跑 `src/shared/summarizeMerge.test.ts`，并用 2 小时以上字幕手动验证一次。
+
+## 11. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 125 文件 / 732 用例）
+- `npm test`（当前 134 文件 / 762 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
-- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、发送、历史会话。
+- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步。

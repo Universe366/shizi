@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import {
+  capabilityKey,
+  effectiveModelCapabilities
+} from '../../../shared/modelCapabilities';
 import type {
   AiPlatform,
   AssistantProfile,
   ChatApprovalEvent,
+  ChatAttachment,
   ChatCompareResult,
   ChatConversation,
   ChatMessage,
@@ -117,7 +122,8 @@ function fromStoredMessage(row: StoredChatMessage): ChatMessage {
     ...(row.sources.length ? { sources: row.sources } : {}),
     ...(row.webEngine ? { webEngine: row.webEngine } : {}),
     ...(row.webNotice ? { webNotice: row.webNotice } : {}),
-    ...(row.tools.length ? { tools: row.tools } : {})
+    ...(row.tools.length ? { tools: row.tools } : {}),
+    ...(row.attachments.length ? { attachments: row.attachments } : {})
   };
 }
 
@@ -165,6 +171,8 @@ export function ChatPanel({
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [quote, setQuote] = useState<ChatMessage | null>(null);
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [profiles, setProfiles] = useState<AssistantProfile[]>([]);
   const [profileId, setProfileId] = useState(() => {
@@ -210,6 +218,10 @@ export function ChatPanel({
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
   const [approvals, setApprovals] = useState<ChatApprovalEvent[]>([]);
   const [platforms, setPlatforms] = useState<AiPlatform[]>([]);
+  const [activeAiId, setActiveAiId] = useState('');
+  const [capabilityOverrides, setCapabilityOverrides] = useState<
+    Record<string, { vision?: boolean; audio?: boolean }>
+  >({});
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareSelection, setCompareSelection] = useState<string[]>(() => {
     try {
@@ -232,12 +244,24 @@ export function ChatPanel({
   const recorderChunks = useRef<Blob[]>([]);
   const autoSaveRef = useRef<{ title: string; url: string } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef('');
   const contextRef = useRef<{ info: PageInfo; lines: SubtitleLine[] } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
+  const currentProfile = profiles.find((profile) => profile.id === profileId);
+  const currentPlatform =
+    platforms.find((platform) => platform.id === (currentProfile?.platformId || activeAiId)) ||
+    platforms.find((platform) => platform.id === activeAiId);
+  const currentModel = currentProfile?.model || currentPlatform?.model || '';
+  const currentCapabilities = effectiveModelCapabilities(
+    currentPlatform?.kind,
+    currentModel,
+    capabilityOverrides[capabilityKey(currentPlatform?.id || '', currentModel)]
+  );
+  const visionEnabled = currentCapabilities.vision;
 
   const refreshConversations = async (): Promise<void> => {
     const response = await window.bsub.chatHistoryList(60);
@@ -454,6 +478,8 @@ export function ChatPanel({
       setSkillId((current) => (items.some((item) => item.id === current) ? current : ''));
       setProfiles(response.data.settings.ai.profiles || []);
       setPlatforms(response.data.settings.ai.platforms || []);
+      setActiveAiId(response.data.settings.ai.activeId || '');
+      setCapabilityOverrides(response.data.settings.ai.capabilities || {});
       setProfileId((current) =>
         (response.data.settings.ai.profiles || []).some((profile) => profile.id === current)
           ? current
@@ -478,6 +504,8 @@ export function ChatPanel({
       setSearchEnabled(searchOn);
       setProfiles(snapshot.settings.ai.profiles || []);
       setPlatforms(snapshot.settings.ai.platforms || []);
+      setActiveAiId(snapshot.settings.ai.activeId || '');
+      setCapabilityOverrides(snapshot.settings.ai.capabilities || {});
       setProfileId((current) =>
         (snapshot.settings.ai.profiles || []).some((profile) => profile.id === current)
           ? current
@@ -751,6 +779,10 @@ export function ChatPanel({
   }, [messages, streamText, status]);
 
   const addImages = async (files: File[]) => {
+    if (!visionEnabled) {
+      setError('当前模型未开启图片能力：到「设置 → AI 与语音 → AI 平台 → 模型能力」勾选「图片」后再试。');
+      return;
+    }
     const selected = files.filter((file) => file.type.startsWith('image/'));
     if (!selected.length) return;
     let next = [...images];
@@ -769,7 +801,50 @@ export function ChatPanel({
     setImages(next.slice(0, 2));
   };
 
-  // 切换页面后必须重新取上下文，不能沿用上一个视频的字幕。
+  const addTextFiles = async (files: File[]) => {
+    const allowed = /\.(txt|md|markdown|srt|vtt|json|csv|log|ya?ml|xml|html?)$/i;
+    const selected = files.filter(
+      (file) => file.type.startsWith('text/') || allowed.test(file.name)
+    );
+    if (!selected.length) {
+      setError('只支持 txt / md / srt / vtt / json / csv / log 等文本文件');
+      return;
+    }
+    let next = [...attachments];
+    for (const file of selected) {
+      if (next.length >= 3) {
+        setError('最多附带 3 个文本附件');
+        break;
+      }
+      if (file.size > 1024 * 1024) {
+        setError('文本附件不能超过 1MB');
+        continue;
+      }
+      const text = (await file.text()).slice(0, 30000);
+      if (!text.trim()) continue;
+      next = [
+        ...next,
+        { name: file.name.slice(0, 120), chars: text.length, text }
+      ];
+    }
+    setAttachments(next.slice(0, 3));
+  };
+
+  const attachmentText = (items: ChatAttachment[] = []): string =>
+    items
+      .map((item) => `【附件：${item.name}】\n${item.text}`)
+      .join('\n\n');
+
+  /** 发给模型时把附件和引用展开进 content，界面上仍然用紧凑气泡。 */
+  const expandForModel = (message: ChatMessage): ChatMessage => {
+    const extra = [
+      message.attachments?.length ? attachmentText(message.attachments) : '',
+      message.content
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    return extra === message.content ? message : { ...message, content: extra };
+  };
   useEffect(() => {
     contextRef.current = null;
   }, [activeTab?.id, activeTab?.url, pageContext?.url]);
@@ -845,8 +920,17 @@ export function ChatPanel({
   };
 
   const send = async (preset?: string, forcePage = false, base?: ChatMessage[]) => {
-    const content = String(preset ?? input).trim();
-    if ((!content && !images.length) || streaming) return;
+    const text = String(preset ?? input).trim();
+    if ((!text && !images.length && !attachments.length) || streaming) return;
+    if (images.length && !visionEnabled) {
+      setError('当前模型未开启图片能力，请先在设置里勾选「图片」，或移除图片发送。');
+      return;
+    }
+    const quoted = quote
+      ? `> 引用：${quote.content.slice(0, 400).replace(/\n/g, '\n> ')}\n\n`
+      : '';
+    const content = `${quoted}${text || '请阅读并分析这个附件。'}`.trim();
+    const outgoingAttachments = attachments;
 
     setInput('');
     setError(null);
@@ -859,19 +943,27 @@ export function ChatPanel({
 
     const nextMessages: ChatMessage[] = [
       ...(base ?? messages),
-      { role: 'user', content, ...(images.length ? { images } : {}) }
+      {
+        role: 'user',
+        content,
+        ...(images.length ? { images } : {}),
+        ...(outgoingAttachments.length ? { attachments: outgoingAttachments } : {})
+      }
     ];
     const attachedImages = images;
     setMessages(nextMessages);
     setImages([]);
+    setAttachments([]);
+    setQuote(null);
 
     void (async () => {
-      const conversation = await ensureConversation(content || '图片提问');
+      const conversation = await ensureConversation(text || '附件提问');
       if (!conversation) return;
       await window.bsub.chatHistoryAppend(conversation, {
         role: 'user',
         content,
-        images: attachedImages
+        images: attachedImages,
+        attachments: outgoingAttachments
       });
       void refreshConversations();
     })();
@@ -885,7 +977,7 @@ export function ChatPanel({
         requestId,
         info: context.info,
         lines: context.lines,
-        messages: nextMessages,
+        messages: nextMessages.map(expandForModel),
         skillIds: skillId ? [skillId] : [],
         profileId: profileId || undefined,
         // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
@@ -1342,6 +1434,13 @@ export function ChatPanel({
                       </button>
                       <button
                         className="chat-action"
+                        title="引用这条回答"
+                        onClick={() => setQuote(message)}
+                      >
+                        <Quote size={11} />
+                      </button>
+                      <button
+                        className="chat-action"
                         title="从此回答新建分支"
                         onClick={() => void branchAt(index)}
                       >
@@ -1372,8 +1471,29 @@ export function ChatPanel({
                         ))}
                       </div>
                     ) : null}
+                    {message.attachments?.length ? (
+                      <div className="chat-attachments">
+                        {message.attachments.map((attachment) => (
+                          <span
+                            key={`${attachment.name}-${attachment.chars}`}
+                            className="chat-attachment-chip"
+                            title={attachment.name}
+                          >
+                            <FileText size={10} /> {attachment.name}
+                            <span>{attachment.chars.toLocaleString('zh-CN')} 字</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <div>{message.content}</div>
                     <div className="chat-msg-actions">
+                      <button
+                        className="chat-action"
+                        title="引用这条消息"
+                        onClick={() => setQuote(message)}
+                      >
+                        <Quote size={11} />
+                      </button>
                       <button
                         className="chat-action"
                         title="从这条消息新建分支"
@@ -1531,10 +1651,22 @@ export function ChatPanel({
               <span className="chat-menu-card-title">多模型对比</span>
               <span className="chat-menu-card-desc">两个以上平台并排回答</span>
             </button>
-            <button className="chat-menu-card" onClick={() => imageInputRef.current?.click()}>
+            <button
+              className="chat-menu-card"
+              disabled={!visionEnabled}
+              title={visionEnabled ? '添加图片' : '当前模型未开启图片能力，可在设置里勾选'}
+              onClick={() => imageInputRef.current?.click()}
+            >
               <ImagePlus size={15} />
               <span className="chat-menu-card-title">添加图片</span>
-              <span className="chat-menu-card-desc">也可直接粘贴或拖入</span>
+              <span className="chat-menu-card-desc">
+                {visionEnabled ? '也可直接粘贴或拖入' : '当前模型未开启图片能力'}
+              </span>
+            </button>
+            <button className="chat-menu-card" onClick={() => fileInputRef.current?.click()}>
+              <FileText size={15} />
+              <span className="chat-menu-card-title">文本附件</span>
+              <span className="chat-menu-card-desc">txt / md / srt，最多 3 个</span>
             </button>
             <button className="chat-menu-card" onClick={clear}>
               <Plus size={15} />
@@ -1630,6 +1762,26 @@ export function ChatPanel({
               </select>
             </div>
           )}
+          <div className="chat-menu-quick">
+            <span className="chat-menu-row-label">快捷</span>
+            {[
+              { label: '总结', prompt: '请用要点总结当前视频/页面的核心内容，先给结论再展开。' },
+              { label: '待办', prompt: '从当前内容里提取可执行的待办事项，用 Markdown 任务列表输出。' },
+              { label: '时间线', prompt: '按时间顺序整理当前内容的关键节点，标注大致时间点。' },
+              { label: '提问清单', prompt: '基于当前内容，列出 5 个值得继续追问的问题并说明为什么。' }
+            ].map((item) => (
+              <button
+                key={item.label}
+                className="chat-chip"
+                onClick={() => {
+                  setComposerOpen(false);
+                  void send(item.prompt);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
           {toolPanelOpen && (
             <div className="chat-tool-panel">
               {profileId && (
@@ -1725,6 +1877,44 @@ export function ChatPanel({
             event.target.value = '';
           }}
         />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.md,.markdown,.srt,.vtt,.json,.csv,.log,.yaml,.yml,.xml,.html"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(event) => {
+            void addTextFiles(Array.from(event.target.files || []));
+            event.target.value = '';
+          }}
+        />
+        {(quote || attachments.length > 0) && (
+          <div className="chat-attach-row">
+            {quote && (
+              <span className="chat-quote-chip" title={quote.content.slice(0, 500)}>
+                <Quote size={10} />
+                引用：{quote.content.replace(/\s+/g, ' ').slice(0, 48)}
+                <button title="取消引用" onClick={() => setQuote(null)}>
+                  <X size={9} />
+                </button>
+              </span>
+            )}
+            {attachments.map((attachment, index) => (
+              <span key={`${attachment.name}-${index}`} className="chat-attachment-chip">
+                <FileText size={10} /> {attachment.name}
+                <span>{attachment.chars.toLocaleString('zh-CN')} 字</span>
+                <button
+                  title="移除附件"
+                  onClick={() =>
+                    setAttachments((items) => items.filter((_, item) => item !== index))
+                  }
+                >
+                  <X size={9} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <textarea
           className="chat-input"
           rows={2}

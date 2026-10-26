@@ -167,8 +167,8 @@ export function resizeBubble(
   persist: boolean
 ): BubbleSize {
   const next = {
-    width: Math.min(760, Math.max(320, Math.round(Number(width) || 440))),
-    height: Math.min(820, Math.max(260, Math.round(Number(height) || 480)))
+    width: Math.min(980, Math.max(280, Math.round(Number(width) || 440))),
+    height: Math.min(960, Math.max(180, Math.round(Number(height) || 480)))
   };
   if (!persist) {
     transientBubble = next;

@@ -864,17 +864,16 @@ describe('PetWindow 气泡缩放与渲染', () => {
     localStorage.clear();
   });
 
-  it('点 ⤢ 在紧凑/舒适/大窗之间循环', async () => {
+  it('点 ⤢ 打开尺寸面板，选预设并应用', async () => {
     const { api } = installBsub();
     render(<PetWindow />);
     await openBubble();
     fireEvent.click(screen.getByTitle(/气泡大小/));
+    expect(screen.getByText('气泡大小')).toBeTruthy();
+    fireEvent.click(screen.getByText('大窗'));
+    fireEvent.click(screen.getByText('应用'));
     await vi.waitFor(() =>
-      expect(api.saveSettings).toHaveBeenCalledWith(
-        expect.objectContaining({
-          general: expect.objectContaining({ petBubbleWidth: 620, petBubbleHeight: 680 })
-        })
-      )
+      expect(api.resizeBubble).toHaveBeenCalledWith(620, 680, true)
     );
   });
 

@@ -12,12 +12,19 @@ import {
   Palette,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   Sparkles,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { parseReminder, formatReminder } from '../../../shared/reminder';
+import {
+  SEARCH_ENGINES,
+  searchEngineLabel,
+  type SearchEngineId
+} from '../../../shared/searchEngines';
 import type {
   HistoryEntry,
   LibraryVideo,
@@ -25,15 +32,7 @@ import type {
   StartShortcut
 } from '../../../shared/types';
 
-type SearchEngineId = 'bilibili' | 'bing' | 'google' | 'custom';
 type WallpaperId = 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
-
-const ENGINES: Array<{ id: SearchEngineId; label: string }> = [
-  { id: 'bing', label: '必应' },
-  { id: 'google', label: 'Google' },
-  { id: 'bilibili', label: 'B 站' },
-  { id: 'custom', label: '自定义' }
-];
 
 const WIDGET_LABELS: Record<string, string> = {
   weather: '天气',
@@ -42,6 +41,7 @@ const WIDGET_LABELS: Record<string, string> = {
   recent: '最近入库',
   history: '最近访问'
 };
+const ALL_WIDGETS = ['weather', 'todo', 'hot', 'recent', 'history'] as const;
 
 const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [
   { id: 'aurora', label: '极光' },
@@ -120,8 +120,22 @@ export function StartPage({
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('start-search-history') || '[]');
+      return Array.isArray(raw) ? raw.map(String).slice(0, 8) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchActive, setSearchActive] = useState(-1);
+  const [cityEditing, setCityEditing] = useState(false);
+  const [cityDraft, setCityDraft] = useState('');
+  const [hotLoading, setHotLoading] = useState(false);
   const draggedAt = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
   const wallpaperRef = useRef<HTMLDivElement>(null);
   const dragId = useRef<string | null>(null);
 
@@ -138,7 +152,7 @@ export function StartPage({
     );
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
     setWallpaperImage(String(general.startWallpaperImage || ''));
-    if (Array.isArray(general.startWidgets) && general.startWidgets.length) {
+    if (Array.isArray(general.startWidgets)) {
       setWidgetOrder(general.startWidgets.map(String));
     }
     setWeatherOn(general.startWeather !== false);
@@ -161,7 +175,7 @@ export function StartPage({
   }, []);
 
   useEffect(() => {
-    if (!weatherOn) return;
+    if (!weatherOn || !widgetOrder.includes('weather')) return;
     let alive = true;
     void window.bsub.startWeather(city).then((response) => {
       if (!alive) return;
@@ -170,10 +184,10 @@ export function StartPage({
     return () => {
       alive = false;
     };
-  }, [weatherOn, city]);
+  }, [weatherOn, city, widgetOrder]);
 
   useEffect(() => {
-    if (!hotOn) return;
+    if (!hotOn || !widgetOrder.includes('hot')) return;
     let alive = true;
     void window.bsub.startHotSearch().then((response) => {
       if (alive && response.ok) setHot(response.data.slice(0, 8));
@@ -181,7 +195,18 @@ export function StartPage({
     return () => {
       alive = false;
     };
-  }, [hotOn]);
+  }, [hotOn, widgetOrder]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const close = (event: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [searchOpen]);
 
   useEffect(() => {
     if (!wallpaperOpen) return;
@@ -201,7 +226,7 @@ export function StartPage({
     return () => document.removeEventListener('mousedown', close);
   }, [shortcutMenu]);
 
-  const engineLabel = ENGINES.find((item) => item.id === engine)?.label || '必应';
+  const engineLabel = searchEngineLabel(engine);
 
   const patchGeneral = async (patch: Record<string, unknown>) => {
     const snapshot = await window.bsub.getSettings();
@@ -217,11 +242,28 @@ export function StartPage({
     await patchGeneral({ searchEngine: next });
   };
 
-  const submit = () => {
-    const text = query.trim();
-    if (!text) return;
+  const rememberSearch = (text: string) => {
+    const value = text.trim();
+    if (!value) return;
+    const next = [value, ...searchHistory.filter((item) => item !== value)].slice(0, 8);
+    setSearchHistory(next);
+    try {
+      localStorage.setItem('start-search-history', JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const commitSearch = (text: string) => {
+    const value = text.trim();
+    if (!value) return;
+    rememberSearch(value);
     onClose();
-    onNavigate(text);
+    onNavigate(value);
+  };
+
+  const submit = () => {
+    commitSearch(query);
   };
 
   const persistTodos = async (next: PetTodo[]) => {
@@ -238,6 +280,32 @@ export function StartPage({
       { id: Date.now(), text: text.slice(0, 200), done: false, dueAt }
     ]);
     setTodoDraft('');
+  };
+
+  const removeTodo = (id: number) => {
+    void persistTodos(todos.filter((todo) => todo.id !== id));
+  };
+
+  const clearDoneTodos = () => {
+    void persistTodos(todos.filter((todo) => !todo.done));
+  };
+
+  const saveCity = () => {
+    const next = cityDraft.trim() || city;
+    setCity(next);
+    setCityEditing(false);
+    void patchGeneral({ startCity: next });
+  };
+
+  const refreshHot = async () => {
+    if (hotLoading) return;
+    setHotLoading(true);
+    try {
+      const response = await window.bsub.startHotSearch(true);
+      if (response.ok) setHot(response.data.slice(0, 8));
+    } finally {
+      setHotLoading(false);
+    }
   };
 
   const persistShortcuts = async (next: StartShortcut[]) => {
@@ -313,9 +381,58 @@ export function StartPage({
   );
 
   const doneCount = todos.filter((todo) => todo.done).length;
+  const searchSuggestions = useMemo(() => {
+    const value = query.trim();
+    const items: Array<{ text: string; label: string; kind: string }> = [];
+    const looksUrl = /^(https?:\/\/|www\.)/i.test(value) || /^[\w-]+\.[a-z]{2,}(\/|$)/i.test(value);
+    const looksVideo = /^(BV[0-9A-Za-z]{10}|av\d+)$/i.test(value);
+    if (value && looksVideo) {
+      items.push({
+        text: `https://www.bilibili.com/video/${value}`,
+        label: `打开 B 站视频 ${value}`,
+        kind: 'video'
+      });
+    } else if (value && looksUrl) {
+      items.push({ text: value, label: `打开 ${value}`, kind: 'open' });
+    } else if (value) {
+      items.push({ text: value, label: `在 ${engineLabel} 搜索“${value}”`, kind: 'search' });
+    }
+    for (const entry of searchHistory) {
+      if (value && !entry.toLowerCase().includes(value.toLowerCase())) continue;
+      if (items.some((item) => item.text === entry)) continue;
+      items.push({ text: entry, label: entry, kind: 'history' });
+      if (items.length >= 7) break;
+    }
+    return items;
+  }, [query, searchHistory, engineLabel]);
   const orderOf = (id: string) => {
     const index = widgetOrder.indexOf(id);
     return index < 0 ? 99 : index;
+  };
+  const widgetVisible = (id: string) => {
+    if (!widgetOrder.includes(id)) return false;
+    if (id === 'weather') return weatherOn;
+    if (id === 'hot') return hotOn;
+    return true;
+  };
+  const toggleWidget = (id: string) => {
+    const visible = widgetVisible(id);
+    const next = visible
+      ? widgetOrder.filter((item) => item !== id)
+      : widgetOrder.includes(id)
+        ? widgetOrder
+        : [...widgetOrder, id];
+    setWidgetOrder(next);
+    const patch: Record<string, unknown> = { startWidgets: next };
+    if (id === 'weather') {
+      setWeatherOn(!visible);
+      patch.startWeather = !visible;
+    }
+    if (id === 'hot') {
+      setHotOn(!visible);
+      patch.startHotSearch = !visible;
+    }
+    void patchGeneral(patch);
   };
   const moveWidget = (id: string, delta: number) => {
     const index = widgetOrder.indexOf(id);
@@ -439,7 +556,7 @@ export function StartPage({
             </div>
           </div>
 
-          <div className="start-search-v2">
+          <div className="start-search-v2" ref={searchBoxRef}>
             <div className="start-engine">
               <button
                 className="start-engine-btn"
@@ -450,7 +567,7 @@ export function StartPage({
               </button>
               {engineOpen && (
                 <div className="start-engine-menu">
-                  {ENGINES.map((item) => (
+                  {SEARCH_ENGINES.map((item) => (
                     <button
                       key={item.id}
                       className={item.id === engine ? 'is-active' : ''}
@@ -469,69 +586,163 @@ export function StartPage({
               value={query}
               placeholder={`在 ${engineLabel} 搜索，或输入网址 / BV 号…`}
               spellCheck={false}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSearchOpen(true);
+                setSearchActive(-1);
+              }}
+              onFocus={() => setSearchOpen(true)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') submit();
-                if (event.key === 'Escape') onClose();
+                if (event.key === 'Enter') {
+                  const item = searchActive >= 0 ? searchSuggestions[searchActive] : null;
+                  if (item) commitSearch(item.text);
+                  else submit();
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setSearchOpen(true);
+                  setSearchActive((index) =>
+                    Math.min(searchSuggestions.length - 1, index + 1)
+                  );
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setSearchActive((index) => Math.max(-1, index - 1));
+                }
+                if (event.key === 'Escape') {
+                  if (searchOpen) {
+                    setSearchOpen(false);
+                    setSearchActive(-1);
+                  } else {
+                    onClose();
+                  }
+                }
               }}
             />
             <button className="start-search-go" disabled={!query.trim()} onClick={submit}>
               搜索
             </button>
+            {searchOpen && searchSuggestions.length > 0 && (
+              <div className="start-suggest">
+                {searchSuggestions.map((item, index) => (
+                  <button
+                    key={`${item.kind}-${item.text}`}
+                    className={`start-suggest-item${searchActive === index ? ' is-active' : ''}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setSearchActive(index)}
+                    onClick={() => commitSearch(item.text)}
+                  >
+                    {item.kind === 'history' ? <History size={12} /> : <Search size={12} />}
+                    <span className="start-suggest-text">{item.label}</span>
+                    <span className="start-suggest-kind">
+                      {item.kind === 'open' || item.kind === 'video' ? '打开' : item.kind === 'history' ? '历史' : engineLabel}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="start-quick-chips">
-            <span className="start-chip-label">试试：</span>
-            {['B 站热门', 'AI 总结', '字幕下载'].map((text) => (
+            <span className="start-chip-label">常去：</span>
+            {[
+              { label: 'B 站热门', url: 'https://www.bilibili.com/v/popular/all' },
+              { label: '稍后再看', url: 'https://www.bilibili.com/watchlater/list' },
+              { label: '番剧', url: 'https://www.bilibili.com/anime/' },
+              { label: '直播', url: 'https://live.bilibili.com/' }
+            ].map((item) => (
               <button
-                key={text}
+                key={item.label}
                 className="start-chip"
                 onClick={() => {
-                  setQuery(text);
                   onClose();
-                  onNavigate(text);
+                  onNavigate(item.url);
                 }}
               >
-                {text}
+                {item.label}
               </button>
             ))}
+          </div>
+          <div className="start-search-hint">
+            Enter 搜索 · ↑↓ 选择历史 · 支持 BV 号 / av 号 / 网址直接打开
           </div>
         </section>
 
         {editMode && (
-          <div className="start-widget-order">
-            <span className="start-widget-order-label">小组件顺序</span>
-            {widgetOrder.map((id, index) => (
-              <span className="start-widget-order-item" key={id}>
-                <span>{WIDGET_LABELS[id] || id}</span>
-                <button
-                  title="往前移"
-                  disabled={index === 0}
-                  onClick={() => moveWidget(id, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  title="往后移"
-                  disabled={index === widgetOrder.length - 1}
-                  onClick={() => moveWidget(id, 1)}
-                >
-                  ↓
-                </button>
-              </span>
-            ))}
+          <div className="start-widget-manager">
+            <span className="start-widget-order-label">小组件</span>
+            {[...widgetOrder, ...ALL_WIDGETS.filter((id) => !widgetOrder.includes(id))].map(
+              (id) => {
+                const visible = widgetVisible(id);
+                const index = widgetOrder.indexOf(id);
+                return (
+                  <div key={id} className={`start-widget-toggle${visible ? ' is-on' : ''}`}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={visible}
+                        onChange={() => toggleWidget(id)}
+                      />
+                      {WIDGET_LABELS[id] || id}
+                    </label>
+                    {visible && (
+                      <>
+                        <button
+                          title="往前移"
+                          disabled={index <= 0}
+                          onClick={() => moveWidget(id, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          title="往后移"
+                          disabled={index >= widgetOrder.length - 1}
+                          onClick={() => moveWidget(id, 1)}
+                        >
+                          ↓
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+            )}
           </div>
         )}
 
         <section className="start-widget-grid">
-          {weatherOn && (
+          {widgetVisible('weather') && (
             <article className="start-widget-card start-weather-widget" style={{ order: orderOf('weather') }}>
               <header>
                 <CloudSun size={14} />
                 <span>天气</span>
-                <span className="start-widget-meta">
-                  <MapPin size={10} /> {weather?.city || city}
-                </span>
+                {cityEditing ? (
+                  <span className="start-city-edit">
+                    <input
+                      autoFocus
+                      value={cityDraft}
+                      onChange={(event) => setCityDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') saveCity();
+                        if (event.key === 'Escape') setCityEditing(false);
+                      }}
+                    />
+                    <button title="保存城市" onClick={saveCity}>
+                      ✓
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    className="start-widget-meta start-widget-city"
+                    title="点击切换城市"
+                    onClick={() => {
+                      setCityDraft(city);
+                      setCityEditing(true);
+                    }}
+                  >
+                    <MapPin size={10} /> {weather?.city || city}
+                  </button>
+                )}
               </header>
               {weather ? (
                 <div className="start-weather-body">
@@ -549,6 +760,7 @@ export function StartPage({
             </article>
           )}
 
+          {widgetVisible('todo') && (
           <article className="start-widget-card start-todo-widget" style={{ order: orderOf('todo') }}>
             <header>
               <ListChecks size={14} />
@@ -573,6 +785,17 @@ export function StartPage({
                   />
                   <span className={todo.done ? 'is-done' : ''}>{todo.text}</span>
                   {todo.dueAt && <span className="start-todo-due">{formatReminder(todo.dueAt)}</span>}
+                  <button
+                    className="start-todo-remove"
+                    title="删除待办"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      removeTodo(todo.id);
+                    }}
+                  >
+                    <X size={10} />
+                  </button>
                 </label>
               ))}
               {!todos.length && <div className="start-widget-empty">还没有待办，加一条试试</div>}
@@ -590,13 +813,27 @@ export function StartPage({
                 <Plus size={14} />
               </button>
             </div>
+            {doneCount > 0 && (
+              <button className="start-todo-clear" onClick={clearDoneTodos}>
+                清除已完成（{doneCount}）
+              </button>
+            )}
           </article>
+          )}
 
-          {hotOn && (
+          {widgetVisible('hot') && (
             <article className="start-widget-card" style={{ order: orderOf('hot') }}>
               <header>
                 <Flame size={14} />
                 <span>B 站热搜</span>
+                <button
+                  className="start-widget-icon"
+                  title="刷新热搜"
+                  disabled={hotLoading}
+                  onClick={() => void refreshHot()}
+                >
+                  <RefreshCw size={11} className={hotLoading ? 'spin' : ''} />
+                </button>
                 <button
                   className="start-widget-link"
                   onClick={() => onNavigate('https://www.bilibili.com')}
@@ -628,6 +865,7 @@ export function StartPage({
             </article>
           )}
 
+          {widgetVisible('recent') && (
           <article className="start-widget-card" style={{ order: orderOf('recent') }}>
             <header>
               <BookOpen size={14} />
@@ -654,7 +892,9 @@ export function StartPage({
               {!recent.length && <div className="start-widget-empty">库里还没有视频</div>}
             </div>
           </article>
+          )}
 
+          {widgetVisible('history') && (
           <article className="start-widget-card" style={{ order: orderOf('history') }}>
             <header>
               <History size={14} />
@@ -683,6 +923,7 @@ export function StartPage({
               {!history.length && <div className="start-widget-empty">还没有浏览记录</div>}
             </div>
           </article>
+          )}
         </section>
 
         <section className="start-shortcut-area">
@@ -925,6 +1166,17 @@ export function StartPage({
           style={{ left: shortcutMenu.x, top: shortcutMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
         >
+          <button
+            onClick={() => {
+              const item = shortcuts.find((entry) => entry.id === shortcutMenu.id);
+              setShortcutMenu(null);
+              if (!item) return;
+              onClose();
+              onNavigate(item.url);
+            }}
+          >
+            打开
+          </button>
           <button
             onClick={() => {
               const item = shortcuts.find((entry) => entry.id === shortcutMenu.id);

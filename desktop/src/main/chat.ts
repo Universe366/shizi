@@ -29,6 +29,7 @@ import { APP_TOOL_DEFS, APP_TOOL_PREFIX, callAppTool } from './appTools';
 import { withDeadline } from './async';
 import { selectByAllowed } from '../shared/toolSelection';
 import { toolNeedsApproval } from '../shared/mcpApproval';
+import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
 
 const MAX_HISTORY = 16;
 const REQUEST_TIMEOUT_MS = 300000;
@@ -115,6 +116,19 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   }
   const temperature = profile?.temperature ?? settings.ai.temperature;
   const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;
+
+  if (options.messages.some((message) => message.images?.length)) {
+    const capability = effectiveModelCapabilities(
+      platform.kind,
+      platform.model,
+      settings.ai.capabilities[capabilityKey(platform.id, platform.model)]
+    );
+    if (!capability.vision) {
+      throw new Error(
+        `当前模型 ${platform.model} 未开启图片能力；到「设置 → AI 与语音 → AI 平台 → 模型能力」勾选「图片」后再试。`
+      );
+    }
+  }
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');

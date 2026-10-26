@@ -109,9 +109,11 @@ export function registerStartIpc(): void {
     }
   });
 
-  ipcMain.handle('start:hot', async () => {
+  ipcMain.handle('start:hot', async (_event, force?: boolean) => {
     const now = Date.now();
-    if (hotCache && now - hotCache.at < HOT_TTL) return { ok: true, data: hotCache.data };
+    if (!force && hotCache && now - hotCache.at < HOT_TTL) {
+      return { ok: true, data: hotCache.data };
+    }
     try {
       const data = await fetchHot();
       hotCache = { at: now, data };

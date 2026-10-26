@@ -200,6 +200,18 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('模型能力覆盖保存', () => {
+    const settings = loadSettings();
+    settings.ai.capabilities = { 'p1::gpt-4o': { vision: false, audio: true } };
+    saveSettings(settings);
+    expect(loadSettings().ai.capabilities['p1::gpt-4o']).toEqual({
+      vision: false,
+      audio: true
+    });
+    settings.ai.capabilities = {};
+    saveSettings(settings);
+  });
+
   it('知识库设置保存', () => {
     const settings = loadSettings();
     settings.knowledge = { enabled: true, platformId: 'deepseek', model: 'bge-m3' };

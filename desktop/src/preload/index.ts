@@ -74,6 +74,7 @@ import type {
   ChatToolEvent,
   ChatToolRecord,
   ChatApprovalEvent,
+  ChatAttachment,
   ChatCompareResult,
   KbStatus,
   KbHit,
@@ -513,7 +514,7 @@ const api: BsubApi = {
   closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>
     ipcRenderer.send('app:close-decision', { choice, remember }),
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
-  startHotSearch: () => ipcRenderer.invoke('start:hot'),
+  startHotSearch: (force?: boolean) => ipcRenderer.invoke('start:hot', force === true),
   chooseSyncFolder: () => ipcRenderer.invoke('sync:choose'),
   syncStatus: (folder: string) => ipcRenderer.invoke('sync:status', folder),
   syncPush: (folder: string) => ipcRenderer.invoke('sync:push', folder),
@@ -526,6 +527,7 @@ const api: BsubApi = {
     >,
   onSettingsChanged: (cb: (snapshot: SettingsSnapshot) => void) =>
     on<SettingsSnapshot>('settings:changed', cb),
+  onTrayAction: (cb: (action: string) => void) => on<string>('tray:action', cb),
   testSearch: (query: string, override?: unknown) =>
     ipcRenderer.invoke('search:test', query, override) as Promise<Result<WebReference[]>>,
   exportRuleGroup: (group: CorrectionRuleGroup) =>
@@ -650,6 +652,7 @@ const api: BsubApi = {
       webEngine?: string;
       webNotice?: string;
       tools?: ChatToolRecord[];
+      attachments?: ChatAttachment[];
     }
   ) =>
     ipcRenderer.invoke('chat:history-append', { conversationId, message }) as Promise<

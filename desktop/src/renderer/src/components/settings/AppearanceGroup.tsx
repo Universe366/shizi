@@ -1,4 +1,5 @@
 import type { AppSettings, ThemeMode } from '../../../../shared/types';
+import { COLOR_SCHEMES } from '../../../../shared/colorSchemes';
 import { SettingsSection } from './SettingsSection';
 
 type General = AppSettings['general'];
@@ -23,21 +24,52 @@ export function AppearanceGroup({ value, onChange }: Props) {
         <option value="dark">深色</option>
       </select>
 
-      <div className="settings-label">主题色</div>
-      <div className="settings-inline">
-        <input
-          className="settings-color"
-          type="color"
-          value={value.accentColor || '#4f6f8f'}
-          onChange={(event) => onChange({ accentColor: event.target.value })}
-        />
-        <input
-          className="settings-input"
-          value={value.accentColor || '#4f6f8f'}
-          spellCheck={false}
-          onChange={(event) => onChange({ accentColor: event.target.value })}
-        />
+      <div className="settings-label">UI 配色</div>
+      <div className="settings-swatches">
+        {COLOR_SCHEMES.map((scheme) => {
+          const active = (value.colorScheme || 'custom') === scheme.id;
+          return (
+            <button
+              key={scheme.id}
+              type="button"
+              className={`settings-swatch${active ? ' is-active' : ''}`}
+              title={scheme.label}
+              onClick={() => onChange({ colorScheme: scheme.id })}
+            >
+              <span
+                className="settings-swatch-dot"
+                style={{
+                  background:
+                    scheme.id === 'custom'
+                      ? `linear-gradient(135deg, ${scheme.light.accent}, ${scheme.dark.accent})`
+                      : scheme.light.accent
+                }}
+              />
+              <span>{scheme.label}</span>
+            </button>
+          );
+        })}
       </div>
+
+      {(value.colorScheme || 'custom') === 'custom' && (
+        <>
+          <div className="settings-label">自定义主题色</div>
+          <div className="settings-inline">
+            <input
+              className="settings-color"
+              type="color"
+              value={value.accentColor || '#4f6f8f'}
+              onChange={(event) => onChange({ accentColor: event.target.value })}
+            />
+            <input
+              className="settings-input"
+              value={value.accentColor || '#4f6f8f'}
+              spellCheck={false}
+              onChange={(event) => onChange({ accentColor: event.target.value })}
+            />
+          </div>
+        </>
+      )}
 
       <div className="settings-label">界面密度</div>
       <select

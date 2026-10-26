@@ -67,6 +67,21 @@ describe('对话持久化', () => {
     expect(list[0].messageCount).toBe(2);
   });
 
+  it('文本附件持久化、导出并随分支复制', () => {
+    const conversation = createConversation({ title: '附件', videoKey: 'BV3' });
+    appendMessage(conversation.id, {
+      role: 'user',
+      content: '看下附件',
+      attachments: [{ name: 'note.md', chars: 5, text: 'hello' }]
+    });
+    const rows = listMessages(conversation.id);
+    expect(rows[0].attachments).toEqual([{ name: 'note.md', chars: 5, text: 'hello' }]);
+    expect(conversationMarkdown(conversation.id)).toContain('附件：');
+    expect(conversationMarkdown(conversation.id)).toContain('note.md');
+    const branch = branchConversation(conversation.id, 1);
+    expect(listMessages(branch!.id)[0].attachments[0].name).toBe('note.md');
+  });
+
   it('重命名与删除', () => {
     const conversation = createConversation({ title: '旧名字', videoKey: 'BV2' });
     expect(renameConversation(conversation.id, '新名字')).toBe(true);

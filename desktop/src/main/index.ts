@@ -27,7 +27,7 @@ import { fatal, writeLog } from './log';
 import { installPermissionGate } from './permissions';
 import { installCsp } from './csp';
 import { startBridge, stopBridge } from './bridge';
-import { disposeUpdater, initUpdater } from './updater';
+import { checkForUpdates, disposeUpdater, initUpdater } from './updater';
 import { initPetWindow } from './petWindow';
 import { applyDataDirOverride, scheduleOldDataCleanup } from './dataDir';
 import { migrateLegacyUserData } from './userDataMigration';
@@ -130,10 +130,20 @@ const sessionPersister = createSessionPersister(() => tabManager);
 
 function createTray(): void {
   if (tray) return;
+  const sendTrayAction = (action: string) => {
+    showWindow();
+    mainWindow?.webContents.send('tray:action', action);
+  };
   tray = createTrayShell({
     iconPath: resolveResource('tray.png'),
-    tooltip: APP_NAME,
+    tooltip: `${APP_NAME} v${app.getVersion()}`,
+    getVisible: () => Boolean(mainWindow?.isVisible()),
     onShow: () => showWindow(),
+    onHide: () => mainWindow?.hide(),
+    onStart: () => sendTrayAction('start'),
+    onLibrary: () => sendTrayAction('library'),
+    onSettings: () => sendTrayAction('settings'),
+    onCheckUpdate: () => void checkForUpdates(true),
     onQuit: () => {
       isQuitting = true;
     }

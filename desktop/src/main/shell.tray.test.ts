@@ -77,11 +77,11 @@ describe('createTray', () => {
     expect(mocks.trays[0].tooltip).toBe('拾字');
   });
 
-  it('菜单是「显示主窗口 / 退出」，点击各自的回调', () => {
+  it('菜单包含显示/隐藏、退出，并触发回调', () => {
     const opts = options();
     createTray(opts as any);
     const template = mocks.trays[0].menu.template;
-    expect(template[0].label).toBe('显示主窗口');
+    expect(template[0].label).toBe('显示 / 隐藏主窗口');
     expect(template[1].type).toBe('separator');
     expect(template[2].label).toBe('退出');
 
@@ -93,11 +93,44 @@ describe('createTray', () => {
     expect(opts.onQuit).toHaveBeenCalledTimes(1);
   });
 
+  it('窗口可见时点托盘项改为隐藏', () => {
+    const onShow = vi.fn();
+    const onHide = vi.fn();
+    createTray({ ...options(), onShow, onHide, getVisible: () => true } as any);
+    const template = mocks.trays[0].menu.template;
+    template[0].click();
+    expect(onHide).toHaveBeenCalledTimes(1);
+    expect(onShow).not.toHaveBeenCalled();
+  });
+
+  it('可配置起始页 / 工作台 / 设置 / 检查更新', () => {
+    const onStart = vi.fn();
+    const onLibrary = vi.fn();
+    const onSettings = vi.fn();
+    const onCheckUpdate = vi.fn();
+    createTray({ ...options(), onStart, onLibrary, onSettings, onCheckUpdate } as any);
+    const template = mocks.trays[0].menu.template;
+    const labels = template.map((item: any) => item.label || item.type);
+    expect(labels).toContain('起始页');
+    expect(labels).toContain('工作台');
+    expect(labels).toContain('设置');
+    expect(labels).toContain('检查更新');
+    template.find((item: any) => item.label === '起始页').click();
+    template.find((item: any) => item.label === '工作台').click();
+    template.find((item: any) => item.label === '设置').click();
+    template.find((item: any) => item.label === '检查更新').click();
+    expect(onStart).toHaveBeenCalled();
+    expect(onLibrary).toHaveBeenCalled();
+    expect(onSettings).toHaveBeenCalled();
+    expect(onCheckUpdate).toHaveBeenCalled();
+  });
+
   it('双击托盘图标也显示主窗口', () => {
     const opts = options();
     createTray(opts as any);
     mocks.trays[0].handlers['double-click']();
-    expect(opts.onShow).toHaveBeenCalledTimes(1);
+    mocks.trays[0].handlers['click']();
+    expect(opts.onShow).toHaveBeenCalledTimes(2);
   });
 
   it('构造 Tray 抛错时返回 null', () => {

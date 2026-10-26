@@ -11,6 +11,7 @@ import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { ReaderMode } from './components/ReaderMode';
 import { StartPage } from './components/StartPage';
 import { lazy, Suspense } from 'react';
+import { requestSummaryPanel } from './lib/summaryRequest';
 
 const SettingsPage = lazy(() =>
   import('./SettingsPage').then((module) => ({ default: module.SettingsPage }))
@@ -205,6 +206,25 @@ export default function App() {
   useEffect(() => window.bsub.onReaderRequest(() => setReaderOpen(true)), []);
   // 桌宠里的「打开设置」：主进程把窗口叫到前台后，这里负责真的切到设置页。
   useEffect(() => window.bsub.onOpenSettings(() => setSettingsOpen(true)), []);
+  useEffect(
+    () =>
+      window.bsub.onTrayAction((action) => {
+        if (action === 'start') {
+          setSettingsOpen(false);
+          setLibraryOpen(false);
+          setStartOpen(true);
+        } else if (action === 'library') {
+          setSettingsOpen(false);
+          setStartOpen(false);
+          setLibraryOpen(true);
+        } else if (action === 'settings') {
+          setStartOpen(false);
+          setLibraryOpen(false);
+          setSettingsOpen(true);
+        }
+      }),
+    []
+  );
 
   useEffect(
     () =>
@@ -596,12 +616,12 @@ export default function App() {
           onOpenSummary={() => {
             void window.bsub.exitFullscreen();
             setSection('summary');
-            window.setTimeout(() => window.dispatchEvent(new Event('bsub:summary-request')), 200);
+            window.setTimeout(() => requestSummaryPanel('summary'), 0);
           }}
           onOpenChapters={() => {
             void window.bsub.exitFullscreen();
             setSection('summary');
-            window.setTimeout(() => window.dispatchEvent(new Event('bsub:chapters-request')), 250);
+            window.setTimeout(() => requestSummaryPanel('chapters'), 0);
           }}
         />
         <BrowserStage

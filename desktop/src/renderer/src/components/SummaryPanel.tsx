@@ -15,6 +15,10 @@ import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
 import { speakText } from '../lib/speech';
+import {
+  consumeSummaryPanelRequest,
+  requestSummaryPanel
+} from '../lib/summaryRequest';
 
 function newRequestId(): string {
   try {
@@ -386,9 +390,9 @@ export function SummaryPanel({
       const key = asrKeyRef.current;
       const info = asrInfoRef.current;
       if (info) setAsrResult(key, info, event.lines);
-      // 等 asrStore 写入后，复用现有的 summary-request 入口触发生成。
+      // 等 asrStore 写入后，复用总结请求入口触发生成。
       if (key && key === videoKeyRef.current) {
-        window.setTimeout(() => window.dispatchEvent(new Event('bsub:summary-request')), 0);
+        window.setTimeout(() => requestSummaryPanel('summary'), 0);
       }
     });
     const offError = window.bsub.onAsrError((event) => {
@@ -407,9 +411,11 @@ export function SummaryPanel({
 
   useEffect(() => {
     const handler = () => {
-      void generate();
+      if (consumeSummaryPanelRequest('summary')) void generate();
     };
     window.addEventListener('bsub:summary-request', handler);
+    // lazy 组件第一次挂载时事件可能已经发过：挂载后补一次消费。
+    if (consumeSummaryPanelRequest('summary')) void generate();
     return () => window.removeEventListener('bsub:summary-request', handler);
   }, [generate]);
 
@@ -434,9 +440,10 @@ export function SummaryPanel({
 
   useEffect(() => {
     const handler = () => {
-      void loadChapters();
+      if (consumeSummaryPanelRequest('chapters')) void loadChapters();
     };
     window.addEventListener('bsub:chapters-request', handler);
+    if (consumeSummaryPanelRequest('chapters')) void loadChapters();
     return () => window.removeEventListener('bsub:chapters-request', handler);
   });
 

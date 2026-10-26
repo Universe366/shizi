@@ -17,6 +17,8 @@ import type {
 import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
+import { isSearchEngineId } from '../shared/searchEngines';
+import { isColorSchemeId } from '../shared/colorSchemes';
 import { parseShortcut } from '../shared/shortcutKeys';
 import { shortcutAction } from '../shared/shortcuts';
 import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
@@ -207,6 +209,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       accelerator: 'Control+Alt+X'
     },
     accentColor: '#4f6f8f',
+    colorScheme: 'custom',
     density: 'comfortable',
     customCss: ''
   },
@@ -221,6 +224,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     appTools: true,
     taskModels: {},
     profiles: [],
+    capabilities: {},
     presetVersion: AI_PRESET_VERSION,
     platforms: AI_PRESETS.map((platform) => ({
       ...platform,
@@ -576,9 +580,7 @@ function normalize(input: unknown): AppSettings {
         : [];
       base.general.petY = Number(raw.general.petY) || 0;
       const engine = raw.general.searchEngine;
-      let nextEngine = ['bilibili', 'bing', 'google', 'custom'].includes(engine as string)
-        ? (engine as 'bilibili' | 'bing' | 'google' | 'custom')
-        : 'bing';
+      let nextEngine = isSearchEngineId(engine) ? engine : 'bing';
       // 老版本默认是 B 站站内搜索；没迁移过的配置统一换成浏览器式默认（必应），
       // 之后用户显式选的引擎不再被覆盖。
       if (raw.general.searchEngineMigrated !== true) {
@@ -617,6 +619,9 @@ function normalize(input: unknown): AppSettings {
       }
       const accent = String(raw.general.accentColor || '').trim();
       base.general.accentColor = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#4f6f8f';
+      base.general.colorScheme = isColorSchemeId(raw.general.colorScheme)
+        ? raw.general.colorScheme
+        : 'custom';
       base.general.density = raw.general.density === 'compact' ? 'compact' : 'comfortable';
       if (typeof raw.general.customCss === 'string') {
         base.general.customCss = raw.general.customCss.slice(0, 20000);
@@ -764,8 +769,22 @@ function normalize(input: unknown): AppSettings {
       base.ai.taskModels = taskModels;
     }
 
-    if (Array.isArray(raw.ai?.profiles)) {
-      base.ai.profiles = raw.ai.profiles
+    if (raw.ai?.capabilities && typeof raw.ai.capabilities === 'object') {
+      const capabilities: Record<string, { vision?: boolean; audio?: boolean }> = {};
+      for (const [key, value] of Object.entries(
+        raw.ai.capabilities as Record<string, unknown>
+      ).slice(0, 500)) {
+        if (!key || typeof value !== 'object' || !value) continue;
+        const row = value as { vision?: unknown; audio?: unknown };
+        const entry: { vision?: boolean; audio?: boolean } = {};
+        if (typeof row.vision === 'boolean') entry.vision = row.vision;
+        if (typeof row.audio === 'boolean') entry.audio = row.audio;
+        if (Object.keys(entry).length) capabilities[String(key).slice(0, 200)] = entry;
+      }
+      base.ai.capabilities = capabilities;
+    }
+
+    if (Array.isArray(raw.ai?.profiles)) {      base.ai.profiles = raw.ai.profiles
         .filter(
           (profile) => profile && typeof profile === 'object' && String(profile.id || '').trim()
         )

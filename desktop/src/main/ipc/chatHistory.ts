@@ -2,6 +2,7 @@ import { dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
+  ChatAttachment,
   ChatConversation,
   ChatToolRecord,
   Result,
@@ -82,6 +83,7 @@ export function registerChatHistoryIpc(): void {
           webEngine?: string;
           webNotice?: string;
           tools?: ChatToolRecord[];
+          attachments?: ChatAttachment[];
         };
       }
     ) => {

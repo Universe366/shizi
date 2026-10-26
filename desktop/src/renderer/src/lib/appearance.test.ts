@@ -6,6 +6,18 @@ describe('外观应用', () => {
   afterEach(() => {
     document.getElementById('shizi-custom-css')?.remove();
     document.documentElement.removeAttribute('data-density');
+    document.documentElement.removeAttribute('data-color-scheme');
+  });
+
+  it('预设配色使用对应的强调色', () => {
+    applyAppearance({ colorScheme: 'forest', accentColor: '#123abc', density: 'comfortable' });
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#3f7d62');
+    expect(document.documentElement.dataset.colorScheme).toBe('forest');
+  });
+
+  it('custom 配色继续使用自定义颜色', () => {
+    applyAppearance({ colorScheme: 'custom', accentColor: '#123abc', density: 'comfortable' });
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#123abc');
   });
 
   it('写入强调色与密度', () => {

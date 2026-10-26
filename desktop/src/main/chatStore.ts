@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type {
+  ChatAttachment,
   ChatConversation,
   ChatToolRecord,
   StoredChatMessage,
@@ -56,6 +57,11 @@ function db(): DatabaseSync | null {
     }>;
     if (!columns.some((column) => column.name === 'tools_json')) {
       database.exec("ALTER TABLE messages ADD COLUMN tools_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!columns.some((column) => column.name === 'attachments_json')) {
+      database.exec(
+        "ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'"
+      );
     }
     const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all() as Array<{
       name?: string;
@@ -193,6 +199,7 @@ interface MessageRow {
   web_engine: string;
   web_notice: string;
   tools_json: string;
+  attachments_json: string;
   created_at: number;
 }
 
@@ -218,6 +225,7 @@ function mapMessage(row: MessageRow): StoredChatMessage {
     webEngine: String(row.web_engine || ''),
     webNotice: String(row.web_notice || ''),
     tools: parseJsonArray<ChatToolRecord>(row.tools_json),
+    attachments: parseJsonArray<ChatAttachment>(row.attachments_json),
     createdAt: Number(row.created_at) || 0
   };
 }
@@ -247,13 +255,14 @@ export function appendMessage(
     webEngine?: string;
     webNotice?: string;
     tools?: ChatToolRecord[];
+    attachments?: ChatAttachment[];
   }
 ): StoredChatMessage {
   const now = Date.now();
   const statement = db()?.prepare(
     `INSERT INTO messages
-       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -267,6 +276,7 @@ export function appendMessage(
     String(message.webEngine || ''),
     String(message.webNotice || ''),
     JSON.stringify(message.tools || []),
+    JSON.stringify(message.attachments || []),
     now
   );
   try {
@@ -288,6 +298,7 @@ export function appendMessage(
     webEngine: String(message.webEngine || ''),
     webNotice: String(message.webNotice || ''),
     tools: message.tools || [],
+    attachments: message.attachments || [],
     createdAt: now
   };
 }
@@ -313,7 +324,8 @@ export function branchConversation(sourceId: number, keep: number): ChatConversa
       sources: row.sources,
       webEngine: row.webEngine,
       webNotice: row.webNotice,
-      tools: row.tools
+      tools: row.tools,
+      attachments: row.attachments
     });
   }
   return { ...created, messageCount: rows.length };
@@ -402,6 +414,13 @@ export function conversationMarkdown(conversationId: number): string {
       lines.push('工具：');
       for (const tool of row.tools) {
         lines.push(`- ${tool.name}：${tool.ok ? '完成' : '失败'}${tool.detail ? `（${tool.detail.slice(0, 120)}）` : ''}`);
+      }
+      lines.push('');
+    }
+    if (row.attachments.length) {
+      lines.push('附件：');
+      for (const attachment of row.attachments) {
+        lines.push(`- ${attachment.name}（${attachment.chars} 字）`);
       }
       lines.push('');
     }
