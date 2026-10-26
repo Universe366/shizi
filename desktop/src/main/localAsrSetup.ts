@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { app, session } from 'electron';
+import { app } from 'electron';
 
 export type LocalModelId = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo';
 export type LocalBinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
@@ -189,6 +189,28 @@ function existingModel(id: LocalModelId): string | null {
   }
 }
 
+function hashFile(file: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = fs.createReadStream(file);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
+function sizeOf(file: string): number {
+  try {
+    return fs.statSync(file).size;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 模型下载：global fetch（比 Chromium session 更适合大文件）、Range 续传、
+ * 空闲超时重试、下载中持续回报速度，不会因为卡住而让进度条永远停在 0%。
+ */
 async function downloadTo(
   file: RemoteFile,
   target: string,
@@ -198,73 +220,136 @@ async function downloadTo(
 ): Promise<void> {
   const temp = `${target}.download`;
   let lastError: Error | null = null;
-  for (const url of file.urls) {
-    if (signal?.aborted) throw new Error('已取消');
-    try {
-      const response = await session.defaultSession.fetch(url, { signal });
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const total = Number(response.headers.get('content-length')) || file.size;
-      const hash = createHash('sha256');
-      const stream = fs.createWriteStream(temp);
-      const reader = response.body.getReader();
-      let received = 0;
-      let lastSent = -1;
-      try {
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          const chunk = Buffer.from(value);
-          hash.update(chunk);
-          received += chunk.length;
-          if (!stream.write(chunk)) {
-            await new Promise<void>((resolve) => {
-              stream.once('drain', () => resolve());
-            });
-          }
-          const percent = total ? Math.min(100, Math.floor((received / total) * 100)) : 0;
-          if (percent !== lastSent) {
-            lastSent = percent;
-            onProgress({
-              key,
-              percent,
-              received,
-              total,
-              message: `下载中 ${percent}%`
-            });
-          }
-        }
-      } finally {
-        await new Promise<void>((resolve) => {
-          stream.end(() => resolve());
-        });
-      }
-      const digest = hash.digest('hex');
-      if (digest !== file.sha256) {
-        fs.rmSync(temp, { force: true });
-        throw new Error('下载文件校验失败（SHA-256 不一致）');
-      }
-      const stat = fs.statSync(temp);
-      if (file.size && stat.size !== file.size) {
-        fs.rmSync(temp, { force: true });
-        throw new Error(`下载文件大小不对（${stat.size} / ${file.size}）`);
-      }
+  const attemptsPerUrl = 3;
+
+  // 已完整下载过（上次校验失败除外）就直接校验返回。
+  if (sizeOf(temp) === file.size) {
+    if ((await hashFile(temp)) === file.sha256) {
       fs.renameSync(temp, target);
-      onProgress({ key, percent: 100, received: stat.size, total: stat.size, message: '下载完成' });
+      onProgress({ key, percent: 100, received: file.size, total: file.size, message: '下载完成' });
       return;
-    } catch (error) {
-      lastError = error as Error;
-      try {
+    }
+    fs.rmSync(temp, { force: true });
+  }
+
+  for (const url of file.urls) {
+    for (let attempt = 0; attempt < attemptsPerUrl; attempt += 1) {
+      if (signal?.aborted) throw new Error('已取消');
+      let start = sizeOf(temp);
+      if (start > file.size) {
         fs.rmSync(temp, { force: true });
-      } catch {
-        // ignore
+        start = 0;
       }
-      if (signal?.aborted) throw new Error('已取消', { cause: error });
-      // 换下一个镜像
+      onProgress({
+        key,
+        percent: file.size ? Math.min(99, Math.floor((start / file.size) * 100)) : 0,
+        received: start,
+        total: file.size,
+        message: start > 0 ? `续传中（已有 ${Math.round(start / 1024 / 1024)}MB）` : '连接下载地址…'
+      });
+
+      const controller = new AbortController();
+      let idleTimer: NodeJS.Timeout | null = null;
+      const resetIdle = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => controller.abort(new Error('连接超时')), 45000);
+      };
+      const forward = () => controller.abort();
+      signal?.addEventListener('abort', forward, { once: true });
+      resetIdle();
+      let received = start;
+      let lastReport = 0;
+      let lastPercent = -1;
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal,
+          redirect: 'follow',
+          headers: start > 0 ? { Range: `bytes=${start}-` } : undefined
+        });
+        if (response.status === 416 && start > 0) {
+          if (sizeOf(temp) === file.size && (await hashFile(temp)) === file.sha256) {
+            fs.renameSync(temp, target);
+            onProgress({ key, percent: 100, received: file.size, total: file.size, message: '下载完成' });
+            return;
+          }
+          fs.rmSync(temp, { force: true });
+          start = 0;
+          throw new Error('续传位置无效，重新下载');
+        }
+        if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+        if (start > 0 && response.status !== 206) {
+          // 服务器不支持 Range，只能从头下。
+          fs.rmSync(temp, { force: true });
+          start = 0;
+        }
+        const length = Number(response.headers.get('content-length'));
+        const total = start + (Number.isFinite(length) && length > 0 ? length : file.size - start);
+        const stream = fs.createWriteStream(temp, { flags: start > 0 ? 'a' : 'w' });
+        const reader = response.body.getReader();
+        try {
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            resetIdle();
+            const chunk = Buffer.from(value);
+            received += chunk.length;
+            if (!stream.write(chunk)) {
+              await new Promise<void>((resolve) => stream.once('drain', () => resolve()));
+            }
+            const now = Date.now();
+            const percent = total ? Math.min(99, Math.floor((received / total) * 100)) : 0;
+            if (percent !== lastPercent || now - lastReport > 600) {
+              lastPercent = percent;
+              lastReport = now;
+              onProgress({
+                key,
+                percent,
+                received,
+                total,
+                message:
+                  `下载中 ${percent}% · ${(received / 1024 / 1024).toFixed(1)} / ` +
+                  `${(total / 1024 / 1024).toFixed(1)} MB`
+              });
+            }
+          }
+        } finally {
+          await new Promise<void>((resolve) => stream.end(() => resolve()));
+        }
+        const actual = sizeOf(temp);
+        if (file.size && actual !== file.size) {
+          throw new Error(`文件不完整（${(actual / 1024 / 1024).toFixed(1)}MB / ${(file.size / 1024 / 1024).toFixed(1)}MB）`);
+        }
+        onProgress({
+          key,
+          percent: 99,
+          received: actual,
+          total: file.size,
+          message: '校验完整性…'
+        });
+        const digest = await hashFile(temp);
+        if (digest !== file.sha256) {
+          fs.rmSync(temp, { force: true });
+          throw new Error('校验失败（SHA-256 不一致）');
+        }
+        fs.renameSync(temp, target);
+        onProgress({ key, percent: 100, received: actual, total: actual, message: '下载完成' });
+        return;
+      } catch (error) {
+        lastError = error as Error;
+        if (signal?.aborted) throw new Error('已取消', { cause: error });
+        // 保留 .download 供下一次 Range 续传；校验失败时上面已主动清空。
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      } finally {
+        if (idleTimer) clearTimeout(idleTimer);
+        signal?.removeEventListener('abort', forward);
+      }
     }
   }
-  throw new Error(`下载失败：${lastError?.message || '所有下载地址都不可用'}`);
+  const partial = sizeOf(temp);
+  throw new Error(
+    `下载失败：${lastError?.message || '所有下载地址都不可用'}` +
+      (partial > 0 ? `（已保留 ${(partial / 1024 / 1024).toFixed(1)}MB，下次会继续）` : '')
+  );
 }
 
 export async function downloadLocalModel(

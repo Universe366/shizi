@@ -280,7 +280,7 @@ export function AsrSection({
           >
             下载模型
           </button>
-          {download && download.percent > 0 && download.percent < 100 && (
+          {download && download.percent < 100 && (
             <button
               className="mini-btn"
               onClick={() => {
