@@ -4,7 +4,10 @@ import { SETTINGS_GROUPS } from './components/settings/registry';
 
 /** 设置页：左侧分类导航 + 右侧分组内容。 */
 export function SettingsPage({ onClose }: { onClose: () => void }) {
-  const [group, setGroup] = useState(SETTINGS_GROUPS[0].id);
+  // 默认打开「外观」：这是历史默认页，避免升级后第一眼变成代理设置。
+  const [group, setGroup] = useState(
+    () => SETTINGS_GROUPS.find((item) => item.id === 'appearance')?.id || SETTINGS_GROUPS[0].id
+  );
   const [dirty, setDirty] = useState(false);
   const [toc, setToc] = useState<Array<{ title: string }>>([]);
   const [activeToc, setActiveToc] = useState(0);
