@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-26
-> 适用版本：桌面 **0.38.30** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.38.30`（`5b20ea8`）
-> 最新 Release：`v0.38.30`
+> 适用版本：桌面 **0.38.31** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.38.31`
+> 最新 Release：`v0.38.31`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -21,14 +21,14 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 108 个文件 / 654 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 108 个文件 / 653 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.30` 通过 |
+| 发布 CI | `v0.38.31` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.30，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.31，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -127,6 +127,19 @@
 
 ## 2. 最近发生了什么（避免重复劳动）
 
+### 0.38.31（2026-10-26，下载线路 / 模型保留 / 设置与工作台）
+
+1. **下载双线路**：`downloadTo` 交替使用 Node `fetch` 和 `session.defaultSession.fetch`，
+   覆盖系统代理环境；仍保留 Range/超时/校验/取消。
+2. **模型稳定目录**：`localAsrDir` 改回 `userData/models/whisper`，更新安装目录不会丢；
+   旧安装目录的模型由 `moveDirectory` 搬一次。不要再改成 exe 目录。
+3. **设置分组**：新增 `SubtitleGroup`（字幕与播放），`ReadingGroup` 只留选区工具条；
+   导出默认值的 `assFontSize` 已隐藏，统一取 `general.subtitleStyle.fontSize`。
+4. **工作台合并**：`LibraryPage` 只有「资料库 / 成片与处理」；studio 页签同时渲染
+   `LocalWorkbench` 和 `RendersPanel`，空状态给选择本地/下载在线入口。
+5. 发布：GitHub Release `v0.38.31`；`latest.yml` 与 `/releases/latest` 已指向该版本；
+   插件保持 2.18.8。
+
 ### 0.38.30（2026-10-26，本地 ASR 下载修复）
 
 - `downloadTo` 改用 global `fetch`：Range 续传、45s 空闲超时重试（每镜像 3 次）、
@@ -166,7 +179,7 @@
    `video:download`；入口在资料库头部「下载视频」，输出到 `下载/Shizi`。
 5. **配音**：`main/dub.ts` 用 Windows SAPI 逐条合成，按时间轴 atempo/apad 对齐，
    可导出 M4A 或替换视频音轨；`video:dub`，实验性、仅 Windows。
-6. 测试：108 文件 / 654 用例；`synthesize.test.ts` 与 `dub.test.ts` 会真实调用 ffmpeg/SAPI。
+6. 测试：108 文件 / 653 用例；`synthesize.test.ts` 与 `dub.test.ts` 会真实调用 ffmpeg/SAPI。
 7. 发布：GitHub Release `v0.38.28`；`latest.yml` 与 `/releases/latest` 已指向该版本；
    插件保持 2.18.8。
 
@@ -187,7 +200,7 @@
    仍失败才 `formatError`（保留证据 + note）。桌面端以前把 note 显示出来，扩展端静默降级，
    所以看起来“扩展更好”。
 
-测试：108 文件 / 654 用例；新增媒体快捷键、库整页、GPU 状态等覆盖。冒烟 `E2E 19/19`。
+测试：108 文件 / 653 用例；新增媒体快捷键、库整页、GPU 状态等覆盖。冒烟 `E2E 19/19`。
 发布：GitHub Release `v0.38.27`（setup / green / extension zip / latest.yml），桌面 checks 通过，
 `/releases/latest` 已指向该版本；插件保持 2.18.8（无功能变化）。
 
@@ -468,9 +481,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.30 测试/冒烟通过
+- [x] 0.38.31 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.30`
+- [x] 最新 Release 指向 `v0.38.31`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新

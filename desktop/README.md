@@ -1,6 +1,6 @@
 # 拾字 · 桌面端
 
-Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.38.30**。
+Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.38.31**。
 
 开发中的浏览器/AI 能力：
 
@@ -65,7 +65,7 @@ docs/          V1 方案
 - 启动时通过 CDP 注入 `page-bridge.js`，页面加载后日志可见 `bridge=2.18.8`
 - Patina 风格界面：浅/深色自动跟随系统，侧栏「字幕 / 总结 / 对话」；**库**独立成整页（地址栏库按钮 / 起始页 / `Ctrl+Shift+4`）
 - **M2 字幕面板**：视频信息卡（封面 / 标题 / UP / 时长 / BV / 播放量）、字幕轨列表（多轨 + AI 标识）、字幕正文下载、跟随播放高亮、点击字幕跳转、未登录提示与登录入口；支持**导入本地 `.srt` / `.vtt`**（不联网）
-- **M3 本地库 / 工作台**：SQLite（`node:sqlite`，无需重编译原生模块）、一键入库、视频列表、标题/UP/标签/合集/字幕搜索（多词按 AND 匹配，FTS5 trigram，短词退化 LIKE）、已总结标记与排序、**标签与合集**（库顶部「＋合集」新建、选择视频后批量加入；详情里增删、列表按标签/合集筛选；标签可重命名/合并/删除，合集可重命名/删除）、**条目详情**（离线字幕阅读 + 保存的总结 + 直接导出）、点击搜索结果回到对应时间、删除入库视频（二次确认并说明连带删除范围）；整页「工作台」含资料库/成片/本地处理页签
+- **M3 本地库 / 工作台**：SQLite（`node:sqlite`，无需重编译原生模块）、一键入库、视频列表、标题/UP/标签/合集/字幕搜索（多词按 AND 匹配，FTS5 trigram，短词退化 LIKE）、已总结标记与排序、**标签与合集**（库顶部「＋合集」新建、选择视频后批量加入；详情里增删、列表按标签/合集筛选；标签可重命名/合并/删除，合集可重命名/删除）、**条目详情**（离线字幕阅读 + 保存的总结 + 直接导出）、点击搜索结果回到对应时间、删除入库视频（二次确认并说明连带删除范围）；整页「工作台」含资料库/成片与处理页签
 - **库多选**：在库里点「选择」后批量总结、加标签/合集或删除；并发数与操作结果即时可见
 - **笔记**：库条目详情第三个页签，可写 Markdown 笔记、停止输入自动保存、Ctrl+S 手动保存、保留最近 20 个版本、切换预览、导出 `.md`；有笔记时页签带标记，空内容保存会自动清除，笔记正文参与库/全局搜索
 - **合集对比**：管理合集时点「对比」，用各视频的总结/字幕生成跨视频对比笔记（速览表、共识、分歧、观看顺序），保存到本地并保留最近 20 个版本（可预览/恢复）、可导出为 Markdown、可被全局搜索命中，并可重新生成
@@ -113,8 +113,8 @@ npm run dist
 
 | 文件 | 说明 |
 |---|---|
-| `release/shizi-setup-0.38.30.exe` | NSIS 安装包，可选安装目录 |
-| `release/shizi-0.38.30-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
+| `release/shizi-setup-0.38.31.exe` | NSIS 安装包，可选安装目录 |
+| `release/shizi-0.38.31-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
 | `release/latest.yml` | 自动更新元数据 |
 | `release/shizi-extension-v2.18.8.zip` | 浏览器插件（由 CI 打包） |
 
@@ -122,21 +122,21 @@ npm run dist
 
 ### 发布
 
-发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.38.30`）同时提供插件 zip 和桌面端安装包/绿色包。
+发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.38.31`）同时提供插件 zip 和桌面端安装包/绿色包。
 这样插件更新检查（读 `/releases/latest`）和桌面自动更新（读最新 Release 里的 `latest.yml`）都正常。
 
 > 不要再用插件版本 `v2.x` 打 tag：GitHub 按 semver 会把旧的高版本 Release 当成 Latest，桌面自动更新会读错。
 
-1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.38.30 --no-git-tag-version`）。
+1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.38.31 --no-git-tag-version`）。
 2. 插件有改动时同步 `shizi-extension/CHANGELOG.md` 与 `manifest.json` 版本（当前 2.18.6）。
 3. `npm run dist` 本地确认能构建。
 4. `npm run release:notes` 生成发布说明。
 5. 打 tag 并推送：
 
 ```bash
-git tag -a v0.38.30 -m "桌面端 0.38.30 + 插件 2.18.8"
+git tag -a v0.38.31 -m "桌面端 0.38.31 + 插件 2.18.8"
 git push origin master
-git push origin master v0.38.30
+git push origin master v0.38.31
 ```
 
 GitHub Actions（`.github/workflows/desktop-release.yml`）会在 Windows runner 上重新构建，
