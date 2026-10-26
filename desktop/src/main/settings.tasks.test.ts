@@ -129,6 +129,18 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('快捷取词设置保存', () => {
+    const settings = loadSettings();
+    settings.general.quickAsk = { enabled: true, accelerator: 'Control+Shift+X' };
+    saveSettings(settings);
+    expect(loadSettings().general.quickAsk).toEqual({
+      enabled: true,
+      accelerator: 'Control+Shift+X'
+    });
+    settings.general.quickAsk = { enabled: false, accelerator: 'Control+Alt+X' };
+    saveSettings(settings);
+  });
+
   it('朗读设置与 TTS Key 持久化，导出时清空', () => {
     const settings = loadSettings();
     settings.tts.engine = 'openai';

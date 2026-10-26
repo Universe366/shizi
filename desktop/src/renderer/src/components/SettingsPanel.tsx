@@ -14,6 +14,7 @@ import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
+import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
 import { SubtitleGroup } from './settings/SubtitleGroup';
 import { SessionsGroup } from './settings/SessionsGroup';
@@ -1117,6 +1118,12 @@ export function SettingsPanel({
         <>
           <EfficiencyGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <QuickAskSection
+            value={draft.general.quickAsk}
+            onChange={(patch) =>
+              updateGeneral({ quickAsk: { ...draft.general.quickAsk, ...patch } })
+            }
+          />
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>
       )}

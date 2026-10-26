@@ -140,6 +140,8 @@ export interface BsubApi {
       height: number;
     }) => void
   ): () => void;
+  /** 全局快捷取词结果（任意应用选中文字）。 */
+  onPetSelection(cb: (payload: { text: string; error?: string }) => void): () => void;
   openSettings(): Promise<void>;
   onOpenSettings(cb: () => void): () => void;
   /** 焦点在网页里时，主进程转发的可自定义快捷键动作 id */

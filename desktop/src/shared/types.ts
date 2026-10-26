@@ -1014,6 +1014,11 @@ export interface AppSettings {
       /** 识别后自动模拟 Ctrl+V */
       autoPaste: boolean;
     };
+    /** 全局快捷取词：任意应用选中文字后热键唤起桌宠 */
+    quickAsk: {
+      enabled: boolean;
+      accelerator: string;
+    };
   };
   ai: {
     activeId: string;

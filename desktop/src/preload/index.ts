@@ -184,6 +184,7 @@ const api: BsubApi = {
       height: number;
     } | null>,
   onPetShot: (cb) => on<{ action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }>('pet:shot', cb),
+  onPetSelection: (cb) => on<{ text: string; error?: string }>('pet:selection', cb),
   openSettings: () => ipcRenderer.invoke('app:open-settings') as Promise<void>,
   onOpenSettings: (cb: () => void) => on<null>('ui:open-settings', () => cb()),
   onShortcut: (cb: (action: string) => void) => on<string>('app:shortcut', cb),

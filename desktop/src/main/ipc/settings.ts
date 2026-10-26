@@ -4,6 +4,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shel
 import { applyAutoStart } from '../autoStart';
 import { applyProxy } from '../proxy';
 import { applyDictation } from '../dictation';
+import { applyQuickAsk } from '../quickAsk';
 import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
@@ -201,6 +202,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         applyAutoStart(saved.general.autoStart === true);
         await applyProxy(saved);
         applyDictation(saved);
+        applyQuickAsk(saved);
         registerPetShortcuts();
         applyPetSettings();
         await restartBridge(ctx.win);

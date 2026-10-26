@@ -585,6 +585,19 @@ export function PetWindow() {
     window.setTimeout(() => inputRef.current?.focus(), 60);
   };
 
+  // 全局快捷取词：主进程把任意应用的选中文字送进来。
+  useEffect(() => {
+    return window.bsub.onPetSelection?.((payload) => {
+      openChatPanel();
+      if (!payload?.text) {
+        flash(payload?.error || '没有取到选中文字');
+        return;
+      }
+      setSelection({ text: payload.text, title: '快速取词' });
+      flash(`已取到 ${payload.text.length} 字`);
+    });
+  }, []);
+
   const toggleOpen = () => {
     wake();
     setEmotion('happy');

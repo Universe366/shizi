@@ -201,6 +201,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
       enabled: false,
       accelerator: 'Control+Alt+V',
       autoPaste: true
+    },
+    quickAsk: {
+      enabled: false,
+      accelerator: 'Control+Alt+X'
     }
   },
   ai: {
@@ -589,6 +593,12 @@ function normalize(input: unknown): AppSettings {
         const accelerator = String(dictation.accelerator || '').trim().slice(0, 60);
         base.general.dictation.accelerator = accelerator || 'Control+Alt+V';
         base.general.dictation.autoPaste = dictation.autoPaste !== false;
+      }
+      const quickAsk = raw.general.quickAsk;
+      if (quickAsk && typeof quickAsk === 'object') {
+        base.general.quickAsk.enabled = quickAsk.enabled === true;
+        const accelerator = String(quickAsk.accelerator || '').trim().slice(0, 60);
+        base.general.quickAsk.accelerator = accelerator || 'Control+Alt+X';
       }
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])

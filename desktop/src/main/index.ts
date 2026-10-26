@@ -7,6 +7,7 @@ import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
 import { disposeDictation, initDictation } from './dictation';
+import { applyQuickAsk, disposeQuickAsk } from './quickAsk';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
@@ -205,6 +206,7 @@ function createWindow(): void {
   );
   registerIpc(mainWindow, tabManager);
   initDictation(mainWindow, loadSettings());
+  applyQuickAsk(loadSettings());
   tabManager.setSuspendMinutes(loadSettings().general.suspendMinutes);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -449,6 +451,7 @@ app.on('before-quit', () => {
   stopBridge();
   disposeMcpClients();
   disposeDictation();
+  disposeQuickAsk();
   closeLibrary();
 });
 
