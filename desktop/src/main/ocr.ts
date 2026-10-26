@@ -1,8 +1,9 @@
-import { app } from 'electron';
+import { app, session } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import type { AppSettings } from '../shared/types';
 
 // ---------------------------------------------------------------------------
 // 本地 OCR：Windows 10/11 自带的 WinRT OCR（Windows.Media.Ocr）。
@@ -188,4 +189,74 @@ export async function ocrFile(
 
 export function ocrAvailable(): boolean {
   return process.platform === 'win32';
+}
+
+/** 从 PaddleOCR 服务返回的各种结构里尽量取到文字。 */
+export function extractPaddleText(payload: unknown): string {
+  const texts: string[] = [];
+  const visit = (value: unknown, depth: number): void => {
+    if (depth > 6 || value == null) return;
+    if (typeof value === 'string') {
+      if (value.trim()) texts.push(value.trim());
+      return;
+    }
+    if (Array.isArray(value)) {
+      // PaddleOCR 常见结构：[box, [text, score]]
+      if (
+        value.length >= 2 &&
+        Array.isArray(value[1]) &&
+        typeof value[1][0] === 'string'
+      ) {
+        texts.push(String(value[1][0]));
+        return;
+      }
+      for (const item of value) visit(item, depth + 1);
+      return;
+    }
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      for (const key of ['text', 'texts', 'result', 'results', 'data', 'ocr']) {
+        if (key in record) visit(record[key], depth + 1);
+      }
+    }
+  };
+  visit(payload, 0);
+  return Array.from(new Set(texts)).join('\n');
+}
+
+async function paddleOcr(dataUrl: string, url: string): Promise<string> {
+  const match = /^data:image\/[a-z0-9.+-]+;base64,(.*)$/is.exec(dataUrl);
+  if (!match) throw new Error('不是有效的图片 dataURL');
+  const response = await session.defaultSession.fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ image: match[1], img: match[1] }),
+    signal: AbortSignal.timeout(60000)
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`PaddleOCR 服务 HTTP ${response.status}：${body.slice(0, 160)}`);
+  }
+  const payload = (await response.json()) as unknown;
+  const text = normalizeOcrText(extractPaddleText(payload));
+  if (!text) throw new Error('PaddleOCR 没有返回文字');
+  return text;
+}
+
+/** 按设置选择 OCR 引擎；Paddle 服务失败时回退系统 OCR。 */
+export async function ocrDataUrlWithSettings(
+  dataUrl: string,
+  settings: AppSettings
+): Promise<{ text: string; ms: number; engine: 'system' | 'paddle' }> {
+  const started = Date.now();
+  if (settings.ocr.engine === 'paddle' && settings.ocr.paddleUrl.trim()) {
+    try {
+      const text = await paddleOcr(dataUrl, settings.ocr.paddleUrl.trim());
+      return { text, ms: Date.now() - started, engine: 'paddle' };
+    } catch (error) {
+      console.warn('[ocr] PaddleOCR 失败，回退系统 OCR:', (error as Error).message);
+    }
+  }
+  const result = await ocrDataUrl(dataUrl, settings.ocr.lang || 'auto');
+  return { ...result, engine: 'system' };
 }

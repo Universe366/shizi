@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import type { Result } from '../../shared/types';
-import { ocrAvailable, ocrDataUrl, ocrFile } from '../ocr';
+import { loadSettings } from '../settings';
+import { ocrAvailable, ocrDataUrlWithSettings, ocrFile } from '../ocr';
 
 function ok<T>(data: T): Result<T> {
   return { ok: true, data };
@@ -20,14 +21,24 @@ export interface OcrPayload {
 export function registerOcrIpc(): void {
   ipcMain.handle(
     'ocr:recognize',
-    async (_event, payload: OcrPayload): Promise<Result<{ text: string; ms: number }>> => {
+    async (
+      _event,
+      payload: OcrPayload
+    ): Promise<Result<{ text: string; ms: number; engine?: 'system' | 'paddle' }>> => {
       try {
-        const lang = String(payload?.lang || 'auto');
-        if (payload?.path) return ok(await ocrFile(String(payload.path), lang));
-        if (payload?.dataUrl) return ok(await ocrDataUrl(String(payload.dataUrl), lang));
+        const settings = loadSettings();
+        const lang = String(payload?.lang || '').trim();
+        if (lang) settings.ocr.lang = lang;
+        if (payload?.path) {
+          const result = await ocrFile(String(payload.path), settings.ocr.lang);
+          return ok({ ...result, engine: 'system' as const });
+        }
+        if (payload?.dataUrl) {
+          return ok(await ocrDataUrlWithSettings(String(payload.dataUrl), settings));
+        }
         throw new Error('缺少图片');
       } catch (error) {
-        return failure<{ text: string; ms: number }>(error);
+        return failure(error);
       }
     }
   );

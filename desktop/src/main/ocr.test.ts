@@ -4,13 +4,30 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const state = vi.hoisted(() => ({ dir: '' }));
-
-vi.mock('electron', () => ({
-  app: { getPath: () => state.dir }
+const state = vi.hoisted(() => ({
+  dir: '',
+  fetched: [] as string[]
 }));
 
-import { normalizeOcrText, ocrDataUrl } from './ocr';
+vi.mock('electron', () => ({
+  app: { getPath: () => state.dir },
+  session: {
+    defaultSession: {
+      fetch: async (url: string) => {
+        state.fetched.push(url);
+        return new Response(
+          JSON.stringify({
+            results: [{ data: [{ text: '第一行' }, { text: '第二行' }] }]
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+    }
+  }
+}));
+
+import { extractPaddleText, normalizeOcrText, ocrDataUrl, ocrDataUrlWithSettings } from './ocr';
+import type { AppSettings } from '../shared/types';
 
 /** CI/其它机器没有中文 OCR 语言包时跳过集成用例，只跑纯函数测试。 */
 function hasChineseOcr(): boolean {
@@ -45,6 +62,27 @@ describe('本地 OCR', () => {
   it('中文空格与标点归一化', () => {
     expect(normalizeOcrText('拾 字 本 地 OCR 测 试')).toBe('拾字本地 OCR 测试');
     expect(normalizeOcrText('你 好 ， 世 界 ！')).toBe('你好，世界！');
+  });
+
+  it('Paddle 响应解析与引擎路由', async () => {
+    expect(
+      extractPaddleText({
+        results: [{ data: [{ text: '第一行' }, { text: '第二行' }] }]
+      })
+    ).toContain('第一行');
+    expect(extractPaddleText({ text: '单行' })).toBe('单行');
+    expect(extractPaddleText([[[[0, 0], [1, 1]], ['框选文字', 0.99]]])).toContain('框选文字');
+
+    const settings = {
+      ocr: { engine: 'paddle', lang: 'auto', paddleUrl: 'http://127.0.0.1:8866/ocr' }
+    } as unknown as AppSettings;
+    const result = await ocrDataUrlWithSettings(
+      'data:image/png;base64,iVBORw0KGgo=',
+      settings
+    );
+    expect(result.engine).toBe('paddle');
+    expect(result.text).toContain('第一行');
+    expect(state.fetched[0]).toBe('http://127.0.0.1:8866/ocr');
   });
 
   it.skipIf(!chineseOcr)(

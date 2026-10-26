@@ -1085,6 +1085,14 @@ export interface AppSettings {
     prices: Record<string, ModelPrice>;
   };
   tts: TtsSettings;
+  ocr: {
+    /** system = Windows 自带 OCR；paddle = 自建 PaddleOCR HTTP 服务 */
+    engine: 'system' | 'paddle';
+    /** Windows OCR 语言标签（auto 用系统默认） */
+    lang: string;
+    /** PaddleOCR 服务地址（POST { image: base64 } → { text } 或 Paddle 常见结构） */
+    paddleUrl: string;
+  };
   asr: AsrSettings;
   prompt: {
     activeId: string;

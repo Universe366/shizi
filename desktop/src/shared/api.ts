@@ -313,7 +313,7 @@ export interface BsubApi {
     dataUrl?: string;
     path?: string;
     lang?: string;
-  }): Promise<Result<{ text: string; ms: number }>>;
+  }): Promise<Result<{ text: string; ms: number; engine?: 'system' | 'paddle' }>>;
   ocrStatus(): Promise<Result<{ available: boolean }>>;
   /** 文字朗读：主进程合成音频，返回 dataURL。 */
   ttsSpeak(payload: { text: string; override?: TtsSettings }): Promise<

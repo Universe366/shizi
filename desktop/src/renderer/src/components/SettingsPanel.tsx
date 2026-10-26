@@ -14,6 +14,7 @@ import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
+import { OcrSection } from './settings/OcrSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
 import { SubtitleGroup } from './settings/SubtitleGroup';
@@ -1210,6 +1211,13 @@ export function SettingsPanel({
           onChange={(patch) =>
             updateGeneral({ dictation: { ...draft.general.dictation, ...patch } })
           }
+        />
+      )}
+
+      {show('ai') && (
+        <OcrSection
+          value={draft.ocr}
+          onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
         />
       )}
 

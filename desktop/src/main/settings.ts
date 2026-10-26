@@ -244,6 +244,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
       voice: 'alloy'
     }
   },
+  ocr: {
+    engine: 'system',
+    lang: 'auto',
+    paddleUrl: ''
+  },
   asr: {
     activeId: 'siliconflow',
     platforms: ASR_PRESETS.map((platform) => ({
@@ -794,6 +799,12 @@ function normalize(input: unknown): AppSettings {
         base.tts.openai.model = String(openai.model || '').trim().slice(0, 120);
         base.tts.openai.voice = String(openai.voice || '').trim().slice(0, 60);
       }
+    }
+
+    if (raw.ocr && typeof raw.ocr === 'object') {
+      base.ocr.engine = raw.ocr.engine === 'paddle' ? 'paddle' : 'system';
+      base.ocr.lang = String(raw.ocr.lang || 'auto').trim().slice(0, 40) || 'auto';
+      base.ocr.paddleUrl = String(raw.ocr.paddleUrl || '').trim().slice(0, 300);
     }
 
     if (raw.asr && typeof raw.asr === 'object') {

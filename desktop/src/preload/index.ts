@@ -470,7 +470,7 @@ const api: BsubApi = {
     ipcRenderer.invoke('usage:export') as Promise<Result<{ canceled: boolean; path?: string }>>,
   ocrRecognize: (payload: { dataUrl?: string; path?: string; lang?: string }) =>
     ipcRenderer.invoke('ocr:recognize', payload) as Promise<
-      Result<{ text: string; ms: number }>
+      Result<{ text: string; ms: number; engine?: 'system' | 'paddle' }>
     >,
   ocrStatus: () =>
     ipcRenderer.invoke('ocr:status') as Promise<Result<{ available: boolean }>>,
