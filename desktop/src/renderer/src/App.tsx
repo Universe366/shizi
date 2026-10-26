@@ -23,6 +23,7 @@ import { useDropImport } from './lib/dropImport';
 import { useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
+import { DictationListener } from './components/DictationListener';
 import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../../shared/shortcuts';
 import { strokeFromEvent } from '../../shared/shortcutKeys';
 
@@ -730,6 +731,7 @@ export default function App() {
         commands={wrappedCommands}
         onClose={() => setPaletteOpen(false)}
       />
+      <DictationListener />
       </div>
       <CloseDialog
         open={closeOpen}

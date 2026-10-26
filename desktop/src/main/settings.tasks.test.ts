@@ -111,6 +111,24 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('全局听写设置保存', () => {
+    const settings = loadSettings();
+    settings.general.dictation = {
+      enabled: true,
+      accelerator: 'Control+Shift+Space',
+      autoPaste: false
+    };
+    saveSettings(settings);
+    const loaded = loadSettings();
+    expect(loaded.general.dictation).toEqual({
+      enabled: true,
+      accelerator: 'Control+Shift+Space',
+      autoPaste: false
+    });
+    settings.general.dictation = { enabled: false, accelerator: 'Control+Alt+V', autoPaste: true };
+    saveSettings(settings);
+  });
+
   it('朗读设置与 TTS Key 持久化，导出时清空', () => {
     const settings = loadSettings();
     settings.tts.engine = 'openai';

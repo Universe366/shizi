@@ -314,6 +314,10 @@ export interface BsubApi {
     Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
   >;
   ttsVoices(): Promise<Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>>;
+  /** 全局听写：主进程热键 → 渲染层录音 → dictationFinish 回传文字。 */
+  onDictationStart(cb: () => void): () => void;
+  onDictationStop(cb: () => void): () => void;
+  dictationFinish(payload: { text: string; error?: string }): void;
   finishWizard(): Promise<Result<SettingsSnapshot>>;
   setWizardVisible(visible: boolean): Promise<Result<SettingsSnapshot>>;
   setSidebarWidth(width: number): Promise<Result<SettingsSnapshot>>;

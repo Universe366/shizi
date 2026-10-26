@@ -196,6 +196,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
       mode: 'system',
       url: '',
       bypass: 'localhost,127.0.0.1,::1'
+    },
+    dictation: {
+      enabled: false,
+      accelerator: 'Control+Alt+V',
+      autoPaste: true
     }
   },
   ai: {
@@ -577,6 +582,13 @@ function normalize(input: unknown): AppSettings {
           typeof proxy.bypass === 'string'
             ? proxy.bypass.trim().slice(0, 500)
             : 'localhost,127.0.0.1,::1';
+      }
+      const dictation = raw.general.dictation;
+      if (dictation && typeof dictation === 'object') {
+        base.general.dictation.enabled = dictation.enabled === true;
+        const accelerator = String(dictation.accelerator || '').trim().slice(0, 60);
+        base.general.dictation.accelerator = accelerator || 'Control+Alt+V';
+        base.general.dictation.autoPaste = dictation.autoPaste !== false;
       }
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])

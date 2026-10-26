@@ -6,6 +6,7 @@ import { registerIpc } from './ipc';
 import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
+import { disposeDictation, initDictation } from './dictation';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
@@ -203,6 +204,7 @@ function createWindow(): void {
     }
   );
   registerIpc(mainWindow, tabManager);
+  initDictation(mainWindow, loadSettings());
   tabManager.setSuspendMinutes(loadSettings().general.suspendMinutes);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -446,6 +448,7 @@ app.on('before-quit', () => {
   disposeUpdater();
   stopBridge();
   disposeMcpClients();
+  disposeDictation();
   closeLibrary();
 });
 

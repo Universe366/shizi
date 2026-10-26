@@ -477,6 +477,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('tts:voices') as Promise<
       Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>
     >,
+  onDictationStart: (cb: () => void) => on<void>('dictation:start', cb),
+  onDictationStop: (cb: () => void) => on<void>('dictation:stop', cb),
+  dictationFinish: (payload: { text: string; error?: string }) =>
+    ipcRenderer.send('dictation:finish', payload),
   finishWizard: () =>
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, ImagePlus, Loader2, Send, Square, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, Copy, ImagePlus, Loader2, Mic, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
   ChatMessage,
   PageContextSummary,
@@ -99,6 +99,15 @@ function ReasoningBlock({ text, defaultOpen }: { text: string; defaultOpen: bool
   );
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('读取录音失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function ChatPanel({
   activeTab,
   onOpenSettings
@@ -128,6 +137,9 @@ export function ChatPanel({
   });
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [savedNotice, setSavedNotice] = useState('');
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunks = useRef<Blob[]>([]);
   const autoSaveRef = useRef<{ title: string; url: string } | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef('');
@@ -523,6 +535,50 @@ export function ChatPanel({
     setStreaming(false);
   };
 
+  /** 麦克风输入：录一段音，交给主进程走现有 ASR，再填进输入框。 */
+  const toggleVoice = async () => {
+    if (voiceState === 'recording') {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (voiceState !== 'idle') return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recorderChunks.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) recorderChunks.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setVoiceState('transcribing');
+        try {
+          const blob = new Blob(recorderChunks.current, {
+            type: recorder.mimeType || 'audio/webm'
+          });
+          const dataUrl = await blobToDataUrl(blob);
+          const response = await window.bsub.transcribeVoice(dataUrl);
+          if (response.ok && response.data.text.trim()) {
+            const text = response.data.text.trim();
+            setInput((previous) => (previous.trim() ? `${previous.trim()} ${text}` : text));
+          } else {
+            setError(response.ok ? '没有识别到语音' : response.error);
+          }
+        } catch (voiceError) {
+          setError(`语音识别失败：${(voiceError as Error).message}`);
+        } finally {
+          setVoiceState('idle');
+        }
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setVoiceState('recording');
+      setError(null);
+    } catch (voiceError) {
+      setError(`无法使用麦克风：${(voiceError as Error).message}`);
+    }
+  };
+
   const showSettingsHint = Boolean(error) && /Key|模型|平台|设置|401|403|404/.test(error || '');
 
   return (
@@ -846,6 +902,26 @@ export function ChatPanel({
             }
           }}
         />
+        <button
+          className={`icon-btn${voiceState === 'recording' ? ' is-recording' : ''}`}
+          title={
+            voiceState === 'recording'
+              ? '停止录音并识别'
+              : voiceState === 'transcribing'
+                ? '正在识别…'
+                : '语音输入'
+          }
+          disabled={!activeTab || streaming || voiceState === 'transcribing'}
+          onClick={() => void toggleVoice()}
+        >
+          {voiceState === 'transcribing' ? (
+            <Loader2 size={14} className="spin" />
+          ) : voiceState === 'recording' ? (
+            <Square size={14} />
+          ) : (
+            <Mic size={14} />
+          )}
+        </button>
         <button
           className="mini-btn primary"
           disabled={!activeTab || (!input.trim() && !images.length) || streaming}

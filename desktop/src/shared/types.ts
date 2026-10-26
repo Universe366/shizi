@@ -1007,6 +1007,13 @@ export interface AppSettings {
       /** 绕过代理的地址，逗号分隔 */
       bypass: string;
     };
+    /** 全局语音听写：热键说话，识别后粘贴到前台应用 */
+    dictation: {
+      enabled: boolean;
+      accelerator: string;
+      /** 识别后自动模拟 Ctrl+V */
+      autoPaste: boolean;
+    };
   };
   ai: {
     activeId: string;

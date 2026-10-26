@@ -794,6 +794,11 @@ button:disabled {
   color: var(--text);
 }
 
+.icon-btn.is-recording {
+  color: #c2483d;
+  background: rgba(194, 72, 61, 0.12);
+}
+
 .mini-btn {
   display: inline-flex;
   align-items: center;

@@ -23,6 +23,7 @@ import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
 import { TaskModelSection } from './settings/TaskModelSection';
 import { TtsSection } from './settings/TtsSection';
+import { VoiceInputSection } from './settings/VoiceInputSection';
 import { UsageSection } from './settings/UsageSection';
 import { UpdateSection } from './settings/UpdateSection';
 import { Loader2, Save, Search } from 'lucide-react';
@@ -1167,6 +1168,15 @@ export function SettingsPanel({
         <TtsSection
           value={draft.tts}
           onChange={(patch) => setDraft({ ...draft, tts: { ...draft.tts, ...patch } })}
+        />
+      )}
+
+      {show('ai') && (
+        <VoiceInputSection
+          value={draft.general.dictation}
+          onChange={(patch) =>
+            updateGeneral({ dictation: { ...draft.general.dictation, ...patch } })
+          }
         />
       )}
 
