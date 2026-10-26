@@ -362,7 +362,7 @@ node panel-test.js     # 至少跑这个
 | 迁移后旧目录没删 | `%APPDATA%\shizi-cleanup.txt`；日志 `[data] old data dir cleanup failed` |
 | 卸载没删干净 | 是否勾选删除数据；自定义位置指向文件；`%LOCALAPPDATA%\shizi-updater` |
 
-## 10. 界面信息架构（0.31+）
+## 10. 界面信息架构（0.31+，0.39.1 重构）
 
 侧栏只保留五个入口，**不要再随意加一级入口**：
 
@@ -371,8 +371,8 @@ node panel-test.js     # 至少跑这个
 | 字幕 | 当前视频的信息、字幕轨、转写/翻译/校对/入库/合集导入 |
 | 总结 | 当前字幕的总结、章节、问答；版本与 diff |
 | 对话 | 基于字幕/总结的问答与工具调用 |
-| 库 | 所有已入库内容：搜索、筛选、详情、标签/合集、批量、笔记、合集对比、导入链接 |
-| 设置 | AI、字幕、搜索、插件桥、数据与备份 |
+| 库 | 所有已入库内容：搜索、筛选、详情、标签/合集、批量、笔记、合集对比、导入链接、知识库问答 |
+| 设置 | 7 个分组：通用、外观与浏览器、AI 与语音、检索与知识、字幕与播放、桌面助手、数据与关于 |
 
 库顶部的四个动作是固定主线：
 
@@ -387,12 +387,46 @@ node panel-test.js     # 至少跑这个
 
 空状态必须给下一步：空库 →「打开 B 站 / 导入链接」；空合集 →「选择视频加入」。
 
+### 10.1 设置页（0.39.1）
+
+```
+SettingsPage.tsx            左导航 7 组、页头、TOC
+└─ SettingsPanel.tsx        表单状态 / 保存 / 搜索过滤
+   └─ settings/SettingsSection.tsx   折叠分区 + 一句话说明
+```
+
+- 分组注册表：`components/settings/registry.tsx`（label/description/tips）。
+- 分区说明：`components/settings/descriptions.ts`（按 title 匹配）。
+- 渲染映射：`SettingsPanel.tsx` 的 `show('<group>')`。
+- TOC 只读 `.settings-section-name`，否则会把说明拼进目录。
+- 新增设置必须同步 types → settings 默认值/归一化 → UI → 测试。
+- 详细步骤见 [`docs/UI-GUIDE.md`](../../docs/UI-GUIDE.md)。
+
+### 10.2 对话输入区（0.39.1）
+
+- 可见控件只保留「＋ / 页面 / 联网 / 发送」，麦克风在发送左侧。
+- `＋` 打开 `chat-menu`：4 张工具卡片（MCP、多模型对比、图片、新对话）+ 档案/页面/联网/技能行。
+- 页面与联网状态用 `.chat-chip.is-on`，不再用「开/关」文字按钮。
+- 工具调用卡片、审批卡片、分支/编辑/朗读都在消息区，不放进输入栏。
+- 状态持久化：`chat-page`、`chat-web`、`chat-profile`、`chat-tools`、`chat-compare`。
+
+### 10.3 0.39 新增模块
+
+| 模块 | 文件 | 说明 |
+|---|---|---|
+| 对话库 | `main/chatStore.ts` + `ipc/chatHistory.ts` | 独立 `chat.db`：会话、消息、工具记录、分支、档案绑定 |
+| 用量 | `main/usage.ts` + `ipc/usage.ts` | 独立 `usage.db`：token、按天/模型/任务统计 |
+| 知识库 | `main/library/knowledge.ts` + `ipc/knowledge.ts` | `kb_chunks`/`kb_vectors`，字幕/总结/笔记 embedding 与检索 |
+| MCP 审批 | `shared/mcpApproval.ts` + `chat.ts` / `ipc/media.ts` | 危险工具逐次确认，`chat:approval` 往返 |
+| 多模型对比 | `ipc/media.ts` 的 `chat:compare` | 最多 3 个平台并行回答，不启用工具/联网 |
+| 共享纯函数 | `shared/kb.ts`、`shared/toolSelection.ts`、`shared/mcpApproval.ts` | 可单测的切块/余弦/工具白名单/审批分类 |
+
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.35）；
+  - 桌面端 `desktop/package.json`（例如 0.39.1）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.35`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.39.1`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；

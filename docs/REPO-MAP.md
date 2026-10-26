@@ -1,6 +1,6 @@
 # 仓库地图（给人看的）
 
-> 当前产品名：**拾字 / Shizi**。桌面端 0.38.35，插件 2.18.8。
+> 当前产品名：**拾字 / Shizi**。桌面端 0.39.1，插件 2.18.8。
 > 先看这一页，再决定去读哪份文档，不要从 5 万行历史记录开始。
 
 ## 顶层目录
@@ -57,6 +57,8 @@ shizi-extension/
 | 刚接手 / AI 操作 | `AGENTS.md`、`HANDOFF.md` |
 | 怎么安装/使用 | 根 `README.md`、`shizi-extension/README.md` |
 | 桌面端怎么分层、有哪些坑 | `desktop/docs/ARCHITECTURE.md` |
+| 设置页 / 对话输入区怎么改 | `docs/UI-GUIDE.md` |
+| 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |
 | 插件和桌面怎么通信 | `desktop/docs/BRIDGE.md` |
 | 发布/更新/安装器 | `docs/MAINTAINERS.md` |
@@ -75,4 +77,4 @@ shizi-extension/
 5. **改完跑**：`cd desktop && npm run typecheck && npm run lint && npm test && npm run smoke`；
    插件改完跑 `cd verify && node bundle.js && node panel-test.js`。
 6. **GitHub Releases 只保留 shizi 时代版本**；更早的 Release 已清理，tag 仍保留用于代码追溯。
-7. **发布 tag 用桌面版本 `v0.38.x`**，不要再用 `v2.x`；后者会让 GitHub 按 semver 把旧插件版本当成 Latest，自动更新会读错。发布后确认 `/releases/latest` 指向桌面版本。
+7. **发布 tag 用桌面版本 `v0.39.x`**，不要再用 `v2.x`；后者会让 GitHub 按 semver 把旧插件版本当成 Latest，自动更新会读错。发布后确认 `/releases/latest` 指向桌面版本。

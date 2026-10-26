@@ -33,7 +33,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       host.querySelectorAll<HTMLElement>('.settings-section')
     ).find(
       (item) =>
-        (item.querySelector('.settings-section-title')?.textContent || '').trim() === title
+        (item.querySelector('.settings-section-name')?.textContent || '').trim() === title
     );
     if (!section) return;
     (section as HTMLDetailsElement).open = true;
@@ -56,7 +56,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       tocSections.current = sections;
       setToc(
         sections.map((section) => ({
-          title: (section.querySelector('.settings-section-title')?.textContent || '').trim()
+          title: (section.querySelector('.settings-section-name')?.textContent || '').trim()
         }))
       );
     };
@@ -127,7 +127,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
                 onClick={() => setGroup(item.id)}
               >
                 <ItemIcon size={14} />
-                <span>{item.label}</span>
+                <span className="settings-nav-text">
+                  <span className="settings-nav-label">{item.label}</span>
+                  <span className="settings-nav-desc">{item.description}</span>
+                </span>
               </button>
             );
           })}

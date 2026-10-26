@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Copy, Download, GitBranch, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Square, Trash2, Volume2, X } from 'lucide-react';
+import { AlertTriangle, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -1464,71 +1464,6 @@ export function ChatPanel({
         </div>
       )}
 
-      {activeTab && (
-        <div className="chat-context-bar">
-          <label className="chat-context-chip" title="把当前网页正文一并带给 AI">
-            <input
-              type="checkbox"
-              checked={includePage}
-              onChange={(event) => setIncludePage(event.target.checked)}
-            />
-            当前页面
-            {pageContext && pageContext.chars > 0
-              ? ` · ${pageContext.chars.toLocaleString('zh-CN')} 字 · 约 ${Math.ceil(
-                  pageContext.chars / 1.6
-                ).toLocaleString('zh-CN')} tokens`
-              : ''}
-          </label>
-          <label
-            className="chat-context-chip"
-            title={
-              searchEnabled
-                ? '本次对话强制联网检索，回答会列出参考链接'
-                : '联网检索已在设置里关闭，先去开启'
-            }
-            style={searchEnabled ? undefined : { opacity: 0.55 }}
-          >
-            <input
-              type="checkbox"
-              checked={webSearch}
-              disabled={!searchEnabled}
-              onChange={(event) => {
-                const next = event.target.checked;
-                setWebSearch(next);
-                try {
-                  localStorage.setItem('chat-web', next ? '1' : '0');
-                } catch {
-                  // ignore
-                }
-              }}
-            />
-            联网
-          </label>
-          {!searchEnabled && (
-            <button className="chat-context-chip is-warning" onClick={onOpenSettings}>
-              联网未启用 · 去开启
-            </button>
-          )}
-          {pageContext && pageContext.selectionChars > 0 && (
-            <span className="chat-context-chip is-selection">
-              已选中 {pageContext.selectionChars.toLocaleString('zh-CN')} 字
-            </span>
-          )}
-          <span className="chat-context-chip" title="粗略估算，仅供参考">
-            ≈{' '}
-            {Math.ceil(
-              ((input.length || 0) + (includePage ? pageContext?.chars || 0 : 0)) / 1.6
-            ).toLocaleString('zh-CN')}{' '}
-            tokens
-          </span>
-          {profiles.find((profile) => profile.id === profileId) && (
-            <span className="chat-context-chip is-selection">
-              助手 · {profiles.find((profile) => profile.id === profileId)?.name}
-            </span>
-          )}
-        </div>
-      )}
-
       {savedNotice && <div className="status-line chat-saved">{savedNotice}</div>}
 
       {approvals.length > 0 && (
@@ -1559,8 +1494,56 @@ export function ChatPanel({
       )}
 
       {composerOpen && activeTab && (
-        <div className="chat-composer-panel">
-          <div className="chat-composer-actions">
+        <div className="chat-menu">
+          <div className="chat-menu-head">
+            <div>
+              <div className="chat-menu-title">更多工具</div>
+              <div className="chat-menu-desc">按需打开；选项会自动记住</div>
+            </div>
+            <button
+              className="icon-btn"
+              title="收起"
+              onClick={() => {
+                setComposerOpen(false);
+                setToolPanelOpen(false);
+                setCompareOpen(false);
+              }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+          <div className="chat-menu-grid">
+            <button className="chat-menu-card" onClick={() => void openToolPanel()}>
+              <Wrench size={15} />
+              <span className="chat-menu-card-title">MCP 工具</span>
+              <span className="chat-menu-card-desc">
+                {toolSelection === null ? '全部可用工具' : `已选 ${toolSelection.length} 个`}
+              </span>
+            </button>
+            <button
+              className="chat-menu-card"
+              onClick={() => {
+                setCompareOpen(true);
+                setToolPanelOpen(false);
+              }}
+            >
+              <Sparkles size={15} />
+              <span className="chat-menu-card-title">多模型对比</span>
+              <span className="chat-menu-card-desc">两个以上平台并排回答</span>
+            </button>
+            <button className="chat-menu-card" onClick={() => imageInputRef.current?.click()}>
+              <ImagePlus size={15} />
+              <span className="chat-menu-card-title">添加图片</span>
+              <span className="chat-menu-card-desc">也可直接粘贴或拖入</span>
+            </button>
+            <button className="chat-menu-card" onClick={clear}>
+              <Plus size={15} />
+              <span className="chat-menu-card-title">新对话</span>
+              <span className="chat-menu-card-desc">旧对话保留在历史里</span>
+            </button>
+          </div>
+          <div className="chat-menu-row">
+            <span className="chat-menu-row-label">助手档案</span>
             <select
               className="settings-input chat-profile-select"
               title="助手档案：提示词 / 模型 / 技能 / 工具 / 联网"
@@ -1594,19 +1577,31 @@ export function ChatPanel({
                 </option>
               ))}
             </select>
-            <button className="mini-btn" onClick={() => void openToolPanel()}>
-              MCP 工具{toolSelection ? ` · ${toolSelection.length}` : ''}
-            </button>
-            <button className="mini-btn" onClick={() => imageInputRef.current?.click()}>
-              图片
-            </button>
-            <button className="mini-btn" onClick={() => setIncludePage((value) => !value)}>
-              页面：{includePage ? '开' : '关'}
-            </button>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                const next = !webSearch;
+          </div>
+          <label className="chat-menu-row chat-menu-toggle">
+            <span className="chat-menu-row-label">页面上下文</span>
+            <span className="chat-menu-row-desc">
+              {pageContext?.chars
+                ? `约 ${pageContext.chars.toLocaleString('zh-CN')} 字`
+                : '把当前网页正文一并带给 AI'}
+            </span>
+            <input
+              type="checkbox"
+              checked={includePage}
+              onChange={(event) => setIncludePage(event.target.checked)}
+            />
+          </label>
+          <label className="chat-menu-row chat-menu-toggle">
+            <span className="chat-menu-row-label">联网检索</span>
+            <span className="chat-menu-row-desc">
+              {searchEnabled ? '本轮强制联网并列出参考' : '未启用，先去设置开启'}
+            </span>
+            <input
+              type="checkbox"
+              checked={webSearch}
+              disabled={!searchEnabled}
+              onChange={(event) => {
+                const next = event.target.checked;
                 setWebSearch(next);
                 try {
                   localStorage.setItem('chat-web', next ? '1' : '0');
@@ -1614,31 +1609,27 @@ export function ChatPanel({
                   // ignore
                 }
               }}
-            >
-              联网：{webSearch ? '开' : '关'}
-            </button>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                setCompareOpen((value) => !value);
-                setToolPanelOpen(false);
-              }}
-            >
-              多模型对比
-            </button>
-            <button className="mini-btn" onClick={clear}>
-              新对话
-            </button>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                setComposerOpen(false);
-                setToolPanelOpen(false);
-              }}
-            >
-              收起
-            </button>
-          </div>
+            />
+          </label>
+          {skills.length > 0 && (
+            <div className="chat-menu-row">
+              <span className="chat-menu-row-label">技能</span>
+              <select
+                className="settings-input chat-profile-select"
+                title="选择本轮使用的技能"
+                value={skillId}
+                disabled={streaming}
+                onChange={(event) => setSkillId(event.target.value)}
+              >
+                <option value="">不使用技能</option>
+                {skills.map((skill) => (
+                  <option key={skill.id} value={skill.id}>
+                    {skill.icon || '✨'} {skill.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {toolPanelOpen && (
             <div className="chat-tool-panel">
               {profileId && (
@@ -1734,37 +1725,6 @@ export function ChatPanel({
             event.target.value = '';
           }}
         />
-        {skills.length > 0 && (
-          <select
-            className="chat-skill-select"
-            title="选择本轮使用的技能"
-            value={skillId}
-            disabled={streaming}
-            onChange={(event) => setSkillId(event.target.value)}
-          >
-            <option value="">✨ 技能</option>
-            {skills.map((skill) => (
-              <option key={skill.id} value={skill.id}>
-                {skill.icon || '✨'} {skill.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <button
-          className={`icon-btn${composerOpen ? ' is-active' : ''}`}
-          title="更多工具（在输入框输入 / 也可打开）"
-          onClick={() => setComposerOpen((value) => !value)}
-        >
-          <Plus size={14} />
-        </button>
-        <button
-          className="icon-btn"
-          title="添加图片（也可粘贴/拖入）"
-          disabled={!activeTab || streaming || images.length >= 2}
-          onClick={() => imageInputRef.current?.click()}
-        >
-          <ImagePlus size={14} />
-        </button>
         <textarea
           className="chat-input"
           rows={2}
@@ -1798,34 +1758,92 @@ export function ChatPanel({
             }
           }}
         />
-        <button
-          className={`icon-btn${voiceState === 'recording' ? ' is-recording' : ''}`}
-          title={
-            voiceState === 'recording'
-              ? '停止录音并识别'
-              : voiceState === 'transcribing'
-                ? '正在识别…'
-                : '语音输入'
-          }
-          disabled={!activeTab || streaming || voiceState === 'transcribing'}
-          onClick={() => void toggleVoice()}
-        >
-          {voiceState === 'transcribing' ? (
-            <Loader2 size={14} className="spin" />
-          ) : voiceState === 'recording' ? (
-            <Square size={14} />
-          ) : (
-            <Mic size={14} />
-          )}
-        </button>
-        <button
-          className="mini-btn primary"
-          disabled={!activeTab || (!input.trim() && !images.length) || streaming}
-          onClick={() => void send()}
-          title="发送"
-        >
-          <Send size={12} /> 发送
-        </button>
+        <div className="chat-composer-bar">
+          <div className="chat-bar-left">
+            <button
+              className={`icon-btn${composerOpen ? ' is-active' : ''}`}
+              title="更多工具（输入 / 也可打开）"
+              onClick={() => setComposerOpen((value) => !value)}
+            >
+              <Plus size={14} />
+            </button>
+            <button
+              className={`chat-chip${includePage ? ' is-on' : ''}`}
+              title={includePage ? '本次会带上当前网页正文' : '不带当前网页正文'}
+              onClick={() => setIncludePage((value) => !value)}
+            >
+              <FileText size={12} /> 页面
+            </button>
+            <button
+              className={`chat-chip${webSearch ? ' is-on' : ''}`}
+              title={
+                searchEnabled
+                  ? webSearch
+                    ? '本次会联网检索并列出参考'
+                    : '本次不联网'
+                  : '联网检索未启用，去设置开启'
+              }
+              disabled={!searchEnabled}
+              onClick={() => {
+                const next = !webSearch;
+                setWebSearch(next);
+                try {
+                  localStorage.setItem('chat-web', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              <Globe size={12} /> 联网
+            </button>
+            {profiles.find((profile) => profile.id === profileId) && (
+              <button
+                className="chat-chip is-on chat-chip-profile"
+                title="当前助手档案，点击切换"
+                onClick={() => setComposerOpen(true)}
+              >
+                {profiles.find((profile) => profile.id === profileId)?.icon}{' '}
+                {profiles.find((profile) => profile.id === profileId)?.name}
+              </button>
+            )}
+          </div>
+          <div className="chat-bar-right">
+            <span className="chat-token-hint" title="输入与页面正文的粗略估算">
+              ≈{' '}
+              {Math.ceil(
+                ((input.length || 0) + (includePage ? pageContext?.chars || 0 : 0)) / 1.6
+              ).toLocaleString('zh-CN')}
+            </span>
+            <button
+              className={`icon-btn${voiceState === 'recording' ? ' is-recording' : ''}`}
+              title={
+                voiceState === 'recording'
+                  ? '停止录音并识别'
+                  : voiceState === 'transcribing'
+                    ? '正在识别…'
+                    : '语音输入'
+              }
+              disabled={!activeTab || streaming || voiceState === 'transcribing'}
+              onClick={() => void toggleVoice()}
+            >
+              {voiceState === 'transcribing' ? (
+                <Loader2 size={14} className="spin" />
+              ) : voiceState === 'recording' ? (
+                <Square size={14} />
+              ) : (
+                <Mic size={14} />
+              )}
+            </button>
+            <button
+              className="chat-send"
+              disabled={!activeTab || (!input.trim() && !images.length) || streaming}
+              onClick={() => void send()}
+              title="发送"
+            >
+              <Send size={12} /> 发送
+            </button>
+          </div>
+        </div>
       </div>
 
       {comparison && (

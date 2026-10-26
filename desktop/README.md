@@ -1,16 +1,17 @@
 # 拾字 · 桌面端
 
-Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.38.35**。
+Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/REBRAND.md`](docs/REBRAND.md)）。当前 **0.39.1**。
 
-开发中的浏览器/AI 能力：
+能力概览：
 
-- 历史、书签、下载（暂停/继续/取消）、阅读模式、标签搜索、退出恢复标签；
-- 垂直标签栏：折叠 / 悬停飞出、拖宽、固定 / 分组、标签搜索、悬停预览、多选与键盘导航（Edge 式）；
-- 网页播放倍速：地址栏倍速按钮 + Global Speed 风格面板（预设/步进/滑块/保持音调）、可自定义快捷键（默认 `Shift+←/→`）、按站点记忆；
-- 任意网页对话（正文 + 选中内容），划词工具条（解释/翻译/总结），可把网页总结存进本地库；
-- YouTube 官方/自动字幕抓取、总结与入库；
-- 本地音视频 / 播客 RSS 导入 → 语音识别 → 入库；
-- Ollama / LM Studio 本地模型（免 Key）。
+- 字幕：WBI 签名接口、多轨、跟随、翻译、校对、ASR（在线 + 本地 whisper）、本地视频工作台、6 格式导出；
+- AI：40+ 平台（OpenAI 兼容 / Anthropic / Gemini / Azure）、按任务选模型、助手档案、多 Key、代理、用量与成本；
+- 对话：独立 `chat.db`、历史/搜索/重命名/导出、消息分支、编辑重发、多模型对比、MCP 工具与审批、Skills、联网；
+- 语音与 OCR：Edge / SAPI / 云端 TTS、全局听写、Windows OCR + PaddleOCR 服务；
+- 知识库：字幕/总结/笔记 embedding，跨视频提问与引用；
+- 浏览器：垂直标签栏、标签组、会话恢复、阅读模式、倍速、起始页；
+- 桌面助手：桌宠、快捷取词、全局截图、待办提醒；
+- 数据：SQLite 本地库、FTS5、备份/恢复、数据目录迁移。
 
 > 维护、发布、常见坑见根目录 [`docs/MAINTAINERS.md`](../docs/MAINTAINERS.md) 的桌面端章节。
 
@@ -113,8 +114,8 @@ npm run dist
 
 | 文件 | 说明 |
 |---|---|
-| `release/shizi-setup-0.38.35.exe` | NSIS 安装包，可选安装目录 |
-| `release/shizi-0.38.35-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
+| `release/shizi-setup-0.39.1.exe` | NSIS 安装包，可选安装目录 |
+| `release/shizi-0.39.1-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
 | `release/latest.yml` | 自动更新元数据 |
 | `release/shizi-extension-v2.18.8.zip` | 浏览器插件（由 CI 打包） |
 
@@ -122,21 +123,21 @@ npm run dist
 
 ### 发布
 
-发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.38.35`）同时提供插件 zip 和桌面端安装包/绿色包。
+发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.39.1`）同时提供插件 zip 和桌面端安装包/绿色包。
 这样插件更新检查（读 `/releases/latest`）和桌面自动更新（读最新 Release 里的 `latest.yml`）都正常。
 
 > 不要再用插件版本 `v2.x` 打 tag：GitHub 按 semver 会把旧的高版本 Release 当成 Latest，桌面自动更新会读错。
 
-1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.38.35 --no-git-tag-version`）。
-2. 插件有改动时同步 `shizi-extension/CHANGELOG.md` 与 `manifest.json` 版本（当前 2.18.6）。
+1. 更新 `desktop/CHANGELOG.md` 与版本号（`npm version 0.39.1 --no-git-tag-version`）。
+2. 插件有改动时同步 `shizi-extension/CHANGELOG.md` 与 `manifest.json` 版本（当前 2.18.8）。
 3. `npm run dist` 本地确认能构建。
 4. `npm run release:notes` 生成发布说明。
 5. 打 tag 并推送：
 
 ```bash
-git tag -a v0.38.35 -m "桌面端 0.38.35 + 插件 2.18.8"
+git tag -a v0.39.1 -m "桌面端 0.39.1 + 插件 2.18.8"
 git push origin master
-git push origin master v0.38.35
+git push origin master v0.39.1
 ```
 
 GitHub Actions（`.github/workflows/desktop-release.yml`）会在 Windows runner 上重新构建，

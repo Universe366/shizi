@@ -28,7 +28,7 @@ Origin: chrome-extension://<扩展 ID>
   "ok": true,
   "app": "shizi",
   "name": "拾字",
-  "version": "0.38.35",
+  "version": "0.39.1",
   "port": 47821,
   "token": "…"
 }

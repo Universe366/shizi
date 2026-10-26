@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { SECTION_DESCRIPTIONS } from './descriptions';
 
 interface SettingsSectionProps {
   title: string;
+  /** 一句话解释；不传时按标题从描述表里取。 */
+  description?: string;
   defaultOpen?: boolean;
   children: ReactNode;
 }
 
 /** 折叠设置分组：展开状态记在 localStorage，重开面板保持上次状态。 */
-export function SettingsSection({ title, defaultOpen = false, children }: SettingsSectionProps) {
+export function SettingsSection({
+  title,
+  description,
+  defaultOpen = false,
+  children
+}: SettingsSectionProps) {
   const storageKey = `bsub.settings.section.${title}`;
   const ref = useRef<HTMLDetailsElement>(null);
+  const text = description ?? SECTION_DESCRIPTIONS[title] ?? '';
   useEffect(() => {
     if (!ref.current) return;
     const stored = localStorage.getItem(storageKey);
@@ -27,7 +36,10 @@ export function SettingsSection({ title, defaultOpen = false, children }: Settin
         }
       }}
     >
-      <summary className="settings-section-title">{title}</summary>
+      <summary className="settings-section-title">
+        <span className="settings-section-name">{title}</span>
+        {text && <span className="settings-section-desc">{text}</span>}
+      </summary>
       <div className="settings-section-body">{children}</div>
     </details>
   );

@@ -31,6 +31,7 @@ import { VoiceInputSection } from './settings/VoiceInputSection';
 import { UsageSection } from './settings/UsageSection';
 import { UpdateSection } from './settings/UpdateSection';
 import { Loader2, Save, Search } from 'lucide-react';
+import { settingsGroup } from './settings/registry';
 import type {
   AiPlatform,
   AsrPlatform,
@@ -1125,28 +1126,48 @@ export function SettingsPanel({
         )}
       </div>
 
+      {!settingsQuery &&
+        (() => {
+          const guide = settingsGroup(group);
+          if (!guide) return null;
+          return (
+            <div className="settings-guide">
+              <div className="settings-guide-title">{guide.label} · 上手提示</div>
+              <ul>
+                {guide.tips.map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
+
       {show('general') && (
-        <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        <>
+          <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        </>
       )}
       {show('appearance') && (
-        <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-      )}
-      {show('sessions') && (
-        <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-      )}
-      {show('address') && (
-        <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-      )}
-      {show('reading') && (
-        <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        <>
+          <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        </>
       )}
       {show('subtitles') && (
-        <SubtitleGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        <>
+          <SubtitleGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <ExportDefaultsSection
+            value={draft.export}
+            onChange={(next) => setDraft({ ...draft, export: next })}
+          />
+        </>
       )}
-      {show('efficiency') && (
+      {show('desktop') && (
         <>
           <EfficiencyGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <QuickAskSection
             value={draft.general.quickAsk}
             onChange={(patch) =>
@@ -1232,7 +1253,7 @@ export function SettingsPanel({
         />
       )}
 
-      {show('ai') && (
+      {show('search') && (
         <KnowledgeSection
           value={draft.knowledge}
           platforms={draft.ai.platforms}
@@ -1252,7 +1273,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('usage') && (
+      {show('data') && (
         <UsageSection
           value={draft.usage}
           onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
@@ -1304,21 +1325,13 @@ export function SettingsPanel({
       )}
 
 
-      {show('plugins') && (
+      {show('search') && (
       <BridgeSection
         value={draft.bridge}
         status={bridge}
         installing={installingExtension}
         onChange={(next) => setDraft({ ...draft, bridge: next })}
         onInstall={installExtension}
-      />
-      )}
-
-
-      {show('data') && (
-      <ExportDefaultsSection
-        value={draft.export}
-        onChange={(next) => setDraft({ ...draft, export: next })}
       />
       )}
 
@@ -1339,7 +1352,7 @@ export function SettingsPanel({
       )}
 
 
-      {show('plugins') && (
+      {show('search') && (
       <McpSection
         value={draft.mcp}
         testing={mcpTesting}
@@ -1361,7 +1374,7 @@ export function SettingsPanel({
       )}
 
 
-      {show('plugins') && (
+      {show('search') && (
       <SkillsSection
         value={draft.skills}
         onToggle={(enabled) => updateSkills({ enabled })}
