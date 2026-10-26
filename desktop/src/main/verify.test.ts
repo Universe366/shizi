@@ -43,7 +43,19 @@ describe('parseSearchQueries', () => {
 describe('parseJudgeJson', () => {
   it('能从代码块/前后解释里取 JSON', () => {
     const parsed = parseJudgeJson('判定：\n```json\n{"judgments":[{"id":"E1","verdict":"support"}]}\n```');
-    expect(Array.isArray(parsed?.judgments)).toBe(true);
+    const object = parsed && !Array.isArray(parsed) ? parsed : {};
+    expect(Array.isArray(object.judgments)).toBe(true);
+  });
+
+  it('兼容模型直接返回数组', () => {
+    const parsed = parseJudgeJson('结果：[{"id":"E1","verdict":"refute"}]');
+    expect(Array.isArray(parsed)).toBe(true);
+  });
+
+  it('容忍尾逗号', () => {
+    const parsed = parseJudgeJson('{"judgments":[{"id":"E1","verdict":"support"},],}');
+    const object = parsed && !Array.isArray(parsed) ? parsed : {};
+    expect(Array.isArray(object.judgments)).toBe(true);
   });
 
   it('没有 JSON 时返回 null', () => {

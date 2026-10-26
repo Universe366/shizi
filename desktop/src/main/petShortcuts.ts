@@ -5,9 +5,10 @@ import { beginRegionCapture } from './shotOverlay';
 
 /** 桌面宠物全局快捷键。截图必须可用；对话/语音可通过设置关闭。 */
 // 不要用 Control+Shift+S：主窗口的「选中即问」占用了它，全局注册会把它吞掉。
+// 不要用 Control+Shift+D：那是主窗口的「收藏当前页」；全局键会先于页面拦截。
 export const PET_SHOT_ACCELERATOR = 'Control+Alt+S';
 export const PET_VOICE_ACCELERATOR = 'Control+Shift+Space';
-export const PET_CHAT_ACCELERATOR = 'Control+Shift+D';
+export const PET_CHAT_ACCELERATOR = 'Control+Shift+E';
 
 export interface PetShortcutState {
   id: 'shot' | 'voice' | 'chat';

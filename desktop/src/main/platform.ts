@@ -4,6 +4,7 @@ import { isMaskedSecret, loadSettings, testPlatform } from './settings';
 import { searchWeb } from './search';
 import { listAiModels } from './aiClient';
 import { needsApiKey } from './platformKey';
+import { probeLocalWhisper } from './localAsr';
 
 type Kind = 'ai' | 'asr' | 'search';
 type AnyPlatform = AiPlatform | AsrPlatform | SearchPlatform;
@@ -88,6 +89,9 @@ export async function testPlatformConnection(
 
   if (kind === 'asr') {
     const target = resolved('asr', platform) as AsrPlatform;
+    if (target.kind === 'local-whisper') {
+      return probeLocalWhisper(target);
+    }
     if (!target.baseUrl.trim()) throw new Error('请先填写接口地址');
     if (!target.apiKey) throw new Error('请先填写 API Key');
     const { models } = await probePlatformModels('asr', target);

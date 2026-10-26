@@ -2,13 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { restoreSession, type RestoreManager, type SavedSession } from './sessionRestore';
 
 function fakeManager(behaviour: { failUrls?: string[] } = {}) {
-  const created: Array<{ id: string; url: string; activate?: boolean }> = [];
+  const created: Array<{
+    id: string;
+    url: string;
+    activate?: boolean;
+    suppressAutoplay?: boolean;
+  }> = [];
   const activated: string[] = [];
   const manager: RestoreManager = {
     async create(url, options) {
       if (behaviour.failUrls && behaviour.failUrls.includes(url)) throw new Error('boom');
       const id = `tab-${created.length + 1}`;
-      created.push({ id, url, activate: options?.activate });
+      created.push({ id, url, activate: options?.activate, suppressAutoplay: options?.suppressAutoplay });
       return id;
     },
     async activate(id) {
@@ -47,6 +52,7 @@ describe('restoreSession', () => {
     });
     expect(created.map((item) => item.url)).toEqual(['https://a', 'https://b', 'https://c']);
     expect(created.every((item) => item.activate === false)).toBe(true);
+    expect(created.every((item) => item.suppressAutoplay === true)).toBe(true);
     expect(activated).toEqual(['tab-2']);
     expect(result).toEqual({ restored: 3, usedStartUrl: false, activeUrl: 'https://b' });
   });

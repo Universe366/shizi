@@ -9,7 +9,10 @@
 import type { TabGroup } from '../shared/types';
 
 export interface RestoreManager {
-  create(url: string, options?: { activate?: boolean }): Promise<string>;
+  create(
+    url: string,
+    options?: { activate?: boolean; suppressAutoplay?: boolean }
+  ): Promise<string>;
   activate(id: string): Promise<void>;
   restoreGroups?(
     groups: TabGroup[],
@@ -48,7 +51,11 @@ export async function restoreSession(deps: RestoreDeps): Promise<RestoreResult> 
   const created: Array<{ id: string; url: string; groupId?: string; pinned?: boolean }> = [];
   for (const item of saved.tabs) {
     try {
-      const id = await manager.create(item.url, { activate: false });
+      const id = await manager.create(item.url, {
+        activate: false,
+        // 恢复上次会话不等于“请继续播放”：用户先动一下才放行自动播放。
+        suppressAutoplay: true
+      });
       created.push({ id, url: item.url, groupId: item.groupId, pinned: item.pinned });
     } catch (error) {
       warn('[session] 恢复标签失败', item.url, (error as Error).message);

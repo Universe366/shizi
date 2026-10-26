@@ -206,6 +206,10 @@ try {
     }
     if (title !== '拾字') throw new Error(`窗口标题异常：${title}`);
     if (api !== 'object') throw new Error('preload API 未注入');
+    // 首启向导是 renderer 全屏浮层；后续步骤按真实使用完成它，
+    // 否则网页视图会被（正确地）隐藏，悬停预览拿不到截图。
+    await evaluate(ws, 'window.bsub.finishWizard().then(() => null)');
+    await new Promise((resolve) => setTimeout(resolve, 400));
     return `title=${title}`;
   });
 
@@ -527,11 +531,22 @@ try {
           await new Promise((r) => setTimeout(r, 320));
           const restored = !strip.className.includes('is-peeking');
           document.querySelector('.tab-collapse')?.click();
-          await new Promise((r) => setTimeout(r, 280));
-          const tab = document.querySelector('.tab');
+          // 等 React 把折叠状态真正切回来，再重新取节点（旧节点会被重渲染替换）。
+          for (let index = 0; index < 20; index += 1) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (!strip.className.includes('is-collapsed')) break;
+          }
+          const tab = document.querySelector('.tab.is-active') || document.querySelector('.tab');
           tab?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-          await new Promise((r) => setTimeout(r, 1100));
-          const preview = Boolean(document.querySelector('.tab-preview'));
+          // 预览要等悬停延迟 + 截图回传；固定 1100ms 在机器忙时会偶发失败，改成轮询。
+          let preview = false;
+          for (let index = 0; index < 30; index += 1) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (document.querySelector('.tab-preview')) {
+              preview = true;
+              break;
+            }
+          }
           tab?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
           return JSON.stringify({ collapsed, peeking, peekWidth, restored, preview });
         })()`

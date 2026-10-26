@@ -18,6 +18,7 @@ export function VerifyCard({ verification }: VerifyCardProps) {
   const dropped = Number(data.dropped) || 0;
   const judged = data.judged === true;
   const error = typeof data.error === 'string' ? data.error : '';
+  const note = typeof data.note === 'string' ? data.note : '';
 
   return (
     <details className="verify-card">
@@ -35,9 +36,11 @@ export function VerifyCard({ verification }: VerifyCardProps) {
           有 {failed} 项检索失败；可检查设置里的检索平台、Key 或网络后重新生成。
         </div>
       ) : null}
-      {!judged && (
+      {note ? (
+        <div className="verify-note">{note}</div>
+      ) : !judged ? (
         <div className="verify-note">本次未完成语义判定，证据只按词面与域名粗标。</div>
-      )}
+      ) : null}
       {supplements.length > 0 && (
         <div className="verify-supplements">
           {supplements.map((item, index) => (

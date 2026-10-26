@@ -816,6 +816,35 @@ export function registerMediaIpc(ctx: IpcContext): void {
     asrControllers.get(requestId)?.abort();
   });
 
+  // 本地字幕文件导入：只读小文件；解析在渲染层做，便于预览/测试。
+  ipcMain.handle(
+    'subtitle:pick-file',
+    async (): Promise<Result<{ name: string; text: string } | null>> => {
+      try {
+        const result = await dialog.showOpenDialog(ctx.win, {
+          title: '导入字幕文件',
+          properties: ['openFile'],
+          filters: [
+            { name: '字幕文件', extensions: ['srt', 'vtt', 'txt'] },
+            { name: '所有文件', extensions: ['*'] }
+          ]
+        });
+        const file = result.filePaths[0];
+        if (result.canceled || !file) return { ok: true, data: null };
+        const stat = fs.statSync(file);
+        if (stat.size > 20 * 1024 * 1024) {
+          return { ok: false, error: '字幕文件超过 20MB，请检查是否选错了文件' };
+        }
+        return {
+          ok: true,
+          data: { name: path.basename(file), text: fs.readFileSync(file, 'utf8') }
+        };
+      } catch (error) {
+        return { ok: false, error: (error as Error)?.message || String(error) };
+      }
+    }
+  );
+
   ipcMain.handle(
     'translate:start',
     async (_event, payload: TranslateRequest): Promise<Result<{ requestId: string }>> => {

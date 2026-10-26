@@ -390,9 +390,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.25）；
+  - 桌面端 `desktop/package.json`（例如 0.38.26）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.25`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.26`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -546,6 +546,37 @@ node panel-test.js     # 至少跑这个
   库详情里用系统默认播放器打开（`library:open-source` 校验 URL 与文件存在），不会走地址栏 `normalizeUrl`；
 - 任务中心用 `asr` job 记录进度；`asrControllers` 注册同一个 requestId，取消按钮可中止；
 - 下载的自动化测试钩子：`BSUB_DOWNLOAD_DIR` 有值时跳过保存对话框。
+
+### 13.10 本地 ASR（whisper.cpp）
+
+- 平台 `kind='local-whisper'`，字段 `localExe` / `localModel`；`activeAsr()` 只校验两个文件，
+  不要求 Base URL / Key。
+- `transcribeFile()` 遇到本地平台会走 `convertToWav()`（FFmpeg → 16k 单声道 WAV）→
+  `runLocalWhisper()`（`whisper-cli -m -f -l -t -oj -pp -of`）→ 解析 JSON 的
+  `transcription[].offsets`；旧版/精简版没有 JSON 时退回 stdout 的
+  `[hh:mm:ss.mmm --> ...]`。中间文件写在 `%TEMP%\bsub-local-asr-*`，结束即删。
+- 不经过 HTTP、不上传音频；取消会 kill 子进程。模型/线程数缺失或路径不存在时给出
+  可照做的中文提示，不要直接把 spawn 错误抛给用户。
+- 若以后接入 faster-whisper / sherpa-onnx，保持 `transcribeFile()` 这个入口不变，
+  只替换 `runLocalWhisper()` 的实现。
+- 一键下载在 `localAsrSetup.ts`：固定模型/二进制的 SHA-256 与大小，下载到
+  `%APPDATA%\shizi\models\whisper`；二进制用 PowerShell `Expand-Archive` 解压后找
+  `whisper-cli.exe`。下载/解压进度通过 `asr:download-progress` 事件回报，取消走
+  `asr:cancel-download` + AbortController。
+- **导入字幕**：`shared/subtitles.ts` 解析 SRT/VTT；渲染层写进 `asrStore`
+  （`source='import'`、`import://local`），与语音转录共用伪轨逻辑；刷新/总结/导出都可复用。
+  不要把它写进 `library` 的官方字幕表，避免与 B 站轨混淆。
+
+### 13.11 快捷键
+
+- 存储格式统一用 `KeyboardEvent.code`（`Ctrl+Shift+Digit3`、`Alt+KeyR`），
+  `shared/shortcutKeys.ts` 负责解析/格式化/匹配，`shared/shortcuts.ts` 是动作与默认值。
+- 设置存 `general.shortcuts`（只存覆盖值）；保存时只保留已知动作 + 合法组合。
+- 渲染层焦点：`App.tsx` 用 `actionForStroke(..., 'app')` 后统一执行动作；
+  网页焦点：`tabs.ts` 的 `before-input-event` 用同一份 map（`refreshShortcuts()` 在保存后刷新）
+  匹配 `scope=page|both` 的动作，`preventDefault` 后发 `app:shortcut`（动作 id）给渲染层。
+- 固定键位（缩放/F11/Esc/Ctrl+Shift+Q、Alt+数字、倍速）不要塞进自定义表，
+  否则网页自己的快捷键会更容易被误吞。
 
 ## 14. YouTube 适配（0.32 开发中）
 

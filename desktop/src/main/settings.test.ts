@@ -77,4 +77,30 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.verticalTabsCollapsed).toBe(true);
     expect(reloaded.general.verticalTabs).toBe(true);
   });
+
+  it('本地 Whisper 平台的路径、类型和线程数保存后不丢', () => {
+    const settings = loadSettings();
+    settings.asr.platforms = [
+      {
+        id: 'local-whisper',
+        name: '本地 Whisper',
+        kind: 'local-whisper',
+        baseUrl: '',
+        apiKey: '',
+        model: '',
+        models: [],
+        localExe: 'D:\\whisper\\whisper-cli.exe',
+        localModel: 'D:\\whisper\\ggml-base.bin'
+      }
+    ];
+    settings.asr.activeId = 'local-whisper';
+    settings.asr.localThreads = 12;
+    saveSettings(settings);
+
+    const platform = loadSettings().asr.platforms[0];
+    expect(platform.kind).toBe('local-whisper');
+    expect(platform.localExe).toBe('D:\\whisper\\whisper-cli.exe');
+    expect(platform.localModel).toBe('D:\\whisper\\ggml-base.bin');
+    expect(loadSettings().asr.localThreads).toBe(12);
+  });
 });

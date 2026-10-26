@@ -571,6 +571,19 @@ export const SEARCH_PRESETS: SearchPlatform[] = [
 
 export const ASR_PRESETS: AsrPlatform[] = [
   {
+    id: 'local-whisper',
+    name: '本地 Whisper（whisper.cpp）',
+    kind: 'local-whisper',
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+    models: [],
+    homepage: 'https://github.com/ggml-org/whisper.cpp/releases',
+    keyUrl: 'https://huggingface.co/ggerganov/whisper.cpp/tree/main',
+    localExe: '',
+    localModel: ''
+  },
+  {
     "id": "siliconflow",
     "name": "硅基流动（SiliconFlow）",
     "baseUrl": "https://api.siliconflow.cn/v1",

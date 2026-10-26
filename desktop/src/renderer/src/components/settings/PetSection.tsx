@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import type { AppSettings, PetTheme } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
 
@@ -21,22 +20,6 @@ const THEMES: Array<{ id: PetTheme; label: string; colors: [string, string] }> =
 export function PetSection({ value, onChange }: PetSectionProps) {
   const idleMinutes = value.petIdleTalkMinutes ?? 3;
   const sleepMinutes = value.petSleepMinutes ?? 5;
-  const [shortcutList, setShortcutList] = useState<
-    Array<{ id: 'shot' | 'voice' | 'chat'; accelerator: string; registered: boolean; error: string }>
-  >([]);
-
-  useEffect(() => {
-    let alive = true;
-    void window.bsub
-      .petShortcutsStatus?.()
-      .then((list) => {
-        if (alive) setShortcutList(Array.isArray(list) ? list : []);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   return (
     <>
@@ -237,31 +220,6 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           <span className="settings-hint">高度 px</span>
         </div>
 
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={value.petShortcut !== false}
-            onChange={(event) => onChange({ petShortcut: event.target.checked })}
-          />
-          启用全局截图快捷键 Ctrl+Alt+S
-        </label>
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={value.petVoiceShortcut !== false}
-            onChange={(event) => onChange({ petVoiceShortcut: event.target.checked })}
-          />
-          启用语音提问快捷键 Ctrl+Shift+Space
-        </label>
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={value.petChatShortcut !== false}
-            onChange={(event) => onChange({ petChatShortcut: event.target.checked })}
-          />
-          启用打开对话快捷键 Ctrl+Shift+D
-        </label>
-
         <div className="settings-label">气泡里显示这些按钮</div>
         <div className="pet-buttons-grid">
           {[
@@ -299,21 +257,6 @@ export function PetSection({ value, onChange }: PetSectionProps) {
             );
           })}
         </div>
-        {shortcutList
-          .filter((item) =>
-            item.id === 'shot'
-              ? value.petShortcut !== false
-              : item.id === 'voice'
-                ? value.petVoiceShortcut !== false
-                : value.petChatShortcut !== false
-          )
-          .map((item) => (
-            <div className="settings-hint" key={item.id}>
-              {item.registered
-                ? `已注册：${item.accelerator}`
-                : `注册失败（${item.error || '可能被其他程序占用'}）：${item.accelerator}`}
-            </div>
-          ))}
       </SettingsSection>
 
       <SettingsSection title="声音与状态">

@@ -8,6 +8,13 @@ import { normalizeUrl } from './url';
 import { neighborAfterClose } from './tabOrder';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
+import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
+import {
+  actionForStroke,
+  effectiveShortcuts,
+  type ShortcutActionId
+} from '../shared/shortcuts';
+import { strokeFromEvent } from '../shared/shortcutKeys';
 import { loadSettings, saveSettings } from './settings';
 import {
   clampMediaRate,
@@ -19,6 +26,45 @@ import {
 // 后台标签闲置多久后释放渲染进程。环境变量用于测试覆盖。
 const ENV_SUSPEND_MS = Number(process.env.BSUB_SUSPEND_MS) || 0;
 const DEFAULT_SUSPEND_MS = 5 * 60 * 1000;
+
+const KEY_TO_CODE: Record<string, string> = {
+  ',': 'Comma',
+  '.': 'Period',
+  '/': 'Slash',
+  ';': 'Semicolon',
+  "'": 'Quote',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '\\': 'Backslash',
+  '-': 'Minus',
+  '=': 'Equal',
+  '`': 'Backquote',
+  ' ': 'Space',
+  Tab: 'Tab',
+  Enter: 'Enter',
+  Escape: 'Escape',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  ArrowLeft: 'ArrowLeft',
+  ArrowRight: 'ArrowRight',
+  Home: 'Home',
+  End: 'End',
+  PageUp: 'PageUp',
+  PageDown: 'PageDown',
+  Insert: 'Insert'
+};
+
+/** before-input-event 的 code 有时为空（合成事件/旧版本），按 key 反推。 */
+function inputCode(input: { code?: string; key: string }): string {
+  if (input.code) return input.code;
+  const key = input.key;
+  if (/^[a-zA-Z]$/.test(key)) return `Key${key.toUpperCase()}`;
+  if (/^\d$/.test(key)) return `Digit${key}`;
+  if (/^F\d{1,2}$/.test(key)) return key;
+  return KEY_TO_CODE[key] || '';
+}
 
 interface TabRecord {
   id: string;
@@ -38,6 +84,8 @@ interface TabRecord {
   groupId?: string;
   lastHttpUrl?: string;
   loadPromise?: Promise<void>;
+  /** 会话恢复的标签：用户操作前不让页面自动播放。 */
+  suppressAutoplay?: boolean;
 }
 
 /** 后台标签的 WebContentsView 不可见时 capturePage 取不到画面，切走前先留一张缩略图。 */
@@ -97,6 +145,10 @@ export class TabManager {
   private readonly closedStack: Array<{ url: string; title: string }> = [];
   private readonly groups = new Map<string, TabGroup>();
   private readonly previewShots = new Map<string, TabPreviewShot>();
+  /** 当前生效的快捷键（动作 id → 键位），保存设置后刷新。 */
+  private shortcutMap: Record<ShortcutActionId, string> = effectiveShortcuts(
+    loadSettings().general.shortcuts
+  );
   /** 倍速落盘节流：拖动滑块/长按快捷键时只保留最后一次。 */
   private pendingRateSave: { site: string; rate: number } | null = null;
   private rateSaveTimer: NodeJS.Timeout | null = null;
@@ -149,7 +201,7 @@ export class TabManager {
 
   async create(
     input = 'https://www.bilibili.com/',
-    options: { activate?: boolean; wait?: boolean } = {}
+    options: { activate?: boolean; wait?: boolean; suppressAutoplay?: boolean } = {}
   ): Promise<string> {
     const id = randomUUID();
     const url = normalizeUrl(input, searchPref());
@@ -158,6 +210,7 @@ export class TabManager {
       view: null,
       title: '新标签页',
       url,
+      suppressAutoplay: options.suppressAutoplay === true,
       lastHttpUrl: /^https?:/i.test(url) ? url : undefined,
       loading: true,
       suspended: false,
@@ -228,7 +281,9 @@ export class TabManager {
       const target = record.url || 'about:blank';
 
       // 必须先加载一次，CDP 才能正常挂上；随后注入 page-bridge。
-      await this.prepare(view);
+      await this.prepare(view, record.suppressAutoplay === true);
+      // 拦截脚本只对「恢复出来的这一页」生效；之后用户自己导航/休眠重建不再拦。
+      record.suppressAutoplay = false;
       record.url = target;
 
       void view.webContents
@@ -252,12 +307,17 @@ export class TabManager {
     });
   }
 
-  private async prepare(view: WebContentsView): Promise<void> {
+  private async prepare(view: WebContentsView, suppressAutoplay = false): Promise<void> {
     const wc = view.webContents;
     try {
       await wc.loadURL('about:blank');
       if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
       await wc.debugger.sendCommand('Page.enable');
+      if (suppressAutoplay) {
+        await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+          source: AUTOPLAY_GUARD_SCRIPT
+        });
+      }
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: bridgeSource()
       });
@@ -369,34 +429,21 @@ export class TabManager {
         this.zoomReset();
         return;
       }
-      if (input.alt && !input.control && input.key.toLowerCase() === 'r') {
+      // 可自定义动作：与渲染层共用 actionForStroke（用 code 匹配，避免 Ctrl+Shift+3 变 '#'）。
+      const action = actionForStroke(
+        strokeFromEvent({
+          code: inputCode(input),
+          ctrlKey: input.control,
+          altKey: input.alt,
+          shiftKey: input.shift,
+          metaKey: input.meta
+        }),
+        this.shortcutMap,
+        'page'
+      );
+      if (action) {
         event.preventDefault();
-        this.win.webContents.send('app:reader');
-        return;
-      }
-      if (input.control && !input.alt && input.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        this.win.webContents.send('app:search');
-        return;
-      }
-      if (input.control && input.shift && input.key.toLowerCase() === 's') {
-        event.preventDefault();
-        this.win.webContents.send('app:ask-selection');
-        return;
-      }
-      if (input.control && input.shift && input.key.toLowerCase() === 't') {
-        event.preventDefault();
-        void this.reopenClosed();
-        return;
-      }
-      if (input.control && input.shift && input.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        this.win.webContents.send('app:tab-search');
-        return;
-      }
-      if (input.control && !input.shift && input.key.toLowerCase() === 'd') {
-        event.preventDefault();
-        this.win.webContents.send('app:bookmark');
+        this.win.webContents.send('app:shortcut', action);
         return;
       }
       if (input.control && input.shift && input.key.toLowerCase() === 'q') {
@@ -1002,6 +1049,24 @@ export class TabManager {
     }
   }
 
+  /** 退出前暂停所有标签里的音视频，避免下次恢复会话时接着响。 */
+  pauseAllMedia(): void {
+    for (const record of this.tabs.values()) {
+      const wc = record.view?.webContents;
+      if (!wc || wc.isDestroyed()) continue;
+      void wc
+        .executeJavaScript(
+          `(() => {
+            document.querySelectorAll('video, audio').forEach((element) => {
+              try { element.pause(); } catch {}
+            });
+            return true;
+          })()`
+        )
+        .catch(() => undefined);
+    }
+  }
+
   activeWebContents(): WebContents | null {
     return this.activeRecord()?.view?.webContents ?? null;
   }
@@ -1013,6 +1078,11 @@ export class TabManager {
   // 拖拽侧栏时暂时隐藏页面，避免鼠标进入 WebContentsView 后
   // 渲染层收不到 mousemove / mouseup。
   private activeViewVisible = true;
+
+  /** 设置保存后调用：让网页焦点下的快捷键立即用上新键位。 */
+  refreshShortcuts(): void {
+    this.shortcutMap = effectiveShortcuts(loadSettings().general.shortcuts);
+  }
 
   /** 对当前标签应用播放倍速（页面里由注入脚本执行）。 */
   async setPlaybackRate(rate: number): Promise<number> {

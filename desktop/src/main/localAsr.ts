@@ -1,0 +1,253 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import type { AsrPlatform } from '../shared/types';
+
+export interface LocalWhisperSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface LocalWhisperPaths {
+  exe: string;
+  model: string;
+}
+
+function friendlyPath(value: string): string {
+  return value.trim().replace(/^"|"$/g, '');
+}
+
+/** 校验本地 whisper.cpp 配置；错误信息直接告诉用户要下什么文件。 */
+export function resolveLocalWhisperPaths(platform: AsrPlatform): LocalWhisperPaths {
+  const exe = friendlyPath(platform.localExe || '');
+  const model = friendlyPath(platform.localModel || '');
+  if (!exe) {
+    throw new Error(
+      '本地 Whisper：请选择 whisper.cpp 的可执行文件（Windows 一般是 whisper-cli.exe）'
+    );
+  }
+  if (!fs.existsSync(exe) || !fs.statSync(exe).isFile()) {
+    throw new Error(`本地 Whisper：找不到可执行文件 ${exe}`);
+  }
+  if (!model) {
+    throw new Error('本地 Whisper：请选择模型文件（ggml-base.bin / ggml-small.bin 等）');
+  }
+  if (!fs.existsSync(model) || !fs.statSync(model).isFile()) {
+    throw new Error(`本地 Whisper：找不到模型文件 ${model}`);
+  }
+  return { exe, model };
+}
+
+function clockToSeconds(value: string): number {
+  const match = /^(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})$/.exec(String(value || '').trim());
+  if (!match) return 0;
+  return (
+    Number(match[1]) * 3600 +
+    Number(match[2]) * 60 +
+    Number(match[3]) +
+    Number(match[4].padEnd(3, '0')) / 1000
+  );
+}
+
+/** whisper.cpp 的 -oj JSON：优先用 offsets（毫秒），没有就解析 timestamps。 */
+export function parseWhisperJson(text: string): LocalWhisperSegment[] {
+  let json: unknown;
+  try {
+    json = JSON.parse(String(text || ''));
+  } catch {
+    return [];
+  }
+  const rows = (json as { transcription?: unknown })?.transcription;
+  if (!Array.isArray(rows)) return [];
+  const segments: LocalWhisperSegment[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const item = row as {
+      offsets?: { from?: number; to?: number };
+      timestamps?: { from?: string; to?: string };
+      text?: string;
+    };
+    const text = String(item.text || '').trim();
+    if (!text) continue;
+    const startMs = Number(item.offsets?.from);
+    const endMs = Number(item.offsets?.to);
+    const start = Number.isFinite(startMs) ? startMs / 1000 : clockToSeconds(item.timestamps?.from || '');
+    const end = Number.isFinite(endMs)
+      ? endMs / 1000
+      : clockToSeconds(item.timestamps?.to || '') || start + Math.max(0.8, text.length * 0.12);
+    segments.push({ start: Math.max(0, start), end: Math.max(start + 0.3, end), text });
+  }
+  return segments;
+}
+
+/** 没有 JSON 时的兜底：解析 whisper.cpp 标准输出的 `[00:00:00.000 --> ...] 文本`。 */
+export function parseWhisperStdout(text: string): LocalWhisperSegment[] {
+  const lines = String(text || '').split(/\r?\n/);
+  const segments: LocalWhisperSegment[] = [];
+  const pattern =
+    /^\[(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\]\s*(.*)$/;
+  for (const line of lines) {
+    const match = pattern.exec(line.trim());
+    if (!match) continue;
+    const start =
+      Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000;
+    const end =
+      Number(match[5]) * 3600 + Number(match[6]) * 60 + Number(match[7]) + Number(match[8]) / 1000;
+    const text = match[9].trim();
+    if (text) segments.push({ start, end, text });
+  }
+  return segments;
+}
+
+export function parseWhisperOutput(stdout: string, jsonText?: string): LocalWhisperSegment[] {
+  const fromJson = jsonText ? parseWhisperJson(jsonText) : [];
+  if (fromJson.length) return fromJson;
+  return parseWhisperStdout(stdout);
+}
+
+interface RunOptions {
+  exe: string;
+  model: string;
+  wav: string;
+  language: string;
+  threads: number;
+  outBase: string;
+  signal?: AbortSignal;
+  onProgress?: (percent: number, message: string) => void;
+}
+
+/** 调用 whisper.cpp 识别一个 16k 单声道 wav，返回带时间轴的段落。 */
+export async function runLocalWhisper(options: RunOptions): Promise<LocalWhisperSegment[]> {
+  const { exe, model, wav, outBase } = options;
+  const threads = Math.max(1, Math.min(32, Math.round(options.threads || 4)));
+  const language = String(options.language || 'auto').trim() || 'auto';
+  const args = [
+    '-m',
+    model,
+    '-f',
+    wav,
+    '-l',
+    language,
+    '-t',
+    String(threads),
+    '-oj',
+    '-pp',
+    '-of',
+    outBase
+  ];
+  let stdout = '';
+  let stderr = '';
+  let lastPercent = 0;
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(exe, args, {
+      windowsHide: true,
+      cwd: path.dirname(exe)
+    });
+    const abort = () => {
+      try {
+        child.kill();
+      } catch {
+        // ignore
+      }
+      const error = new Error('已终止');
+      error.name = 'AbortError';
+      reject(error);
+    };
+    if (options.signal?.aborted) {
+      abort();
+      return;
+    }
+    options.signal?.addEventListener('abort', abort, { once: true });
+    child.stdout.on('data', (chunk) => {
+      stdout = `${stdout}${String(chunk)}`.slice(-200000);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr = `${stderr}${String(chunk)}`.slice(-20000);
+      const matches = [...stderr.matchAll(/progress\s*=\s*(\d+)%/g)];
+      const percent = matches.length ? Number(matches[matches.length - 1][1]) : 0;
+      if (percent >= lastPercent + 5 || percent === 100) {
+        lastPercent = percent;
+        options.onProgress?.(percent, `本地识别 ${percent}%`);
+      }
+    });
+    child.on('error', (error) => {
+      options.signal?.removeEventListener('abort', abort);
+      reject(
+        new Error(
+          `启动 whisper.cpp 失败：${error.message}（确认选择的是 whisper-cli.exe，且没有被安全软件拦截）`
+        )
+      );
+    });
+    child.on('close', (code) => {
+      options.signal?.removeEventListener('abort', abort);
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `whisper.cpp 退出码 ${code}${stderr.trim() ? `：${stderr.trim().slice(-300)}` : ''}`
+        )
+      );
+    });
+  });
+
+  const jsonFile = `${outBase}.json`;
+  let jsonText = '';
+  try {
+    jsonText = fs.readFileSync(jsonFile, 'utf8');
+  } catch {
+    // 旧版/精简版可能不写 JSON，退回解析 stdout
+  }
+  const segments = parseWhisperOutput(stdout, jsonText);
+  try {
+    fs.rmSync(jsonFile, { force: true });
+  } catch {
+    // ignore
+  }
+  return segments;
+}
+
+/** 测试连接：文件存在 + 可执行文件能打印帮助。 */
+export async function probeLocalWhisper(
+  platform: AsrPlatform
+): Promise<{ ok: boolean; ms: number; sample: string }> {
+  const { exe, model } = resolveLocalWhisperPaths(platform);
+  const started = Date.now();
+  const output = await new Promise<string>((resolve, reject) => {
+    const child = spawn(exe, ['-h'], { windowsHide: true, cwd: path.dirname(exe) });
+    let text = '';
+    const timer = setTimeout(() => {
+      try {
+        child.kill();
+      } catch {
+        // ignore
+      }
+      reject(new Error('whisper.cpp 没有响应（-h 超时）'));
+    }, 10000);
+    child.stdout.on('data', (chunk) => {
+      text = `${text}${String(chunk)}`.slice(-4000);
+    });
+    child.stderr.on('data', (chunk) => {
+      text = `${text}${String(chunk)}`.slice(-4000);
+    });
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      reject(new Error(`无法启动可执行文件：${error.message}`));
+    });
+    child.on('close', () => {
+      clearTimeout(timer);
+      resolve(text);
+    });
+  });
+  if (!/whisper|usage:/i.test(output)) {
+    throw new Error('这个程序看起来不是 whisper.cpp（帮助信息里没有 whisper/usage）');
+  }
+  return {
+    ok: true,
+    ms: Date.now() - started,
+    sample: `whisper.cpp 可用 · 模型 ${path.basename(model)}`
+  };
+}

@@ -263,24 +263,44 @@ export function quoteMatches(quote: string, text: string): boolean {
   return normalizedQuote.length >= 4 && normalizedText.includes(normalizedQuote);
 }
 
-export function parseJudgeJson(text: string): Record<string, unknown> | null {
+export function parseJudgeJson(text: string): Record<string, unknown> | unknown[] | null {
   const raw = String(text || '')
     .replace(/```(?:json)?/gi, '')
     .trim();
   if (!raw) return null;
   const candidates = [raw];
-  const first = raw.indexOf('{');
-  const last = raw.lastIndexOf('}');
-  if (first >= 0 && last > first) candidates.push(raw.slice(first, last + 1));
+  for (const [open, close] of [
+    ['{', '}'],
+    ['[', ']']
+  ] as const) {
+    const first = raw.indexOf(open);
+    const last = raw.lastIndexOf(close);
+    if (first >= 0 && last > first) candidates.push(raw.slice(first, last + 1));
+  }
+  const parsedCandidates: Array<Record<string, unknown> | unknown[]> = [];
   for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
-    } catch {
-      // 试下一个候选
+    // 模型偶尔会留尾逗号；去掉后再试一次，不要因为一个逗号整次核对失败。
+    for (const attempt of [candidate, candidate.replace(/,\s*([}\]])/g, '$1')]) {
+      try {
+        const parsed = JSON.parse(attempt);
+        if (parsed && typeof parsed === 'object') {
+          parsedCandidates.push(parsed as Record<string, unknown> | unknown[]);
+          break;
+        }
+      } catch {
+        // 试下一个候选
+      }
     }
   }
-  return null;
+  if (!parsedCandidates.length) return null;
+  const judgeKeys = ['judgments', 'verdicts', 'items', 'data', 'supplements'];
+  const objectWithJudgeKeys = parsedCandidates.find(
+    (parsed) => !Array.isArray(parsed) && judgeKeys.some((key) => key in parsed)
+  );
+  if (objectWithJudgeKeys) return objectWithJudgeKeys;
+  const array = parsedCandidates.find((parsed) => Array.isArray(parsed));
+  if (array) return array;
+  return parsedCandidates[0];
 }
 
 interface EvidenceRow {
@@ -297,7 +317,12 @@ async function judgeEvidence(
   items: VerifyItem[],
   signal: AbortSignal | undefined,
   _onProgress: Progress
-): Promise<{ items: VerifyItem[]; supplements: string[]; dropped: number } | null> {
+): Promise<{
+  items: VerifyItem[];
+  supplements: string[];
+  dropped: number;
+  formatError?: boolean;
+} | null> {
   const platform = activePlatform(settings);
   if (!platform || !platform.baseUrl.trim() || (needsApiKey(platform) && !platform.apiKey.trim()) || !platform.model.trim()) {
     return null;
@@ -353,9 +378,16 @@ async function judgeEvidence(
       ],
       { temperature: 0, maxTokens: 3000, signal: controller.signal, timeoutMs: 120000 }
     );
-    // 部分推理模型只把 JSON 放在 reasoning 里，content 为空；两边都试。
-    const parsed = parseJudgeJson(result.text || result.reasoning || '');
-    if (!parsed) throw new Error('判定结果不是 JSON');
+    // 部分推理模型只把 JSON 放在 reasoning 里，content 为空或只有一句解释；
+    // 两边分别解析，不要用 `text || reasoning` 让解释文字顶掉真正的 JSON。
+    const parsed =
+      parseJudgeJson(result.text || '') ?? parseJudgeJson(result.reasoning || '');
+    if (!parsed) {
+      // 判定只是“锦上添花”：格式不对就保留全部证据、标记未判定，
+      // 不要整次核对报错（用户会以为联网/Key 坏了）。
+      console.warn('[verify] 语义判定不是 JSON，保留证据并标记未判定');
+      return { items, supplements: [], dropped: 0, formatError: true };
+    }
 
     const evidenceById = new Map(evidence.map((row) => [row.id, row]));
     const evidenceByIndex = new Map(
@@ -412,7 +444,13 @@ async function judgeEvidence(
       })
     }));
 
-    const supplements = (Array.isArray(parsed.supplements) ? parsed.supplements : [])
+    const supplements = (
+      Array.isArray(parsed)
+        ? []
+        : Array.isArray(parsed.supplements)
+          ? parsed.supplements
+          : []
+    )
       .map((value: unknown) => clean(String(value || '')))
       .filter((value: string) => value.length >= 8 && value.length <= 180)
       .slice(0, 3);
@@ -747,6 +785,7 @@ export async function verifySummary(
   let judged = false;
   let dropped = 0;
   let judgeError = '';
+  let judgeNote = '';
   try {
     onProgress(items.length, items.length, '语义判定证据…');
     const verdict = await judgeEvidence(settings, info, results, signal, onProgress);
@@ -754,7 +793,10 @@ export async function verifySummary(
       finalItems = verdict.items;
       supplements = verdict.supplements;
       dropped = verdict.dropped;
-      judged = true;
+      judged = !verdict.formatError;
+      if (verdict.formatError) {
+        judgeNote = '模型没有按 JSON 返回判定结果，已保留检索证据；可换个模型重新生成，或在设置里关闭「总结前联网核对」。';
+      }
     }
   } catch (error) {
     if (signal?.aborted) throw error;
@@ -790,7 +832,8 @@ export async function verifySummary(
     failed,
     judged,
     dropped,
-    error: judgeError || undefined
+    error: judgeError || undefined,
+    note: judgeNote || undefined
   };
 }
 

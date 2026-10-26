@@ -436,6 +436,8 @@ app
 app.on('before-quit', () => {
   writeLog('startup.log', 'before-quit');
   isQuitting = true;
+  // 退出时视频还在播的话，恢复会话会“接着响”；先暂停所有标签的媒体。
+  tabManager?.pauseAllMedia();
   sessionPersister.persist();
   unregisterPetShortcuts();
   disposeUpdater();

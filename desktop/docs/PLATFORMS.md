@@ -4,7 +4,7 @@
 
 - AI：**28 家**（Anthropic 走原生 `/v1/messages` 协议，其余为 OpenAI 兼容）
 - 检索：**12 家**
-- ASR：**3 家**
+- ASR：**4 家**（含本地 whisper.cpp）
 
 ## AI 平台
 
@@ -67,11 +67,14 @@
 
 | ID | 名称 | 默认模型 | 内置模型 | 传输 | 参数风格 | 音频格式 |
 |---|---|---|---|---|---|---|
+| `local-whisper` | 本地 Whisper（whisper.cpp） | 用户选择 ggml 模型 | — | 本地进程 | — | 16k WAV（自动转） |
 | `siliconflow` | 硅基流动（SiliconFlow） | `FunAudioLLM/SenseVoiceSmall` | XingChenAGI/XingChenASR-Diarize-V3.0, FunAudioLLM/SenseVoiceSmall, XingChenAGI/XingChenGSR-V1.0, TeleAI/TeleSpeechASR | `multipart` | `minimal` | `m4a` |
 | `groq` | Groq | `whisper-large-v3-turbo` | whisper-large-v3-turbo, whisper-large-v3, distil-whisper-large-v3-en | `multipart` | `full` | `` |
 | `custom-asr` | 自定义（OpenAI 兼容 /audio/transcriptions） | `` | — | `multipart` | `auto` | `` |
 
 每个平台可配置：名称、Base URL、模型（下拉 + 手填）、API Key、官网、获取 Key；传输/参数风格/音频格式使用平台默认值，可在全局覆盖。
+
+本地 Whisper 走 `local-whisper` 引擎：在设置里选 `whisper-cli.exe` 与 `ggml-*.bin`，音频先用 FFmpeg 转成 16k 单声道 WAV，再由本机进程识别；不联网、不上传，线程数由 `asr.localThreads` 控制。JSON 输出解析失败时会退回标准输出时间轴；可执行文件/模型缺失会给出可照做的中文提示。设置页还提供一键下载：whisper.cpp v1.9.2（固定 SHA-256）与 tiny/base/small 模型（hf-mirror 失败回退 huggingface），下载完成自动填路径。
 
 ## 平台卡片能力
 

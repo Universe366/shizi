@@ -20,6 +20,8 @@ import type {
   AsrDoneEvent,
   AsrErrorEvent,
   AsrProgressEvent,
+  AsrDownloadProgress,
+  AsrLocalStatus,
   TranslateRequest,
   TranslateProgressEvent,
   TranslateDoneEvent,
@@ -134,6 +136,8 @@ export interface BsubApi {
   ): () => void;
   openSettings(): Promise<void>;
   onOpenSettings(cb: () => void): () => void;
+  /** 焦点在网页里时，主进程转发的可自定义快捷键动作 id */
+  onShortcut?(cb: (action: string) => void): () => void;
   isMediaPlaying(): Promise<{ ok: true; data: boolean }>;
   /** 播放/暂停当前标签页的媒体。 */
   toggleMedia(): Promise<{ ok: true; data: { playing: boolean } }>;
@@ -370,6 +374,11 @@ export interface BsubApi {
     platform: AiPlatform | AsrPlatform | SearchPlatform
   ): Promise<Result<{ ok: boolean; ms: number; sample: string }>>;
   openDataDir(): Promise<void>;
+  /** 打开系统文件选择框（本地 ASR 选 exe/模型用） */
+  pickFile?(options?: {
+    title?: string;
+    filters?: Array<{ name: string; extensions: string[] }>;
+  }): Promise<Result<string | null>>;
   openExternal(url: string): Promise<void>;
   backupData(): Promise<Result<{ canceled: boolean; path?: string }>>;
   restoreData(): Promise<Result<{ canceled: boolean; restored?: boolean }>>;
@@ -412,6 +421,14 @@ export interface BsubApi {
   onAsrProgress(cb: (event: AsrProgressEvent) => void): () => void;
   onAsrDone(cb: (event: AsrDoneEvent) => void): () => void;
   onAsrError(cb: (event: AsrErrorEvent) => void): () => void;
+  /** 本地 whisper.cpp：已下载的模型/可执行文件 */
+  localAsrStatus?(): Promise<Result<AsrLocalStatus>>;
+  downloadAsrModel?(id: 'tiny' | 'base' | 'small'): Promise<Result<{ path: string }>>;
+  downloadAsrBinary?(): Promise<Result<{ path: string }>>;
+  cancelAsrDownload?(key: string): void;
+  onAsrDownloadProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
+  /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
+  pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
 
   translate(payload: TranslateRequest): Promise<Result<{ requestId: string }>>;
   cancelTranslate(requestId: string): Promise<void>;

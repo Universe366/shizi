@@ -136,6 +136,28 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     ctx.send('ui:open-settings', null);
   });
 
+  ipcMain.handle(
+    'dialog:pick-file',
+    async (
+      _event,
+      options?: {
+        title?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+      }
+    ): Promise<Result<string | null>> => {
+      try {
+        const result = await dialog.showOpenDialog(ctx.win, {
+          title: options?.title || '选择文件',
+          properties: ['openFile'],
+          filters: options?.filters?.length ? options.filters : undefined
+        });
+        return { ok: true, data: result.canceled ? null : result.filePaths[0] || null };
+      } catch (error) {
+        return failure<string | null>(error);
+      }
+    }
+  );
+
 
   ipcMain.handle('settings:get', (): Result<ReturnType<typeof settingsSnapshot>> => {
     try {
@@ -172,6 +194,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshMediaState();
+        ctx.tabs.refreshShortcuts();
         setPetEnabled(saved.general.petEnabled === true);
         applyAutoStart(saved.general.autoStart === true);
         registerPetShortcuts();
@@ -238,6 +261,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         const saved = saveSettings(raw);
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
+        ctx.tabs.refreshShortcuts();
         await restartBridge(ctx.win);
         return { ok: true, data: { canceled: false, snapshot: settingsSnapshot() } };
       } catch (error) {

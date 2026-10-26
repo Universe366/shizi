@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FindResult, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
@@ -20,6 +20,8 @@ import { useDropImport } from './lib/dropImport';
 import { useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
+import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../../shared/shortcuts';
+import { strokeFromEvent } from '../../shared/shortcutKeys';
 
 export default function App() {
   const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -61,6 +63,11 @@ export default function App() {
     setTabPeek({ open: peek, width });
   }, []);
   const [bookmarked, setBookmarked] = useState(false);
+  // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
+  const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
+  const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
+  const shortcutMap = useMemo(() => effectiveShortcuts(shortcutOverrides), [shortcutOverrides]);
+  const runShortcutRef = useRef<(action: ShortcutActionId) => void>(() => undefined);
 
   // 网页视图的显隐统一由 useBrowserOverlayAuto 按「DOM 里有没有浮层」决定，
   // 不再在这里再用 pageOpen 写一遍：两个来源各说各的时，后到的调用会把
@@ -223,12 +230,14 @@ export default function App() {
     void window.bsub.getSettings().then((response) => {
       if (response.ok) {
         setFontScale(response.data.settings.general.fontScale || 1);
+        setShortcutOverrides(response.data.settings.general.shortcuts || {});
         applyLayout(response.data);
         if (!response.data.settings.general.wizardDone) setWizard(response.data);
       }
     });
     return window.bsub.onSettingsChanged((snapshot) => {
       setFontScale(snapshot.settings.general.fontScale || 1);
+      setShortcutOverrides(snapshot.settings.general.shortcuts || {});
       applyLayout(snapshot);
       if (snapshot.settings.general.wizardDone) setWizard(null);
       else setWizard(snapshot);
@@ -270,80 +279,21 @@ export default function App() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
 
-      if (event.altKey && !mod && key === 'r') {
-        event.preventDefault();
-        setReaderOpen(true);
+      // 固定键位：Esc 关闭当前浮层（不参与自定义）
+      if (event.key === 'Escape') {
+        if (readerOpen) {
+          setReaderOpen(false);
+          return;
+        }
+        if (findOpen) {
+          closeFind();
+          return;
+        }
+        if (hub) setHub(null);
         return;
       }
-      if (event.key === 'Escape' && readerOpen) {
-        setReaderOpen(false);
-        return;
-      }
-
-      if (mod && event.shiftKey && key === 't') {
-        event.preventDefault();
-        void window.bsub.reopenClosedTab();
-        return;
-      }
-      if (mod && event.shiftKey && key === 'a') {
-        event.preventDefault();
-        setHub('tabs');
-        return;
-      }
-      if (mod && !event.shiftKey && key === 'd') {
-        event.preventDefault();
-        void toggleBookmark();
-        return;
-      }
-      if (mod && key === 't') {
-        event.preventDefault();
-        void window.bsub.newTab();
-        return;
-      }
-      if (mod && event.shiftKey && key === 'p') {
-        event.preventDefault();
-        setPaletteOpen((value) => !value);
-        return;
-      }
-      if (mod && event.key === 'Tab') {
-        event.preventDefault();
-        const target = nextTabId(tabs, active?.id, event.shiftKey ? -1 : 1);
-        if (target) void window.bsub.activateTab(target);
-        return;
-      }
-      if (mod && !event.shiftKey && /^[1-9]$/.test(event.key)) {
-        event.preventDefault();
-        const target = tabIdByNumber(tabs, Number(event.key));
-        if (target) void window.bsub.activateTab(target);
-        return;
-      }
-      if (mod && key === 'k') {
-        event.preventDefault();
-        setSearchOpen(true);
-        return;
-      }
-      if (mod && key === 'w') {
-        event.preventDefault();
-        if (active) void window.bsub.closeTab(active.id);
-        return;
-      }
-      if (mod && key === 'l') {
-        event.preventDefault();
-        setAddressFocus((value) => value + 1);
-        return;
-      }
-      if (mod && key === 'f') {
-        event.preventDefault();
-        setFindOpen(true);
-        return;
-      }
-      if (mod && key === 'r') {
-        event.preventDefault();
-        void window.bsub.reload();
-        return;
-      }
+      // 固定：缩放
       if (mod && (event.key === '=' || event.key === '+')) {
         event.preventDefault();
         void window.bsub.zoomIn();
@@ -364,20 +314,12 @@ export default function App() {
         void window.bsub.reload();
         return;
       }
+      // 固定：Alt+数字 / Alt+左右
       if (event.altKey && /^[1-9]$/.test(event.key)) {
         const target = tabs[Number(event.key) - 1];
         if (target) {
           event.preventDefault();
           void window.bsub.activateTab(target.id);
-        }
-        return;
-      }
-      if (mod && event.key === 'Tab') {
-        event.preventDefault();
-        if (tabs.length > 1) {
-          const index = tabs.findIndex((tab) => tab.active);
-          const nextIndex = (index + (event.shiftKey ? -1 : 1) + tabs.length) % tabs.length;
-          void window.bsub.activateTab(tabs[nextIndex].id);
         }
         return;
       }
@@ -391,17 +333,30 @@ export default function App() {
         void window.bsub.forward();
         return;
       }
-      if (event.key === 'Escape' && findOpen) {
-        closeFind();
+      // 固定：Ctrl+1..9 定位标签（可自定义的是 Ctrl+Shift+1..4 面板）
+      if (mod && !event.shiftKey && /^[1-9]$/.test(event.key)) {
+        event.preventDefault();
+        const target = tabIdByNumber(tabs, Number(event.key));
+        if (target) void window.bsub.activateTab(target);
+        return;
       }
-      if (event.key === 'Escape' && hub) {
-        setHub(null);
-      }
+
+      // 可自定义动作：主界面和网页焦点共用同一套键位。
+      const action = actionForStroke(strokeFromEvent(event), shortcutMap, 'app');
+      if (!action) return;
+      event.preventDefault();
+      runShortcutRef.current(action);
     };
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, findOpen, findQuery, hub, readerOpen, tabs]);
+  }, [active, findOpen, findQuery, hub, readerOpen, shortcutMap, tabs]);
+
+  // 焦点在网页里时，主进程把配置好的快捷键以动作 id 转发过来。
+  useEffect(
+    () => window.bsub.onShortcut?.((action) => runShortcutRef.current(action as ShortcutActionId)),
+    []
+  );
 
   const handleSectionSelect = (next: Section) => {
     void window.bsub.exitFullscreen();
@@ -415,6 +370,7 @@ export default function App() {
       window.bsub.refreshView();
     }, 80);
   };
+  sectionHandlerRef.current = handleSectionSelect;
 
   const persistGeneral = async (patch: Record<string, unknown>) => {
     const response = await window.bsub.getSettings();
@@ -494,6 +450,71 @@ export default function App() {
       command.run();
     }
   }));
+
+  runShortcutRef.current = (action) => {
+    switch (action) {
+      case 'new-tab':
+        void window.bsub.newTab();
+        break;
+      case 'close-tab':
+        if (active) void window.bsub.closeTab(active.id);
+        break;
+      case 'reopen-tab':
+        void window.bsub.reopenClosedTab();
+        break;
+      case 'next-tab':
+      case 'prev-tab': {
+        const target = nextTabId(tabs, active?.id, action === 'next-tab' ? 1 : -1);
+        if (target) void window.bsub.activateTab(target);
+        break;
+      }
+      case 'focus-address':
+        setAddressFocus((value) => value + 1);
+        break;
+      case 'find':
+        setFindOpen(true);
+        break;
+      case 'search':
+        setSearchOpen(true);
+        break;
+      case 'palette':
+        setPaletteOpen((value) => !value);
+        break;
+      case 'settings':
+        setSettingsOpen(true);
+        break;
+      case 'reader':
+        setReaderOpen(true);
+        break;
+      case 'bookmark':
+        void toggleBookmark();
+        break;
+      case 'reload':
+        void window.bsub.reload();
+        break;
+      case 'tab-search':
+        setHub('tabs');
+        break;
+      case 'section-subtitles':
+        sectionHandlerRef.current('subtitles');
+        break;
+      case 'section-summary':
+        sectionHandlerRef.current('summary');
+        break;
+      case 'section-chat':
+        sectionHandlerRef.current('chat');
+        break;
+      case 'section-library':
+        sectionHandlerRef.current('library');
+        break;
+      case 'ask-selection':
+        setSection('chat');
+        window.setTimeout(() => window.dispatchEvent(new Event('bsub:ask-selection')), 150);
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <div

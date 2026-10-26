@@ -593,6 +593,12 @@ export interface AsrPlatform {
   paramStyle?: 'auto' | 'minimal' | 'full';
   audioFormat?: AsrFormat;
   keyField?: string;
+  /** 默认走 HTTP 平台；local-whisper 表示调用本机 whisper.cpp */
+  kind?: 'http' | 'local-whisper';
+  /** 本地 whisper.cpp 可执行文件（whisper-cli.exe） */
+  localExe?: string;
+  /** 本地 ggml 模型文件 */
+  localModel?: string;
 }
 
 export interface SearchPlatform {
@@ -646,6 +652,8 @@ export interface AsrSettings {
   timeoutSeconds: number;
   maxFileMb: number;
   overlapSeconds: number;
+  /** 本地 whisper.cpp 线程数 */
+  localThreads: number;
   autoOptimizeAfter: boolean;
   autoApplyAfter: boolean;
 }
@@ -690,6 +698,8 @@ export interface VerificationSummary {
   judged: boolean;
   dropped: number;
   error?: string;
+  /** 非致命提示（例如语义判定返回格式异常，证据已保留） */
+  note?: string;
 }
 
 export interface CorrectionRule {
@@ -838,6 +848,8 @@ export interface AppSettings {
     petVoiceShortcut: boolean;
     /** 打开对话快捷键 */
     petChatShortcut: boolean;
+    /** 应用内快捷键覆盖：动作 id → 存储格式（例如 Ctrl+Shift+Digit3） */
+    shortcuts: Record<string, string>;
     /** 桌宠待办（挂件里的小清单，存设置里避免清缓存丢失） */
     petTodos: PetTodo[];
     petY: number;
@@ -1086,6 +1098,20 @@ export interface AsrProgressEvent {
   stage: AsrStage;
   percent: number;
   message: string;
+}
+
+/** 本地 whisper.cpp 模型/可执行文件下载进度 */
+export interface AsrDownloadProgress {
+  key: string;
+  percent: number;
+  received: number;
+  total: number;
+  message: string;
+}
+
+export interface AsrLocalStatus {
+  models: Partial<Record<'tiny' | 'base' | 'small', string>>;
+  binary: string | null;
 }
 
 export interface AsrDoneEvent {

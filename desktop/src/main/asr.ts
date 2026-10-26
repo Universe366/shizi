@@ -15,6 +15,7 @@ import { fetchAudioRange, getAudioCandidates } from './page';
 import { loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
+import { resolveLocalWhisperPaths, runLocalWhisper } from './localAsr';
 
 const CHUNK_BYTES = 384 * 1024;
 
@@ -37,6 +38,11 @@ function activeAsr(settings: AppSettings): AsrPlatform {
     settings.asr.platforms.find((item) => item.id === settings.asr.activeId) ||
     settings.asr.platforms[0];
   if (!platform) throw new Error('没有可用的语音识别平台');
+  // 本地 whisper.cpp 不需要 Base URL / Key，只检查两个文件。
+  if (platform.kind === 'local-whisper') {
+    resolveLocalWhisperPaths(platform);
+    return platform;
+  }
   if (!platform.baseUrl.trim()) throw new Error('语音识别平台缺少 Base URL');
   if (!platform.model.trim()) throw new Error('语音识别平台缺少模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim())
@@ -528,6 +534,40 @@ function mergeChunks(
     .filter((line, index, all) => index === 0 || line.text !== all[index - 1].text);
 }
 
+/** 本地 ASR 用：把整段音轨转成 whisper.cpp 需要的 16k 单声道 WAV。 */
+async function convertToWav(
+  input: string,
+  dir: string,
+  duration: number,
+  onProgress: Progress,
+  signal?: AbortSignal
+): Promise<string> {
+  const output = path.join(dir, 'local-asr-16k.wav');
+  await runFfmpeg(
+    [
+      '-y',
+      '-i',
+      input,
+      '-vn',
+      '-ac',
+      '1',
+      '-ar',
+      '16000',
+      '-c:a',
+      'pcm_s16le',
+      '-progress',
+      'pipe:1',
+      '-nostats',
+      output
+    ],
+    duration,
+    onProgress,
+    signal,
+    '提取音频'
+  );
+  return output;
+}
+
 export async function transcribeFile(
   input: string,
   info: PageInfo,
@@ -537,8 +577,46 @@ export async function transcribeFile(
 ): Promise<{ lines: SubtitleLine[]; model: string; duration: number }> {
   const settings = settingsOverride || loadSettings();
   const platform = activeAsr(settings);
-  const format = chooseFormat(platform, settings.asr);
   const dir = path.dirname(input);
+
+  if (platform.kind === 'local-whisper') {
+    const { exe, model } = resolveLocalWhisperPaths(platform);
+    // 中间 WAV/JSON 放到临时目录：本地文件转写不应该在用户原目录里留大文件。
+    const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'bsub-local-asr-'));
+    try {
+      onProgress('convert', 0, '提取音频（16k 单声道）…');
+      const wav = await convertToWav(input, workDir, info.duration || 0, onProgress, signal);
+      onProgress('transcribe', 0, '本地 Whisper 识别中…');
+      const segments = await runLocalWhisper({
+        exe,
+        model,
+        wav,
+        language: settings.asr.language || 'auto',
+        threads: settings.asr.localThreads || 4,
+        outBase: path.join(workDir, 'local-asr'),
+        signal,
+        onProgress: (percent, message) => onProgress('transcribe', percent, message)
+      });
+      const lines = segments
+        .filter((segment) => segment.text.trim())
+        .map((segment) => ({
+          start: segment.start,
+          end: Math.max(segment.start + 0.3, segment.end),
+          text: segment.text
+        }))
+        .sort((a, b) => a.start - b.start);
+      if (!lines.length) throw new Error('本地 Whisper 没有返回可用文本');
+      onProgress('merge', 100, `本地识别完成，共 ${lines.length} 行`);
+      return { lines, model: `whisper.cpp · ${path.basename(model)}`, duration: info.duration };
+    } finally {
+      try {
+        fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
+  }
+  const format = chooseFormat(platform, settings.asr);
 
   let chunkSeconds = settings.asr.chunkSeconds;
   let chunks: string[] = [];

@@ -13,6 +13,8 @@ import type {
 } from '../shared/types';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
+import { parseShortcut } from '../shared/shortcutKeys';
+import { shortcutAction } from '../shared/shortcuts';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 
@@ -135,6 +137,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     petShotQuality: 'clear',
     petVoiceShortcut: true,
     petChatShortcut: true,
+    shortcuts: {},
     petTodos: [],
     searchEngine: 'bing',
     searchEngineMigrated: false,
@@ -183,6 +186,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     timeoutSeconds: 180,
     maxFileMb: 50,
     overlapSeconds: 4,
+    localThreads: 4,
     autoOptimizeAfter: false,
     autoApplyAfter: false
   },
@@ -424,6 +428,15 @@ function normalize(input: unknown): AppSettings {
       base.general.petShotQuality = raw.general.petShotQuality === 'small' ? 'small' : 'clear';
       base.general.petVoiceShortcut = raw.general.petVoiceShortcut !== false;
       base.general.petChatShortcut = raw.general.petChatShortcut !== false;
+      // 只保留已知动作 + 合法组合；坏值回退默认，避免旧配置把界面锁死。
+      const rawShortcuts = raw.general.shortcuts;
+      if (rawShortcuts && typeof rawShortcuts === 'object') {
+        for (const [id, value] of Object.entries(rawShortcuts as Record<string, unknown>)) {
+          if (!shortcutAction(id)) continue;
+          const text = String(value || '').trim();
+          if (text && parseShortcut(text)) base.general.shortcuts[id] = text;
+        }
+      }
       base.general.petButtons = Array.isArray(raw.general.petButtons)
         ? (raw.general.petButtons as unknown[])
             .map((item) => String(item))
@@ -611,7 +624,13 @@ function normalize(input: unknown): AppSettings {
             transport: item.transport || preset?.transport || 'multipart',
             paramStyle: item.paramStyle || preset?.paramStyle || 'auto',
             audioFormat: item.audioFormat || preset?.audioFormat || 'auto',
-            keyField: String(item.keyField || preset?.keyField || 'file')
+            keyField: String(item.keyField || preset?.keyField || 'file'),
+            kind:
+              item.kind === 'local-whisper' || preset?.kind === 'local-whisper'
+                ? 'local-whisper'
+                : undefined,
+            localExe: String(item.localExe || ''),
+            localModel: String(item.localModel || '')
           });
         }
         if (platforms.length) base.asr.platforms = platforms;
@@ -644,6 +663,10 @@ function normalize(input: unknown): AppSettings {
       const overlap = Number(raw.asr.overlapSeconds);
       if (Number.isFinite(overlap)) {
         base.asr.overlapSeconds = Math.min(30, Math.max(0, Math.round(overlap)));
+      }
+      const localThreads = Number(raw.asr.localThreads);
+      if (Number.isFinite(localThreads)) {
+        base.asr.localThreads = Math.min(32, Math.max(1, Math.round(localThreads)));
       }
       base.asr.autoOptimizeAfter = raw.asr.autoOptimizeAfter === true;
       base.asr.autoApplyAfter = raw.asr.autoApplyAfter === true;

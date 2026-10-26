@@ -12,6 +12,7 @@ import type {
 } from '../../../shared/types';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
+import { parseSubtitleText, subtitleFileNameHint } from '../../../shared/subtitles';
 import {
   clearTranslationResult,
   getTranslationResult,
@@ -537,8 +538,17 @@ export function SubtitlesPanel({
     );
     setLines(updated);
     if (track) clearTranslationResult(videoKeyRef.current, track.url);
-    if (track?.source === 'asr' && infoRef.current) {
-      setAsrResult(videoKeyRef.current, infoRef.current, updated);
+    if (
+      (track?.source === 'asr' || track?.source === 'import') &&
+      infoRef.current
+    ) {
+      setAsrResult(
+        videoKeyRef.current,
+        infoRef.current,
+        updated,
+        track.source,
+        track.lanDoc
+      );
     }
     setSuggestions(null);
     setSelectedSuggestions(new Set());
@@ -648,24 +658,34 @@ export function SubtitlesPanel({
             setError('播放器还没有加载完当前视频，已暂停读取字幕；请稍等后点「重试」');
             return;
           }
-          // 转录结果缓存在内存里：点刷新时如果本视频没有官方轨，不要把它弄丢。
+          // 转录/导入结果缓存在内存里：点刷新时如果本视频没有官方轨，不要把它弄丢。
           const cachedAsr = getAsrResult(videoKey);
-          const asrTrack: SubtitleTrack = {
-            lan: 'asr',
-            lanDoc: '语音转录',
-            url: 'asr://local',
+          const localTrack: SubtitleTrack = {
+            lan: cachedAsr?.source === 'import' ? 'import' : 'asr',
+            lanDoc: cachedAsr?.label || '语音转录',
+            url: cachedAsr?.url || 'asr://local',
             isAi: false,
             aiStatus: null,
-            source: 'asr'
+            source: cachedAsr?.source || 'asr'
           };
           const displayTracks = cachedAsr
-            ? [...tracks.filter((item) => item.source !== 'asr'), asrTrack]
+            ? [
+                ...tracks.filter(
+                  (item) => item.source !== 'asr' && item.source !== 'import'
+                ),
+                localTrack
+              ]
             : tracks;
           setBundle({ ...subtitlesResult.data, tracks: displayTracks });
           const initialTrack =
-            cachedAsr && tracks.length === 0 ? asrTrack : pickTrack(tracks, infoData);
+            cachedAsr && tracks.length === 0 ? localTrack : pickTrack(tracks, infoData);
           setTrack(initialTrack);
-          if (initialTrack?.source === 'asr' && cachedAsr) setLines(cachedAsr.lines);
+          if (
+            (initialTrack?.source === 'asr' || initialTrack?.source === 'import') &&
+            cachedAsr
+          ) {
+            setLines(cachedAsr.lines);
+          }
           setTrackNonce((value) => value + 1);
           if (tracks.length > 1) {
             const initialUrl = initialTrack?.url || '';
@@ -1047,6 +1067,57 @@ export function SubtitlesPanel({
     window.setTimeout(() => setSaveMessage(''), 2000);
   };
 
+  const importSubtitles = async () => {
+    if (!info) return;
+    setError('');
+    const response = await window.bsub.pickSubtitleFile?.();
+    if (!response) return;
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    if (!response.data) return;
+    const parsed = parseSubtitleText(response.data.text);
+    if (!parsed.length) {
+      setError(
+        subtitleFileNameHint(response.data.name) ||
+          '没有解析出带时间轴的字幕行；请确认是 .srt / .vtt 文件'
+      );
+      return;
+    }
+    const imported: SubtitleTrack = {
+      lan: 'import',
+      lanDoc: `导入：${response.data.name}`,
+      url: 'import://local',
+      isAi: false,
+      aiStatus: null,
+      source: 'import'
+    };
+    setTrack(imported);
+    setLines(parsed);
+    setBundle((previous) =>
+      previous
+        ? {
+            ...previous,
+            tracks: [
+              ...previous.tracks.filter((item) => item.source !== 'import'),
+              imported
+            ]
+          }
+        : previous
+    );
+    setTranslated(null);
+    setTranslatedLang('');
+    setViewMode('original');
+    setSuggestions(null);
+    clearTranslationResult(videoKey, 'import://local');
+    if (infoRef.current) {
+      setAsrResult(videoKey, infoRef.current, parsed, 'import', imported.lanDoc);
+    }
+    setSaveMessage(`已导入 ${parsed.length} 行字幕`);
+    window.setTimeout(() => setSaveMessage(''), 3500);
+  };
+
   const startAsr = async () => {
     if (!info || asrRunning) return;
     const requestId = (() => {
@@ -1148,6 +1219,14 @@ export function SubtitlesPanel({
             onClick={() => void startAsr()}
           >
             {asrRunning ? <Loader2 size={12} className="spin" /> : '转写'}
+          </button>
+          <button
+            className="mini-btn"
+            disabled={!info}
+            title="导入本地 .srt / .vtt 字幕文件（不联网）"
+            onClick={() => void importSubtitles()}
+          >
+            导入字幕
           </button>
           <button
             className="mini-btn"

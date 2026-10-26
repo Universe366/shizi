@@ -266,12 +266,12 @@ export function SummaryPanel({
       const cached = getAsrResult(videoKeyRef.current);
       if (!cached) return null;
       const asrTrack: SubtitleTrack = {
-        lan: 'asr',
-        lanDoc: '语音转录',
-        url: 'asr://local',
+        lan: cached.source === 'import' ? 'import' : 'asr',
+        lanDoc: cached.label,
+        url: cached.url,
         isAi: false,
         aiStatus: null,
-        source: 'asr'
+        source: cached.source
       };
       setInfo(cached.info);
       setTrack(asrTrack);
@@ -283,9 +283,9 @@ export function SummaryPanel({
       const cached = fallback();
       if (cached) return cached;
       if (needLogin) {
-        throw new Error('需要登录 B 站才能获取 AI 字幕；请先点「登录 B 站」，或点「转写」用音轨生成字幕后重试');
+        throw new Error('需要登录 B 站才能获取 AI 字幕；请先点「登录 B 站」，或点「转写」/「导入字幕」后重试');
       }
-      throw new Error('该视频没有官方字幕；请点「转写」用音轨生成字幕后重试');
+      throw new Error('该视频没有官方字幕；请点「转写」生成，或在字幕面板「导入字幕」后重试');
     }
 
     const body = await window.bsub.getTrackBody(chosen.url);

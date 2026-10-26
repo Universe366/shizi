@@ -21,6 +21,8 @@ import type {
   AsrDoneEvent,
   AsrErrorEvent,
   AsrProgressEvent,
+  AsrDownloadProgress,
+  AsrLocalStatus,
   TranslateRequest,
   TranslateProgressEvent,
   TranslateDoneEvent,
@@ -179,6 +181,7 @@ const api: BsubApi = {
   onPetShot: (cb) => on<{ action: 'image' | 'chat' | 'ocr'; dataUrl: string; width: number; height: number }>('pet:shot', cb),
   openSettings: () => ipcRenderer.invoke('app:open-settings') as Promise<void>,
   onOpenSettings: (cb: () => void) => on<null>('ui:open-settings', () => cb()),
+  onShortcut: (cb: (action: string) => void) => on<string>('app:shortcut', cb),
   isMediaPlaying: () =>
     ipcRenderer.invoke('media:playing') as Promise<{ ok: true; data: boolean }>,
   toggleMedia: () =>
@@ -495,6 +498,8 @@ const api: BsubApi = {
       Result<{ ok: boolean; ms: number; sample: string }>
     >,
   openDataDir: () => ipcRenderer.invoke('settings:open-data') as Promise<void>,
+  pickFile: (options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) =>
+    ipcRenderer.invoke('dialog:pick-file', options) as Promise<Result<string | null>>,
   openExternal: (url: string) => ipcRenderer.invoke('system:open-external', url) as Promise<void>,
   backupData: () =>
     ipcRenderer.invoke('data:backup') as Promise<
@@ -566,6 +571,19 @@ const api: BsubApi = {
   onAsrProgress: (cb: (event: AsrProgressEvent) => void) => on<AsrProgressEvent>('asr:progress', cb),
   onAsrDone: (cb: (event: AsrDoneEvent) => void) => on<AsrDoneEvent>('asr:done', cb),
   onAsrError: (cb: (event: AsrErrorEvent) => void) => on<AsrErrorEvent>('asr:error', cb),
+  localAsrStatus: () =>
+    ipcRenderer.invoke('asr:local-status') as Promise<Result<AsrLocalStatus>>,
+  downloadAsrModel: (id: 'tiny' | 'base' | 'small') =>
+    ipcRenderer.invoke('asr:download-model', id) as Promise<Result<{ path: string }>>,
+  downloadAsrBinary: () =>
+    ipcRenderer.invoke('asr:download-binary') as Promise<Result<{ path: string }>>,
+  cancelAsrDownload: (key: string) => ipcRenderer.send('asr:cancel-download', key),
+  onAsrDownloadProgress: (cb: (event: AsrDownloadProgress) => void) =>
+    on<AsrDownloadProgress>('asr:download-progress', cb),
+  pickSubtitleFile: () =>
+    ipcRenderer.invoke('subtitle:pick-file') as Promise<
+      Result<{ name: string; text: string } | null>
+    >,
 
   translate: (payload: TranslateRequest) =>
     ipcRenderer.invoke('translate:start', payload) as Promise<Result<{ requestId: string }>>,

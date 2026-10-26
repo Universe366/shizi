@@ -12,6 +12,7 @@ import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
 import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
+import { ShortcutsSection } from './settings/ShortcutsSection';
 import { ReadingGroup } from './settings/ReadingGroup';
 import { SessionsGroup } from './settings/SessionsGroup';
 import { McpSection } from './settings/McpSection';
@@ -1072,6 +1073,7 @@ export function SettingsPanel({
       {show('efficiency') && (
         <>
           <EfficiencyGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>
       )}

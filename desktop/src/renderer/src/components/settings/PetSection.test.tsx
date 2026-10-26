@@ -73,7 +73,7 @@ describe('PetSection', () => {
     expect(onChange).toHaveBeenCalledWith({ petDoubleClickAction: 'none' });
   });
 
-  it('名字最长 12 字，快捷键可关闭', () => {
+  it('名字最长 12 字', () => {
     installBsub();
     const onChange = vi.fn();
     render(<PetSection value={general()} onChange={onChange} />);
@@ -83,9 +83,6 @@ describe('PetSection', () => {
     });
     const patch = onChange.mock.calls[0][0] as { petName: string };
     expect(patch.petName.length).toBeLessThanOrEqual(12);
-
-    fireEvent.click(screen.getByLabelText(/全局截图快捷键/));
-    expect(onChange).toHaveBeenCalledWith({ petShortcut: false });
   });
 
   it('「立即显示」会同时勾上启用', () => {
@@ -95,26 +92,6 @@ describe('PetSection', () => {
     fireEvent.click(screen.getByText('立即显示'));
     expect(onChange).toHaveBeenCalledWith({ petEnabled: true });
     expect(api.setPetEnabled).toHaveBeenCalledWith(true);
-  });
-});
-
-describe('PetSection 快捷键状态', () => {
-  afterEach(cleanup);
-
-  it('注册成功与失败都会回显', async () => {
-    const api = installBsub();
-    api.petShortcutsStatus.mockResolvedValueOnce([
-      { id: 'shot', accelerator: 'Control+Alt+S', registered: false, error: '被其他程序占用' }
-    ]);
-    const { unmount } = render(<PetSection value={general()} onChange={vi.fn()} />);
-    expect(await screen.findByText(/注册失败/)).toBeTruthy();
-    unmount();
-
-    api.petShortcutsStatus.mockResolvedValueOnce([
-      { id: 'shot', accelerator: 'Control+Alt+S', registered: true, error: '' }
-    ]);
-    render(<PetSection value={general()} onChange={vi.fn()} />);
-    expect(await screen.findByText(/已注册/)).toBeTruthy();
   });
 });
 

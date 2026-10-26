@@ -85,4 +85,47 @@ describe('AsrSection', () => {
     expect(p.addAsrPlatform).toHaveBeenCalled();
     expect(p.removeAsrPlatform).toHaveBeenCalled();
   });
+
+  it('本地 Whisper 显示文件与线程设置，并可测试环境', () => {
+    const local = {
+      ...platform,
+      id: 'local-whisper',
+      name: '本地 Whisper',
+      kind: 'local-whisper',
+      baseUrl: '',
+      apiKey: '',
+      model: '',
+      localExe: 'D:\\whisper\\whisper-cli.exe',
+      localModel: 'D:\\whisper\\ggml-base.bin'
+    } as unknown as AsrPlatform;
+    const localDraft = {
+      ...draft,
+      asr: {
+        ...draft.asr,
+        activeId: 'local-whisper',
+        platforms: [local],
+        localThreads: 6
+      }
+    } as unknown as AppSettings;
+    const p = props({ draft: localDraft, activeAsr: local });
+    render(<AsrSection {...p} />);
+    expect(screen.getByDisplayValue('D:\\whisper\\whisper-cli.exe')).toBeTruthy();
+    expect(screen.getByDisplayValue('D:\\whisper\\ggml-base.bin')).toBeTruthy();
+    expect(screen.getByDisplayValue('6')).toBeTruthy();
+    fireEvent.click(button('测试本地环境'));
+    expect(p.testConnection).toHaveBeenCalledWith('asr');
+    expect(screen.queryByText('获取模型列表')).toBeNull();
+  });
+
+  it('没有本地平台时可以一键添加', () => {
+    const p = props();
+    render(<AsrSection {...p} />);
+    fireEvent.click(button('添加本地 Whisper 平台'));
+    const patch = p.updateAsr.mock.calls[0][0] as {
+      activeId: string;
+      platforms: AsrPlatform[];
+    };
+    expect(patch.activeId).toBe('local-whisper');
+    expect(patch.platforms.some((item) => item.kind === 'local-whisper')).toBe(true);
+  });
 });
