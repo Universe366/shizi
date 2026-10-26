@@ -24,6 +24,7 @@ import { useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
 import { DictationListener } from './components/DictationListener';
+import { applyAppearance } from './lib/appearance';
 import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../../shared/shortcuts';
 import { strokeFromEvent } from '../../shared/shortcutKeys';
 
@@ -233,6 +234,7 @@ export default function App() {
       if (response.ok) {
         setFontScale(response.data.settings.general.fontScale || 1);
         setShortcutOverrides(response.data.settings.general.shortcuts || {});
+        applyAppearance(response.data.settings.general);
         applyLayout(response.data);
         if (!response.data.settings.general.wizardDone) setWizard(response.data);
       }
@@ -240,6 +242,7 @@ export default function App() {
     return window.bsub.onSettingsChanged((snapshot) => {
       setFontScale(snapshot.settings.general.fontScale || 1);
       setShortcutOverrides(snapshot.settings.general.shortcuts || {});
+      applyAppearance(snapshot.settings.general);
       applyLayout(snapshot);
       if (snapshot.settings.general.wizardDone) setWizard(null);
       else setWizard(snapshot);

@@ -1043,6 +1043,12 @@ export interface AppSettings {
       enabled: boolean;
       accelerator: string;
     };
+    /** 主题强调色（#rrggbb） */
+    accentColor: string;
+    /** 界面密度 */
+    density: 'comfortable' | 'compact';
+    /** 自定义 CSS（追加到界面） */
+    customCss: string;
   };
   ai: {
     activeId: string;

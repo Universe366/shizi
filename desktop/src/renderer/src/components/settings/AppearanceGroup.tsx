@@ -23,6 +23,34 @@ export function AppearanceGroup({ value, onChange }: Props) {
         <option value="dark">深色</option>
       </select>
 
+      <div className="settings-label">主题色</div>
+      <div className="settings-inline">
+        <input
+          className="settings-color"
+          type="color"
+          value={value.accentColor || '#4f6f8f'}
+          onChange={(event) => onChange({ accentColor: event.target.value })}
+        />
+        <input
+          className="settings-input"
+          value={value.accentColor || '#4f6f8f'}
+          spellCheck={false}
+          onChange={(event) => onChange({ accentColor: event.target.value })}
+        />
+      </div>
+
+      <div className="settings-label">界面密度</div>
+      <select
+        className="settings-input"
+        value={value.density || 'comfortable'}
+        onChange={(event) =>
+          onChange({ density: event.target.value as 'comfortable' | 'compact' })
+        }
+      >
+        <option value="comfortable">舒适</option>
+        <option value="compact">紧凑</option>
+      </select>
+
       <div className="settings-label">界面字号（{Math.round((value.fontScale || 1) * 100)}%）</div>
       <input
         className="settings-range"
@@ -149,6 +177,21 @@ export function AppearanceGroup({ value, onChange }: Props) {
         开机自动启动拾字
       </label>
       <div className="settings-hint">使用系统登录项；关闭后下次启动不再自动运行。</div>
+
+      <details className="settings-advanced">
+        <summary>自定义 CSS（高级）</summary>
+        <div className="settings-hint">
+          会追加到界面样式表末尾，改错可能导致界面错位；清空即可恢复。
+        </div>
+        <textarea
+          className="settings-textarea"
+          rows={6}
+          spellCheck={false}
+          placeholder="例如：.chat-bubble { line-height: 1.7; }"
+          value={value.customCss || ''}
+          onChange={(event) => onChange({ customCss: event.target.value })}
+        />
+      </details>
     </SettingsSection>
   );
 }

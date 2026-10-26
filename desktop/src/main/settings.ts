@@ -205,7 +205,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     quickAsk: {
       enabled: false,
       accelerator: 'Control+Alt+X'
-    }
+    },
+    accentColor: '#4f6f8f',
+    density: 'comfortable',
+    customCss: ''
   },
   ai: {
     activeId: 'deepseek',
@@ -599,6 +602,12 @@ function normalize(input: unknown): AppSettings {
         base.general.quickAsk.enabled = quickAsk.enabled === true;
         const accelerator = String(quickAsk.accelerator || '').trim().slice(0, 60);
         base.general.quickAsk.accelerator = accelerator || 'Control+Alt+X';
+      }
+      const accent = String(raw.general.accentColor || '').trim();
+      base.general.accentColor = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#4f6f8f';
+      base.general.density = raw.general.density === 'compact' ? 'compact' : 'comfortable';
+      if (typeof raw.general.customCss === 'string') {
+        base.general.customCss = raw.general.customCss.slice(0, 20000);
       }
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])

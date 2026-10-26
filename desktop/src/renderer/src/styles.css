@@ -3237,6 +3237,42 @@ button:disabled {
   background: var(--accent-soft);
 }
 
+.settings-color {
+  width: 38px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+/* 紧凑密度：只压缩设置/对话这类列表型界面的留白，不影响阅读区。 */
+html[data-density='compact'] .settings-section {
+  padding-top: 7px;
+  padding-bottom: 8px;
+}
+
+html[data-density='compact'] .settings-section + .settings-section {
+  margin-top: 7px;
+}
+
+html[data-density='compact'] .chat-msg {
+  margin-bottom: 6px;
+}
+
+html[data-density='compact'] .chat-bubble {
+  padding: 6px 8px;
+}
+
+html[data-density='compact'] .usage-table th,
+html[data-density='compact'] .usage-table td {
+  padding: 2px 5px;
+}
+
+html[data-density='compact'] .chat-history-row {
+  padding: 1px 4px;
+}
+
 .shortcut-list {
   display: flex;
   flex-direction: column;

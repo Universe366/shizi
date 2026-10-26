@@ -129,6 +129,26 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('外观：主题色 / 密度 / 自定义 CSS', () => {
+    const settings = loadSettings();
+    settings.general.accentColor = '#123abc';
+    settings.general.density = 'compact';
+    settings.general.customCss = '.x { color: red; }';
+    saveSettings(settings);
+    const loaded = loadSettings();
+    expect(loaded.general.accentColor).toBe('#123abc');
+    expect(loaded.general.density).toBe('compact');
+    expect(loaded.general.customCss).toContain('color: red');
+
+    settings.general.accentColor = 'not-a-color';
+    settings.general.density = 'comfortable';
+    settings.general.customCss = '';
+    saveSettings(settings);
+    const fallback = loadSettings();
+    expect(fallback.general.accentColor).toBe('#4f6f8f');
+    expect(fallback.general.customCss).toBe('');
+  });
+
   it('快捷取词设置保存', () => {
     const settings = loadSettings();
     settings.general.quickAsk = { enabled: true, accelerator: 'Control+Shift+X' };
