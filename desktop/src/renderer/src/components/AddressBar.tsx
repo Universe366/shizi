@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Globe, Home, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Globe, Home, Library, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
 import type { HistoryEntry, TabInfo } from '../../../shared/types';
 import { formatMediaRate } from '../../../shared/media';
 import type { HubSection } from './BrowserHub';
@@ -21,6 +21,7 @@ export function AddressBar({
   onOpenHub,
   onOpenReader,
   onOpenStart,
+  onOpenLibrary,
   onOpenSettings,
   hasUpdate = false
 }: {
@@ -31,6 +32,7 @@ export function AddressBar({
   onOpenHub: (section: HubSection) => void;
   onOpenReader: () => void;
   onOpenStart: () => void;
+  onOpenLibrary: () => void;
   onOpenSettings: () => void;
   hasUpdate?: boolean;
 }) {
@@ -315,6 +317,10 @@ export function AddressBar({
         onClick={onToggleBookmark}
       >
         <Star size={15} fill={bookmarked ? 'currentColor' : 'none'} />
+      </button>
+
+      <button className="nav-btn" title="库：字幕 / 总结 / 笔记 / 合集" onClick={onOpenLibrary}>
+        <Library size={15} />
       </button>
 
       <button className="nav-btn" title="起始页" onClick={onOpenStart}>

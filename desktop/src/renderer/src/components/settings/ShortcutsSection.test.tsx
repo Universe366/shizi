@@ -33,6 +33,8 @@ describe('ShortcutsSection', () => {
     render(<ShortcutsSection value={general()} onChange={vi.fn()} />);
     expect(screen.getAllByText('Ctrl + Shift + P').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Ctrl + Shift + 2').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Shift + →').length).toBeGreaterThan(0);
+    expect(screen.getByText('提高播放倍速')).toBeTruthy();
     expect(screen.getByText('打开面板：总结')).toBeTruthy();
     expect(screen.getByText('F11')).toBeTruthy();
     expect(await screen.findByText(/已注册：Control\+Alt\+S/)).toBeTruthy();

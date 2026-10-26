@@ -24,7 +24,19 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     singleKey: false,
     widget: true,
     site: '',
-    panel: false
+    panel: false,
+    shortcuts: {
+      'media-faster': 'Shift+ArrowRight',
+      'media-slower': 'Shift+ArrowLeft',
+      'media-reset': 'Alt+Shift+Digit0',
+      'media-panel': 'Alt+Shift+KeyS'
+    },
+    hints: {
+      faster: 'Shift + \u2192',
+      slower: 'Shift + \u2190',
+      reset: 'Alt + Shift + 0',
+      panel: 'Alt + Shift + S'
+    }
   };
 
   var host = null, shadow = null, panel = null, valueEl = null, numInput = null;
@@ -35,8 +47,7 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   var osdTimer = 0, commitTimer = 0, lastPostAt = 0, lastKeyAt = 0, mounted = false;
   var syncTimer = 0;
 
-  function clamp(value) {
-    var number = Number(value);
+  function clamp(value) {    var number = Number(value);
     if (!isFinite(number)) return 1;
     var rounded = Math.round(number * 100) / 100;
     return Math.min(MAX, Math.max(MIN, rounded));
@@ -494,8 +505,13 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
       ? '\u4e0b\u6b21\u6253\u5f00\u8fd9\u4e2a\u7ad9\u70b9\u81ea\u52a8\u7528 ' + fmt(state.rate)
       : '\u4e0d\u8bb0\u4f4f\u672c\u7ad9\u500d\u901f';
 
-    hintLeft.textContent = state.singleKey ? 'A / D \u8c03\u901f \u00b7 S \u590d\u4f4d' : 'Alt+Shift+\u2191/\u2193 \u8c03\u901f';
-    hintRight.textContent = state.singleKey ? '\u70b9\u89d2\u6807\u6253\u5f00' : '0 \u590d\u4f4d \u00b7 S \u5f00\u5173';
+    var hints = state.hints || {};
+    hintLeft.textContent = state.singleKey
+      ? 'A / D \u8c03\u901f \u00b7 S \u590d\u4f4d'
+      : (hints.faster || 'Shift + \u2192') + ' / ' + (hints.slower || 'Shift + \u2190') + ' \u8c03\u901f';
+    hintRight.textContent = state.singleKey
+      ? '\u70b9\u89d2\u6807\u6253\u5f00'
+      : (hints.reset || 'Alt + Shift + 0') + ' \u590d\u4f4d \u00b7 ' + (hints.panel || 'Alt + Shift + S') + ' \u5f00\u5173';
 
     emptyEl.style.display = mediaEls().length === 0 ? 'block' : 'none';
 
@@ -529,6 +545,31 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     return Boolean(el.closest('input,textarea,select,[contenteditable=""],[contenteditable="true"],[role="textbox"]'));
   }
 
+  // 快捷键用的 code（物理键位），与主进程/设置页保持一致。
+  function matchAccel(accel, event) {
+    if (!accel) return false;
+    var parts = String(accel).split('+');
+    var code = '';
+    var ctrl = false, alt = false, shift = false, meta = false;
+    for (var i = 0; i < parts.length; i += 1) {
+      var token = String(parts[i] || '').trim();
+      var lower = token.toLowerCase();
+      if (lower === 'ctrl' || lower === 'control') ctrl = true;
+      else if (lower === 'alt') alt = true;
+      else if (lower === 'shift') shift = true;
+      else if (lower === 'meta' || lower === 'win') meta = true;
+      else if (!code) code = token;
+    }
+    if (!code) return false;
+    return (
+      String(event.code || '') === code &&
+      !!event.ctrlKey === ctrl &&
+      !!event.altKey === alt &&
+      !!event.shiftKey === shift &&
+      !!event.metaKey === meta
+    );
+  }
+
   function onDocumentPointerDown(event) {
     if (!state.panel) return;
     var target = event.target;
@@ -547,31 +588,34 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     }
     if (isEditable(event.target)) return;
 
-    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
-      if (key === 'ArrowUp') {
-        event.preventDefault();
-        event.stopPropagation();
-        applyRate(state.rate + SMALL, true);
-        return;
-      }
-      if (key === 'ArrowDown') {
-        event.preventDefault();
-        event.stopPropagation();
-        applyRate(state.rate - SMALL, true);
-        return;
-      }
-      if (key === '0' || key === ')') {
-        event.preventDefault();
-        event.stopPropagation();
-        applyRate(1, true);
-        return;
-      }
-      if (key.toLowerCase() === 's') {
-        event.preventDefault();
-        event.stopPropagation();
-        togglePanel();
-        return;
-      }
+    var map = state.shortcuts || {};
+    if (matchAccel(map['media-faster'], event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      applyRate(state.rate + SMALL, true);
+      return;
+    }
+    if (matchAccel(map['media-slower'], event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      applyRate(state.rate - SMALL, true);
+      return;
+    }
+    if (matchAccel(map['media-reset'], event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      applyRate(1, true);
+      return;
+    }
+    if (matchAccel(map['media-panel'], event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      togglePanel();
+      return;
     }
 
     if (!state.singleKey) return;
@@ -601,6 +645,8 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
       state.singleKey = next.singleKey === true;
       state.widget = next.widget !== false;
       state.site = String(next.site || '');
+      if (next.shortcuts && typeof next.shortcuts === 'object') state.shortcuts = next.shortcuts;
+      if (next.hints && typeof next.hints === 'object') state.hints = next.hints;
       if (typeof next.panel === 'boolean') state.panel = next.panel;
       // 1× 代表“不干预”，避免把站点自带倍速控件改过的值强行拉回来。
       if (state.rate !== 1) applyMedia();

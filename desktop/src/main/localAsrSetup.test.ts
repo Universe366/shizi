@@ -6,7 +6,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ dir: '' }));
 
 vi.mock('electron', () => ({
-  app: { getPath: () => state.dir },
+  app: {
+    getPath: (name: string) =>
+      name === 'exe' ? path.join(state.dir, 'shizi.exe') : state.dir
+  },
   session: { defaultSession: { fetch: vi.fn() } }
 }));
 

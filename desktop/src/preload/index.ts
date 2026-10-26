@@ -575,8 +575,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('asr:local-status') as Promise<Result<AsrLocalStatus>>,
   downloadAsrModel: (id: 'tiny' | 'base' | 'small') =>
     ipcRenderer.invoke('asr:download-model', id) as Promise<Result<{ path: string }>>,
-  downloadAsrBinary: () =>
-    ipcRenderer.invoke('asr:download-binary') as Promise<Result<{ path: string }>>,
+  downloadAsrBinary: (variant: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124' = 'cpu') =>
+    ipcRenderer.invoke('asr:download-binary', variant) as Promise<Result<{ path: string }>>,
+  detectGpu: () =>
+    ipcRenderer.invoke('asr:gpu-info') as Promise<Result<{ names: string[] }>>,
   cancelAsrDownload: (key: string) => ipcRenderer.send('asr:cancel-download', key),
   onAsrDownloadProgress: (cb: (event: AsrDownloadProgress) => void) =>
     on<AsrDownloadProgress>('asr:download-progress', cb),

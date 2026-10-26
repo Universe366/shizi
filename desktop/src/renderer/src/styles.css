@@ -5493,6 +5493,28 @@ button:disabled {
   overflow-y: auto;
 }
 
+/* 库整页：不再挤在 320px 侧栏里，列表和详情可以并排看。 */
+.library-page-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  padding: 8px 16px 14px;
+  box-sizing: border-box;
+}
+
+.library-page-body > .panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
 .page-host .start-page {
   background:
     radial-gradient(circle at 18% 12%, rgba(237, 98, 139, 0.22), transparent 42%),

@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import {
   Captions,
-  Library,
   ListChecks,
   MessageSquare,
   ChevronLeft,
@@ -15,9 +14,6 @@ const ChatPanel = lazy(() =>
   import('./ChatPanel').then((module) => ({ default: module.ChatPanel }))
 );
 // 库与设置面板体积大、且只在首次切到对应 tab 时才需要，按需加载以缩短首屏。
-const LibraryPanel = lazy(() =>
-  import('./LibraryPanel').then((module) => ({ default: module.LibraryPanel }))
-);
 const SummaryPanel = lazy(() =>
   import('./SummaryPanel').then((module) => ({ default: module.SummaryPanel }))
 );
@@ -28,8 +24,7 @@ type IconComponent = ComponentType<{ size?: number | string; className?: string 
 const items: Array<{ id: Section; label: string; icon: IconComponent; hint: string }> = [
   { id: 'subtitles', label: '字幕', icon: Captions, hint: '当前视频的字幕与翻译' },
   { id: 'summary', label: '总结', icon: Sparkles, hint: 'AI 总结、章节与问答' },
-  { id: 'chat', label: '对话', icon: MessageSquare, hint: '基于字幕向 AI 提问' },
-  { id: 'library', label: '库', icon: Library, hint: '已入库的视频、总结与笔记' },
+  { id: 'chat', label: '对话', icon: MessageSquare, hint: '基于字幕向 AI 提问' }
 ];
 
 export function Sidebar({
@@ -317,14 +312,6 @@ export function Sidebar({
           {visited.has('summary') && (
             <Suspense fallback={null}>
               <SummaryPanel activeTab={activeTab} onOpenSettings={onOpenSettings} />
-            </Suspense>
-          )}
-        </div>
-
-        <div className={`side-panel${section === 'library' ? ' is-active' : ''}`}>
-          {visited.has('library') && (
-            <Suspense fallback={null}>
-              <LibraryPanel />
             </Suspense>
           )}
         </div>

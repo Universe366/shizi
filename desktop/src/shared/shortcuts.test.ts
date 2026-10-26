@@ -73,4 +73,12 @@ describe('shortcut actions', () => {
     expect(actionForStroke(selection, map, 'app')).toBeNull();
     expect(actionForStroke(selection, map, 'page')).toBe('ask-selection');
   });
+
+  it('倍速动作只交给页内脚本，不由主进程转发', () => {
+    const map = effectiveShortcuts();
+    const event = strokeFromEvent({ code: 'ArrowRight', shiftKey: true });
+    expect(map['media-faster']).toBe('Shift+ArrowRight');
+    expect(actionForStroke(event, map, 'app')).toBeNull();
+    expect(actionForStroke(event, map, 'page')).toBeNull();
+  });
 });

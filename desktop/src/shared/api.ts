@@ -424,7 +424,11 @@ export interface BsubApi {
   /** 本地 whisper.cpp：已下载的模型/可执行文件 */
   localAsrStatus?(): Promise<Result<AsrLocalStatus>>;
   downloadAsrModel?(id: 'tiny' | 'base' | 'small'): Promise<Result<{ path: string }>>;
-  downloadAsrBinary?(): Promise<Result<{ path: string }>>;
+  downloadAsrBinary?(variant?: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'): Promise<
+    Result<{ path: string }>
+  >;
+  /** 读取本机显卡名称（用于选择 CUDA / Vulkan 构建） */
+  detectGpu?(): Promise<Result<{ names: string[] }>>;
   cancelAsrDownload?(key: string): void;
   onAsrDownloadProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */

@@ -98,9 +98,21 @@ describe('页内倍速面板', () => {
     expect(video.rate()).toBe(3.5);
 
     window.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, shiftKey: true })
+      new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', shiftKey: true })
     );
     expect(api().getState().rate).toBe(3.6);
+  });
+
+  it('倍速快捷键可以自定义（Alt+Shift+↑）', () => {
+    const video = fakeVideo();
+    api().setState({
+      rate: 1,
+      shortcuts: { 'media-faster': 'Alt+Shift+ArrowUp' }
+    });
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', altKey: true, shiftKey: true })
+    );
+    expect(video.rate()).toBe(1.1);
   });
 
   it('单键模式 A / S / D 生效，默认关闭', () => {

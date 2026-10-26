@@ -12,6 +12,7 @@ import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
   actionForStroke,
   effectiveShortcuts,
+  shortcutDisplay,
   type ShortcutActionId
 } from '../shared/shortcuts';
 import { strokeFromEvent } from '../shared/shortcutKeys';
@@ -1162,15 +1163,30 @@ export class TabManager {
     singleKey: boolean;
     widget: boolean;
     site: string;
+    shortcuts: Record<string, string>;
+    hints: Record<string, string>;
   } {
     const general = loadSettings().general;
+    const shortcuts = effectiveShortcuts(general.shortcuts);
     return {
       rate: record.rate,
       pitch: general.mediaPreservePitch !== false,
       remember: general.mediaRememberSite !== false,
       singleKey: general.mediaSingleKey === true,
       widget: general.mediaWidget !== false,
-      site: mediaSiteKey(record.url)
+      site: mediaSiteKey(record.url),
+      shortcuts: {
+        'media-faster': shortcuts['media-faster'],
+        'media-slower': shortcuts['media-slower'],
+        'media-reset': shortcuts['media-reset'],
+        'media-panel': shortcuts['media-panel']
+      },
+      hints: {
+        faster: shortcutDisplay(shortcuts['media-faster']),
+        slower: shortcutDisplay(shortcuts['media-slower']),
+        reset: shortcutDisplay(shortcuts['media-reset']),
+        panel: shortcutDisplay(shortcuts['media-panel'])
+      }
     };
   }
 

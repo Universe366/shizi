@@ -1110,8 +1110,11 @@ export interface AsrDownloadProgress {
 }
 
 export interface AsrLocalStatus {
+  dir: string;
   models: Partial<Record<'tiny' | 'base' | 'small', string>>;
+  binaries: Partial<Record<'cpu' | 'vulkan' | 'cuda118' | 'cuda124', string>>;
   binary: string | null;
+  note: string;
 }
 
 export interface AsrDoneEvent {

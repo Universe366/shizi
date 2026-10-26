@@ -10,6 +10,7 @@
   "asr:cancel-download",
   "asr:download-binary",
   "asr:download-model",
+  "asr:gpu-info",
   "asr:local-status",
   "asr:transcribe",
   "batch:cancel",

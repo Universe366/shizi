@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import type { AsrPlatform } from '../shared/types';
+import { localAsrStatus } from './localAsrSetup';
 
 export interface LocalWhisperSegment {
   start: number;
@@ -20,8 +21,30 @@ function friendlyPath(value: string): string {
 
 /** 校验本地 whisper.cpp 配置；错误信息直接告诉用户要下什么文件。 */
 export function resolveLocalWhisperPaths(platform: AsrPlatform): LocalWhisperPaths {
-  const exe = friendlyPath(platform.localExe || '');
-  const model = friendlyPath(platform.localModel || '');
+  let exe = friendlyPath(platform.localExe || '');
+  let model = friendlyPath(platform.localModel || '');
+  // 模型目录迁移过（userData → 安装目录）时，旧路径会失效；
+  // 这里按“已下载的构建/模型”兜底，避免用户升级后突然不能转写。
+  // 单元测试/非 Electron 环境下 localAsrStatus 不可用，忽略即可。
+  let installed: ReturnType<typeof localAsrStatus> | null = null;
+  const status = () => {
+    if (installed) return installed;
+    try {
+      installed = localAsrStatus();
+    } catch {
+      installed = null;
+    }
+    return installed;
+  };
+  if (!exe || !fs.existsSync(exe)) {
+    const found = status();
+    if (found?.binary) exe = found.binary;
+  }
+  if (!model || !fs.existsSync(model)) {
+    const found = status();
+    const first = found?.models.tiny || found?.models.base || found?.models.small;
+    if (first) model = first;
+  }
   if (!exe) {
     throw new Error(
       '本地 Whisper：请选择 whisper.cpp 的可执行文件（Windows 一般是 whisper-cli.exe）'
@@ -186,11 +209,13 @@ export async function runLocalWhisper(options: RunOptions): Promise<LocalWhisper
         resolve();
         return;
       }
-      reject(
-        new Error(
-          `whisper.cpp 退出码 ${code}${stderr.trim() ? `：${stderr.trim().slice(-300)}` : ''}`
-        )
-      );
+      const reason = stderr.trim().slice(-300);
+      const hint = /vulkan/i.test(stderr)
+        ? '（Vulkan 初始化失败：更新显卡驱动，或改用 CPU 构建）'
+        : /cuda|cublas/i.test(stderr)
+          ? '（CUDA 初始化失败：确认 NVIDIA 驱动支持该 CUDA 版本，或改用 Vulkan / CPU）'
+          : '';
+      reject(new Error(`whisper.cpp 退出码 ${code}${reason ? `：${reason}` : ''}${hint}`));
     });
   });
 

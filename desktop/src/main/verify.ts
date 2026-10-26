@@ -367,21 +367,49 @@ async function judgeEvidence(
   const forward = () => controller.abort();
   signal?.addEventListener('abort', forward, { once: true });
   try {
+    const system = '你是严格的事实核查员，只依据给定证据判断，不补脑、不猜。';
     const result = await chatOnce(
       platform,
       [
-        {
-          role: 'system',
-          content: '你是严格的事实核查员，只依据给定证据判断，不补脑、不猜。'
-        },
+        { role: 'system', content: system },
         { role: 'user', content: prompt }
       ],
-      { temperature: 0, maxTokens: 3000, signal: controller.signal, timeoutMs: 120000 }
+      { temperature: 0, maxTokens: 5000, signal: controller.signal, timeoutMs: 120000 }
     );
     // 部分推理模型只把 JSON 放在 reasoning 里，content 为空或只有一句解释；
     // 两边分别解析，不要用 `text || reasoning` 让解释文字顶掉真正的 JSON。
-    const parsed =
-      parseJudgeJson(result.text || '') ?? parseJudgeJson(result.reasoning || '');
+    let parsed = parseJudgeJson(result.text || '') ?? parseJudgeJson(result.reasoning || '');
+    if (!parsed) {
+      // 与插件一致：再用紧凑的 claim/evidence 格式重试一次。
+      // 很多模型在长 ID（E1/E2）格式上会写成说明文，换短格式就能稳定出 JSON。
+      console.warn('[verify] 判定不是 JSON，改用紧凑格式重试');
+      const compact = [
+        '你是事实核对助手。下面每条是视频字幕里的一句话，以及检索到的网页证据。',
+        'verdict 只能是 support / refute / irrelevant；support/refute 的 quote 必须从证据里逐字摘 4~50 字。',
+        '只输出 JSON，不要解释、不要 Markdown 代码块：',
+        '{"verdicts":[{"claim":1,"evidence":1,"verdict":"support","quote":"证据里的原文"}]}',
+        ...evidence.map(
+          (row) =>
+            `[句 ${row.itemIndex + 1}] ${String(row.item.line || '').slice(0, 180)}\n` +
+            `  证据 ${row.itemIndex + 1}-${row.refIndex + 1}：${String(row.reference.title || '').slice(0, 120)}｜${String(row.reference.snippet || '').slice(0, 320)}`
+        )
+      ].join('\n');
+      const retry = await chatOnce(
+        platform,
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: compact }
+        ],
+        { temperature: 0.1, maxTokens: 2500, signal: controller.signal, timeoutMs: 120000 }
+      );
+      parsed = parseJudgeJson(retry.text || '') ?? parseJudgeJson(retry.reasoning || '');
+      if (!parsed) {
+        console.warn(
+          '[verify] 紧凑格式仍不是 JSON：',
+          String(retry.text || retry.reasoning || '').slice(0, 300)
+        );
+      }
+    }
     if (!parsed) {
       // 判定只是“锦上添花”：格式不对就保留全部证据、标记未判定，
       // 不要整次核对报错（用户会以为联网/Key 坏了）。

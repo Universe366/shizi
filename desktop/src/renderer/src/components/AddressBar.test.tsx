@@ -52,6 +52,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onOpenHub: vi.fn(),
     onOpenReader: vi.fn(),
     onOpenStart: vi.fn(),
+    onOpenLibrary: vi.fn(),
     onOpenSettings: vi.fn(),
     ...overrides
   };
@@ -102,6 +103,9 @@ describe('AddressBar', () => {
 
     fireEvent.click(screen.getByTitle('起始页'));
     expect(p.onOpenStart).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle(/^库：/));
+    expect(p.onOpenLibrary).toHaveBeenCalled();
 
     fireEvent.click(screen.getByTitle('菜单'));
     fireEvent.click(screen.getByText('历史记录'));

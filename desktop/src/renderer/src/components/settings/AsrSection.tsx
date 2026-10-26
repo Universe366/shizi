@@ -40,6 +40,10 @@ export function AsrSection({
   const [localStatus, setLocalStatus] = useState<AsrLocalStatus | null>(null);
   const [download, setDownload] = useState<AsrDownloadProgress | null>(null);
   const [modelChoice, setModelChoice] = useState<'tiny' | 'base' | 'small'>('base');
+  const [binaryVariant, setBinaryVariant] = useState<
+    'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
+  >('cpu');
+  const [gpuNames, setGpuNames] = useState<string[]>([]);
 
   const refreshStatus = () => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -94,11 +98,11 @@ export function AsrSection({
     const response =
       kind === 'model'
         ? await window.bsub.downloadAsrModel?.(modelChoice)
-        : await window.bsub.downloadAsrBinary?.();
+        : await window.bsub.downloadAsrBinary?.(binaryVariant);
     if (!response) return;
     if (!response.ok) {
       setDownload({
-        key: kind === 'model' ? `model:${modelChoice}` : 'binary',
+        key: kind === 'model' ? `model:${modelChoice}` : `binary:${binaryVariant}`,
         percent: 0,
         received: 0,
         total: 0,
@@ -110,6 +114,17 @@ export function AsrSection({
     else updateAsrPlatform({ localExe: response.data.path });
     setDownload(null);
     refreshStatus();
+  };
+
+  const detectGpu = async () => {
+    const response = await window.bsub.detectGpu?.();
+    if (!response?.ok) return;
+    const names = response.data.names;
+    setGpuNames(names);
+    const text = names.join(' ').toLowerCase();
+    if (/nvidia|geforce|rtx|gtx|quadro/.test(text)) setBinaryVariant('cuda124');
+    else if (/amd|radeon|intel|arc/.test(text)) setBinaryVariant('vulkan');
+    else setBinaryVariant('cpu');
   };
 
   return (
@@ -225,13 +240,6 @@ export function AsrSection({
           >
             下载模型
           </button>
-          <button
-            className="mini-btn"
-            disabled={Boolean(download)}
-            onClick={() => void startDownload('binary')}
-          >
-            下载 whisper.cpp
-          </button>
           {download && download.percent > 0 && download.percent < 100 && (
             <button
               className="mini-btn"
@@ -244,6 +252,35 @@ export function AsrSection({
             </button>
           )}
         </div>
+        <div className="settings-inline">
+          <select
+            className="settings-input"
+            value={binaryVariant}
+            onChange={(event) =>
+              setBinaryVariant(
+                event.target.value as 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
+              )
+            }
+          >
+            <option value="cpu">CPU（通用，约 8MB）</option>
+            <option value="vulkan">Vulkan（AMD / NVIDIA / Intel，约 20MB）</option>
+            <option value="cuda118">NVIDIA CUDA 11.8（约 257MB）</option>
+            <option value="cuda124">NVIDIA CUDA 12.4（约 640MB）</option>
+          </select>
+          <button
+            className="mini-btn primary"
+            disabled={Boolean(download)}
+            onClick={() => void startDownload('binary')}
+          >
+            下载 whisper.cpp
+          </button>
+          <button className="mini-btn" disabled={Boolean(download)} onClick={() => void detectGpu()}>
+            检测显卡
+          </button>
+        </div>
+        {gpuNames.length > 0 && (
+          <div className="settings-hint">检测到显卡：{gpuNames.join(' / ')}</div>
+        )}
         {download && (
           <div className="settings-hint">
             {download.message}
@@ -256,10 +293,18 @@ export function AsrSection({
         )}
         <div className="settings-hint">
           已就绪：
-          {localStatus?.binary ? ' whisper.cpp ✓' : ' whisper.cpp 未下载'}
+          {localStatus?.binaries?.cuda124 ? ' CUDA 12.4 ✓' : ''}
+          {localStatus?.binaries?.cuda118 ? ' CUDA 11.8 ✓' : ''}
+          {localStatus?.binaries?.vulkan ? ' Vulkan ✓' : ''}
+          {localStatus?.binaries?.cpu ? ' CPU ✓' : ''}
+          {!localStatus?.binary ? ' whisper.cpp 未下载' : ''}
           {localStatus?.models?.tiny ? ' · tiny ✓' : ''}
           {localStatus?.models?.base ? ' · base ✓' : ''}
           {localStatus?.models?.small ? ' · small ✓' : ''}
+        </div>
+        <div className="settings-hint">
+          保存位置：{localStatus?.dir || '读取中…'}
+          {localStatus?.note ? `（${localStatus.note}）` : ''}
         </div>
         <div className="settings-inline">
           <button

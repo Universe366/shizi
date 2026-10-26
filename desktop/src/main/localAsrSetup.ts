@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { app, session } from 'electron';
 
 export type LocalModelId = 'tiny' | 'base' | 'small';
+export type LocalBinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
 
 interface RemoteFile {
   urls: string[];
@@ -44,14 +45,54 @@ export const LOCAL_MODELS: Record<LocalModelId, RemoteFile & { label: string }> 
   }
 };
 
-// whisper.cpp v1.9.2 的 Windows x64 CPU 构建；固定 URL + SHA-256。
-const BINARY_ZIP: RemoteFile & { version: string } = {
-  version: 'v1.9.2',
-  size: 8194445,
-  sha256: '49dcc16de826f20bd53d44f947a1ae49dfa81f86cad67a64d80820cb192d674a',
-  urls: [
-    'https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip'
-  ]
+// 计算后端：
+// - cpu / cuda：官方 ggml-org/whisper.cpp v1.9.2 构建；
+// - vulkan：lemonade-sdk/whisper.cpp-rocm 的 Windows Vulkan 构建（AMD / NVIDIA / Intel 通用）。
+// 所有包都固定 URL + SHA-256，避免上游 latest 漂移。
+export const LOCAL_BINARIES: Record<
+  LocalBinaryVariant,
+  RemoteFile & { label: string; dir: string; note: string }
+> = {
+  cpu: {
+    label: 'CPU（通用，约 8MB）',
+    note: '没有独立显卡或不想折腾时选这个。',
+    dir: 'whisper.cpp-cpu',
+    size: 8194445,
+    sha256: '49dcc16de826f20bd53d44f947a1ae49dfa81f86cad67a64d80820cb192d674a',
+    urls: [
+      'https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-bin-x64.zip'
+    ]
+  },
+  vulkan: {
+    label: 'Vulkan（AMD / NVIDIA / Intel，约 20MB）',
+    note: 'AMD 显卡推荐；需要显卡驱动带 Vulkan 运行时。',
+    dir: 'whisper.cpp-vulkan',
+    size: 21203995,
+    sha256: 'e0d20a0f92e31b98adc0faf71172efc810b701e6391a9d858ca045bff26f77cd',
+    urls: [
+      'https://github.com/lemonade-sdk/whisper.cpp-rocm/releases/download/v1.8.4/whisper-v1.8.4-windows-vulkan-x64.zip'
+    ]
+  },
+  cuda118: {
+    label: 'NVIDIA CUDA 11.8（约 257MB）',
+    note: '较旧的 NVIDIA 驱动 / 显卡选这个。',
+    dir: 'whisper.cpp-cuda118',
+    size: 269446789,
+    sha256: '1776668730f5594a0b15f930225779e863dd8280397f9ee7c6e47ccf82bbb203',
+    urls: [
+      'https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-cublas-11.8.0-bin-x64.zip'
+    ]
+  },
+  cuda124: {
+    label: 'NVIDIA CUDA 12.4（约 640MB）',
+    note: '较新的 NVIDIA 驱动推荐；包体较大。',
+    dir: 'whisper.cpp-cuda124',
+    size: 670611449,
+    sha256: '443110ddaad70d4290ab2e77179e31cf712035bbc4fad56bb4519a90c917b39c',
+    urls: [
+      'https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.2/whisper-cublas-12.4.0-bin-x64.zip'
+    ]
+  }
 };
 
 export interface DownloadProgress {
@@ -62,14 +103,62 @@ export interface DownloadProgress {
   message: string;
 }
 
-function whisperDir(): string {
-  const dir = path.join(app.getPath('userData'), 'models', 'whisper');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+function writable(dir: string): boolean {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 旧版本把模型放在 userData 里；换到安装目录后自动搬一次。 */
+function migrateLegacy(target: string): void {
+  const legacy = path.join(app.getPath('userData'), 'models', 'whisper');
+  if (path.resolve(legacy) === path.resolve(target)) return;
+  if (!fs.existsSync(legacy)) return;
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(legacy, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const from = path.join(legacy, entry.name);
+    const to = path.join(target, entry.name);
+    if (fs.existsSync(to)) continue;
+    try {
+      fs.renameSync(from, to);
+    } catch {
+      try {
+        fs.cpSync(from, to, { recursive: true });
+        fs.rmSync(from, { recursive: true, force: true });
+      } catch {
+        // 搬不动就留着，不影响新下载
+      }
+    }
+  }
+}
+
+/**
+ * 模型/二进制优先放软件安装目录（绿色版就是程序目录）；
+ * 安装到 Program Files 等不可写位置时退回 userData，并把实际目录显示在设置里。
+ */
+export function localAsrDir(): string {
+  const base = path.dirname(app.getPath('exe'));
+  const primary = path.join(base, 'models', 'whisper');
+  if (writable(primary)) {
+    migrateLegacy(primary);
+    return primary;
+  }
+  const fallback = path.join(app.getPath('userData'), 'models', 'whisper');
+  fs.mkdirSync(fallback, { recursive: true });
+  return fallback;
 }
 
 export function localModelPath(id: LocalModelId): string {
-  return path.join(whisperDir(), `ggml-${id}.bin`);
+  return path.join(localAsrDir(), `ggml-${id}.bin`);
 }
 
 function existingModel(id: LocalModelId): string | null {
@@ -174,7 +263,8 @@ export async function downloadLocalModel(
   return target;
 }
 
-function findWhisperExe(dir: string): string | null {  const queue = [dir];
+function findWhisperExe(dir: string): string | null {
+  const queue = [dir];
   while (queue.length) {
     const current = queue.shift() as string;
     let entries: fs.Dirent[] = [];
@@ -221,37 +311,109 @@ function extractZip(zip: string, dir: string): Promise<void> {
 }
 
 export async function downloadWhisperBinary(
+  variant: LocalBinaryVariant = 'cpu',
   onProgress: (progress: DownloadProgress) => void,
   signal?: AbortSignal
 ): Promise<string> {
   if (process.platform !== 'win32') {
     throw new Error('一键下载只支持 Windows；其他系统请手动选择 whisper-cli');
   }
-  const dir = whisperDir();
-  const existing = findWhisperExe(dir);
+  const source = LOCAL_BINARIES[variant];
+  if (!source) throw new Error('未知的 whisper.cpp 构建');
+  const dir = localAsrDir();
+  const target = path.join(dir, source.dir);
+  const existing = findWhisperExe(target);
   if (existing) return existing;
-  const zip = path.join(dir, `whisper-bin-x64-${BINARY_ZIP.version}.zip`);
-  if (!fs.existsSync(zip) || fs.statSync(zip).size !== BINARY_ZIP.size) {
-    await downloadTo(BINARY_ZIP, zip, 'binary', onProgress, signal);
+  const zip = path.join(dir, `${source.dir}.zip`);
+  if (!fs.existsSync(zip) || fs.statSync(zip).size !== source.size) {
+    await downloadTo(source, zip, `binary:${variant}`, onProgress, signal);
   }
-  onProgress({ key: 'binary', percent: 92, received: 0, total: 0, message: '正在解压…' });
-  const target = path.join(dir, 'whisper.cpp');
+  onProgress({
+    key: `binary:${variant}`,
+    percent: 92,
+    received: 0,
+    total: 0,
+    message: '正在解压…'
+  });
   fs.rmSync(target, { recursive: true, force: true });
   fs.mkdirSync(target, { recursive: true });
   await extractZip(zip, target);
   const exe = findWhisperExe(target);
   if (!exe) throw new Error('解压后没有找到 whisper-cli.exe');
   fs.rmSync(zip, { force: true });
-  onProgress({ key: 'binary', percent: 100, received: 0, total: 0, message: '已就绪' });
+  onProgress({
+    key: `binary:${variant}`,
+    percent: 100,
+    received: 0,
+    total: 0,
+    message: '已就绪'
+  });
   return exe;
 }
 
 /** 供设置页显示「已下载」状态：不触发任何网络请求。 */
-export function localAsrStatus(): { models: Partial<Record<LocalModelId, string>>; binary: string | null } {
+export function localAsrStatus(): {
+  dir: string;
+  models: Partial<Record<LocalModelId, string>>;
+  binaries: Partial<Record<LocalBinaryVariant, string>>;
+  binary: string | null;
+  note: string;
+} {
+  const dir = localAsrDir();
   const models: Partial<Record<LocalModelId, string>> = {};
   for (const id of Object.keys(LOCAL_MODELS) as LocalModelId[]) {
     const file = existingModel(id);
     if (file) models[id] = file;
   }
-  return { models, binary: findWhisperExe(whisperDir()) };
+  const binaries: Partial<Record<LocalBinaryVariant, string>> = {};
+  for (const variant of Object.keys(LOCAL_BINARIES) as LocalBinaryVariant[]) {
+    const exe = findWhisperExe(path.join(dir, LOCAL_BINARIES[variant].dir));
+    if (exe) binaries[variant] = exe;
+  }
+  // 0.38.26 之前下载的旧目录（whisper.cpp）按 CPU 构建继续可用。
+  if (!binaries.cpu) {
+    const legacy = findWhisperExe(path.join(dir, 'whisper.cpp'));
+    if (legacy) binaries.cpu = legacy;
+  }
+  const preferred: LocalBinaryVariant[] = ['cuda124', 'cuda118', 'vulkan', 'cpu'];
+  const found = preferred.find((variant) => binaries[variant]);
+  const primary = path.join(path.dirname(app.getPath('exe')), 'models', 'whisper');
+  const note = writable(primary) ? '模型保存在软件目录' : '安装目录不可写，已退回用户数据目录';
+  return {
+    dir,
+    models,
+    binaries,
+    binary: found ? binaries[found] || null : null,
+    note
+  };
+}
+
+/** 读取显卡名称，供「检测显卡」按钮选择 CUDA / Vulkan。 */
+export async function detectGpuNames(): Promise<string[]> {
+  if (process.platform !== 'win32') return [];
+  return new Promise((resolve) => {
+    const child = spawn(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name'
+      ],
+      { windowsHide: true }
+    );
+    let out = '';
+    child.stdout.on('data', (chunk) => {
+      out = `${out}${String(chunk)}`.slice(-4000);
+    });
+    child.on('error', () => resolve([]));
+    child.on('close', () =>
+      resolve(
+        out
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+      )
+    );
+  });
 }

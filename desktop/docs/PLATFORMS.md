@@ -74,7 +74,7 @@
 
 每个平台可配置：名称、Base URL、模型（下拉 + 手填）、API Key、官网、获取 Key；传输/参数风格/音频格式使用平台默认值，可在全局覆盖。
 
-本地 Whisper 走 `local-whisper` 引擎：在设置里选 `whisper-cli.exe` 与 `ggml-*.bin`，音频先用 FFmpeg 转成 16k 单声道 WAV，再由本机进程识别；不联网、不上传，线程数由 `asr.localThreads` 控制。JSON 输出解析失败时会退回标准输出时间轴；可执行文件/模型缺失会给出可照做的中文提示。设置页还提供一键下载：whisper.cpp v1.9.2（固定 SHA-256）与 tiny/base/small 模型（hf-mirror 失败回退 huggingface），下载完成自动填路径。
+本地 Whisper 走 `local-whisper` 引擎：在设置里选 `whisper-cli.exe` 与 `ggml-*.bin`，音频先用 FFmpeg 转成 16k 单声道 WAV，再由本机进程识别；不联网、不上传，线程数由 `asr.localThreads` 控制。JSON 输出解析失败时会退回标准输出时间轴；可执行文件/模型缺失会给出可照做的中文提示。设置页还提供一键下载：whisper.cpp 支持 **CPU / Vulkan（AMD/NVIDIA/Intel） / CUDA 11.8 / CUDA 12.4** 四种构建（固定 SHA-256），以及 tiny/base/small 模型（hf-mirror 失败回退 huggingface）；默认存到程序安装目录 `models/whisper`，安装目录不可写才退回 userData。Vulkan 构建来自 lemonade-sdk/whisper.cpp-rocm v1.8.4。
 
 ## 平台卡片能力
 

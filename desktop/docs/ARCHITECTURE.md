@@ -390,9 +390,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.26）；
+  - 桌面端 `desktop/package.json`（例如 0.38.27）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.26`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.27`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -559,10 +559,16 @@ node panel-test.js     # 至少跑这个
   可照做的中文提示，不要直接把 spawn 错误抛给用户。
 - 若以后接入 faster-whisper / sherpa-onnx，保持 `transcribeFile()` 这个入口不变，
   只替换 `runLocalWhisper()` 的实现。
-- 一键下载在 `localAsrSetup.ts`：固定模型/二进制的 SHA-256 与大小，下载到
-  `%APPDATA%\shizi\models\whisper`；二进制用 PowerShell `Expand-Archive` 解压后找
-  `whisper-cli.exe`。下载/解压进度通过 `asr:download-progress` 事件回报，取消走
+- 一键下载在 `localAsrSetup.ts`：固定模型/二进制的 SHA-256 与大小，默认下载到
+  `path.dirname(app.getPath('exe'))/models/whisper`（绿色版即程序目录），不可写才退回
+  userData；旧的 userData 模型会自动搬一次。
+- 二进制构建：`cpu` / `vulkan`（lemonade-sdk/whisper.cpp-rocm v1.8.4，AMD/NVIDIA/Intel）/
+  `cuda118` / `cuda124`，放在 `whisper.cpp-<variant>` 子目录；status 同时报告实际目录。
+  “检测显卡”调用 `Win32_VideoController`，NVIDIA→CUDA、AMD/Intel→Vulkan。
+- 下载/解压进度通过 `asr:download-progress` 事件回报，取消走
   `asr:cancel-download` + AbortController。
+- **库整页**：`LibraryPage` 复用 `LibraryPanel`，挂在 `.page-host` 下；侧栏不再有库入口，
+  地址栏库按钮 / 起始页 / 命令面板 / `Ctrl+Shift+4` 进入，Esc 关闭。
 - **导入字幕**：`shared/subtitles.ts` 解析 SRT/VTT；渲染层写进 `asrStore`
   （`source='import'`、`import://local`），与语音转录共用伪轨逻辑；刷新/总结/导出都可复用。
   不要把它写进 `library` 的官方字幕表，避免与 B 站轨混淆。
@@ -575,8 +581,11 @@ node panel-test.js     # 至少跑这个
 - 渲染层焦点：`App.tsx` 用 `actionForStroke(..., 'app')` 后统一执行动作；
   网页焦点：`tabs.ts` 的 `before-input-event` 用同一份 map（`refreshShortcuts()` 在保存后刷新）
   匹配 `scope=page|both` 的动作，`preventDefault` 后发 `app:shortcut`（动作 id）给渲染层。
-- 固定键位（缩放/F11/Esc/Ctrl+Shift+Q、Alt+数字、倍速）不要塞进自定义表，
+- 固定键位（缩放/F11/Esc/Ctrl+Shift+Q、Alt+数字）不要塞进自定义表，
   否则网页自己的快捷键会更容易被误吞。
+- 倍速动作 scope=`media`：主进程 `mediaState` 把 `effectiveShortcuts` 与展示文案下发到
+  页内脚本，由 `mediaControl.ts` 按 `event.code` 匹配；`actionForStroke` 不处理 media，
+  避免主进程先吞掉按键。
 
 ## 14. YouTube 适配（0.32 开发中）
 

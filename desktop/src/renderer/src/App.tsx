@@ -15,6 +15,9 @@ import { lazy, Suspense } from 'react';
 const SettingsPage = lazy(() =>
   import('./SettingsPage').then((module) => ({ default: module.SettingsPage }))
 );
+const LibraryPage = lazy(() =>
+  import('./components/LibraryPage').then((module) => ({ default: module.LibraryPage }))
+);
 import { nextTabId, tabIdByNumber } from './lib/tabs';
 import { useDropImport } from './lib/dropImport';
 import { useBrowserOverlayAuto } from './lib/browserOverlay';
@@ -24,14 +27,11 @@ import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../.
 import { strokeFromEvent } from '../../shared/shortcutKeys';
 
 export default function App() {
+  const initialSection = new URLSearchParams(window.location.search).get('section');
   const [tabs, setTabs] = useState<TabInfo[]>([]);
   const [section, setSection] = useState<Section>(() => {
-    const value = new URLSearchParams(window.location.search).get('section');
-    return value === 'chat' ||
-      value === 'summary' ||
-      value === 'library' ||
-      value === 'subtitles'
-      ? value
+    return initialSection === 'chat' || initialSection === 'summary' || initialSection === 'subtitles'
+      ? initialSection
       : 'subtitles';
   });
   const [addressFocus, setAddressFocus] = useState(0);
@@ -53,6 +53,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(initialSection === 'library');
   const [closeOpen, setCloseOpen] = useState(false);
   // 垂直标签栏折叠后悬停展开时，地址栏和网页一起让位，避免标签栏盖住前进/后退按钮。
   const [tabPeek, setTabPeek] = useState<{ open: boolean; width: number }>({
@@ -359,6 +360,15 @@ export default function App() {
   );
 
   const handleSectionSelect = (next: Section) => {
+    // 库已经升级成独立整页：不再占用侧栏，也不再切换侧栏 section。
+    if (next === 'library') {
+      void window.bsub.exitFullscreen();
+      setStartOpen(false);
+      setSettingsOpen(false);
+      setLibraryOpen(true);
+      return;
+    }
+    setLibraryOpen(false);
     void window.bsub.exitFullscreen();
     setSection(next);
     if (sidebarCollapsed) {
@@ -400,7 +410,7 @@ export default function App() {
     { id: 'section-subtitles', label: '打开面板：字幕', hint: 'Ctrl+Shift+1', run: () => setSection('subtitles') },
     { id: 'section-summary', label: '打开面板：总结', run: () => setSection('summary') },
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
-    { id: 'section-library', label: '打开面板：库', run: () => setSection('library') },
+    { id: 'section-library', label: '打开库', run: () => handleSectionSelect('library') },
     { id: 'section-settings', label: '打开设置', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
     { id: 'start-page', label: '打开起始页', hint: 'Ctrl+T', run: () => setStartOpen(true) },
     { id: 'settings-page', label: '打开设置页', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
@@ -520,7 +530,7 @@ export default function App() {
     <div
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
-      }${startOpen || settingsOpen || tabs.length === 0 ? ' is-page' : ''}`}
+      }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
       style={tabPeek.open ? { paddingLeft: Math.max(52, tabPeek.width) } : undefined}
       {...drop.handlers}
     >
@@ -543,9 +553,14 @@ export default function App() {
         onOpenReader={() => setReaderOpen(true)}
         onOpenStart={() => {
           setSettingsOpen(false);
+          setLibraryOpen(false);
           setStartOpen(true);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenLibrary={() => handleSectionSelect('library')}
+        onOpenSettings={() => {
+          setLibraryOpen(false);
+          setSettingsOpen(true);
+        }}
         hasUpdate={hasUpdate}
       />
       {findOpen && (
@@ -593,11 +608,15 @@ export default function App() {
           snapshot={dragSnapshot}
         />
       </div>
-      {(startOpen || settingsOpen || tabs.length === 0) && (
+      {(startOpen || settingsOpen || libraryOpen || tabs.length === 0) && (
         <div className="page-host">
           {settingsOpen ? (
             <Suspense fallback={null}>
               <SettingsPage onClose={() => setSettingsOpen(false)} />
+            </Suspense>
+          ) : libraryOpen ? (
+            <Suspense fallback={null}>
+              <LibraryPage onClose={() => setLibraryOpen(false)} />
             </Suspense>
           ) : (
             <StartPage

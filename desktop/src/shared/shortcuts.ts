@@ -27,9 +27,13 @@ export type ShortcutActionId =
   | 'section-library'
   | 'tab-search'
   | 'ask-selection'
-  | 'reload';
+  | 'reload'
+  | 'media-faster'
+  | 'media-slower'
+  | 'media-reset'
+  | 'media-panel';
 
-export type ShortcutScope = 'app' | 'page' | 'both';
+export type ShortcutScope = 'app' | 'page' | 'both' | 'media';
 
 export interface ShortcutAction {
   id: ShortcutActionId;
@@ -59,7 +63,11 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'section-subtitles', label: '打开面板：字幕', defaultShortcut: 'Ctrl+Shift+Digit1', scope: 'both', group: '面板' },
   { id: 'section-summary', label: '打开面板：总结', defaultShortcut: 'Ctrl+Shift+Digit2', scope: 'both', group: '面板' },
   { id: 'section-chat', label: '打开面板：对话', defaultShortcut: 'Ctrl+Shift+Digit3', scope: 'both', group: '面板' },
-  { id: 'section-library', label: '打开面板：库', defaultShortcut: 'Ctrl+Shift+Digit4', scope: 'both', group: '面板' }
+  { id: 'section-library', label: '打开库', defaultShortcut: 'Ctrl+Shift+Digit4', scope: 'both', group: '面板' },
+  { id: 'media-faster', label: '提高播放倍速', defaultShortcut: 'Shift+ArrowRight', scope: 'media', group: '播放倍速' },
+  { id: 'media-slower', label: '降低播放倍速', defaultShortcut: 'Shift+ArrowLeft', scope: 'media', group: '播放倍速' },
+  { id: 'media-reset', label: '恢复 1.0× 倍速', defaultShortcut: 'Alt+Shift+Digit0', scope: 'media', group: '播放倍速' },
+  { id: 'media-panel', label: '打开 / 收起倍速面板', defaultShortcut: 'Alt+Shift+KeyS', scope: 'media', group: '播放倍速' }
 ];
 
 const byId = new Map(SHORTCUT_ACTIONS.map((action) => [action.id, action]));
@@ -143,9 +151,6 @@ export const FIXED_SHORTCUT_GROUPS: Array<{ title: string; items: FixedShortcutE
   {
     title: '播放倍速',
     items: [
-      { keys: 'Alt + Shift + ↑ / ↓', label: '提高 / 降低倍速' },
-      { keys: 'Alt + Shift + 0', label: '恢复 1.0×' },
-      { keys: 'Alt + Shift + S', label: '打开 / 收起倍速面板' },
       { keys: 'A / D / S（可选单键）', label: '降速 / 提速 / 复位（需在「页面与阅读」开启）' }
     ]
   },

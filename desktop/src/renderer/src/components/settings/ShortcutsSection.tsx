@@ -135,6 +135,7 @@ export function ShortcutsSection({ value, onChange }: ShortcutsSectionProps) {
                   <span className="shortcut-label">
                     {action.label}
                     {action.scope === 'page' && <span className="shortcut-scope">仅网页</span>}
+                    {action.scope === 'media' && <span className="shortcut-scope">网页内</span>}
                     {custom && <span className="shortcut-scope">已改</span>}
                   </span>
                   <span className="shortcut-actions">

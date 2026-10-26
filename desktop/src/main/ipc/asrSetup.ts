@@ -3,10 +3,12 @@ import type { Result } from '../../shared/types';
 import type { IpcContext } from './shared';
 import { failure } from './shared';
 import {
+  detectGpuNames,
   downloadLocalModel,
   downloadWhisperBinary,
   localAsrStatus,
   type DownloadProgress,
+  type LocalBinaryVariant,
   type LocalModelId
 } from '../localAsrSetup';
 
@@ -48,13 +50,17 @@ export function registerAsrSetupIpc(ctx: IpcContext): void {
 
   ipcMain.handle(
     'asr:download-binary',
-    async (): Promise<Result<{ path: string }>> => {
-      const key = 'binary';
+    async (_event, variant: LocalBinaryVariant = 'cpu'): Promise<Result<{ path: string }>> => {
+      const key = `binary:${variant}`;
       if (controllers.has(key)) return { ok: false, error: 'whisper.cpp 正在下载中' };
       const controller = new AbortController();
       controllers.set(key, controller);
       try {
-        const path = await downloadWhisperBinary(progressSender(ctx, key), controller.signal);
+        const path = await downloadWhisperBinary(
+          variant,
+          progressSender(ctx, key),
+          controller.signal
+        );
         return { ok: true, data: { path } };
       } catch (error) {
         return failure(error);
@@ -63,6 +69,14 @@ export function registerAsrSetupIpc(ctx: IpcContext): void {
       }
     }
   );
+
+  ipcMain.handle('asr:gpu-info', async (): Promise<Result<{ names: string[] }>> => {
+    try {
+      return { ok: true, data: { names: await detectGpuNames() } };
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
   ipcMain.on('asr:cancel-download', (_event, key: string) => {
     controllers.get(String(key))?.abort();
