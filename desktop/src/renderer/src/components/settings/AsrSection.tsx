@@ -353,6 +353,19 @@ export function AsrSection({
             还没有 whisper.cpp 可执行文件：请在上面选择构建并点「下载 whisper.cpp」，否则转写会提示找不到可执行文件。
           </div>
         )}
+        <div className="settings-field">
+          <div className="settings-label">本地线程数（不超过 CPU 物理核心数）</div>
+          <input
+            className="settings-input"
+            type="number"
+            min={1}
+            max={32}
+            value={draft.asr.localThreads || 4}
+            onChange={(event) =>
+              updateAsr({ localThreads: Math.min(32, Math.max(1, Number(event.target.value) || 4)) })
+            }
+          />
+        </div>
         {localStatus && Object.keys(localStatus.models).length > 0 && (
           <div className="settings-group">
             <div className="settings-label">已下载模型（直接选用，不用找路径）</div>
@@ -607,21 +620,7 @@ export function AsrSection({
           <option value="ru">俄文</option>
         </select>
       </div>
-      {isLocal ? (
-        <div className="settings-field">
-          <div className="settings-label">线程数</div>
-          <input
-            className="settings-input"
-            type="number"
-            min={1}
-            max={32}
-            value={draft.asr.localThreads || 4}
-            onChange={(event) =>
-              updateAsr({ localThreads: Math.min(32, Math.max(1, Number(event.target.value) || 4)) })
-            }
-          />
-        </div>
-      ) : (
+      {!isLocal && (
         <div className="settings-field">
           <div className="settings-label">音频格式</div>
           <select

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileVideo, Languages, Library, Loader2, Mic, Scissors, Upload } from 'lucide-react';
+import {
+  Clapperboard,
+  Download,
+  FileVideo,
+  Languages,
+  Library,
+  Loader2,
+  Mic,
+  Scissors
+} from 'lucide-react';
 import type { PageInfo, SubtitleLine, SubtitleTrack } from '../../../shared/types';
 import { formatDuration } from '../lib/format';
 import { ExportMenu } from './ExportMenu';
@@ -189,16 +198,28 @@ export function LocalWorkbench() {
       </div>
 
       {!file && (
-        <div className="renders-empty">
-          <Upload size={22} />
-          <div>选一个本地视频开始，或先下载在线视频</div>
-          <div className="settings-hint">支持 mp4 / mkv / mov / mp3 / m4a / wav 等</div>
-          <div className="settings-inline" style={{ justifyContent: 'center' }}>
-            <button className="mini-btn primary" onClick={() => void pick()}>
-              <FileVideo size={12} /> 选择本地视频
+        <div className="workbench-home">
+          <div className="workbench-home-title">选择一个功能开始</div>
+          <div className="workbench-cards">
+            <button className="workbench-card" onClick={() => void pick()}>
+              <FileVideo size={20} />
+              <b>本地视频转写</b>
+              <span>选 mp4/mkv/mp3 等 → 转写 → 断句/翻译 → 成片</span>
             </button>
-            <button className="mini-btn" onClick={() => setDownloadOpen(true)}>
-              下载在线视频
+            <button className="workbench-card" onClick={() => setDownloadOpen(true)}>
+              <Download size={20} />
+              <b>在线视频下载</b>
+              <span>B 站 / YouTube 链接，下载后可直接本地处理</span>
+            </button>
+            <button
+              className="workbench-card"
+              onClick={() =>
+                document.querySelector('.renders-panel')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              <Clapperboard size={20} />
+              <b>查看成片</b>
+              <span>已合成的硬字幕/软字幕/配音视频记录</span>
             </button>
           </div>
         </div>

@@ -1,4 +1,6 @@
 
+import { formatElapsed, useElapsedSeconds } from '../lib/useElapsed';
+
 interface SubtitleTranslateBarProps {
   open: boolean;
   targetLang: string;
@@ -45,6 +47,7 @@ export function SubtitleTranslateBar({
   onStop,
   onClose
 }: SubtitleTranslateBarProps) {
+  const elapsed = useElapsedSeconds(translating);
   if (!open) return null;
 
   return (
@@ -122,7 +125,9 @@ export function SubtitleTranslateBar({
       {translating && (
         <div className="translate-progress">
           <span>{message || '翻译中…'}</span>
-          <span>{Math.round(progress)}%</span>
+          <span>
+            已用 {formatElapsed(elapsed)} · {Math.round(progress)}%
+          </span>
         </div>
       )}
     </>
@@ -143,6 +148,7 @@ export function SubtitleOptimizeProgress({
   message,
   onStop
 }: SubtitleOptimizeProgressProps) {
+  const elapsed = useElapsedSeconds(running);
   if (!running && !message) return null;
 
   if (!running) return <div className="save-status">{message}</div>;
@@ -151,7 +157,7 @@ export function SubtitleOptimizeProgress({
     <div className="translate-progress">
       <span>{message || '校对中…'}</span>
       <span>
-        {Math.round(progress)}%
+        已用 {formatElapsed(elapsed)} · {Math.round(progress)}%
         <button className="mini-btn" onClick={onStop} style={{ marginLeft: 6 }}>
           停止
         </button>

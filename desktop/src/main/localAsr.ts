@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import ffmpegStatic from 'ffmpeg-static';
+import * as OpenCC from 'opencc-js';
 import type { AsrPlatform } from '../shared/types';
 import { localAsrStatus } from './localAsrSetup';
 
@@ -223,8 +224,21 @@ interface RunOptions {
   language: string;
   threads: number;
   outBase: string;
+  prompt?: string;
   signal?: AbortSignal;
   onProgress?: (percent: number, message: string) => void;
+}
+
+let traditionalToSimplified: ((text: string) => string) | null = null;
+
+/** Whisper 的中文经常输出繁体；统一转成简体，避免用户看到“繁體”。 */
+export function toSimplified(text: string): string {
+  if (!/[\u4e00-\u9fff]/.test(text)) return text;
+  if (!traditionalToSimplified) {
+    const converter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+    traditionalToSimplified = (value: string) => converter(value);
+  }
+  return traditionalToSimplified(text);
 }
 
 /** 调用 whisper.cpp 识别一个 16k 单声道 wav，返回带时间轴的段落。 */
@@ -247,7 +261,8 @@ export async function runLocalWhisper(options: RunOptions): Promise<LocalWhisper
     '-ojf',
     '-pp',
     '-of',
-    outBase
+    outBase,
+    ...(options.prompt ? ['--prompt', options.prompt] : [])
   ];
   let stdout = '';
   let stderr = '';
@@ -462,7 +477,16 @@ export async function probeLocalWhisper(
     });
   });
   if (!/whisper|usage:/i.test(output)) {
-    throw new Error('这个程序看起来不是 whisper.cpp（帮助信息里没有 whisper/usage）');
+    // 某些 GPU 构建在缺 DLL/驱动时会在打印帮助前退出；文件名叫 whisper-cli 就放行，
+    // 真正转写失败时再由 runLocalWhisper 抛具体错误，避免误报“不是 whisper.cpp”。
+    if (!/whisper/i.test(path.basename(exe))) {
+      throw new Error('这个程序看起来不是 whisper.cpp（文件名与帮助信息都不匹配）');
+    }
+    return {
+      ok: true,
+      ms: Date.now() - started,
+      sample: `已找到 ${path.basename(exe)}（帮助信息不可读，仍可尝试转写） · 模型 ${path.basename(model)}`
+    };
   }
   return {
     ok: true,

@@ -8,7 +8,8 @@ import {
   parseWhisperJson,
   parseWhisperOutput,
   parseWhisperStdout,
-  resolveLocalWhisperPaths
+  resolveLocalWhisperPaths,
+  toSimplified
 } from './localAsr';
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'local-asr-test-'));
@@ -167,5 +168,12 @@ describe('静音检测', () => {
       ].join('\n')
     );
     expect(ranges).toEqual([{ start: 1.2, end: 2.4 }]);
+  });
+});
+
+describe('繁体转简体', () => {
+  it('中文输出统一转成简体', () => {
+    expect(toSimplified('這是繁體中文，後面還有測試。')).toBe('这是繁体中文，后面还有测试。');
+    expect(toSimplified('hello world')).toBe('hello world');
   });
 });

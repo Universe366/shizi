@@ -278,6 +278,8 @@ async function downloadTo(
         const length = Number(response.headers.get('content-length'));
         const total = start + (Number.isFinite(length) && length > 0 ? length : file.size - start);
         const stream = fs.createWriteStream(temp, { flags: start > 0 ? 'a' : 'w' });
+        // 全新下载边下边算哈希，避免 99% 后再整文件读一遍造成“假死”；续传才在最后算。
+        const hash = start === 0 ? createHash('sha256') : null;
         const reader = response.body.getReader();
         try {
           for (;;) {
@@ -285,6 +287,7 @@ async function downloadTo(
             if (done) break;
             resetIdle();
             const chunk = Buffer.from(value);
+            hash?.update(chunk);
             received += chunk.length;
             if (!stream.write(chunk)) {
               await new Promise<void>((resolve) => stream.once('drain', () => resolve()));
@@ -317,9 +320,9 @@ async function downloadTo(
           percent: 99,
           received: actual,
           total: file.size,
-          message: '校验完整性…'
+          message: hash ? '下载完成，正在收尾…' : '校验完整性…'
         });
-        const digest = await hashFile(temp);
+        const digest = hash ? hash.digest('hex') : await hashFile(temp);
         if (digest !== file.sha256) {
           fs.rmSync(temp, { force: true });
           throw new Error('校验失败（SHA-256 不一致）');

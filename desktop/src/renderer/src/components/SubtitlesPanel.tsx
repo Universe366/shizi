@@ -28,6 +28,7 @@ import { SubtitleOptimizePanel, SubtitleQualityCard } from './SubtitleOptimizePa
 import { SubtitleLineRow } from './SubtitleLineRow';
 import { SubtitleTrackPicker } from './SubtitleTrackPicker';
 import { formatDuration } from '../lib/format';
+import { formatElapsed, useElapsedSeconds } from '../lib/useElapsed';
 import { DEFAULT_SUBTITLE_TOOLBAR, SUBTITLE_TOOLBAR_IDS } from '../../../shared/subtitleToolbar';
 
 function minCoverageOf(duration: number): number {
@@ -220,6 +221,7 @@ export function SubtitlesPanel({
   const [asrRunning, setAsrRunning] = useState(false);
   const [asrProgress, setAsrProgress] = useState(0);
   const [asrMessage, setAsrMessage] = useState('');
+  const asrElapsed = useElapsedSeconds(asrRunning);
   const asrRequestRef = useRef('');
   const [translated, setTranslated] = useState<SubtitleLine[] | null>(null);
   const [translatedLang, setTranslatedLang] = useState('');
@@ -1540,6 +1542,7 @@ export function SubtitlesPanel({
         <div className="asr-progress">
           <div className="asr-progress-head">
             <span>{asrMessage || '准备音轨…'}</span>
+            <span className="settings-hint">已用 {formatElapsed(asrElapsed)}</span>
             <button className="mini-btn" onClick={stopAsr}>
               停止
             </button>

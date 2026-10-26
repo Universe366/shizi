@@ -55,7 +55,7 @@ describe('SubtitleTranslateBar', () => {
   it('翻译中显示停止与进度', () => {
     const p = translateProps({ translating: true, progress: 42, message: '第 2/5 段' });
     render(<SubtitleTranslateBar {...p} />);
-    expect(screen.getByText('42%')).toBeTruthy();
+    expect(screen.getByText(/42%/)).toBeTruthy();
     expect(screen.getByText('第 2/5 段')).toBeTruthy();
     fireEvent.click(screen.getByText('停止'));
     expect(p.onStop).toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe('SubtitleOptimizeProgress', () => {
   it('运行时显示进度与停止', () => {
     const onStop = vi.fn();
     render(<SubtitleOptimizeProgress running progress={30} message="" onStop={onStop} />);
-    expect(screen.getByText('30%')).toBeTruthy();
+    expect(screen.getByText(/30%/)).toBeTruthy();
     fireEvent.click(screen.getByText('停止'));
     expect(onStop).toHaveBeenCalled();
   });

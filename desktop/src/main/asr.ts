@@ -2,6 +2,7 @@ import { app, session } from 'electron';
 import type { WebContents } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import ffmpegStatic from 'ffmpeg-static';
 import type {
@@ -15,9 +16,38 @@ import { fetchAudioRange, getAudioCandidates } from './page';
 import { loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
-import { resolveLocalWhisperPaths, runLocalWhisper } from './localAsr';
+import { resolveLocalWhisperPaths, runLocalWhisper, toSimplified } from './localAsr';
 
 const CHUNK_BYTES = 384 * 1024;
+const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
+
+function audioCachePath(info: PageInfo): string {
+  const dir = path.join(app.getPath('userData'), 'cache', 'asr-audio');
+  fs.mkdirSync(dir, { recursive: true });
+  const key = createHash('sha256')
+    .update(`${info.url}|${info.cid || ''}|${info.signature || ''}`)
+    .digest('hex')
+    .slice(0, 32);
+  return path.join(dir, `${key}.m4s`);
+}
+
+function pruneAudioCache(): void {
+  try {
+    const dir = path.join(app.getPath('userData'), 'cache', 'asr-audio');
+    const now = Date.now();
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const file = path.join(dir, entry.name);
+      try {
+        if (now - fs.statSync(file).mtimeMs > AUDIO_CACHE_MAX_AGE) fs.rmSync(file, { force: true });
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
 
 type Progress = (
   stage: 'prepare' | 'download' | 'convert' | 'transcribe' | 'merge',
@@ -97,6 +127,15 @@ async function downloadAudio(
   onProgress: Progress,
   signal?: AbortSignal
 ): Promise<string> {
+  const cached = audioCachePath(info);
+  try {
+    if (fs.existsSync(cached) && fs.statSync(cached).size > 10 * 1024) {
+      onProgress('download', 100, '使用已缓存的音轨');
+      return cached;
+    }
+  } catch {
+    // ignore
+  }
   onProgress('download', 0, '获取音轨候选…');
   const candidates = await getAudioCandidates(wc, info);
   let lastError: unknown = null;
@@ -148,6 +187,12 @@ async function downloadAudio(
         }
 
         if (!received) throw new Error('音轨为空');
+        try {
+          fs.copyFileSync(file, cached);
+          pruneAudioCache();
+        } catch {
+          // 缓存失败不影响本次转写
+        }
         onProgress('download', 100, `音轨下载完成（${(received / 1024 / 1024).toFixed(1)} MB）`);
         return file;
       } catch (error) {
@@ -587,24 +632,55 @@ export async function transcribeFile(
       onProgress('convert', 0, '提取音频（16k 单声道）…');
       const wav = await convertToWav(input, workDir, info.duration || 0, onProgress, signal);
       onProgress('transcribe', 0, '本地 Whisper 识别中…');
-      const segments = await runLocalWhisper({
+      const requestedLanguage = settings.asr.language || 'auto';
+      const prompt =
+        requestedLanguage === 'zh'
+          ? '以下是普通话的句子，请使用简体中文转写。'
+          : undefined;
+      const buildLines = (segments: Awaited<ReturnType<typeof runLocalWhisper>>) =>
+        segments
+          .filter((segment) => segment.text.trim())
+          .map((segment) => ({
+            start: segment.start,
+            end: Math.max(segment.start + 0.3, segment.end),
+            text: toSimplified(segment.text)
+          }))
+          .sort((a, b) => a.start - b.start);
+      let segments = await runLocalWhisper({
         exe,
         model,
         wav,
-        language: settings.asr.language || 'auto',
+        language: requestedLanguage,
         threads: settings.asr.localThreads || 4,
         outBase: path.join(workDir, 'local-asr'),
+        prompt,
         signal,
         onProgress: (percent, message) => onProgress('transcribe', percent, message)
       });
-      const lines = segments
-        .filter((segment) => segment.text.trim())
-        .map((segment) => ({
-          start: segment.start,
-          end: Math.max(segment.start + 0.3, segment.end),
-          text: segment.text
-        }))
-        .sort((a, b) => a.start - b.start);
+      let lines = buildLines(segments);
+      // 自动检测偶尔会把中文判成外语，输出“(speaking in foreign language)”。
+      // 只要这种占位行占一半以上，就直接用中文重试一次。
+      const foreignCount = lines.filter((line) => /foreign language|speaking in/i.test(line.text)).length;
+      if (
+        requestedLanguage === 'auto' &&
+        lines.length > 0 &&
+        foreignCount >= Math.max(1, Math.ceil(lines.length / 2))
+      ) {
+        onProgress('transcribe', 0, '自动语言检测异常，改用中文重试…');
+        segments = await runLocalWhisper({
+          exe,
+          model,
+          wav,
+          language: 'zh',
+          threads: settings.asr.localThreads || 4,
+          outBase: path.join(workDir, 'local-asr-zh'),
+          prompt: '以下是普通话的句子，请使用简体中文转写。',
+          signal,
+          onProgress: (percent, message) => onProgress('transcribe', percent, message)
+        });
+        lines = buildLines(segments);
+      }
+      lines = lines.filter((line) => !/^\(?\s*speaking in foreign language\s*\)?$/i.test(line.text.trim()));
       if (!lines.length) throw new Error('本地 Whisper 没有返回可用文本');
       onProgress('merge', 100, `本地识别完成，共 ${lines.length} 行`);
       return { lines, model: `whisper.cpp · ${path.basename(model)}`, duration: info.duration };
@@ -682,7 +758,13 @@ export async function transcribe(
   activeAsr(settings);
   const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'bsub-asr-'));
   try {
-    const input = await downloadAudio(wc, info, dir, onProgress, signal);
+    const downloaded = await downloadAudio(wc, info, dir, onProgress, signal);
+    // 命中缓存时文件在 userData，复制到本次临时目录，切块/中间文件不会污染缓存。
+    let input = downloaded;
+    if (!path.resolve(downloaded).startsWith(path.resolve(dir))) {
+      input = path.join(dir, 'audio.m4s');
+      fs.copyFileSync(downloaded, input);
+    }
     const result = await transcribeFile(input, info, onProgress, signal, settings);
     return { ...result, lines: applyCorrectionToLines(result.lines, settings) };
   } finally {
