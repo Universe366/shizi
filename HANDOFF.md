@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-26
-> 适用版本：桌面 **0.38.27** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.38.27`（`bca3b19`）
-> 最新 Release：`v0.38.27`
+> 适用版本：桌面 **0.38.28** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.38.28`
+> 最新 Release：`v0.38.28`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -21,14 +21,14 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 103 个文件 / 638 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
+| 桌面单测 | 108 个文件 / 654 个用例（主进程、shared 与渲染层；含 IPC channel 契约、JSON 读取器、启动/窗口策略、会话恢复、关闭流程、托盘、下载钩子、桌宠几何/布局、框选截图坐标与覆盖窗交互，以及 Library/Settings/Summary/Chat/Subtitles/浏览器外壳的主要组件测试） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.27` 通过 |
+| 发布 CI | `v0.38.28` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.27，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.28，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -127,6 +127,25 @@
 
 ## 2. 最近发生了什么（避免重复劳动）
 
+### 0.38.28（2026-10-26，断句 / 翻译 / 成片 / 下载 / 配音）
+
+1. **智能断句**：`main/resegment.ts` 规则合并/拆分 + AI 只返回行分组（`[[1,2],[3]]`），
+   不重写文字；`subtitle:resegment` IPC；UI 在字幕工具栏「断句」弹窗，可预览/撤销。
+   本地 whisper 用 `-ojf` 词级 token 与 `-ml 42`，`splitLongSegment` 按 offsets 切分；
+   `refineBySilence` 用 ffmpeg silencedetect 在停顿处补切（不是完整 VAD 模型）。
+2. **翻译**：上下文、术语表、反思 pass、1-3 并发；AI 失败/无 Key 可选 MyMemory 免费兜底
+   （`general.translateFreeFallback`，默认关）。`TranslateRequest.options` 由翻译浮层传入。
+3. **成片**：`shared/ass.ts` 统一 ASS；`main/synthesize.ts` 硬字幕 MP4 / 软字幕 MKV；
+   样式默认值 + 预设存 `general.subtitleStyle/subtitlePresets`；`ipc/video.ts` 管任务与
+   `exports`；工作台「成片」页签；批量成片走 `video:batch-synthesize`。
+4. **在线下载**：`main/onlineVideo.ts` 按需下载固定版本 yt-dlp（SHA-256、Range 续传），
+   `video:download`；入口在资料库头部「下载视频」，输出到 `下载/Shizi`。
+5. **配音**：`main/dub.ts` 用 Windows SAPI 逐条合成，按时间轴 atempo/apad 对齐，
+   可导出 M4A 或替换视频音轨；`video:dub`，实验性、仅 Windows。
+6. 测试：108 文件 / 654 用例；`synthesize.test.ts` 与 `dub.test.ts` 会真实调用 ffmpeg/SAPI。
+7. 发布：GitHub Release `v0.38.28`；`latest.yml` 与 `/releases/latest` 已指向该版本；
+   插件保持 2.18.8。
+
 ### 0.38.27（2026-10-26，倍速快捷键 / 本地 ASR GPU / 库整页 / 核对重试）
 
 1. **倍速快捷键**：媒体动作进入 `shared/shortcuts.ts`（scope=`media`），默认
@@ -144,7 +163,7 @@
    仍失败才 `formatError`（保留证据 + note）。桌面端以前把 note 显示出来，扩展端静默降级，
    所以看起来“扩展更好”。
 
-测试：103 文件 / 638 用例；新增媒体快捷键、库整页、GPU 状态等覆盖。冒烟 `E2E 19/19`。
+测试：108 文件 / 654 用例；新增媒体快捷键、库整页、GPU 状态等覆盖。冒烟 `E2E 19/19`。
 发布：GitHub Release `v0.38.27`（setup / green / extension zip / latest.yml），桌面 checks 通过，
 `/releases/latest` 已指向该版本；插件保持 2.18.8（无功能变化）。
 
@@ -425,9 +444,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.27 测试/冒烟通过
+- [x] 0.38.28 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.27`
+- [x] 最新 Release 指向 `v0.38.28`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
