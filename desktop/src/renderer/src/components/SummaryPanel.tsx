@@ -64,6 +64,33 @@ export function SummaryPanel({
   const asrKeyRef = useRef('');
   const videoKeyRef = useRef('');
   const activeTabRef = useRef<TabInfo | null>(null);
+  // 流式增量先攒进 ref，按 ~90ms 一批刷到 React。
+  // 推理模型每个 token 都 setState 会让整个面板反复重渲染，界面明显发卡，
+  // 也会拖慢关闭/切面板这类交互。
+  const streamBufferRef = useRef('');
+  const reasoningBufferRef = useRef('');
+  const flushTimerRef = useRef<number | null>(null);
+
+  const flushStreams = useCallback(() => {
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const pendingText = streamBufferRef.current;
+    const pendingReasoning = reasoningBufferRef.current;
+    streamBufferRef.current = '';
+    reasoningBufferRef.current = '';
+    if (pendingText) setStreamText((previous) => previous + pendingText);
+    if (pendingReasoning) setReasoning((previous) => previous + pendingReasoning);
+  }, []);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current !== null) return;
+    flushTimerRef.current = window.setTimeout(() => {
+      flushTimerRef.current = null;
+      flushStreams();
+    }, 90);
+  }, [flushStreams]);
 
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
@@ -147,11 +174,13 @@ export function SummaryPanel({
   useEffect(() => {
     const offDelta = window.bsub.onAiDelta((event) => {
       if (event.requestId === requestRef.current) {
-        setStreamText((previous) => previous + event.delta);
+        streamBufferRef.current += event.delta;
+        scheduleFlush();
       }
     });
     const offDone = window.bsub.onAiDone((event) => {
       if (event.requestId !== requestRef.current) return;
+      flushStreams();
       console.log(
         '[summary-done]',
         event.verification
@@ -173,6 +202,7 @@ export function SummaryPanel({
     });
     const offError = window.bsub.onAiError((event) => {
       if (event.requestId !== requestRef.current) return;
+      flushStreams();
       streamingRef.current = false;
       setError(event.error);
       setStreaming(false);
@@ -184,7 +214,8 @@ export function SummaryPanel({
     });
     const offReasoning = window.bsub.onAiReasoning((event) => {
       if (event.requestId !== requestRef.current) return;
-      setReasoning((previous) => previous + event.delta);
+      reasoningBufferRef.current += event.delta;
+      scheduleFlush();
     });
     return () => {
       offDelta();
@@ -192,8 +223,12 @@ export function SummaryPanel({
       offError();
       offStatus();
       offReasoning();
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [flushStreams, scheduleFlush]);
 
   useEffect(() => {
     const element = liveRef.current;
@@ -268,6 +303,9 @@ export function SummaryPanel({
 
   const generate = async (skipProofread = false) => {
     if (streaming) return;
+    flushStreams();
+    streamBufferRef.current = '';
+    reasoningBufferRef.current = '';
     setError(null);
     streamingRef.current = true;
     setStreaming(true);
@@ -287,7 +325,9 @@ export function SummaryPanel({
         requestId,
         info: data.info,
         lines: data.lines,
-        skipProofread
+        // 「快速」与插件一致：跳过字幕校对 + 联网核对，直接生成。
+        skipProofread,
+        skipVerify: skipProofread
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -432,12 +472,12 @@ export function SummaryPanel({
             </button>
           )}
           {summary && <ExportMenu info={info} track={track} lines={lines} summary={summary} />}
-          {!streaming && preProofread && (
+          {!streaming && (preProofread || (verifyEnabled && searchEnabled)) && (
             <button
               className="mini-btn"
               disabled={!isVideoPage || loading || !activeTab}
               onClick={() => void generate(true)}
-              title="跳过校对，直接生成总结（更快、更省额度）"
+              title="快速总结：跳过字幕校对与联网核对，直接生成（更快、更省额度）"
             >
               快速
             </button>
@@ -454,11 +494,15 @@ export function SummaryPanel({
               title={
                 preProofread
                   ? summary
-                    ? '重新生成（先校对）'
-                    : '生成总结（先校对）'
-                  : summary
-                    ? '重新生成'
-                    : '生成 AI 总结'
+                    ? '重新生成（先校对字幕 + 联网核对）'
+                    : '生成总结（先校对字幕 + 联网核对）'
+                  : verifyEnabled
+                    ? summary
+                      ? '重新生成（先联网核对）'
+                      : '生成总结（先联网核对，可能较慢）'
+                    : summary
+                      ? '重新生成'
+                      : '生成 AI 总结'
               }
             >
               {summary ? '重生成' : '生成'}

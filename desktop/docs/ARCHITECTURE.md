@@ -34,7 +34,11 @@ desktop/
 ### 1.1 页面视图与渲染层
 
 - B 站页面在 `WebContentsView` 里，是**原生层**，永远盖在 React DOM 上面。
-- 任何全屏弹层（首次引导、设置向导、确认框）必须先 `setActiveViewVisible(false)`，否则用户点不到。
+- 全屏弹层（首次引导、设置页、确认框）出现时由 `useBrowserOverlayAuto` 按 DOM 自动隐藏页面视图，
+  不要再手写第二套显隐；`lib/browserOverlay.ts` 的选择器只放真正盖住页面的浮层
+  （常驻的工具栏包装层如 `.export-menu` **不能**放进去，否则会把网页误隐藏成白屏）。
+- 主进程用 `TabManager.setViewHidden(reason, hidden)` 按来源登记隐藏（`ui` / `drag` / `close`），
+  只有所有来源都允许时才显示；关闭确认框在通知渲染层之前由主进程先隐藏页面。
 - 侧栏宽度/位置变化后要重新 `setBounds`，只改 CSS 不会移动原生视图。
 
 ## 2. 数据目录与迁移
@@ -188,7 +192,7 @@ SPA 切页瞬间拿到上一个视频的预取轨。
   （标题 + 域名 + 实际引擎，`openExternal` 打开系统浏览器），来源随对话历史持久化
   （只保留短摘要）；历史来源渲染前用 `safeSources()` 过滤成 http(s)，防止坏
   localStorage 让 React 崩溃。
-- 设置页的「测试连接 / 测试当前表单」必须只测当前平台：`testSearch()` 与
+- 设置页的「测试检索 / 测试连接」必须只测当前平台：`testSearch()` 与
   `testPlatformConnection()` 都要关掉 `keylessFallback` 和缓存，否则 Exa 兜底会把
   缺少 Key / 地址填错的配置伪装成“连接正常”。
 - 总结侧栏的“是否开启核对”必须读 `search.verifySummary`；`search.verify` 只控制
@@ -386,9 +390,9 @@ node panel-test.js     # 至少跑这个
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.38.24）；
+  - 桌面端 `desktop/package.json`（例如 0.38.25）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.38.24`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.38.25`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；

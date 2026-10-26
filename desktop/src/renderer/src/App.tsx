@@ -62,9 +62,9 @@ export default function App() {
   }, []);
   const [bookmarked, setBookmarked] = useState(false);
 
-  // 内置浏览器是原生 WebContentsView，永远盖在 renderer 上面。
-  // 向导/全局搜索是 renderer 里的全屏遮罩，不隐藏页面就会出现
-  // 「卡片被页面挡住、只剩左侧点不了」的情况。
+  // 网页视图的显隐统一由 useBrowserOverlayAuto 按「DOM 里有没有浮层」决定，
+  // 不再在这里再用 pageOpen 写一遍：两个来源各说各的时，后到的调用会把
+  // 另一个的隐藏覆盖掉（例如关闭框刚弹出又被显示回来的网页盖住）。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
   useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
@@ -402,11 +402,6 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [active, findOpen, findQuery, hub, readerOpen, tabs]);
-
-  useEffect(() => {
-    const pageOpen = startOpen || settingsOpen || tabs.length === 0 || closeOpen;
-    void window.bsub.setActiveViewVisible(!pageOpen);
-  }, [startOpen, settingsOpen, tabs.length, closeOpen]);
 
   const handleSectionSelect = (next: Section) => {
     void window.bsub.exitFullscreen();

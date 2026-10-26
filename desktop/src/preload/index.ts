@@ -456,6 +456,7 @@ const api: BsubApi = {
   requestClose: () => ipcRenderer.invoke('app:close-window') as Promise<void>,
   onCloseRequest: (cb: () => void) => on<void>('app:close-request', cb),
   onCloseCancel: (cb: () => void) => on<void>('app:close-cancel', cb),
+  closeShown: () => ipcRenderer.send('app:close-shown'),
   closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>
     ipcRenderer.send('app:close-decision', { choice, remember }),
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
@@ -492,10 +493,6 @@ const api: BsubApi = {
   ) =>
     ipcRenderer.invoke('platform:test', { kind, platform }) as Promise<
       Result<{ ok: boolean; ms: number; sample: string }>
-    >,
-  testAi: (platform?: AiPlatform) =>
-    ipcRenderer.invoke('settings:test', platform) as Promise<
-      Result<{ latencyMs: number; message: string }>
     >,
   openDataDir: () => ipcRenderer.invoke('settings:open-data') as Promise<void>,
   openExternal: (url: string) => ipcRenderer.invoke('system:open-external', url) as Promise<void>,

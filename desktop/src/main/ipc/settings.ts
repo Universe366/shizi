@@ -6,11 +6,17 @@ import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
 let closeDecisionHandler: ((payload: CloseDecisionPayload) => void) | null = null;
+let closeShownHandler: (() => void) | null = null;
 
 export function setCloseDecisionHandler(
   handler: ((payload: CloseDecisionPayload) => void) | null
 ): void {
   closeDecisionHandler = handler;
+}
+
+/** 渲染层关闭框真正显示出来时的回调：用来取消「弹窗没出来」的兜底计时。 */
+export function setCloseShownHandler(handler: (() => void) | null): void {
+  closeShownHandler = handler;
 }
 import type {
   AiPlatform,
@@ -22,16 +28,13 @@ import type {
   UpdateStatus
 } from '../../shared/types';
 import {
-  activePlatform,
-  isMaskedSecret,
   loadSettings,
   saveSettings,
   setSidebarLayout,
   setSidebarWidth,
   setTabsLayout,
   settingsForExport,
-  settingsSnapshot,
-  testPlatform
+  settingsSnapshot
 } from '../settings';
 import { bridgeStatus, restartBridge } from '../bridge';
 import {
@@ -73,6 +76,9 @@ import { petShortcutStatus, petShortcutsStatus } from '../petShortcuts';
 export function registerSettingsIpc(ctx: IpcContext): void {
   ipcMain.on('app:close-decision', (_event, payload: CloseDecisionPayload) => {
     closeDecisionHandler?.(payload);
+  });
+  ipcMain.on('app:close-shown', () => {
+    closeShownHandler?.();
   });
 
   ipcMain.handle('pet:get-position', () => petPosition());
@@ -333,19 +339,6 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     }
   );
 
-  ipcMain.handle('settings:test', async (_event, platform?: AiPlatform) => {
-    try {
-      let target = platform || activePlatform();
-      if (isMaskedSecret(target.apiKey)) {
-        const saved = loadSettings().ai.platforms.find((item) => item.id === target.id);
-        if (saved) target = { ...target, apiKey: saved.apiKey };
-      }
-      return { ok: true, data: await testPlatform(target) };
-    } catch (error) {
-      return failure(error);
-    }
-  });
-
   ipcMain.handle(
     'settings:sidebar-layout',
     (_event, patch: { width?: number; position?: 'left' | 'right'; collapsed?: boolean }) => {
@@ -392,19 +385,19 @@ export function registerSettingsIpc(ctx: IpcContext): void {
       dragActive = true;
       const snapshot = await ctx.tabs.captureActiveView();
       if (!dragActive) {
-        ctx.tabs.setActiveViewVisible(true);
+        ctx.tabs.setViewHidden('drag', false);
         return { ok: true, data: null };
       }
-      ctx.tabs.setActiveViewVisible(false);
+      ctx.tabs.setViewHidden('drag', true);
       dragRestoreTimer = setTimeout(() => {
         dragActive = false;
-        ctx.tabs.setActiveViewVisible(true);
+        ctx.tabs.setViewHidden('drag', false);
         dragRestoreTimer = null;
       }, 12000);
       return { ok: true, data: snapshot };
     } catch (error) {
       dragActive = false;
-      ctx.tabs.setActiveViewVisible(true);
+      ctx.tabs.setViewHidden('drag', false);
       return failure(error);
     }
   });
@@ -415,7 +408,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
       clearTimeout(dragRestoreTimer);
       dragRestoreTimer = null;
     }
-    ctx.tabs.setActiveViewVisible(true);
+    ctx.tabs.setViewHidden('drag', false);
   });
 
   ipcMain.handle('browser:set-visible', (_event, visible: boolean) => {

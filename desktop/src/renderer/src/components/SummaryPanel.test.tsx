@@ -200,4 +200,48 @@ describe('SummaryPanel', () => {
     handlers.error?.({ requestId: '', error: '模型超时' });
     expect(await screen.findByText(/模型超时/)).toBeTruthy();
   });
+
+  it('快速总结同时跳过校对与联网核对', async () => {
+    const { api } = installBsub();
+    api.getSubtitles.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        needLogin: false,
+        tracks: [
+          {
+            lan: 'zh-CN',
+            lanDoc: '中文（自动生成）',
+            url: 'https://example.com/sub.json',
+            isAi: true,
+            aiStatus: null,
+            source: 'official'
+          }
+        ],
+        lines: [],
+        sources: [],
+        errors: [],
+        diagnostics: {}
+      }
+    } as never);
+    const runtime = api as unknown as {
+      getTrackBody: ReturnType<typeof vi.fn>;
+      summarize: ReturnType<typeof vi.fn>;
+    };
+    runtime.getTrackBody = vi.fn(async () => ({
+      ok: true as const,
+      data: { lines: [{ from: 0, to: 1.5, text: '这是字幕' }] }
+    }));
+    runtime.summarize = vi.fn(async () => ({
+      ok: true as const,
+      data: { requestId: 'r1' }
+    }));
+    render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);
+    await screen.findByText('还没有总结');
+    fireEvent.click(screen.getByText('快速'));
+    await waitFor(() =>
+      expect(runtime.summarize).toHaveBeenCalledWith(
+        expect.objectContaining({ skipProofread: true, skipVerify: true })
+      )
+    );
+  });
 });

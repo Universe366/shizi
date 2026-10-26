@@ -48,19 +48,12 @@ function props(overrides: Record<string, unknown> = {}) {
     setShowKey: vi.fn(),
     setEditingAiId: vi.fn(),
     platformStatus: () => <span>未测试</span>,
-    testing: false,
-    onTest: vi.fn(),
     ...overrides
   };
 }
 
 const button = (text: string) =>
   screen.getAllByRole('button').find((item) => item.textContent?.includes(text)) as HTMLButtonElement;
-const lastButton = (text: string) =>
-  screen
-    .getAllByRole('button')
-    .filter((item) => item.textContent?.includes(text))
-    .pop() as HTMLButtonElement;
 
 describe('AiSection', () => {
   beforeEach(() => localStorage.clear());
@@ -76,10 +69,10 @@ describe('AiSection', () => {
   it('模型探测与测试连接回调', () => {
     const p = props();
     render(<AiSection {...p} />);
-    fireEvent.click(button('探测模型'));
-    fireEvent.click(lastButton('测试连接'));
+    fireEvent.click(button('获取模型列表'));
+    fireEvent.click(button('测试连接'));
     expect(p.probeModels).toHaveBeenCalledWith('ai');
-    expect(p.onTest).toHaveBeenCalled();
+    expect(p.testConnection).toHaveBeenCalledWith('ai');
   });
 
   it('本地库权限开关回传 appTools', () => {

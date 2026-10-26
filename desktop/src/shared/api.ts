@@ -333,6 +333,8 @@ export interface BsubApi {
   onCloseRequest(cb: () => void): () => void;
   /** 自定义关闭框超时/被放弃时，主进程通知渲染层收起遮罩 */
   onCloseCancel(cb: () => void): () => void;
+  /** 关闭框已显示：主进程据此取消「弹窗没出来」的兜底计时 */
+  closeShown?(): void;
   closeDecision(choice: 'tray' | 'quit' | 'cancel', remember: boolean): void;
   /** 起始页天气（Open-Meteo） */
   startWeather(city: string): Promise<
@@ -359,7 +361,6 @@ export interface BsubApi {
   previewCorrection(text: string, settings?: AppSettings): Promise<Result<string>>;
   exportRuleGroup(group: CorrectionRuleGroup): Promise<Result<{ canceled: boolean; path?: string }>>;
   importRuleGroups(): Promise<Result<CorrectionRuleGroup[]>>;
-  testAi(platform?: AiPlatform): Promise<Result<{ latencyMs: number; message: string }>>;
   probePlatformModels(
     kind: 'ai' | 'asr',
     platform: AiPlatform | AsrPlatform

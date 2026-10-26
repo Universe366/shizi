@@ -3009,6 +3009,48 @@ button:disabled {
   padding: 9px 11px 11px;
 }
 
+/* 设置分组：把「平台连接 / 什么时候联网 / 识别参数」这类相关内容框在一起，
+   避免整页都是同权重的输入框和按钮，让人分不清主次。 */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.settings-group-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.settings-group-desc {
+  margin-top: -3px;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+.settings-group > .settings-check {
+  font-size: 11px;
+}
+
+.settings-advanced .settings-group-title {
+  margin-top: 4px;
+}
+
+.settings-page .settings-group > .settings-input,
+.settings-page .settings-group > select.settings-input,
+.settings-page .settings-group > input.settings-input,
+.settings-page .settings-group > textarea.settings-input {
+  flex: none;
+  width: 100%;
+}
+
 .settings-label {
   font-size: 10.5px;
   color: var(--faint);

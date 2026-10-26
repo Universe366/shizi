@@ -44,10 +44,7 @@ function props(overrides: Record<string, unknown> = {}) {
     updateSearchPlatform: vi.fn(),
     addSearchPlatform: vi.fn(),
     removeSearchPlatform: vi.fn(),
-    testConnection: vi.fn(),
-    platformBusy: '',
     setEditingSearchId: vi.fn(),
-    platformStatus: () => <span>连接正常</span>,
     showKey: {},
     setShowKey: vi.fn(),
     searchQuery: 'B站 视频 总结',
@@ -63,10 +60,10 @@ describe('SearchSection', () => {
   beforeEach(() => localStorage.clear());
   afterEach(cleanup);
 
-  it('渲染平台名与连接状态', () => {
+  it('渲染平台名与启用开关', () => {
     render(<SearchSection {...props()} />);
     expect(screen.getByDisplayValue('默认检索')).toBeTruthy();
-    expect(screen.getByText('连接正常')).toBeTruthy();
+    expect(screen.getByLabelText(/启用联网检索/)).toBeTruthy();
   });
 
   it('切换时间范围与结果数', () => {
@@ -76,12 +73,10 @@ describe('SearchSection', () => {
     expect(p.updateSearch).toHaveBeenCalledWith({ timeRange: 'week' });
   });
 
-  it('测试连接与测试检索回调', () => {
+  it('测试检索回调', () => {
     const p = props();
     render(<SearchSection {...p} />);
-    fireEvent.click(screen.getByText(/测试连接/));
-    fireEvent.click(screen.getByText(/测试当前表单/));
-    expect(p.testConnection).toHaveBeenCalledWith('search');
+    fireEvent.click(screen.getByText(/测试检索/));
     expect(p.onTestSearch).toHaveBeenCalled();
   });
 

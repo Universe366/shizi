@@ -64,7 +64,7 @@ describe('AsrSection', () => {
     const p = props();
     render(<AsrSection {...p} />);
     fireEvent.click(button('测试连接'));
-    fireEvent.click(button('探测模型'));
+    fireEvent.click(button('获取模型列表'));
     expect(p.testConnection).toHaveBeenCalledWith('asr');
     expect(p.probeModels).toHaveBeenCalledWith('asr');
   });

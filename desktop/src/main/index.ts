@@ -4,7 +4,7 @@ import path from 'node:path';
 import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
 import { applyAutoStart } from './autoStart';
-import { setCloseDecisionHandler } from './ipc/settings';
+import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
   closeLibrary,
@@ -267,15 +267,22 @@ function createWindow(): void {
     if (!target || target.isDestroyed() || target.webContents.isDestroyed()) {
       return Promise.resolve(null);
     }
+    // 原生网页视图永远盖在 renderer 上面，关闭框必须先把页面藏起来。
+    // 不能只等渲染层自己隐藏（它可能正忙、事件晚到），否则弹窗被网页盖住，
+    // 用户只看到背景变模糊、以为程序卡死。
+    tabManager?.setViewHidden('close', true);
     return new Promise((resolve) => {
       let settled = false;
+      let timer: NodeJS.Timeout | null = null;
       const finish = (
         value: { choice: 'tray' | 'quit' | 'cancel'; remember: boolean } | null
       ) => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer);
+        if (timer) clearTimeout(timer);
         setCloseDecisionHandler(null);
+        setCloseShownHandler(null);
+        tabManager?.setViewHidden('close', false);
         if (!value) {
           // 自定义关闭框超时/被打断：通知渲染层收起模糊遮罩，再走原生兜底。
           try {
@@ -286,7 +293,16 @@ function createWindow(): void {
         }
         resolve(value);
       };
-      const timer = setTimeout(() => finish(null), 15000);
+      // 只等「关闭框画出来」这一小段；画出来之后交给用户慢慢决定，
+      // 不再用固定超时把正在看的弹窗换成系统对话框。
+      timer = setTimeout(() => finish(null), 8000);
+      setCloseShownHandler(() => {
+        if (settled) return;
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      });
       setCloseDecisionHandler((payload) => {
         const choice = payload?.choice;
         if (choice !== 'tray' && choice !== 'quit' && choice !== 'cancel') return;
@@ -299,6 +315,12 @@ function createWindow(): void {
       }
     });
   };
+
+  mainWindow.on('leave-full-screen', () => {
+    // 全屏退出时窗口尺寸变化比 renderer 的布局上报慢；补一次强制重绘，
+    // 避免网页区域停在白底。
+    setTimeout(() => tabManager?.refreshActiveView(), 180).unref?.();
+  });
 
   mainWindow.on('close', (event) => {
     handleCloseRequest(

@@ -28,6 +28,11 @@ export function CloseDialog({
 
   useEffect(() => {
     if (!open) return;
+    window.bsub.closeShown?.();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') choose('cancel');
     };

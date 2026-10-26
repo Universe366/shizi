@@ -1157,6 +1157,8 @@ export interface SummarizeRequest {
   lines: SubtitleLine[];
   /** 跳过「先校对字幕」直接生成（快速总结） */
   skipProofread?: boolean;
+  /** 跳过联网核对/参考资料（快速总结） */
+  skipVerify?: boolean;
 }
 
 export interface AiDoneEvent {

@@ -327,6 +327,13 @@ export class TabManager {
     wc.on('leave-html-full-screen', () => {
       const win = ownerWindow();
       if (win?.isFullScreen()) win.setFullScreen(false);
+      // 退出全屏是尺寸/合成器状态变化最大的一步：等窗口真正缩回去再重报一次，
+      // 否则原生视图可能停在旧尺寸上，表现成整块白屏。
+      setTimeout(() => {
+        if (record.view && !record.view.webContents.isDestroyed()) {
+          this.refreshActiveView();
+        }
+      }, 180).unref?.();
     });
     wc.on('before-input-event', (event, input) => {
       if (input.type !== 'keyDown') return;
@@ -953,15 +960,25 @@ export class TabManager {
   /** 强制重绘当前页面；全屏/侧栏切换后原生视图偶尔会留下白底。 */
   refreshActiveView(): void {
     const record = this.activeRecord();
-    if (!record?.view || record.view.webContents.isDestroyed()) return;
-    try {
-      record.view.webContents.invalidate();
-    } catch {
-      // ignore
-    }
+    if (!record?.view) return;
+    const apply = () => {
+      try {
+        if (!record.view || record.view.webContents.isDestroyed()) return;
+        // 退出全屏后 view 可能还停在旧尺寸上：重新按最新 bounds 落一次，
+        // 再 invalidate 让页面立刻重绘。
+        record.view.setBounds(this.bounds);
+        record.view.webContents.invalidate();
+      } catch {
+        // ignore
+      }
+    };
+    apply();
+    // 窗口从全屏退出的动画/尺寸同步比一帧慢；再补一次，避免留下白底。
+    setTimeout(apply, 160).unref?.();
   }
 
-  setLayout(rect: LayoutRect): void {    const hadSize = this.bounds.width > 0 && this.bounds.height > 0;
+  setLayout(rect: LayoutRect): void {
+    const hadSize = this.bounds.width > 0 && this.bounds.height > 0;
     this.bounds = {
       x: Math.max(0, Math.round(rect.x)),
       y: Math.max(0, Math.round(rect.y)),
@@ -1173,7 +1190,25 @@ export class TabManager {
     saveSettings(settings);
   }
 
+  // 网页视图是否可见由多个来源共同决定（页面/浮层、拖动、关闭确认框）。
+  // 以前每个来源都直接 setVisible(true/false)，后到的调用会覆盖前一个：
+  // 关掉关闭框时页面还没恢复、或者关闭框刚弹出就被其它来源重新显示出来。
+  // 现在按来源登记，只有所有来源都允许时才显示。
+  private hiddenReasons = new Set<string>();
+
+  /** 按来源隐藏/恢复网页视图；reason 相同的重复调用是幂等的。 */
+  setViewHidden(reason: string, hidden: boolean): void {
+    if (hidden) this.hiddenReasons.add(reason);
+    else this.hiddenReasons.delete(reason);
+    this.applyViewVisibility();
+  }
+
   setActiveViewVisible(visible: boolean): void {
+    this.setViewHidden('ui', !visible);
+  }
+
+  private applyViewVisibility(): void {
+    const visible = this.hiddenReasons.size === 0;
     this.activeViewVisible = visible;
     const record = this.activeRecord();
     try {

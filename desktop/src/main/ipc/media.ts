@@ -400,6 +400,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             info: payload.info,
             lines: payload.lines,
             skipProofread: payload.skipProofread === true,
+            skipVerify: payload.skipVerify === true,
             signal: controller.signal,
             onDelta: (delta) => ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
             onStatus: (status) => {

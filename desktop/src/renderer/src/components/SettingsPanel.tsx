@@ -80,7 +80,6 @@ export function SettingsPanel({
   const [installingExtension, setInstallingExtension] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
   const [searchTesting, setSearchTesting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('B站 视频 总结');
   const [searchResults, setSearchResults] = useState<WebReference[] | null>(null);
@@ -730,20 +729,6 @@ export function SettingsPanel({
     return () => window.removeEventListener('keydown', onKey);
   }, [dirty, saving]);
 
-  const test = async () => {
-    if (!active) return;
-    setTesting(true);
-    setMessage('');
-    setError('');
-    try {
-      const response = await window.bsub.testAi(active);
-      if (response.ok) setMessage(`连接成功 · ${response.data.latencyMs}ms`);
-      else setError(response.error);
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const skipCurrentUpdate = async () => {
     if (!updateState?.version) return;
     const response = await window.bsub.skipUpdate(updateState.version);
@@ -1000,18 +985,6 @@ export function SettingsPanel({
     if (status.ok) setBridge(status.data);
   };
 
-  const jumpToSection = (label: string) => {
-    const sections = Array.from(
-      document.querySelectorAll<HTMLElement>('.settings-section')
-    );
-    const target = sections.find((section) =>
-      (section.querySelector('.settings-section-title')?.textContent || '').includes(label)
-    );
-    if (target) {
-      (target as HTMLDetailsElement).open = true;
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
 
   useEffect(() => {
     if (!draft) return;
@@ -1077,24 +1050,6 @@ export function SettingsPanel({
               清除
             </button>
           )}
-          <select
-            className="settings-jump"
-            value=""
-            title="跳转到分组"
-            onChange={(event) => {
-              if (event.target.value) jumpToSection(event.target.value);
-              event.target.value = '';
-            }}
-          >
-            <option value="">分组</option>
-            {['通用', 'AI', '语音', '提示词', '检索', '校对', '导出', 'MCP', 'Skills', '更新', '数据', '诊断'].map(
-              (label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              )
-            )}
-          </select>
         </div>
 
         {settingsQuery && (
@@ -1138,8 +1093,6 @@ export function SettingsPanel({
         setShowKey={setShowKey}
         setEditingAiId={setEditingAiId}
         platformStatus={platformStatusNode}
-        testing={testing}
-        onTest={() => void test()}
       />
       )}
 
@@ -1181,10 +1134,7 @@ export function SettingsPanel({
         updateSearchPlatform={(patch) => updateSearchPlatform(patch)}
         addSearchPlatform={addSearchPlatform}
         removeSearchPlatform={removeSearchPlatform}
-        testConnection={(kind) => void testConnection(kind)}
-        platformBusy={platformBusy}
         setEditingSearchId={setEditingSearchId}
-        platformStatus={platformStatusNode}
         showKey={showKey}
         setShowKey={setShowKey}
         searchQuery={searchQuery}

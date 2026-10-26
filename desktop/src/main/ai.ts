@@ -57,6 +57,8 @@ export interface SummarizeOptions {
   prompt?: string;
   signal?: AbortSignal;
   skipProofread?: boolean;
+  /** 跳过联网核对/检索参考资料（与插件的「快速总结」一致） */
+  skipVerify?: boolean;
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
   onStatus?: (status: string) => void;
@@ -430,7 +432,9 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
 
   let referencesBlock = '';
   let verification: VerificationSummary | undefined;
-  if (settings.search.enabled) {
+  if (settings.search.enabled && options.skipVerify) {
+    options.onStatus?.('快速总结：跳过联网核对');
+  } else if (settings.search.enabled) {
     if (settings.search.verifySummary !== false) {
       options.onStatus?.('正在从字幕抽取待核实项…');
       try {
