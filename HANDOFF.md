@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-26
-> 适用版本：桌面 **0.38.33** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.38.33`（`4a1b666`）
-> 最新 Release：`v0.38.33`
+> 适用版本：桌面 **0.38.34** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.38.34`
+> 最新 Release：`v0.38.34`
 > 验收清单：[验收清单.md](验收清单.md)（0.37.7 那一轮的记录，仅作历史参考）  
 > 工作区：clean
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.38.33` 通过 |
+| 发布 CI | `v0.38.34` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.38.33，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.38.34，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
@@ -126,6 +126,15 @@
 - **起始页**：小组件顺序可调；快捷方式始终可拖 + 铅笔直接编辑；添加入口常驻；支持上传自定义壁纸；搜索下拉层级修复。
 
 ## 2. 最近发生了什么（避免重复劳动）
+
+### 0.38.34（2026-10-26，工作台设置页布局）
+
+- `LocalWorkbench` 改为 `.workbench-shell` + `.settings-nav` + `.settings-page-content`，
+  与设置页视觉一致；四个 stage 不再禁用，空状态各自提供选择文件/导入字幕。
+- `importSubtitle` 复用 `parseSubtitleText`；没有视频也能导入字幕后进入字幕处理/合成。
+- 合成 stage 内嵌 `RendersPanel`。
+- 发布：GitHub Release `v0.38.34`；`latest.yml` 与 `/releases/latest` 已指向该版本；
+  插件保持 2.18.8。
 
 ### 0.38.33（2026-10-26，工作台四步工作区）
 
@@ -504,9 +513,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.38.33 测试/冒烟通过
+- [x] 0.38.34 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.38.33`
+- [x] 最新 Release 指向 `v0.38.34`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
