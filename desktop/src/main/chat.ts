@@ -5,7 +5,7 @@ import type {
   SubtitleLine,
   WebReference
 } from '../shared/types';
-import { activePlatform, loadSettings } from './settings';
+import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream, chatToolLoop } from './aiClient';
 import type { AiMessage, AiPart } from './aiClient';
@@ -80,7 +80,7 @@ async function aiWantsSearch(
           content: `标题：${info.title || '未知'}\n问题：${question.slice(0, 500)}`
         }
       ],
-      { temperature: 0, maxTokens: 8, timeoutMs: 8000, signal }
+      { temperature: 0, maxTokens: 8, timeoutMs: 8000, signal, task: 'quick' }
     );
     return parseAutoSearchIntent(result.text) ?? shouldAutoSearch(question);
   } catch (error) {
@@ -92,7 +92,7 @@ async function aiWantsSearch(
 
 export async function chat(options: ChatOptions): Promise<ChatResult> {
   const settings = loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('chat', settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
@@ -123,7 +123,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     } else if (settings.search.autoSearchOnChat) {
       if (settings.search.autoSearchAi) {
         options.onStatus?.('判断是否需要联网…');
-        wantsSearch = await aiWantsSearch(platform, question, options.info, options.signal);
+        wantsSearch = await aiWantsSearch(platformForTask('quick', settings), question, options.info, options.signal);
         if (!wantsSearch) options.onStatus?.('正在回答…');
       } else {
         wantsSearch = shouldAutoSearch(question);
@@ -310,7 +310,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         temperature: settings.ai.temperature,
         maxTokens: settings.ai.maxTokens || undefined,
         maxRounds: settings.mcp.maxToolRounds || 6,
-        signal: options.signal
+        signal: options.signal,
+        task: 'chat'
       },
       async (call) => {
         let args: Record<string, unknown> = {};
@@ -356,7 +357,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     temperature: settings.ai.temperature,
     maxTokens: settings.ai.maxTokens || undefined,
     timeoutMs: REQUEST_TIMEOUT_MS,
-    signal: options.signal
+    signal: options.signal,
+    task: 'chat' as const
   };
 
   if (settings.ai.stream === false) {

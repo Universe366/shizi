@@ -1,6 +1,6 @@
 import type { SubtitleLine } from '../shared/types';
 import { chatOnce } from './aiClient';
-import { activePlatform, loadSettings } from './settings';
+import { loadSettings, platformForTask } from './settings';
 
 export interface ResegmentOptions {
   /** 每行目标最大字数 */
@@ -170,7 +170,7 @@ export async function resegmentLines(
     };
   }
   const settings = loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('chapters', settings);
   if (!platform?.baseUrl.trim() || !platform.model.trim()) {
     return {
       lines: resegmentByRules(lines, { ...options, maxChars }),
@@ -195,7 +195,7 @@ export async function resegmentLines(
           { role: 'system', content: '你是字幕断句助手，只做语义分组，不改写字幕文字。' },
           { role: 'user', content: segmentationPrompt(batch, maxChars) }
         ],
-        { temperature: 0, maxTokens: 1500, timeoutMs: 60000, signal }
+        { temperature: 0, maxTokens: 1500, timeoutMs: 60000, signal, task: 'chapters' }
       );
       const parsed = parseSegmentationGroups(
         result.text || result.reasoning || '',

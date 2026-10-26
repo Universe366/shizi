@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { applyAutoStart } from '../autoStart';
+import { applyProxy } from '../proxy';
 import { registerPetShortcuts } from '../petShortcuts';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
@@ -197,6 +198,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         ctx.tabs.refreshShortcuts();
         setPetEnabled(saved.general.petEnabled === true);
         applyAutoStart(saved.general.autoStart === true);
+        await applyProxy(saved);
         registerPetShortcuts();
         applyPetSettings();
         await restartBridge(ctx.win);

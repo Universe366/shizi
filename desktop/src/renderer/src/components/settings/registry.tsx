@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import {
+  BarChart3,
   BookOpen,
   Bot,
   Captions,
@@ -9,6 +10,7 @@ import {
   Palette,
   Plug,
   Search,
+  Settings,
   Sparkles
 } from 'lucide-react';
 
@@ -21,6 +23,7 @@ export interface SettingsGroup {
 
 /** 设置分组注册表：导航、标题与后续的搜索索引都从这里派生。 */
 export const SETTINGS_GROUPS: SettingsGroup[] = [
+  { id: 'general', label: '通用', description: '网络代理与启动行为', icon: Settings },
   { id: 'appearance', label: '外观', description: '主题、字号、侧栏与标签栏布局', icon: Palette },
   {
     id: 'sessions',
@@ -43,6 +46,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   },
   { id: 'efficiency', label: '效率工具', description: 'AI 悬浮球与桌面宠物', icon: Sparkles },
   { id: 'ai', label: 'AI 与语音', description: 'AI 平台、语音识别、提示词与校对', icon: Bot },
+  {
+    id: 'usage',
+    label: '用量统计',
+    description: 'Token 用量、模型成本与请求明细',
+    icon: BarChart3
+  },
   { id: 'search', label: '检索与核对', description: '联网检索、证据与总结核对', icon: Globe },
   { id: 'plugins', label: '插件与集成', description: '浏览器插件桥、MCP 与技能', icon: Plug },
   {

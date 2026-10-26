@@ -254,6 +254,50 @@ export function SearchSection({
   </div>
 
   <div className="settings-group">
+    <div className="settings-group-title">结果处理</div>
+    <div className="settings-group-desc">
+      摘要太长会挤占上下文；抓正文更完整但会慢几秒。黑名单命中后直接丢弃该结果。
+    </div>
+    <label className="settings-check">
+      <input
+        type="checkbox"
+        checked={draft.search.fetchPages === true}
+        onChange={(event) => updateSearch({ fetchPages: event.target.checked })}
+      />
+      抓取前 3 条结果的网页正文（替换默认摘要）
+    </label>
+    <div className="settings-field">
+      <div className="settings-label">每条结果保留字符数（{draft.search.snippetChars || 2000}）</div>
+      <input
+        className="settings-input"
+        type="number"
+        min={200}
+        max={20000}
+        step={100}
+        value={draft.search.snippetChars || 2000}
+        onChange={(event) => updateSearch({ snippetChars: Number(event.target.value) || 2000 })}
+      />
+    </div>
+    <div className="settings-label">域名黑名单（每行一条，支持 * 通配与 /正则/）</div>
+    <textarea
+      className="settings-textarea"
+      rows={3}
+      spellCheck={false}
+      placeholder="*://*.example.com/*"
+      value={(draft.search.blacklist || []).join('\n')}
+      onChange={(event) =>
+        updateSearch({
+          blacklist: event.target.value
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 100)
+        })
+      }
+    />
+  </div>
+
+  <div className="settings-group">
     <div className="settings-group-title">什么时候自动联网</div>
     <div className="settings-group-desc">
       默认不自动联网，只有你在对话里点「联网」时才搜。打开后按问题内容判断。

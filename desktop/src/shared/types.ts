@@ -557,6 +557,67 @@ export interface AiPlatform {
   homepage?: string;
   keyUrl?: string;
   kind?: string;
+  /** 额外 API Key：主 Key 触发限流/额度时按顺序轮换（可选） */
+  extraKeys?: string[];
+  /** Azure OpenAI 的 api-version（kind=azure 时使用） */
+  apiVersion?: string;
+}
+
+/** 可以单独指定模型的 AI 任务；没配置就跟随「当前平台」。 */
+export type AiTask =
+  | 'chat'
+  | 'summary'
+  | 'translate'
+  | 'proofread'
+  | 'chapters'
+  | 'verify'
+  | 'quick';
+
+export interface AiTaskModel {
+  /** 平台 id；空字符串表示沿用当前平台，只覆盖模型名 */
+  platformId: string;
+  model: string;
+}
+
+/** 一次 AI 请求的 token 用量（由服务端返回，缺失时不记录）。 */
+export interface AiUsage {
+  inputTokens: number;
+  outputTokens: number;
+  /** 命中缓存的输入 token（Anthropic cache_read_input_tokens 等） */
+  cacheReadTokens?: number;
+}
+
+export interface UsageEvent {
+  id: number;
+  createdAt: number;
+  task: AiTask;
+  platformId: string;
+  platformName: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+}
+
+export interface UsageAggregate {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+}
+
+export interface UsageSummary {
+  totals: UsageAggregate;
+  byModel: Array<UsageAggregate & { model: string }>;
+  byTask: Array<UsageAggregate & { task: AiTask }>;
+  byDay: Array<UsageAggregate & { day: string }>;
+}
+
+export interface ModelPrice {
+  /** 每 100 万输入 token 的价格（人民币） */
+  input: number;
+  /** 每 100 万输出 token 的价格（人民币） */
+  output: number;
 }
 
 export interface McpServer {
@@ -641,6 +702,12 @@ export interface SearchSettings {
   aiQueryGeneration: boolean;
   /** 用户补充的核实查询，每行一条 */
   extraVerifyQueries: string;
+  /** 抓取网页正文替换摘要（慢一些，但证据更完整） */
+  fetchPages: boolean;
+  /** 每条结果保留的字符数（截断，避免撑爆 token） */
+  snippetChars: number;
+  /** 域名黑名单：每行一个，支持 * 通配与 /正则/ */
+  blacklist: string[];
 }
 
 export type AsrTransport = 'auto' | 'multipart' | 'base64-json' | 'chat-audio';
@@ -896,6 +963,14 @@ export interface AppSettings {
     autoStart: boolean;
     /** searchEngine=custom 时的 URL 模板，必须包含 {q} */
     searchEngineCustom: string;
+    /** 应用级代理：影响内置浏览器与 AI/搜索请求 */
+    proxy: {
+      mode: 'system' | 'custom' | 'none';
+      /** custom 时的代理规则，例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:1080 */
+      url: string;
+      /** 绕过代理的地址，逗号分隔 */
+      bypass: string;
+    };
   };
   ai: {
     activeId: string;
@@ -909,6 +984,14 @@ export interface AppSettings {
     presetVersion: number;
     /** 允许模型调用本地只读工具（搜库/读条目） */
     appTools: boolean;
+    /** 按任务覆盖模型；缺省跟随当前平台 */
+    taskModels: Partial<Record<AiTask, AiTaskModel>>;
+  };
+  usage: {
+    /** 记录 token 用量（关闭后不再写库） */
+    enabled: boolean;
+    /** 用户覆盖的模型价格（每 100 万 token，人民币） */
+    prices: Record<string, ModelPrice>;
   };
   asr: AsrSettings;
   prompt: {

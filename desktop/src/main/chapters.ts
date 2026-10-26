@@ -1,5 +1,5 @@
 import type { Chapter, PageInfo, SubtitleLine } from '../shared/types';
-import { activePlatform, loadSettings } from './settings';
+import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
 import { buildTranscript } from './ai';
@@ -75,7 +75,7 @@ export async function generateChapters(
   signal?: AbortSignal
 ): Promise<Chapter[]> {
   const settings = loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('chapters', settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
@@ -97,7 +97,8 @@ export async function generateChapters(
       temperature: 0.2,
       maxTokens: settings.ai.maxTokens || undefined,
       timeoutMs: REQUEST_TIMEOUT_MS,
-      signal
+      signal,
+      task: 'chapters'
     }
   );
   const chapters = parseChapters(result.text, info.duration);

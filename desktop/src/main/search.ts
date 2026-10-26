@@ -26,8 +26,7 @@ function cleanTitle(title: string): string {
     .trim();
 }
 
-export function buildSearchQuery(title: string, owner?: string): string {
-  const clean = cleanTitle(title);
+export function buildSearchQuery(title: string, owner?: string): string {  const clean = cleanTitle(title);
   if (clean.length >= 6) return clean;
   return [owner, clean].filter(Boolean).join(' ').trim() || clean || '视频';
 }
@@ -764,12 +763,118 @@ function freePlatform(id: 'anysearch' | 'searxng'): SearchPlatform {
   };
 }
 
+function compileBlacklist(patterns: string[]): RegExp[] {
+  const compiled: RegExp[] = [];
+  for (const raw of patterns || []) {
+    const text = String(raw || '').trim();
+    if (!text) continue;
+    try {
+      if (text.startsWith('/') && text.lastIndexOf('/') > 0) {
+        const end = text.lastIndexOf('/');
+        const body = text.slice(1, end);
+        const flags = text.slice(end + 1).replace(/[^gimsuy]/g, '');
+        compiled.push(new RegExp(body, flags || 'i'));
+        continue;
+      }
+      // ublacklist 风格：* 通配，其余字符按字面量处理
+      const escaped = text
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*');
+      compiled.push(new RegExp(`^${escaped}$`, 'i'));
+    } catch {
+      // 非法正则忽略，避免一条坏规则让整个检索失败
+    }
+  }
+  return compiled;
+}
+
+/** 判断结果是否命中黑名单（URL 整串匹配）。 */
+export function isBlockedUrl(url: string, patterns: string[]): boolean {
+  if (!patterns?.length) return false;
+  return compileBlacklist(patterns).some((pattern) => pattern.test(String(url || '')));
+}
+
+function decodeEntities(text: string): string {
+  const named: Record<string, string> = {
+    nbsp: ' ',
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'"
+  };
+  return text
+    .replace(/&([a-z]+);/gi, (match, name: string) => named[name.toLowerCase()] ?? match)
+    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) =>
+      String.fromCharCode(parseInt(code, 16))
+    );
+}
+
+/** 极简正文提取：丢掉脚本/样式，按块级标签换行。够做证据补充，不做完整 readability。 */
+export function htmlToText(html: string): string {
+  const text = String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr|\/section|\/article)\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ');
+  return decodeEntities(text)
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+
+async function fetchPageText(url: string, maxChars: number): Promise<string> {
+  if (!/^https?:/i.test(url)) return '';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const outer = searchSignal.getStore();
+  const forward = () => controller.abort();
+  outer?.addEventListener('abort', forward, { once: true });
+  try {
+    const response = await session.defaultSession.fetch(url, {
+      method: 'GET',
+      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
+      signal: controller.signal
+    });
+    if (!response.ok) return '';
+    const type = response.headers.get('content-type') || '';
+    if (!/text\/html|text\/plain/i.test(type)) return '';
+    const html = (await response.text()).slice(0, 400000);
+    return htmlToText(html).slice(0, maxChars);
+  } catch {
+    return '';
+  } finally {
+    clearTimeout(timer);
+    outer?.removeEventListener('abort', forward);
+  }
+}
+
+/** 抓取前几条结果的正文，替换默认摘要（失败时保留原摘要）。 */
+async function enrichWithPages(
+  refs: WebReference[],
+  maxChars: number,
+  limit = 3
+): Promise<WebReference[]> {
+  const targets = refs.slice(0, limit);
+  if (!targets.length) return refs;
+  const texts = await Promise.all(targets.map((ref) => fetchPageText(ref.url, maxChars)));
+  return refs.map((ref, index) => {
+    const text = texts[index];
+    if (index < limit && text && text.length > 80) {
+      return { ...ref, snippet: text };
+    }
+    return ref;
+  });
+}
+
 export async function searchWeb(
   settings: AppSettings,
   query: string,
   onMeta?: (meta: SearchMeta) => void
-): Promise<WebReference[]> {
-  if (!settings.search.enabled) return [];
+): Promise<WebReference[]> {  if (!settings.search.enabled) return [];
   const abort = searchSignal.getStore();
   if (abort?.aborted) throw Object.assign(new Error('已取消'), { name: 'AbortError' });
   const platform = activePlatform(settings);
@@ -779,7 +884,7 @@ export async function searchWeb(
   if (!platform.baseUrl.trim() && (kind === 'deepseek-search' || kind === 'custom')) {
     throw new Error(`${platform.name || '检索平台'} 还没有填写接口地址`);
   }
-  const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}`;
+  const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}|${settings.search.fetchPages ? 1 : 0}|${settings.search.snippetChars || 2000}|${(settings.search.blacklist || []).join(',')}`;
   const ttl = Math.max(0, settings.search.cacheMinutes || 0) * 60000;
   if (ttl > 0) {
     const cached = searchCache.get(cacheKey);
@@ -805,7 +910,17 @@ export async function searchWeb(
     else if (kind === 'searxng') rows = await searchSearxng(settings, platform, query);
     else rows = await searchCustom(settings, platform, query);
 
-    const normalized = normalize(rows, max);
+    const maxChars = Math.max(200, settings.search.snippetChars || 2000);
+    let normalized = normalize(rows, max).filter(
+      (ref) => !isBlockedUrl(ref.url, settings.search.blacklist || [])
+    );
+    normalized = normalized.map((ref) => ({
+      ...ref,
+      snippet: String(ref.snippet || '').slice(0, maxChars)
+    }));
+    if (settings.search.fetchPages && normalized.length) {
+      normalized = await enrichWithPages(normalized, maxChars, 3);
+    }
     if (normalized.length) {
       const meta: SearchMeta = {
         engine: platform.name || platform.kind || '检索',

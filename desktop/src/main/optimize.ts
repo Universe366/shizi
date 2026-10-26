@@ -1,5 +1,11 @@
-import type { AppSettings, OptimizeSuggestion, SubtitleLine, WebReference } from '../shared/types';
-import { activePlatform, loadSettings } from './settings';
+import type {
+  AiPlatform,
+  AppSettings,
+  OptimizeSuggestion,
+  SubtitleLine,
+  WebReference
+} from '../shared/types';
+import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
 import { glossaryTerms } from './correction';
@@ -63,7 +69,7 @@ function parseSuggestions(raw: string, batch: SubtitleLine[]): string[] {
 
 async function verifySuggestions(
   settings: AppSettings,
-  platform: ReturnType<typeof activePlatform>,
+  platform: AiPlatform,
   suggestions: OptimizeSuggestion[],
   signal?: AbortSignal
 ): Promise<void> {
@@ -134,7 +140,7 @@ async function verifySuggestions(
           content: JSON.stringify(payload)
         }
       ],
-      { temperature: 0, maxTokens: 2000, signal }
+      { temperature: 0, maxTokens: 2000, signal, task: 'verify' }
     );
     const content = result.text;
     const start = content.indexOf('[');
@@ -186,7 +192,7 @@ export async function optimizeLines(
   settingsOverride?: AppSettings
 ): Promise<OptimizeSuggestion[]> {
   const settings = settingsOverride || loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('proofread', settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
@@ -229,7 +235,8 @@ export async function optimizeLines(
         temperature: 0.1,
         maxTokens: settings.ai.maxTokens || undefined,
         timeoutMs: REQUEST_TIMEOUT_MS,
-        signal
+        signal,
+        task: 'proofread'
       }
     );
 
@@ -254,7 +261,7 @@ export async function optimizeLines(
 
   if (settings.search.enabled && settings.search.verify && suggestions.length) {
     onProgress(95, '联网核对改动…');
-    await verifySuggestions(settings, platform, suggestions, signal);
+    await verifySuggestions(settings, platformForTask('verify', settings), suggestions, signal);
   }
 
   onProgress(

@@ -63,6 +63,8 @@ import type {
   TabGroup,
   TrackBody,
   UpdateStatus,
+  UsageEvent,
+  UsageSummary,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -453,6 +455,13 @@ const api: BsubApi = {
     ipcRenderer.invoke('settings:sidebar-width', width) as Promise<Result<SettingsSnapshot>>,
   saveSettings: (next: AppSettings) =>
     ipcRenderer.invoke('settings:set', next) as Promise<Result<SettingsSnapshot>>,
+  usageSummary: (days?: number) =>
+    ipcRenderer.invoke('usage:summary', days) as Promise<Result<UsageSummary>>,
+  usageEvents: (limit?: number) =>
+    ipcRenderer.invoke('usage:events', limit) as Promise<Result<UsageEvent[]>>,
+  clearUsage: () => ipcRenderer.invoke('usage:clear') as Promise<Result<{ removed: number }>>,
+  exportUsage: () =>
+    ipcRenderer.invoke('usage:export') as Promise<Result<{ canceled: boolean; path?: string }>>,
   finishWizard: () =>
     ipcRenderer.invoke('settings:wizard', true) as Promise<Result<SettingsSnapshot>>,
   setWizardVisible: (visible: boolean) =>

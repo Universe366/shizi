@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {
   AiPlatform,
+  AiTask,
+  AiTaskModel,
   AsrPlatform,
   AppSettings,
   ExportFormat,
@@ -12,6 +14,7 @@ import type {
   SubtitleStyle,
   ThemeMode
 } from '../shared/types';
+import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { parseShortcut } from '../shared/shortcutKeys';
@@ -20,6 +23,7 @@ import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
 import { DEFAULT_SUBTITLE_TOOLBAR } from '../shared/subtitleToolbar';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
+import { setUsageEnabled } from './usage';
 
 function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
   const raw = (value || {}) as Partial<SubtitleStyle>;
@@ -187,7 +191,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     startHotSearch: true,
     syncFolder: '',
     autoStart: false,
-    searchEngineCustom: ''
+    searchEngineCustom: '',
+    proxy: {
+      mode: 'system',
+      url: '',
+      bypass: 'localhost,127.0.0.1,::1'
+    }
   },
   ai: {
     activeId: 'deepseek',
@@ -198,11 +207,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sendOnEnter: true,
     expandReasoning: false,
     appTools: true,
+    taskModels: {},
     presetVersion: AI_PRESET_VERSION,
     platforms: AI_PRESETS.map((platform) => ({
       ...platform,
       models: [...(platform.models || [])]
     }))
+  },
+  usage: {
+    enabled: true,
+    prices: {}
   },
   asr: {
     activeId: 'siliconflow',
@@ -311,7 +325,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     useVideoMeta: true,
     useComments: true,
     aiQueryGeneration: true,
-    extraVerifyQueries: ''
+    extraVerifyQueries: '',
+    fetchPages: false,
+    snippetChars: 2000,
+    blacklist: []
   },
   correction: {
     enabled: true,
@@ -535,6 +552,18 @@ function normalize(input: unknown): AppSettings {
         typeof raw.general.searchEngineCustom === 'string'
           ? raw.general.searchEngineCustom.slice(0, 300)
           : '';
+      const proxy = raw.general.proxy;
+      if (proxy && typeof proxy === 'object') {
+        base.general.proxy.mode = ['system', 'custom', 'none'].includes(proxy.mode as string)
+          ? (proxy.mode as 'system' | 'custom' | 'none')
+          : 'system';
+        base.general.proxy.url =
+          typeof proxy.url === 'string' ? proxy.url.trim().slice(0, 300) : '';
+        base.general.proxy.bypass =
+          typeof proxy.bypass === 'string'
+            ? proxy.bypass.trim().slice(0, 500)
+            : 'localhost,127.0.0.1,::1';
+      }
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])
             .filter(
@@ -613,7 +642,14 @@ function normalize(input: unknown): AppSettings {
               : [...(preset?.models || [])],
           homepage: String(item.homepage || preset?.homepage || ''),
           keyUrl: String(item.keyUrl || preset?.keyUrl || ''),
-          kind: String(item.kind || preset?.kind || '')
+          kind: String(item.kind || preset?.kind || ''),
+          apiVersion: String(item.apiVersion || preset?.apiVersion || ''),
+          extraKeys: Array.isArray(item.extraKeys)
+            ? item.extraKeys
+                .map((key) => String(key || '').trim())
+                .filter(Boolean)
+                .slice(0, 5)
+            : []
         });
       }
       if (platforms.length) base.ai.platforms = platforms;
@@ -652,6 +688,42 @@ function normalize(input: unknown): AppSettings {
     base.ai.sendOnEnter = raw.ai?.sendOnEnter !== false;
     base.ai.appTools = raw.ai?.appTools !== false;
     base.ai.expandReasoning = raw.ai?.expandReasoning === true;
+
+    const rawTasks = raw.ai?.taskModels;
+    if (rawTasks && typeof rawTasks === 'object') {
+      const taskModels: Partial<Record<AiTask, AiTaskModel>> = {};
+      const table = rawTasks as Record<string, { platformId?: unknown; model?: unknown }>;
+      for (const task of AI_TASKS) {
+        const item = table[task.id];
+        if (!item || typeof item !== 'object') continue;
+        const platformId = String(item.platformId || '').trim();
+        const model = String(item.model || '').trim().slice(0, 120);
+        if (!platformId && !model) continue;
+        if (platformId && !base.ai.platforms.some((platform) => platform.id === platformId)) {
+          continue;
+        }
+        taskModels[task.id] = { platformId, model };
+      }
+      base.ai.taskModels = taskModels;
+    }
+
+    if (raw.usage && typeof raw.usage === 'object') {
+      base.usage.enabled = raw.usage.enabled !== false;
+      const rawPrices = raw.usage.prices;
+      if (rawPrices && typeof rawPrices === 'object') {
+        for (const [model, price] of Object.entries(rawPrices)) {
+          const id = String(model || '').trim().slice(0, 80);
+          const input = (price as { input?: unknown })?.input;
+          const output = (price as { output?: unknown })?.output;
+          if (!id || typeof input !== 'number' || typeof output !== 'number') continue;
+          if (!Number.isFinite(input) || !Number.isFinite(output)) continue;
+          base.usage.prices[id] = {
+            input: Math.min(100000, Math.max(0, input)),
+            output: Math.min(100000, Math.max(0, output))
+          };
+        }
+      }
+    }
 
     if (raw.asr && typeof raw.asr === 'object') {
       // 旧默认值（120s / 1 并发 / 20MB / 120s 超时）是历史遗留：
@@ -941,6 +1013,17 @@ function normalize(input: unknown): AppSettings {
       if (typeof raw.search.extraVerifyQueries === 'string') {
         base.search.extraVerifyQueries = raw.search.extraVerifyQueries.slice(0, 4000);
       }
+      base.search.fetchPages = raw.search.fetchPages === true;
+      const snippetChars = Number(raw.search.snippetChars);
+      if (Number.isFinite(snippetChars)) {
+        base.search.snippetChars = Math.min(20000, Math.max(200, Math.round(snippetChars)));
+      }
+      if (Array.isArray(raw.search.blacklist)) {
+        base.search.blacklist = raw.search.blacklist
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+          .slice(0, 100);
+      }
     }
 
     if (raw.correction && typeof raw.correction === 'object') {
@@ -1010,6 +1093,9 @@ function openSecrets(settings: AppSettings): AppSettings {
   eachPlatform(settings, (platform) => {
     platform.apiKey = openSecret(platform.apiKey);
   });
+  for (const platform of settings.ai.platforms) {
+    platform.extraKeys = (platform.extraKeys || []).map((key) => openSecret(key));
+  }
   return settings;
 }
 
@@ -1019,6 +1105,9 @@ function sealSecrets(settings: AppSettings): AppSettings {
   eachPlatform(clone, (platform) => {
     platform.apiKey = sealSecret(platform.apiKey);
   });
+  for (const platform of clone.ai.platforms) {
+    platform.extraKeys = (platform.extraKeys || []).map((key) => sealSecret(key));
+  }
   return clone;
 }
 
@@ -1028,6 +1117,7 @@ export function stripSecrets(settings: AppSettings): AppSettings {
   eachPlatform(clone, (platform) => {
     platform.apiKey = '';
   });
+  for (const platform of clone.ai.platforms) platform.extraKeys = [];
   clone.bridge.token = '';
   return clone;
 }
@@ -1054,6 +1144,10 @@ export function migrateSettingsSecrets(): number {
       for (const platform of group) {
         const key = String(platform?.apiKey || '');
         if (key && !isSealedSecret(key)) plaintext += 1;
+        for (const extra of platform?.extraKeys || []) {
+          const value = String(extra || '');
+          if (value && !isSealedSecret(value)) plaintext += 1;
+        }
       }
     }
     if (!plaintext) return 0;
@@ -1077,12 +1171,15 @@ export function restoreSettingsFromBackup(raw: unknown): AppSettings {
 }
 
 export function loadSettings(): AppSettings {
+  let settings: AppSettings;
   try {
     const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
-    return openSecrets(normalize(raw));
+    settings = openSecrets(normalize(raw));
   } catch {
-    return openSecrets(normalize(null));
+    settings = openSecrets(normalize(null));
   }
+  setUsageEnabled(settings.usage.enabled !== false);
+  return settings;
 }
 
 function maskSecret(value: string): string {
@@ -1098,7 +1195,10 @@ export function isMaskedSecret(value: string): boolean {
 
 function maskSettings(settings: AppSettings): AppSettings {
   const clone: AppSettings = JSON.parse(JSON.stringify(settings));
-  for (const platform of clone.ai.platforms) platform.apiKey = maskSecret(platform.apiKey);
+  for (const platform of clone.ai.platforms) {
+    platform.apiKey = maskSecret(platform.apiKey);
+    platform.extraKeys = (platform.extraKeys || []).map((key) => maskSecret(key));
+  }
   for (const platform of clone.asr.platforms) platform.apiKey = maskSecret(platform.apiKey);
   for (const platform of clone.search.platforms) platform.apiKey = maskSecret(platform.apiKey);
   return clone;
@@ -1119,6 +1219,11 @@ function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
       platform.apiKey,
       current.ai.platforms.find((item) => item.id === platform.id)?.apiKey || ''
     );
+    const existing =
+      current.ai.platforms.find((item) => item.id === platform.id)?.extraKeys || [];
+    platform.extraKeys = (platform.extraKeys || [])
+      .map((key, index) => resolveSecret(key, existing[index] || ''))
+      .filter(Boolean);
   }
   for (const platform of merged.asr.platforms) {
     platform.apiKey = resolveSecret(
@@ -1174,6 +1279,7 @@ export function saveSettings(next: AppSettings): AppSettings {
   const normalized = normalize(mergeSecrets(next, loadSettings()));
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
   fs.writeFileSync(settingsFile(), JSON.stringify(sealSecrets(normalized), null, 2), 'utf8');
+  setUsageEnabled(normalized.usage.enabled !== false);
   return normalized;
 }
 
@@ -1182,6 +1288,19 @@ export function activePlatform(settings: AppSettings = loadSettings()): AiPlatfo
     settings.ai.platforms.find((platform) => platform.id === settings.ai.activeId) ||
     settings.ai.platforms[0]
   );
+}
+
+/** 按任务取平台：任务槽位 > 当前平台；只覆盖模型名时沿用当前平台的地址与 Key。 */
+export function platformForTask(task: AiTask, settings: AppSettings = loadSettings()): AiPlatform {
+  const base = activePlatform(settings);
+  const override = settings.ai.taskModels?.[task];
+  if (!override) return base;
+  const platform = override.platformId
+    ? settings.ai.platforms.find((item) => item.id === override.platformId)
+    : undefined;
+  const target = platform || base;
+  const model = override.model.trim() || (platform ? platform.model : base.model);
+  return { ...target, model };
 }
 
 export function activePrompt(settings: AppSettings = loadSettings()): PromptTemplate {

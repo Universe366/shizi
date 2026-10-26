@@ -4,6 +4,7 @@ import path from 'node:path';
 import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
 import { applyAutoStart } from './autoStart';
+import { applyProxy } from './proxy';
 import { setCloseDecisionHandler, setCloseShownHandler } from './ipc/settings';
 
 import {
@@ -361,6 +362,7 @@ app
     migrateSettingsSecrets();
     nativeTheme.themeSource = loadSettings().general.theme;
     applyAutoStart(loadSettings().general.autoStart === true);
+    void applyProxy(loadSettings());
     startTodoReminders();
     let externalFullscreen = false;
     let lastExternalCheck = 0;

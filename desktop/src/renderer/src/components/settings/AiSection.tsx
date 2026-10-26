@@ -109,6 +109,34 @@ export function AiSection({
       onChange={(event) => updatePlatform({ baseUrl: event.target.value })}
     />
 
+    <div className="settings-label">协议</div>
+    <div className="settings-inline">
+      <select
+        className="settings-input"
+        value={active.kind || ''}
+        onChange={(event) => updatePlatform({ kind: event.target.value })}
+      >
+        <option value="">OpenAI 兼容</option>
+        <option value="anthropic">Anthropic 原生（/v1/messages）</option>
+        <option value="gemini">Gemini 原生（generateContent）</option>
+        <option value="azure">Azure OpenAI（部署名）</option>
+      </select>
+    </div>
+    {active.kind === 'azure' && (
+      <>
+        <div className="settings-label">api-version</div>
+        <input
+          className="settings-input"
+          value={active.apiVersion || '2024-10-21'}
+          spellCheck={false}
+          onChange={(event) => updatePlatform({ apiVersion: event.target.value })}
+        />
+        <div className="settings-hint">
+          Azure 的「模型」填部署名（deployment），Base URL 填资源地址（https://xxx.openai.azure.com）。
+        </div>
+      </>
+    )}
+
     <div className="settings-label">模型</div>
     <input
       className="settings-input"
@@ -149,6 +177,63 @@ export function AiSection({
         清除
       </button>
     </div>
+
+    <details className="settings-details">
+      <summary>额外 API Key（可选，限流时自动轮换）</summary>
+      <div className="settings-hint">
+        主 Key 返回 401 / 403 / 429 / 5xx 时按顺序换用下一个，最多 5 个。
+      </div>
+      {(active.extraKeys || []).map((key, index) => (
+        <div className="settings-inline" key={`extra-${index}`}>
+          <input
+            className="settings-input"
+            type={showKey[`${active.id}:extra`] ? 'text' : 'password'}
+            value={key === '__CLEAR__' ? '' : key}
+            placeholder={`额外 Key ${index + 1}`}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(event) => {
+              const next = [...(active.extraKeys || [])];
+              next[index] = event.target.value;
+              updatePlatform({ extraKeys: next });
+            }}
+          />
+          <button
+            className="mini-btn"
+            onClick={() =>
+              updatePlatform({
+                extraKeys: (active.extraKeys || []).filter((_, item) => item !== index)
+              })
+            }
+          >
+            删除
+          </button>
+        </div>
+      ))}
+      <div className="settings-inline">
+        <button
+          className="mini-btn"
+          disabled={(active.extraKeys || []).length >= 5}
+          onClick={() => updatePlatform({ extraKeys: [...(active.extraKeys || []), ''] })}
+        >
+          <Plus size={12} />
+          添加 Key
+        </button>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={showKey[`${active.id}:extra`] === true}
+            onChange={() =>
+              setShowKey((previous) => ({
+                ...previous,
+                [`${active.id}:extra`]: !previous[`${active.id}:extra`]
+              }))
+            }
+          />
+          显示
+        </label>
+      </div>
+    </details>
 
     <div className="settings-inline">
       <button

@@ -1,7 +1,7 @@
 import type { CollectionSummary } from '../shared/types';
 import type { AiMessage } from './aiClient';
 import { chatOnce, chatStream } from './aiClient';
-import { activePlatform, loadSettings } from './settings';
+import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { getCollectionMaterial, saveCollectionSummary } from './library';
 
@@ -54,7 +54,7 @@ export async function summarizeCollection(
   onStatus?: (status: string) => void
 ): Promise<CollectionSummary> {
   const settings = loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('summary', settings);
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
@@ -72,7 +72,8 @@ export async function summarizeCollection(
     temperature: Math.min(0.5, Math.max(0, Number(settings.ai.temperature) || 0.3)),
     maxTokens: settings.ai.maxTokens || undefined,
     timeoutMs: 600000,
-    signal
+    signal,
+    task: 'summary' as const
   };
 
   const result =

@@ -87,6 +87,8 @@ import type {
   Bookmark,
   DownloadRecord,
   PageContextSummary,
+  UsageEvent,
+  UsageSummary,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -293,6 +295,12 @@ export interface BsubApi {
   >;
   revokeSitePermission(origin: string, permission: string): Promise<Result<{ removed: boolean }>>;
   saveSettings(next: AppSettings): Promise<Result<SettingsSnapshot>>;
+  /** 用量统计：最近 N 天的汇总（按模型/任务/日期）。 */
+  usageSummary(days?: number): Promise<Result<UsageSummary>>;
+  /** 最近的请求明细。 */
+  usageEvents(limit?: number): Promise<Result<UsageEvent[]>>;
+  clearUsage(): Promise<Result<{ removed: number }>>;
+  exportUsage(): Promise<Result<{ canceled: boolean; path?: string }>>;
   finishWizard(): Promise<Result<SettingsSnapshot>>;
   setWizardVisible(visible: boolean): Promise<Result<SettingsSnapshot>>;
   setSidebarWidth(width: number): Promise<Result<SettingsSnapshot>>;

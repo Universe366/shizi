@@ -7,7 +7,7 @@ import type {
   VerifyVerdict,
   WebReference
 } from '../shared/types';
-import { activePlatform } from './settings';
+import { platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
 import { rankReferences, searchWeb, withSearchSignal } from './search';
@@ -323,7 +323,7 @@ async function judgeEvidence(
   dropped: number;
   formatError?: boolean;
 } | null> {
-  const platform = activePlatform(settings);
+  const platform = platformForTask('verify', settings);
   if (!platform || !platform.baseUrl.trim() || (needsApiKey(platform) && !platform.apiKey.trim()) || !platform.model.trim()) {
     return null;
   }
@@ -374,7 +374,7 @@ async function judgeEvidence(
         { role: 'system', content: system },
         { role: 'user', content: prompt }
       ],
-      { temperature: 0, maxTokens: 5000, signal: controller.signal, timeoutMs: 120000 }
+      { temperature: 0, maxTokens: 5000, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
     );
     // 部分推理模型只把 JSON 放在 reasoning 里，content 为空或只有一句解释；
     // 两边分别解析，不要用 `text || reasoning` 让解释文字顶掉真正的 JSON。
@@ -400,7 +400,7 @@ async function judgeEvidence(
           { role: 'system', content: system },
           { role: 'user', content: compact }
         ],
-        { temperature: 0.1, maxTokens: 2500, signal: controller.signal, timeoutMs: 120000 }
+        { temperature: 0.1, maxTokens: 2500, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
       );
       parsed = parseJudgeJson(retry.text || '') ?? parseJudgeJson(retry.reasoning || '');
       if (!parsed) {
@@ -612,7 +612,7 @@ async function buildAiQueries(
   limit: number,
   signal?: AbortSignal
 ): Promise<VerifyItem[]> {
-  const platform = activePlatform(settings);
+  const platform = platformForTask('verify', settings);
   const sample = sampleSubtitleText(lines);
   if (!sample || !platform || !platform.baseUrl.trim() || (needsApiKey(platform) && !platform.apiKey.trim())) return [];
 
@@ -653,7 +653,7 @@ async function buildAiQueries(
         { role: 'system', content: system },
         { role: 'user', content: user }
       ],
-      { temperature: 0.2, maxTokens: 400, timeoutMs: 60000, signal }
+      { temperature: 0.2, maxTokens: 400, timeoutMs: 60000, signal, task: 'verify' }
     );
     const parsed = parseSearchQueries(result.text || result.reasoning || '', 6);
     if (!parsed.length) {
@@ -913,7 +913,7 @@ async function buildSupplements(
   items: VerifyItem[],
   signal?: AbortSignal
 ): Promise<string[]> {
-  const platform = activePlatform(settings);
+  const platform = platformForTask('verify', settings);
   if (!platform || !platform.baseUrl.trim() || (needsApiKey(platform) && !platform.apiKey.trim())) return [];
   const rows: string[] = [];
   for (const item of items) {
@@ -945,7 +945,7 @@ async function buildSupplements(
         content: `视频标题：${info.title || '未知'}\n\n${rows.join('\n')}`
       }
     ],
-    { temperature: 0.1, maxTokens: 500, signal, timeoutMs: 60000 }
+    { temperature: 0.1, maxTokens: 500, signal, timeoutMs: 60000, task: 'verify' }
   );
 
   const text = String(result.text || '').replace(/```(?:json)?/gi, '').trim();

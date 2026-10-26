@@ -13,6 +13,7 @@ import { AppearanceGroup } from './settings/AppearanceGroup';
 import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
+import { GeneralGroup } from './settings/GeneralGroup';
 import { ReadingGroup } from './settings/ReadingGroup';
 import { SubtitleGroup } from './settings/SubtitleGroup';
 import { SessionsGroup } from './settings/SessionsGroup';
@@ -20,6 +21,8 @@ import { McpSection } from './settings/McpSection';
 import { ExportDefaultsSection } from './settings/ExportDefaultsSection';
 import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
+import { TaskModelSection } from './settings/TaskModelSection';
+import { UsageSection } from './settings/UsageSection';
 import { UpdateSection } from './settings/UpdateSection';
 import { Loader2, Save, Search } from 'lucide-react';
 import type {
@@ -1059,6 +1062,9 @@ export function SettingsPanel({
         )}
       </div>
 
+      {show('general') && (
+        <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+      )}
       {show('appearance') && (
         <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
       )}
@@ -1103,6 +1109,10 @@ export function SettingsPanel({
       )}
 
       {show('ai') && (
+        <TaskModelSection value={draft.ai} updateAi={(patch) => updateAi(patch)} />
+      )}
+
+      {show('ai') && (
       <AsrSection
         draft={draft}
         activeAsr={activeAsr}
@@ -1129,6 +1139,13 @@ export function SettingsPanel({
         onRemoveTemplate={removeTemplate}
         onUpdateTemplate={(patch) => updateTemplate(patch)}
       />
+      )}
+
+      {show('usage') && (
+        <UsageSection
+          value={draft.usage}
+          onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
+        />
       )}
 
 

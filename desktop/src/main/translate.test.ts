@@ -16,7 +16,7 @@ vi.mock('./aiClient', () => ({ chatOnce }));
 vi.mock('./freeTranslate', () => ({ translateFree }));
 vi.mock('./settings', () => ({
   loadSettings: () => settings,
-  activePlatform: () => platform
+  platformForTask: () => platform
 }));
 vi.mock('./platformKey', () => ({ needsApiKey: () => false }));
 

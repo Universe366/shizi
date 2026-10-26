@@ -1,6 +1,7 @@
 import { session } from 'electron';
-import type { AiPlatform } from '../shared/types';
+import type { AiPlatform, AiTask, AiUsage } from '../shared/types';
 import { needsApiKey } from './platformKey';
+import { recordUsage } from './usage';
 
 // ---------------------------------------------------------------------------
 // AI 请求的公共层。
@@ -50,17 +51,30 @@ export interface AiChatOptions {
   maxTokens?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
+  /** 任务类型，用于按任务选模型与用量统计；不传则不记用量。 */
+  task?: AiTask;
 }
 
 export interface AiChatResult {
   text: string;
   reasoning: string;
+  usage?: AiUsage;
 }
 
 export const DEFAULT_AI_TIMEOUT_MS = 300000;
 
 export function isAnthropicPlatform(platform: Pick<AiPlatform, 'baseUrl' | 'kind'>): boolean {
   return platform.kind === 'anthropic' || /anthropic\.com/i.test(platform.baseUrl || '');
+}
+
+/** Gemini 原生协议（generateContent / streamGenerateContent）。 */
+export function isGeminiPlatform(platform: Pick<AiPlatform, 'kind'>): boolean {
+  return platform.kind === 'gemini';
+}
+
+/** Azure OpenAI：部署名在路径里，鉴权用 api-key。 */
+export function isAzurePlatform(platform: Pick<AiPlatform, 'kind'>): boolean {
+  return platform.kind === 'azure';
 }
 
 export function errorForStatus(status: number, body: string): string {
@@ -75,8 +89,20 @@ export function aiBaseUrl(platform: Pick<AiPlatform, 'baseUrl'>): string {
   return platform.baseUrl.replace(/\/+$/, '');
 }
 
-export function aiHeaders(platform: AiPlatform): Record<string, string> {
-  const key = platform.apiKey.trim();
+export function aiHeaders(platform: AiPlatform, keyOverride?: string): Record<string, string> {
+  const key = String(keyOverride ?? platform.apiKey).trim();
+  if (isGeminiPlatform(platform)) {
+    return {
+      'content-type': 'application/json',
+      ...(key ? { 'x-goog-api-key': key } : {})
+    };
+  }
+  if (isAzurePlatform(platform)) {
+    return {
+      'content-type': 'application/json',
+      ...(key ? { 'api-key': key } : {})
+    };
+  }
   if (isAnthropicPlatform(platform)) {
     return {
       'content-type': 'application/json',
@@ -90,6 +116,14 @@ export function aiHeaders(platform: AiPlatform): Record<string, string> {
     'content-type': 'application/json',
     ...(key ? { authorization: `Bearer ${key}` } : {})
   };
+}
+
+/** 主 Key + 额外 Key：按顺序轮换，触发限流/额度/鉴权失败时换下一个。 */
+function platformKeys(platform: AiPlatform): string[] {
+  const keys = [platform.apiKey, ...(platform.extraKeys || [])]
+    .map((key) => String(key || '').trim())
+    .filter(Boolean);
+  return Array.from(new Set(keys));
 }
 
 function textOf(content: string | AiPart[]): string {
@@ -123,11 +157,21 @@ interface OpenAiChoicePayload {
   text?: string;
 }
 
+interface OpenAiUsagePayload {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number };
+  cache_read_input_tokens?: number;
+}
+
 interface OpenAiResponsePayload {
   choices?: OpenAiChoicePayload[];
   data?: unknown[];
   models?: unknown[];
   result?: unknown[];
+  usage?: OpenAiUsagePayload;
 }
 
 interface AnthropicBlock {
@@ -144,9 +188,36 @@ interface AnthropicResponsePayload {
   content?: AnthropicBlock[];
   delta?: { type?: string; text?: string; thinking?: string };
   content_block?: AnthropicBlock;
+  usage?: OpenAiUsagePayload;
+  message?: { usage?: OpenAiUsagePayload };
 }
 
-type AiPayload = OpenAiResponsePayload & AnthropicResponsePayload;
+interface GeminiPart {
+  text?: string;
+  inlineData?: { mimeType?: string; data?: string };
+  functionCall?: { name?: string; args?: unknown };
+  functionResponse?: { name?: string; response?: unknown };
+}
+
+interface GeminiCandidate {
+  content?: { parts?: GeminiPart[]; role?: string };
+  finishReason?: string;
+}
+
+interface GeminiUsage {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  cachedContentTokenCount?: number;
+}
+
+interface GeminiResponsePayload {
+  candidates?: GeminiCandidate[];
+  usageMetadata?: GeminiUsage;
+  models?: Array<{ name?: string }>;
+  error?: { message?: string };
+}
+
+type AiPayload = OpenAiResponsePayload & AnthropicResponsePayload & GeminiResponsePayload;
 
 function splitDataUrl(url: string): { mime: string; data: string } | null {
   const match = /^data:([^;,]+);base64,(.*)$/s.exec(url);
@@ -256,12 +327,75 @@ function toOpenAiTools(tools: AiToolDef[]): Array<{
   }));
 }
 
+interface GeminiContent {
+  role: 'user' | 'model';
+  parts: Array<Record<string, unknown>>;
+}
+
+function toGeminiPayload(messages: AiMessage[]): { system: string; contents: GeminiContent[] } {
+  const system: string[] = [];
+  const contents: GeminiContent[] = [];
+  for (const message of messages) {
+    if (message.role === 'system') {
+      const text = textOf(message.content).trim();
+      if (text) system.push(text);
+      continue;
+    }
+    const parts: Array<Record<string, unknown>> = [];
+    if (typeof message.content === 'string') {
+      if (message.content.trim()) parts.push({ text: message.content });
+    } else {
+      for (const part of message.content) {
+        if (part.type === 'text') {
+          if (part.text.trim()) parts.push({ text: part.text });
+        } else {
+          parts.push({
+            inlineData: { mimeType: part.mime || 'image/png', data: part.data }
+          });
+        }
+      }
+    }
+    if (!parts.length) continue;
+    contents.push({ role: message.role === 'assistant' ? 'model' : 'user', parts });
+  }
+  return { system: system.join('\n\n'), contents };
+}
+
+function toGeminiTools(tools: AiToolDef[]): Array<{
+  name: string;
+  description: string;
+  parameters: unknown;
+}> {
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: (tool.description || '').slice(0, 1024),
+    parameters: (tool.parameters as Record<string, unknown>) || {
+      type: 'object',
+      properties: {}
+    }
+  }));
+}
+
 function buildBody(
   platform: AiPlatform,
   messages: AiMessage[],
   options: AiChatOptions & { stream?: boolean; tools?: AiToolDef[] }
 ): Record<string, unknown> {
   const maxTokens = Math.max(1, options.maxTokens || 8192);
+  if (isGeminiPlatform(platform)) {
+    const payload = toGeminiPayload(messages);
+    return {
+      contents: payload.contents,
+      ...(payload.system ? { systemInstruction: { parts: [{ text: payload.system }] } } : {}),
+      generationConfig: {
+        temperature: options.temperature,
+        maxOutputTokens: maxTokens
+      },
+      ...(options.tools && options.tools.length
+        ? { tools: [{ functionDeclarations: toGeminiTools(options.tools) }] }
+        : {})
+    };
+  }
   if (isAnthropicPlatform(platform)) {
     const payload = toAnthropicPayload(messages);
     return {
@@ -281,6 +415,8 @@ function buildBody(
     max_tokens: maxTokens,
     temperature: options.temperature,
     stream: options.stream === true,
+    // 让 OpenAI 兼容服务在流式末尾带上 usage；不支持的平台会在 postJson 里回退。
+    ...(options.stream === true ? { stream_options: { include_usage: true } } : {}),
     messages: toOpenAiMessages(messages),
     ...(options.tools && options.tools.length
       ? { tools: toOpenAiTools(options.tools), tool_choice: 'auto' }
@@ -288,7 +424,22 @@ function buildBody(
   };
 }
 
-function endpoints(platform: AiPlatform): string[] {
+function endpoints(platform: AiPlatform, stream = false): string[] {
+  if (isGeminiPlatform(platform)) {
+    const model = encodeURIComponent(platform.model.trim());
+    return [
+      `${aiBaseUrl(platform)}/models/${model}:${
+        stream ? 'streamGenerateContent?alt=sse' : 'generateContent'
+      }`
+    ];
+  }
+  if (isAzurePlatform(platform)) {
+    const model = encodeURIComponent(platform.model.trim());
+    const version = (platform.apiVersion || '2024-10-21').trim();
+    return [
+      `${aiBaseUrl(platform)}/openai/deployments/${model}/chat/completions?api-version=${encodeURIComponent(version)}`
+    ];
+  }
   return isAnthropicPlatform(platform)
     ? [`${aiBaseUrl(platform)}/messages`]
     : [`${aiBaseUrl(platform)}/chat/completions`];
@@ -328,7 +479,7 @@ function parseOpenAiText(json: OpenAiResponsePayload): AiChatResult {
         ? raw.map((part) => String(part?.text ?? part?.content ?? '')).join('')
         : '';
   const reasoning = String(message?.reasoning_content ?? message?.reasoning ?? '');
-  return { text, reasoning };
+  return { text, reasoning, usage: usageFromPayload(json?.usage) };
 }
 
 function parseAnthropicText(json: AnthropicResponsePayload): AiChatResult {
@@ -341,12 +492,92 @@ function parseAnthropicText(json: AnthropicResponsePayload): AiChatResult {
     .filter((block) => block?.type === 'thinking')
     .map((block) => String(block.thinking || ''))
     .join('');
-  return { text, reasoning };
+  return { text, reasoning, usage: usageFromPayload(json.usage) };
 }
 
-function parseChunk(platform: AiPlatform, data: AiPayload): { text: string; reasoning: string } {
+function usageFromPayload(usage: OpenAiUsagePayload | undefined): AiUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const input = Number(usage.input_tokens ?? usage.prompt_tokens) || 0;
+  const output = Number(usage.output_tokens ?? usage.completion_tokens) || 0;
+  const cached =
+    Number(usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens) || 0;
+  if (!input && !output) return undefined;
+  return {
+    inputTokens: Math.max(0, Math.round(input)),
+    outputTokens: Math.max(0, Math.round(output)),
+    ...(cached > 0 ? { cacheReadTokens: Math.max(0, Math.round(cached)) } : {})
+  };
+}
+
+function usageFromGemini(usage: GeminiUsage | undefined): AiUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const input = Number(usage.promptTokenCount) || 0;
+  const output = Number(usage.candidatesTokenCount) || 0;
+  const cached = Number(usage.cachedContentTokenCount) || 0;
+  if (!input && !output) return undefined;
+  return {
+    inputTokens: Math.max(0, Math.round(input)),
+    outputTokens: Math.max(0, Math.round(output)),
+    ...(cached > 0 ? { cacheReadTokens: Math.max(0, Math.round(cached)) } : {})
+  };
+}
+
+function parseGeminiText(json: GeminiResponsePayload): AiChatResult {
+  const parts = json?.candidates?.[0]?.content?.parts || [];
+  const text = parts
+    .map((part) => String(part?.text || ''))
+    .join('');
+  return { text, reasoning: '', usage: usageFromGemini(json?.usageMetadata) };
+}
+
+/** 按平台协议解析非流式响应。 */
+function parsePayloadText(platform: AiPlatform, json: AiPayload): AiChatResult {
+  if (isGeminiPlatform(platform)) return parseGeminiText(json);
+  return isAnthropicPlatform(platform) ? parseAnthropicText(json) : parseOpenAiText(json);
+}
+
+/** 记录一次请求的用量；没有任务标记或服务端没返回 usage 时静默跳过。 */
+function trackUsage(
+  platform: AiPlatform,
+  task: AiTask | undefined,
+  usage: AiUsage | undefined
+): void {
+  if (!task || !usage) return;
+  try {
+    recordUsage({
+      task,
+      platformId: platform.id,
+      platformName: platform.name,
+      model: platform.model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens
+    });
+  } catch {
+    // 统计失败不影响主流程
+  }
+}
+
+function parseChunk(
+  platform: AiPlatform,
+  data: AiPayload
+): { text: string; reasoning: string; usage?: AiUsage } {
+  if (isGeminiPlatform(platform)) {
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    return {
+      text: parts.map((part) => String(part?.text || '')).join(''),
+      reasoning: '',
+      usage: usageFromGemini(data?.usageMetadata)
+    };
+  }
   if (isAnthropicPlatform(platform)) {
     const type = String(data?.type || '');
+    if (type === 'message_start') {
+      return { text: '', reasoning: '', usage: usageFromPayload(data.message?.usage) };
+    }
+    if (type === 'message_delta') {
+      return { text: '', reasoning: '', usage: usageFromPayload(data.usage) };
+    }
     if (type === 'content_block_delta') {
       const delta = data?.delta || {};
       if (delta.type === 'text_delta') return { text: String(delta.text || ''), reasoning: '' };
@@ -369,7 +600,30 @@ function parseChunk(platform: AiPlatform, data: AiPayload): { text: string; reas
   const think = choice?.delta?.reasoning_content ?? '';
   return {
     text: typeof delta === 'string' ? delta : '',
-    reasoning: typeof think === 'string' ? think : ''
+    reasoning: typeof think === 'string' ? think : '',
+    usage: usageFromPayload(data.usage)
+  };
+}
+
+/** 流式分片的 usage 是「绝对值 + 增量」混合，按字段覆盖合并。 */
+function mergeUsage(total: AiUsage | undefined, part: AiUsage | undefined): AiUsage | undefined {
+  if (!part) return total;
+  const next: AiUsage = {
+    inputTokens: part.inputTokens || total?.inputTokens || 0,
+    outputTokens: part.outputTokens || total?.outputTokens || 0
+  };
+  const cache = part.cacheReadTokens || total?.cacheReadTokens || 0;
+  if (cache > 0) next.cacheReadTokens = cache;
+  return next;
+}
+
+/** 工具循环里每轮是独立请求，用量要累加。 */
+function addUsage(total: AiUsage | undefined, part: AiUsage | undefined): AiUsage | undefined {
+  if (!part) return total;
+  return {
+    inputTokens: (total?.inputTokens || 0) + part.inputTokens,
+    outputTokens: (total?.outputTokens || 0) + part.outputTokens,
+    cacheReadTokens: (total?.cacheReadTokens || 0) + (part.cacheReadTokens || 0)
   };
 }
 
@@ -378,30 +632,59 @@ async function postJson(
   body: Record<string, unknown>,
   options: AiChatOptions
 ): Promise<Response> {
-  const url = endpoints(platform)[0];
-  const send = (payload: Record<string, unknown>) =>
-    fetchWithTimeout(
-      url,
-      {
-        method: 'POST',
-        headers: aiHeaders(platform),
-        body: JSON.stringify(payload)
-      },
-      options
-    );
+  const url = endpoints(platform, body.stream === true)[0];
+  const keys = platformKeys(platform);
+  const keyCount = Math.max(1, keys.length);
+
+  const send = async (payload: Record<string, unknown>): Promise<Response> => {
+    let last: Response | null = null;
+    for (let attempt = 0; attempt < keyCount; attempt += 1) {
+      const key = keys[attempt] ?? '';
+      last = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: aiHeaders(platform, key),
+          body: JSON.stringify(payload)
+        },
+        options
+      );
+      const retryable =
+        last.status === 401 || last.status === 403 || last.status === 429 || last.status >= 500;
+      if (!retryable || attempt === keyCount - 1) return last;
+    }
+    return last as Response;
+  };
 
   const response = await send(body);
   if (response.ok || response.status !== 400) return response;
 
-  // Anthropic 的 max_tokens 是硬上限：桌面端默认 64000，某些 Claude 型号
-  // （如 3.5 Haiku）只接受 8192。这里按服务端报错回退一次，而不是让用户手改。
   const probe = await response
     .clone()
     .text()
     .catch(() => '');
+
+  // Gemini 的 maxOutputTokens 也有上限（Flash 系列 8192），按报错回退一次。
+  if (isGeminiPlatform(platform) && /maxOutputTokens|max_output_tokens/i.test(probe)) {
+    const generationConfig = {
+      ...(body.generationConfig as Record<string, unknown> | undefined),
+      maxOutputTokens: 8192
+    };
+    return send({ ...body, generationConfig });
+  }
+
+  // Anthropic 的 max_tokens 是硬上限：桌面端默认 64000，某些 Claude 型号
+  // （如 3.5 Haiku）只接受 8192。这里按服务端报错回退一次，而不是让用户手改。
   const maxTokens = Number(body.max_tokens) || 0;
   if (/max_tokens/i.test(probe) && maxTokens > 8192) {
     return send({ ...body, max_tokens: 8192 });
+  }
+
+  // 部分 OpenAI 兼容服务不认 stream_options：去掉后重试一次。
+  if ('stream_options' in body && /stream_options|unknown|unrecognized|unexpected/i.test(probe)) {
+    const rest = { ...body };
+    delete (rest as Record<string, unknown>).stream_options;
+    return send(rest);
   }
   return response;
 }
@@ -422,7 +705,9 @@ export async function chatOnce(
     throw new Error(errorForStatus(response.status, body));
   }
   const json = (await response.json()) as AiPayload;
-  return isAnthropicPlatform(platform) ? parseAnthropicText(json) : parseOpenAiText(json);
+  const result = parsePayloadText(platform, json);
+  trackUsage(platform, options.task, result.usage);
+  return result;
 }
 
 /** 流式调用：边读边回调；不支持的平台/协议回落到一次性返回。 */
@@ -447,9 +732,10 @@ export async function chatStream(
   const contentType = response.headers.get('content-type') || '';
   if (!response.body || !contentType.includes('text/event-stream')) {
     const json = (await response.json()) as AiPayload;
-    const result = isAnthropicPlatform(platform) ? parseAnthropicText(json) : parseOpenAiText(json);
+    const result = parsePayloadText(platform, json);
     if (result.text) options.onDelta?.(result.text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
+    trackUsage(platform, options.task, result.usage);
     return result;
   }
 
@@ -458,6 +744,7 @@ export async function chatStream(
   let buffer = '';
   let text = '';
   let reasoning = '';
+  let usage: AiUsage | undefined;
   let finished = false;
 
   const handleLine = (line: string): boolean => {
@@ -477,6 +764,7 @@ export async function chatStream(
         reasoning += delta.reasoning;
         options.onReasoning?.(delta.reasoning);
       }
+      usage = mergeUsage(usage, delta.usage);
     } catch {
       // 忽略非 JSON 的 data 行
     }
@@ -500,7 +788,8 @@ export async function chatStream(
   }
   if (!finished && buffer.trim() && handleLine(buffer)) finished = true;
   if (!text.trim()) throw new Error('AI 返回为空');
-  return { text, reasoning };
+  trackUsage(platform, options.task, usage);
+  return { text, reasoning, usage };
 }
 
 // ---------------------------------------------------------------------------
@@ -521,12 +810,16 @@ export async function chatToolLoop(
   options: AiChatOptions & { maxRounds?: number },
   runTool: (call: AiToolCall) => Promise<string>
 ): Promise<AiChatResult> {
+  if (isGeminiPlatform(platform)) {
+    return chatGeminiToolLoop(platform, messages, tools, options, runTool);
+  }
   const anthropic = isAnthropicPlatform(platform);
   const maxRounds = Math.max(1, options.maxRounds || 6);
   const convo: Array<OpenAiMessagePayload | AnthropicMessage | Record<string, unknown>> = anthropic
     ? toAnthropicPayload(messages).messages
     : toOpenAiMessages(messages);
   const system = anthropic ? toAnthropicPayload(messages).system : '';
+  let totalUsage: AiUsage | undefined;
 
   for (let round = 0; round < maxRounds; round += 1) {
     if (options.signal?.aborted) throw new Error('已终止');
@@ -556,6 +849,7 @@ export async function chatToolLoop(
       throw new Error(errorForStatus(response.status, text));
     }
     const json = (await response.json()) as AiPayload;
+    totalUsage = addUsage(totalUsage, usageFromPayload(json?.usage));
 
     if (anthropic) {
       const blocks = Array.isArray(json?.content) ? json.content : [];
@@ -563,7 +857,8 @@ export async function chatToolLoop(
       if (!toolUses.length) {
         const result = parseAnthropicText(json);
         if (!result.text.trim()) throw new Error('AI 返回为空');
-        return result;
+        trackUsage(platform, options.task, totalUsage);
+        return { ...result, usage: totalUsage };
       }
       convo.push({ role: 'assistant', content: blocks });
       const results: Array<Record<string, unknown>> = [];
@@ -619,7 +914,80 @@ export async function chatToolLoop(
 
     const result = parseOpenAiText(json);
     if (!result.text.trim()) throw new Error('AI 返回为空');
-    return result;
+    trackUsage(platform, options.task, totalUsage);
+    return { ...result, usage: totalUsage };
+  }
+
+  throw new Error(`工具调用轮数过多（超过 ${maxRounds} 轮）`);
+}
+
+/** Gemini 原生的函数调用循环：functionCall / functionResponse。 */
+async function chatGeminiToolLoop(
+  platform: AiPlatform,
+  messages: AiMessage[],
+  tools: AiToolDef[],
+  options: AiChatOptions & { maxRounds?: number },
+  runTool: (call: AiToolCall) => Promise<string>
+): Promise<AiChatResult> {
+  const maxRounds = Math.max(1, options.maxRounds || 6);
+  const payload = toGeminiPayload(messages);
+  const contents: Array<Record<string, unknown>> = payload.contents.map((row) => ({
+    role: row.role,
+    parts: row.parts
+  }));
+  let totalUsage: AiUsage | undefined;
+
+  for (let round = 0; round < maxRounds; round += 1) {
+    if (options.signal?.aborted) throw new Error('已终止');
+    const body: Record<string, unknown> = {
+      contents,
+      ...(payload.system ? { systemInstruction: { parts: [{ text: payload.system }] } } : {}),
+      generationConfig: {
+        temperature: options.temperature,
+        maxOutputTokens: Math.max(1, options.maxTokens || 8192)
+      },
+      tools: [{ functionDeclarations: toGeminiTools(tools) }]
+    };
+
+    const response = await postJson(platform, body, options);
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(errorForStatus(response.status, text));
+    }
+    const json = (await response.json()) as GeminiResponsePayload;
+    totalUsage = addUsage(totalUsage, usageFromGemini(json.usageMetadata));
+
+    const parts = json?.candidates?.[0]?.content?.parts || [];
+    const calls = parts.filter((part) => part?.functionCall?.name);
+    if (!calls.length) {
+      const text = parts.map((part) => String(part?.text || '')).join('');
+      if (!text.trim()) throw new Error('AI 返回为空');
+      trackUsage(platform, options.task, totalUsage);
+      return { text, reasoning: '', usage: totalUsage };
+    }
+
+    contents.push({ role: 'model', parts });
+    const responses: Array<Record<string, unknown>> = [];
+    for (const part of calls) {
+      const name = String(part.functionCall?.name || '');
+      let content = '';
+      try {
+        content = await runTool({
+          id: '',
+          name,
+          arguments: JSON.stringify(part.functionCall?.args ?? {})
+        });
+      } catch (error) {
+        content = `工具调用失败：${(error as Error).message}`;
+      }
+      responses.push({
+        functionResponse: {
+          name,
+          response: { result: String(content || '').slice(0, 4000) }
+        }
+      });
+    }
+    contents.push({ role: 'user', parts: responses });
   }
 
   throw new Error(`工具调用轮数过多（超过 ${maxRounds} 轮）`);
@@ -628,6 +996,29 @@ export async function chatToolLoop(
 export async function listAiModels(
   platform: AiPlatform
 ): Promise<{ models: string[]; url: string }> {
+  if (isAzurePlatform(platform)) {
+    throw new Error('Azure OpenAI 需要填写「部署名」而不是模型列表，请手动填写模型名');
+  }
+  if (isGeminiPlatform(platform)) {
+    const url = `${aiBaseUrl(platform)}/models`;
+    const headers = aiHeaders(platform);
+    delete headers['content-type'];
+    const response = await fetchWithTimeout(url, { method: 'GET', headers }, { timeoutMs: 30000 });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`模型列表 HTTP ${response.status}：${text.slice(0, 160)}`);
+    }
+    let json: GeminiResponsePayload | null = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error('模型列表不是 JSON');
+    }
+    const models = (json?.models || [])
+      .map((row) => String(row?.name || '').replace(/^models\//, ''))
+      .filter(Boolean);
+    return { models, url };
+  }
   const url = `${aiBaseUrl(platform)}/models`;
   const headers = aiHeaders(platform);
   delete headers['content-type'];

@@ -2,7 +2,7 @@
 // 仅数据，主进程与渲染进程共用；apiKey 一律为空。
 import type { AiPlatform, AsrPlatform, SearchPlatform } from './types';
 
-export const AI_PRESET_VERSION = 5;
+export const AI_PRESET_VERSION = 6;
 
 export const AI_PRESETS: AiPlatform[] = [
   {
@@ -335,6 +335,81 @@ export const AI_PRESETS: AiPlatform[] = [
     ],
     "homepage": "https://ai.google.dev/",
     "keyUrl": "https://aistudio.google.com/app/apikey",
+    "kind": ""
+  },
+  {
+    "id": "gemini-native",
+    "name": "Google Gemini（原生协议）",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+    "apiKey": "",
+    "model": "gemini-2.5-pro",
+    "models": [
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.0-flash"
+    ],
+    "homepage": "https://ai.google.dev/",
+    "keyUrl": "https://aistudio.google.com/app/apikey",
+    "kind": "gemini"
+  },
+  {
+    "id": "azure-openai",
+    "name": "Azure OpenAI",
+    "baseUrl": "",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "models": [
+      "gpt-4o-mini",
+      "gpt-4o"
+    ],
+    "homepage": "https://azure.microsoft.com/products/ai-services/openai-service",
+    "keyUrl": "https://portal.azure.com/",
+    "kind": "azure",
+    "apiVersion": "2024-10-21"
+  },
+  {
+    "id": "perplexity",
+    "name": "Perplexity（自带联网）",
+    "baseUrl": "https://api.perplexity.ai",
+    "apiKey": "",
+    "model": "sonar",
+    "models": [
+      "sonar",
+      "sonar-pro",
+      "sonar-reasoning"
+    ],
+    "homepage": "https://www.perplexity.ai/",
+    "keyUrl": "https://www.perplexity.ai/settings/api",
+    "kind": ""
+  },
+  {
+    "id": "aihubmix",
+    "name": "AiHubMix（聚合）",
+    "baseUrl": "https://aihubmix.com/v1",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "models": [
+      "gpt-4o-mini",
+      "claude-sonnet-4-5",
+      "gemini-2.5-pro"
+    ],
+    "homepage": "https://aihubmix.com/",
+    "keyUrl": "https://aihubmix.com/token",
+    "kind": ""
+  },
+  {
+    "id": "302ai",
+    "name": "302.AI（聚合）",
+    "baseUrl": "https://api.302.ai/v1",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "models": [
+      "gpt-4o-mini",
+      "deepseek-chat",
+      "claude-sonnet-4-5"
+    ],
+    "homepage": "https://302.ai/",
+    "keyUrl": "https://302.ai/apis/",
     "kind": ""
   },
   {

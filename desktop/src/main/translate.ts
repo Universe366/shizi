@@ -1,5 +1,5 @@
-import type { AppSettings, SubtitleLine } from '../shared/types';
-import { activePlatform, loadSettings } from './settings';
+import type { AiPlatform, AppSettings, SubtitleLine } from '../shared/types';
+import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
 import { translateFree } from './freeTranslate';
@@ -94,7 +94,7 @@ function parseReflection(raw: string, expected: number): string[] | null {
 }
 
 async function translateBatch(
-  platform: NonNullable<ReturnType<typeof activePlatform>>,
+  platform: AiPlatform,
   settings: AppSettings,
   target: string,
   batch: SubtitleLine[],
@@ -116,7 +116,8 @@ async function translateBatch(
       temperature: 0.2,
       maxTokens: settings.ai.maxTokens || undefined,
       timeoutMs: REQUEST_TIMEOUT_MS,
-      signal
+      signal,
+      task: 'translate'
     }
   );
   let rows = parseTranslatedLines(result.text, batch.length);
@@ -148,7 +149,8 @@ async function translateBatch(
         temperature: 0.1,
         maxTokens: settings.ai.maxTokens || undefined,
         timeoutMs: REQUEST_TIMEOUT_MS,
-        signal
+        signal,
+        task: 'translate'
       }
     );
     const reviewed = parseReflection(review.text, batch.length);
@@ -169,7 +171,7 @@ export async function translateLines(
   options: TranslateOptions = {}
 ): Promise<{ lines: SubtitleLine[]; language: string }> {
   const settings = settingsOverride || loadSettings();
-  const platform = activePlatform(settings);
+  const platform = platformForTask('translate', settings);
   const freeFallback = options.freeFallback ?? settings.general.translateFreeFallback === true;
   const aiReady = Boolean(
     platform &&

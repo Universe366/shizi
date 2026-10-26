@@ -1,5 +1,5 @@
 import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
-import { activePlatform, activePrompt, loadSettings } from './settings';
+import { activePrompt, loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream } from './aiClient';
 import { buildSearchQuery, rankReferences, searchWeb, withSearchSignal } from './search';
@@ -264,13 +264,15 @@ async function summarizeInChunks(options: {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
             timeoutMs: 240000,
-            signal: options.signal
+            signal: options.signal,
+            task: 'summary'
           })
         : await chatStream(platform, chunkMessages, {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
             timeoutMs: 240000,
-            signal: options.signal
+            signal: options.signal,
+            task: 'summary'
           });
     const chunkText = (result.text || result.reasoning || '').trim();
     if (!chunkText) {
@@ -323,7 +325,8 @@ async function summarizeInChunks(options: {
     temperature: settings.ai.temperature,
     maxTokens: settings.ai.maxTokens || undefined,
     timeoutMs: 600000,
-    signal: options.signal
+    signal: options.signal,
+    task: 'summary' as const
   };
 
   if (settings.ai.stream === false) {
@@ -347,7 +350,7 @@ async function summarizeInChunks(options: {
 
 export async function summarize(options: SummarizeOptions): Promise<{ text: string; model: string; verification?: VerificationSummary }> {
   const settings = loadSettings();
-  const platform = options.platform || activePlatform(settings);
+  const platform = options.platform || platformForTask('summary', settings);
   const template = activePrompt(settings);
   const prompt = options.prompt || template.text;
 
@@ -540,7 +543,8 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     temperature: settings.ai.temperature,
     maxTokens: settings.ai.maxTokens || undefined,
     timeoutMs: REQUEST_TIMEOUT_MS,
-    signal: options.signal
+    signal: options.signal,
+    task: 'summary' as const
   };
 
   if (settings.ai.stream === false) {
