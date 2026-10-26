@@ -454,6 +454,7 @@ export interface BsubApi {
     title?: string;
     videoKey?: string;
     videoTitle?: string;
+    profileId?: string;
   }): Promise<Result<ChatConversation>>;
   chatHistoryMessages(id: number): Promise<Result<StoredChatMessage[]>>;
   chatHistoryAppend(
@@ -471,6 +472,7 @@ export interface BsubApi {
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;
+  chatHistoryProfile(conversationId: number, profileId: string): Promise<Result<boolean>>;
   chatHistoryTruncate(conversationId: number, keep: number): Promise<Result<boolean>>;
   chatHistoryDelete(id: number): Promise<Result<boolean>>;
   chatHistoryExport(id: number): Promise<Result<{ canceled: boolean; path?: string }>>;

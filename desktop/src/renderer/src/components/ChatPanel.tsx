@@ -189,6 +189,8 @@ export function ChatPanel({
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState('');
+  const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
   const [toolPanelOpen, setToolPanelOpen] = useState(false);
   const [toolOptions, setToolOptions] = useState<McpToolOption[]>([]);
@@ -204,6 +206,7 @@ export function ChatPanel({
   });
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
   const toolEventsRef = useRef<ChatToolEvent[]>([]);
+  const autoReadChatRef = useRef(false);
   const conversationRef = useRef<number | null>(null);
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -228,7 +231,8 @@ export function ChatPanel({
     const created = await window.bsub.chatHistoryCreate({
       title: title.trim().slice(0, 40) || '新对话',
       videoKey,
-      videoTitle: activeTab?.title || ''
+      videoTitle: activeTab?.title || '',
+      profileId: profileId || undefined
     });
     if (!created.ok) return null;
     conversationRef.current = created.data.id;
@@ -237,13 +241,28 @@ export function ChatPanel({
     return created.data.id;
   };
 
-  const openConversation = async (id: number): Promise<void> => {
+  const openConversation = async (conversation: ChatConversation): Promise<void> => {
     if (streaming) return;
-    const rows = await window.bsub.chatHistoryMessages(id);
+    const rows = await window.bsub.chatHistoryMessages(conversation.id);
     if (!rows.ok) return;
-    conversationRef.current = id;
-    setConversationId(id);
+    conversationRef.current = conversation.id;
+    setConversationId(conversation.id);
     setMessages(rows.data.map(fromStoredMessage));
+    if (conversation.profileId) {
+      setProfileId(conversation.profileId);
+      try {
+        localStorage.setItem('chat-profile', conversation.profileId);
+      } catch {
+        // ignore
+      }
+    } else {
+      setProfileId('');
+      try {
+        localStorage.setItem('chat-profile', '');
+      } catch {
+        // ignore
+      }
+    }
     setHistoryOpen(false);
   };
 
@@ -256,6 +275,15 @@ export function ChatPanel({
       setConversationId(null);
       setMessages([]);
     }
+    void refreshConversations();
+  };
+
+  const saveConversationTitle = async (): Promise<void> => {
+    if (editingConversationId == null) return;
+    const title = editingTitle.trim();
+    if (title) await window.bsub.chatHistoryRename(editingConversationId, title);
+    setEditingConversationId(null);
+    setEditingTitle('');
     void refreshConversations();
   };
 
@@ -323,6 +351,7 @@ export function ChatPanel({
       );
       setSendOnEnter(response.data.settings.ai.sendOnEnter !== false);
       setExpandReasoning(response.data.settings.ai.expandReasoning === true);
+      autoReadChatRef.current = response.data.settings.tts?.autoRead?.chat === true;
       const searchOn = response.data.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
       if (!searchOn) {
@@ -338,6 +367,7 @@ export function ChatPanel({
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
       setProfiles(snapshot.settings.ai.profiles || []);
+      autoReadChatRef.current = snapshot.settings.tts?.autoRead?.chat === true;
       setSkillId((current) =>
         snapshot.settings.skills.items.some((item) => item.id === current) ? current : ''
       );
@@ -380,6 +410,21 @@ export function ChatPanel({
         if (!alive) return;
         conversationRef.current = latest.data.id;
         setConversationId(latest.data.id);
+        if (latest.data.profileId) {
+          setProfileId(latest.data.profileId);
+          try {
+            localStorage.setItem('chat-profile', latest.data.profileId);
+          } catch {
+            // ignore
+          }
+        } else {
+          setProfileId('');
+          try {
+            localStorage.setItem('chat-profile', '');
+          } catch {
+            // ignore
+          }
+        }
         if (rows.ok) setMessages(rows.data.map(fromStoredMessage));
         const legacyKey = chatStorageKey(videoKey);
         if (legacyKey) {
@@ -397,7 +442,8 @@ export function ChatPanel({
       const created = await window.bsub.chatHistoryCreate({
         title: legacy.find((message) => message.role === 'user')?.content.slice(0, 40) || '历史对话',
         videoKey,
-        videoTitle: activeTab?.title || ''
+        videoTitle: activeTab?.title || '',
+        profileId: profileId || undefined
       });
       if (!alive || !created.ok) return;
       conversationRef.current = created.data.id;
@@ -480,6 +526,9 @@ export function ChatPanel({
       ]);
       setToolEvents([]);
       toolEventsRef.current = [];
+      if (autoReadChatRef.current && event.text.trim()) {
+        void speakText(event.text);
+      }
       const conversation = conversationRef.current;
       if (conversation) {
         void window.bsub.chatHistoryAppend(conversation, {
@@ -971,20 +1020,47 @@ export function ChatPanel({
               key={conversation.id}
               className={`chat-history-row${conversationId === conversation.id ? ' is-active' : ''}`}
             >
+              {editingConversationId === conversation.id ? (
+                <input
+                  className="settings-input chat-history-rename"
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(event) => setEditingTitle(event.target.value)}
+                  onBlur={() => void saveConversationTitle()}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void saveConversationTitle();
+                    if (event.key === 'Escape') {
+                      setEditingConversationId(null);
+                      setEditingTitle('');
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  className="chat-history-main"
+                  onClick={() => void openConversation(conversation)}
+                >
+                  <span className="chat-history-title">{conversation.title}</span>
+                  <span className="chat-history-meta">
+                    {[
+                      conversation.videoTitle,
+                      `${conversation.messageCount} 条`,
+                      new Date(conversation.updatedAt).toLocaleString('zh-CN')
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </button>
+              )}
               <button
-                className="chat-history-main"
-                onClick={() => void openConversation(conversation.id)}
+                className="chat-action"
+                title="重命名"
+                onClick={() => {
+                  setEditingConversationId(conversation.id);
+                  setEditingTitle(conversation.title);
+                }}
               >
-                <span className="chat-history-title">{conversation.title}</span>
-                <span className="chat-history-meta">
-                  {[
-                    conversation.videoTitle,
-                    `${conversation.messageCount} 条`,
-                    new Date(conversation.updatedAt).toLocaleString('zh-CN')
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
+                <Pencil size={11} />
               </button>
               <button
                 className="chat-action"
@@ -1310,6 +1386,9 @@ export function ChatPanel({
                   } catch {
                     // ignore
                   }
+                }
+                if (conversationRef.current) {
+                  void window.bsub.chatHistoryProfile(conversationRef.current, next);
                 }
               }}
             >

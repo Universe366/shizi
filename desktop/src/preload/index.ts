@@ -606,8 +606,12 @@ const api: BsubApi = {
     ipcRenderer.invoke('chat:history-list', limit) as Promise<Result<ChatConversation[]>>,
   chatHistoryLatest: (videoKey: string) =>
     ipcRenderer.invoke('chat:history-latest', videoKey) as Promise<Result<ChatConversation | null>>,
-  chatHistoryCreate: (input: { title?: string; videoKey?: string; videoTitle?: string }) =>
-    ipcRenderer.invoke('chat:history-create', input) as Promise<Result<ChatConversation>>,
+  chatHistoryCreate: (input: {
+    title?: string;
+    videoKey?: string;
+    videoTitle?: string;
+    profileId?: string;
+  }) => ipcRenderer.invoke('chat:history-create', input) as Promise<Result<ChatConversation>>,
   chatHistoryMessages: (id: number) =>
     ipcRenderer.invoke('chat:history-messages', id) as Promise<Result<StoredChatMessage[]>>,
   chatHistoryAppend: (
@@ -629,6 +633,10 @@ const api: BsubApi = {
     >,
   chatHistoryRename: (id: number, title: string) =>
     ipcRenderer.invoke('chat:history-rename', { id, title }) as Promise<Result<boolean>>,
+  chatHistoryProfile: (conversationId: number, profileId: string) =>
+    ipcRenderer.invoke('chat:history-profile', { conversationId, profileId }) as Promise<
+      Result<boolean>
+    >,
   chatHistoryTruncate: (conversationId: number, keep: number) =>
     ipcRenderer.invoke('chat:history-truncate', { conversationId, keep }) as Promise<
       Result<boolean>

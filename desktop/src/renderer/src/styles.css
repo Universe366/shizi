@@ -1985,6 +1985,12 @@ button:disabled {
   font-size: 11px;
 }
 
+.chat-history-rename {
+  flex: 1;
+  height: 26px;
+  font-size: 11px;
+}
+
 .chat-history-row {
   display: flex;
   align-items: center;

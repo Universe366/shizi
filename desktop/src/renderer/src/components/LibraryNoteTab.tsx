@@ -1,5 +1,6 @@
 import { Markdown } from './Markdown';
 import { formatDateTime } from '../lib/format';
+import { speakText } from '../lib/speech';
 import type { NoteVersionMeta } from '../../../shared/types';
 
 interface LibraryNoteTabProps {
@@ -67,6 +68,14 @@ export function LibraryNoteTab({
         <div className="note-actions">
           <button className="mini-btn" onClick={onTogglePreview}>
             {preview ? '编辑' : '预览'}
+          </button>
+          <button
+            className="mini-btn"
+            disabled={!draft.trim()}
+            title="朗读笔记"
+            onClick={() => void speakText(draft)}
+          >
+            朗读
           </button>
           <button className="mini-btn" disabled={!draft.trim()} onClick={onExport}>
             导出

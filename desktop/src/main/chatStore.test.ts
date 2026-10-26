@@ -19,6 +19,7 @@ import {
   listConversations,
   listMessages,
   renameConversation,
+  setConversationProfile,
   truncateMessages
 } from './chatStore';
 
@@ -88,6 +89,18 @@ describe('对话持久化', () => {
     expect(rows[0].content).toBe('a');
     truncateMessages(conversation.id, 5);
     expect(listMessages(conversation.id).length).toBe(1);
+  });
+
+  it('会话记录助手档案并可更新', () => {
+    const conversation = createConversation({ title: '带档案', profileId: 'p1' });
+    expect(latestConversationForVideo('')).toBeNull();
+    expect(listConversations(10).find((item) => item.id === conversation.id)?.profileId).toBe(
+      'p1'
+    );
+    expect(setConversationProfile(conversation.id, 'p2')).toBe(true);
+    expect(listConversations(10).find((item) => item.id === conversation.id)?.profileId).toBe(
+      'p2'
+    );
   });
 
   it('导出 Markdown 带标题、对话与来源', () => {

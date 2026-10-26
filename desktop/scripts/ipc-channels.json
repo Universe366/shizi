@@ -42,6 +42,7 @@
   "chat:history-latest",
   "chat:history-list",
   "chat:history-messages",
+  "chat:history-profile",
   "chat:history-rename",
   "chat:history-truncate",
   "chat:send",

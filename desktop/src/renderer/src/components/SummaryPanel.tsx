@@ -58,6 +58,7 @@ export function SummaryPanel({
   const [asrProgress, setAsrProgress] = useState(0);
   const [asrMessage, setAsrMessage] = useState('');
   const requestRef = useRef('');
+  const autoReadSummaryRef = useRef(false);
   const streamingRef = useRef(false);
   const liveRef = useRef<HTMLPreElement>(null);
   const asrRequestRef = useRef('');
@@ -195,6 +196,9 @@ export function SummaryPanel({
       setUpdatedAt(Date.now());
       setStreaming(false);
       setStreamText('');
+      if (autoReadSummaryRef.current && event.text.trim()) {
+        void speakText(event.text);
+      }
       // 总结面板变化后原生页面偶尔留白；主动重报布局 + 重绘一次。
       window.setTimeout(() => {
         window.dispatchEvent(new Event('bsub:layout-refresh'));
@@ -243,12 +247,14 @@ export function SummaryPanel({
         // 总结核对由 verifySummary 控制；verify 是「AI 优化时核对」，不要混用。
         setVerifyEnabled(response.data.settings.search.verifySummary !== false);
         setSearchEnabled(response.data.settings.search.enabled !== false);
+        autoReadSummaryRef.current = response.data.settings.tts?.autoRead?.summary === true;
       }
     });
     return window.bsub.onSettingsChanged((snapshot) => {
       setPreProofread(snapshot.settings.ai.preProofread === true);
       setVerifyEnabled(snapshot.settings.search.verifySummary !== false);
       setSearchEnabled(snapshot.settings.search.enabled !== false);
+      autoReadSummaryRef.current = snapshot.settings.tts?.autoRead?.summary === true;
     });
   }, []);
 

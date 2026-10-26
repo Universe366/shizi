@@ -644,6 +644,7 @@ export interface ChatConversation {
   title: string;
   videoKey: string;
   videoTitle: string;
+  profileId: string;
   createdAt: number;
   updatedAt: number;
   messageCount: number;

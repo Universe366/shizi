@@ -57,6 +57,12 @@ function db(): DatabaseSync | null {
     if (!columns.some((column) => column.name === 'tools_json')) {
       database.exec("ALTER TABLE messages ADD COLUMN tools_json TEXT NOT NULL DEFAULT '[]'");
     }
+    const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all() as Array<{
+      name?: string;
+    }>;
+    if (!conversationColumns.some((column) => column.name === 'profile_id')) {
+      database.exec("ALTER TABLE conversations ADD COLUMN profile_id TEXT NOT NULL DEFAULT ''");
+    }
     return database;
   } catch (error) {
     console.warn('[chat] 打开对话库失败:', (error as Error).message);
@@ -79,6 +85,7 @@ interface ConversationRow {
   title: string;
   video_key: string;
   video_title: string;
+  profile_id?: string;
   created_at: number;
   updated_at: number;
   message_count?: number;
@@ -90,6 +97,7 @@ function mapConversation(row: ConversationRow): ChatConversation {
     title: String(row.title || ''),
     videoKey: String(row.video_key || ''),
     videoTitle: String(row.video_title || ''),
+    profileId: String(row.profile_id || ''),
     createdAt: Number(row.created_at) || 0,
     updatedAt: Number(row.updated_at) || 0,
     messageCount: Number(row.message_count) || 0
@@ -100,18 +108,20 @@ export function createConversation(input: {
   title?: string;
   videoKey?: string;
   videoTitle?: string;
+  profileId?: string;
 }): ChatConversation {
   const now = Date.now();
   const title = String(input.title || '新对话').trim().slice(0, 80) || '新对话';
   const statement = db()?.prepare(
-    `INSERT INTO conversations (title, video_key, video_title, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO conversations (title, video_key, video_title, profile_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
     title,
     String(input.videoKey || ''),
     String(input.videoTitle || '').slice(0, 200),
+    String(input.profileId || '').slice(0, 60),
     now,
     now
   );
@@ -120,6 +130,7 @@ export function createConversation(input: {
     title,
     videoKey: String(input.videoKey || ''),
     videoTitle: String(input.videoTitle || '').slice(0, 200),
+    profileId: String(input.profileId || '').slice(0, 60),
     createdAt: now,
     updatedAt: now,
     messageCount: 0
@@ -266,6 +277,17 @@ export function appendMessage(
     tools: message.tools || [],
     createdAt: now
   };
+}
+
+export function setConversationProfile(id: number, profileId: string): boolean {
+  try {
+    const result = db()
+      ?.prepare('UPDATE conversations SET profile_id = ?, updated_at = ? WHERE id = ?')
+      .run(String(profileId || '').slice(0, 60), Date.now(), Number(id));
+    return Boolean(result && Number(result.changes) > 0);
+  } catch {
+    return false;
+  }
 }
 
 /** 只保留前 keep 条消息（重新生成/编辑消息时截断后续内容）。 */

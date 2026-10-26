@@ -870,6 +870,26 @@ async function enrichWithPages(
   });
 }
 
+/** 统一做黑名单过滤、截断与正文抓取（主引擎和免费兜底共用）。 */
+async function prepareResults(
+  rows: WebReference[],
+  settings: AppSettings,
+  max: number
+): Promise<WebReference[]> {
+  const maxChars = Math.max(200, settings.search.snippetChars || 2000);
+  let normalized = normalize(rows, max).filter(
+    (ref) => !isBlockedUrl(ref.url, settings.search.blacklist || [])
+  );
+  normalized = normalized.map((ref) => ({
+    ...ref,
+    snippet: String(ref.snippet || '').slice(0, maxChars)
+  }));
+  if (settings.search.fetchPages && normalized.length) {
+    normalized = await enrichWithPages(normalized, maxChars, 3);
+  }
+  return normalized;
+}
+
 export async function searchWeb(
   settings: AppSettings,
   query: string,
@@ -910,17 +930,7 @@ export async function searchWeb(
     else if (kind === 'searxng') rows = await searchSearxng(settings, platform, query);
     else rows = await searchCustom(settings, platform, query);
 
-    const maxChars = Math.max(200, settings.search.snippetChars || 2000);
-    let normalized = normalize(rows, max).filter(
-      (ref) => !isBlockedUrl(ref.url, settings.search.blacklist || [])
-    );
-    normalized = normalized.map((ref) => ({
-      ...ref,
-      snippet: String(ref.snippet || '').slice(0, maxChars)
-    }));
-    if (settings.search.fetchPages && normalized.length) {
-      normalized = await enrichWithPages(normalized, maxChars, 3);
-    }
+    const normalized = await prepareResults(rows, settings, max);
     if (normalized.length) {
       const meta: SearchMeta = {
         engine: platform.name || platform.kind || '检索',
@@ -951,7 +961,7 @@ export async function searchWeb(
             rows = await searchAnySearch(settings, freePlatform('anysearch'), query);
           else if (id === 'searxng')
             rows = await searchSearxng(settings, freePlatform('searxng'), query);
-          const fallback = normalize(rows, max);
+          const fallback = await prepareResults(rows, settings, max);
           if (fallback.length) {
             const meta: SearchMeta = {
               engine:
