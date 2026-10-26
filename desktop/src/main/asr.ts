@@ -18,7 +18,7 @@ import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
 import { resolveLocalWhisperPaths, runLocalWhisper, toSimplified } from './localAsr';
 
-const CHUNK_BYTES = 384 * 1024;
+const CHUNK_BYTES = 2 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
 
 function audioCachePath(info: PageInfo): string {
@@ -136,6 +136,21 @@ async function downloadAudio(
   } catch {
     // ignore
   }
+  // 单块失败重试，避免一个临时 5xx 就把整个候选重下一遍。
+  const fetchChunk = async (url: string, start: number, end: number) => {
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      throwIfAborted(signal);
+      try {
+        return await fetchAudioRange(wc, url, start, end);
+      } catch (error) {
+        lastError = error;
+        if ((error as Error).name === 'AbortError') throw error;
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+    }
+    throw lastError || new Error('音轨分块下载失败');
+  };
   onProgress('download', 0, '获取音轨候选…');
   const candidates = await getAudioCandidates(wc, info);
   let lastError: unknown = null;
@@ -162,7 +177,7 @@ async function downloadAudio(
             for (let start = 0; start < total; start += CHUNK_BYTES) {
               throwIfAborted(signal);
               const end = Math.min(total - 1, start + CHUNK_BYTES - 1);
-              const part = await fetchAudioRange(wc, url, start, end);
+              const part = await fetchChunk(url, start, end);
               if (!part.bytes.length) break;
               await write(part.bytes);
               received += part.bytes.length;
@@ -175,7 +190,7 @@ async function downloadAudio(
           } else {
             for (let start = 0; ; start += CHUNK_BYTES) {
               throwIfAborted(signal);
-              const part = await fetchAudioRange(wc, url, start, start + CHUNK_BYTES - 1);
+              const part = await fetchChunk(url, start, start + CHUNK_BYTES - 1);
               if (!part.bytes.length) break;
               await write(part.bytes);
               received += part.bytes.length;

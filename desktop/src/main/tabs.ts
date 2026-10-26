@@ -378,6 +378,46 @@ export class TabManager {
     wc.on('dom-ready', () => {
       void this.pushMediaState(record);
     });
+
+    wc.on('context-menu', (_event, params) => {
+      const selected = String(params.selectionText || '').trim();
+      const pageUrl = params.pageURL || record.url;
+      const sendAction = (action: string) => {
+        this.win.webContents.send('web:context-action', {
+          action,
+          text: selected.slice(0, 8000),
+          url: pageUrl
+        });
+      };
+      const template: MenuItemConstructorOptions[] = [];
+      if (selected) {
+        template.push(
+          { label: '用 AI 解释选中', click: () => sendAction('explain') },
+          { label: '用 AI 翻译选中', click: () => sendAction('translate') },
+          { label: '用 AI 总结选中', click: () => sendAction('summarize') },
+          { label: '用 AI 提问选中', click: () => sendAction('ask') },
+          { label: '朗读选中', click: () => sendAction('speak') },
+          { label: '搜索选中', click: () => sendAction('search') },
+          {
+            label: '复制选中',
+            click: () => {
+              clipboard.writeText(selected);
+            }
+          },
+          { type: 'separator' }
+        );
+      }
+      template.push(
+        { label: '用 AI 总结本页', click: () => sendAction('summarize-page') },
+        { label: '就当前页面提问', click: () => sendAction('ask-page') },
+        { label: '复制页面链接', click: () => clipboard.writeText(pageUrl) },
+        { type: 'separator' },
+        { label: '后退', enabled: wc.canGoBack(), click: () => wc.goBack() },
+        { label: '前进', enabled: wc.canGoForward(), click: () => wc.goForward() },
+        { label: '刷新', click: () => wc.reload() }
+      );
+      Menu.buildFromTemplate(template).popup({ window: ownerWindow() || this.win });
+    });
     wc.on('did-frame-finish-load', () => {
       void this.pushMediaState(record);
     });

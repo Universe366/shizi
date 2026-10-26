@@ -380,6 +380,8 @@ interface PendingApproval {
 }
 
 const pendingApprovals = new Map<string, PendingApproval>();
+/** 同一标签页只允许一个转录任务，避免双击/两个入口同时下载同一音轨。 */
+const activeAsrTabs = new Set<number>();
 
 function settleRequestApprovals(requestId: string, allow = false): void {
   for (const [approvalId, entry] of pendingApprovals) {
@@ -651,6 +653,11 @@ export function registerMediaIpc(ctx: IpcContext): void {
     async (_event, payload: { requestId: string }): Promise<Result<{ requestId: string }>> => {
       const wc = ctx.tabs.activeWebContents();
       if (!wc) return { ok: false, error: '当前没有活动页面' };
+      const tabKey = wc.id;
+      if (activeAsrTabs.has(tabKey)) {
+        return { ok: false, error: '当前页面正在转录，请等它完成或先停止' };
+      }
+      activeAsrTabs.add(tabKey);
       const requestId = payload?.requestId || randomUUID();
       const controller = new AbortController();
       asrControllers.set(requestId, controller);
@@ -691,6 +698,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
           );
           ctx.send('asr:error', { requestId, error: message } satisfies AsrErrorEvent);
         } finally {
+          activeAsrTabs.delete(tabKey);
           asrControllers.delete(requestId);
         }
       })();

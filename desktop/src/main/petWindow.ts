@@ -299,11 +299,13 @@ export function openPetWindow(useStartCorner = false): void {
   petWindow = new BrowserWindow({
     ...rect,
     transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
+    hasShadow: false,
+    roundedCorners: false,
     resizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    hasShadow: false,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

@@ -35,7 +35,11 @@ export const SELECTION_TOOLBAR_SCRIPT = String.raw`
     var actions = [
       { id: 'explain', label: '解释' },
       { id: 'translate', label: '翻译' },
-      { id: 'summarize', label: '总结' }
+      { id: 'summarize', label: '总结' },
+      { id: 'ask', label: '提问' },
+      { id: 'speak', label: '朗读' },
+      { id: 'search', label: '搜索' },
+      { id: 'copy', label: '复制' }
     ];
     actions.forEach(function (action) {
       var button = document.createElement('button');
@@ -62,7 +66,7 @@ export const SELECTION_TOOLBAR_SCRIPT = String.raw`
     }
 
     function show(x, y) {
-      var width = 188;
+      var width = 300;
       var left = Math.min(Math.max(8, x), window.innerWidth - width / 2 - 8);
       var top = Math.max(44, y);
       host.style.left = left + 'px';

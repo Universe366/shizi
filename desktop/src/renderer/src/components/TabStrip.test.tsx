@@ -80,9 +80,11 @@ describe('TabStrip', () => {
 
   it('点击标签激活，点关闭调用 closeTab 并阻止冒泡', () => {
     const api = installBsub();
-    render(<TabStrip tabs={tabs} />);
+    const onActivate = vi.fn();
+    render(<TabStrip tabs={tabs} onActivate={onActivate} />);
     fireEvent.click(screen.getByText('B 站首页'));
     expect(api.activateTab).toHaveBeenCalledWith('t1');
+    expect(onActivate).toHaveBeenCalledWith('t1');
 
     const closeButtons = screen.getAllByTitle('关闭标签页');
     fireEvent.click(closeButtons[1]);

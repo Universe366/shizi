@@ -43,13 +43,15 @@ export function TabStrip({
   vertical = false,
   onSearch,
   onNewTab,
-  onPeekChange
+  onPeekChange,
+  onActivate
 }: {
   tabs: TabInfo[];
   vertical?: boolean;
   onSearch?: () => void;
   onNewTab?: () => void;
   onPeekChange?: (peek: boolean, width: number) => void;
+  onActivate?: (id: string) => void;
 }) {
   const [menu, setMenu] = useState<TabMenuState | null>(null);
   const [filter, setFilter] = useState('');
@@ -353,6 +355,7 @@ export function TabStrip({
     setAnchorId(id);
     clearPreview();
     void window.bsub.activateTab(id);
+    onActivate?.(id);
     // 点击折叠态里的标签后收起飞出层，避免它一直悬在网页上。
     if (fromClick && vertical && collapsed) {
       peekSuppressed.current = true;

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Download, FolderOpen, Loader2 } from 'lucide-react';
+import { Download, FolderOpen, Loader2, Search } from 'lucide-react';
+import type { LibraryVideo } from '../../../shared/types';
+import { formatDuration } from '../lib/format';
 
-/** 在线视频下载：输入链接，交给 yt-dlp；只处理用户有权下载的内容。 */
+/** 下载视频：优先从资料库直接选，也支持粘贴外部链接交给 yt-dlp。 */
 export function DownloadVideoDialog({
   open,
   onClose
@@ -9,7 +11,11 @@ export function DownloadVideoDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const [source, setSource] = useState<'library' | 'url'>('library');
   const [url, setUrl] = useState('');
+  const [query, setQuery] = useState('');
+  const [library, setLibrary] = useState<LibraryVideo[]>([]);
+  const [loading, setLoading] = useState(false);
   const [requestId, setRequestId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -21,6 +27,15 @@ export function DownloadVideoDialog({
     setDonePath('');
     setRequestId('');
     setBusy(false);
+    setSource('library');
+    setQuery('');
+    setLoading(true);
+    void window.bsub
+      .listLibrary()
+      .then((response) => {
+        if (response.ok) setLibrary(response.data.videos.slice(0, 200));
+      })
+      .finally(() => setLoading(false));
   }, [open]);
 
   useEffect(() => {
@@ -53,10 +68,10 @@ export function DownloadVideoDialog({
 
   if (!open) return null;
 
-  const submit = async () => {
-    const value = url.trim();
+  const submit = async (raw: string) => {
+    const value = raw.trim();
     if (!/^https?:\/\//i.test(value)) {
-      setMessage('请填写 http/https 链接');
+      setMessage('请选择资料库视频，或填写 http/https 链接');
       return;
     }
     setBusy(true);
@@ -76,39 +91,118 @@ export function DownloadVideoDialog({
     setMessage('下载中，进度见右下角「任务」；完成后这里会显示文件位置');
   };
 
+  const filtered = query.trim()
+    ? library.filter((video) =>
+        `${video.title} ${video.owner}`.toLowerCase().includes(query.trim().toLowerCase())
+      )
+    : library;
+
   return (
     <div className="confirm-backdrop" role="presentation">
-      <div className="confirm-card" role="dialog" aria-modal="true" aria-label="下载在线视频">
-        <div className="confirm-title">下载在线视频</div>
+      <div
+        className="confirm-card download-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="下载视频"
+      >
+        <div className="confirm-title">下载视频</div>
         <div className="confirm-desc">
-          支持 B 站 / YouTube 等 yt-dlp 可解析的公开链接；请只下载你有权保存的内容。
+          直接从资料库选一条视频下载，或粘贴外部链接；请只下载你有权保存的内容。
         </div>
-        <input
-          className="settings-input"
-          value={url}
-          placeholder="https://www.bilibili.com/video/BV…"
-          spellCheck={false}
-          autoFocus
-          onChange={(event) => setUrl(event.target.value)}
-        />
-        <div className="settings-hint">
-          首次使用会自动下载 yt-dlp（约 17MB）到软件目录；输出在「下载/Shizi」。
+
+        <div className="download-source-tabs">
+          <button
+            className={source === 'library' ? 'is-active' : ''}
+            onClick={() => setSource('library')}
+          >
+            从资料库
+          </button>
+          <button
+            className={source === 'url' ? 'is-active' : ''}
+            onClick={() => setSource('url')}
+          >
+            在线链接
+          </button>
         </div>
+
+        {source === 'library' ? (
+          <>
+            <div className="download-search">
+              <Search size={13} />
+              <input
+                className="settings-input"
+                value={query}
+                placeholder="搜索库里的视频…"
+                spellCheck={false}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <div className="download-library">
+              {loading && <div className="settings-hint">读取资料库…</div>}
+              {!loading && !filtered.length && (
+                <div className="settings-hint">资料库还没有视频，先去字幕库入库。</div>
+              )}
+              {filtered.slice(0, 30).map((video) => (
+                <div className="download-library-row" key={video.id}>
+                  <div className="download-library-main">
+                    <span className="download-library-title">{video.title}</span>
+                    <span className="download-library-meta">
+                      {video.owner || '未知 UP'} · {formatDuration(video.duration)} ·{' '}
+                      {video.url.replace(/^https?:\/\//, '').slice(0, 48)}
+                    </span>
+                  </div>
+                  <button
+                    className="mini-btn primary"
+                    disabled={busy}
+                    onClick={() => void submit(video.url)}
+                  >
+                    <Download size={11} /> 下载
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <input
+              className="settings-input download-url-input"
+              value={url}
+              placeholder="https://www.bilibili.com/video/BV…"
+              spellCheck={false}
+              autoFocus
+              onChange={(event) => setUrl(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void submit(url);
+              }}
+            />
+            <div className="settings-hint">
+              支持 B 站 / YouTube 等 yt-dlp 可解析的公开链接；输出在「下载/Shizi」。
+            </div>
+            <button
+              className="mini-btn primary"
+              disabled={busy || !url.trim()}
+              onClick={() => void submit(url)}
+            >
+              {busy ? <Loader2 size={12} className="spin" /> : <Download size={12} />} 开始下载
+            </button>
+          </>
+        )}
+
         {message && <div className="settings-hint">{message}</div>}
         {donePath && (
           <div className="settings-inline">
-            <span className="settings-hint" style={{ flex: 1 }}>{donePath}</span>
+            <span className="settings-hint" style={{ flex: 1 }}>
+              {donePath}
+            </span>
             <button className="mini-btn" onClick={() => void window.bsub.revealExport(donePath)}>
               <FolderOpen size={12} /> 打开文件夹
             </button>
           </div>
         )}
+
         <div className="resegment-actions">
           <button className="mini-btn" onClick={onClose} disabled={busy}>
             关闭
-          </button>
-          <button className="mini-btn primary" onClick={() => void submit()} disabled={busy || !url.trim()}>
-            {busy ? <Loader2 size={12} className="spin" /> : <Download size={12} />} 开始下载
           </button>
         </div>
       </div>

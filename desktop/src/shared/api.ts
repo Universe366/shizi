@@ -394,6 +394,7 @@ export interface BsubApi {
   >;
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
+  startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
   /** 云同步：选择文件夹 */
   chooseSyncFolder(): Promise<Result<string | null>>;
   syncStatus(folder: string): Promise<
@@ -407,6 +408,9 @@ export interface BsubApi {
   importSettings(): Promise<Result<{ canceled: boolean; snapshot?: SettingsSnapshot }>>;
   onSettingsChanged(cb: (snapshot: SettingsSnapshot) => void): () => void;
   onTrayAction(cb: (action: string) => void): () => void;
+  onWebContextAction(
+    cb: (event: { action: string; text: string; url: string }) => void
+  ): () => void;
   testSearch(
     query: string,
     override?: { platform?: SearchPlatform; search?: AppSettings['search'] }

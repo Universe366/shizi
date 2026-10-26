@@ -32,7 +32,7 @@ import type {
   StartShortcut
 } from '../../../shared/types';
 
-type WallpaperId = 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
+type WallpaperId = 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach' | 'bing';
 
 const WIDGET_LABELS: Record<string, string> = {
   weather: '天气',
@@ -42,13 +42,40 @@ const WIDGET_LABELS: Record<string, string> = {
   history: '最近访问'
 };
 const ALL_WIDGETS = ['weather', 'todo', 'hot', 'recent', 'history'] as const;
+const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
+
+function readShortcutBackup(): StartShortcut[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SHORTCUT_BACKUP_KEY) || '[]');
+    return Array.isArray(raw)
+      ? raw.filter(
+          (item): item is StartShortcut =>
+            Boolean(item) &&
+            typeof item === 'object' &&
+            typeof item.label === 'string' &&
+            typeof item.url === 'string'
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeShortcutBackup(items: StartShortcut[]): void {
+  try {
+    localStorage.setItem(SHORTCUT_BACKUP_KEY, JSON.stringify(items));
+  } catch {
+    // ignore
+  }
+}
 
 const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [
   { id: 'aurora', label: '极光' },
   { id: 'midnight', label: '夜空' },
   { id: 'paper', label: '纸白' },
   { id: 'mint', label: '薄荷' },
-  { id: 'peach', label: '蜜桃' }
+  { id: 'peach', label: '蜜桃' },
+  { id: 'bing', label: '必应每日' }
 ];
 
 interface StartPageProps {
@@ -99,8 +126,12 @@ export function StartPage({
   const [todos, setTodos] = useState<PetTodo[]>([]);
   const [todoDraft, setTodoDraft] = useState('');
   const [shortcuts, setShortcuts] = useState<StartShortcut[]>([]);
+  const [shortcutBackup, setShortcutBackup] = useState<StartShortcut[]>([]);
   const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
   const [wallpaperImage, setWallpaperImage] = useState('');
+  const [bingWallpaper, setBingWallpaper] = useState<{ url: string; copyright: string } | null>(
+    null
+  );
   const [widgetOrder, setWidgetOrder] = useState<string[]>([
     'weather',
     'todo',
@@ -147,9 +178,19 @@ export function StartPage({
   const applySettings = (general: Record<string, unknown>) => {
     setEngine((general.searchEngine as SearchEngineId) || 'bing');
     setTodos(Array.isArray(general.petTodos) ? (general.petTodos as PetTodo[]) : []);
-    setShortcuts(
-      Array.isArray(general.startShortcuts) ? (general.startShortcuts as StartShortcut[]) : []
-    );
+    const fromSettings = Array.isArray(general.startShortcuts)
+      ? (general.startShortcuts as StartShortcut[])
+      : [];
+    const backup = readShortcutBackup();
+    setShortcutBackup(backup);
+    if (!fromSettings.length && backup.length) {
+      // 设置文件被重置/更新覆盖时，用本地备份兜底，避免用户保存的网址直接消失。
+      setShortcuts(backup);
+      void patchGeneral({ startShortcuts: backup });
+    } else {
+      setShortcuts(fromSettings);
+      if (fromSettings.length >= backup.length) writeShortcutBackup(fromSettings);
+    }
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
     setWallpaperImage(String(general.startWallpaperImage || ''));
     if (Array.isArray(general.startWidgets)) {
@@ -207,6 +248,17 @@ export function StartPage({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (wallpaper !== 'bing' || wallpaperImage) return;
+    let alive = true;
+    void window.bsub.startBingWallpaper().then((response) => {
+      if (alive && response.ok) setBingWallpaper(response.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [wallpaper, wallpaperImage]);
 
   useEffect(() => {
     if (!wallpaperOpen) return;
@@ -310,6 +362,8 @@ export function StartPage({
 
   const persistShortcuts = async (next: StartShortcut[]) => {
     setShortcuts(next);
+    writeShortcutBackup(next);
+    setShortcutBackup(next);
     await patchGeneral({ startShortcuts: next });
   };
 
@@ -465,24 +519,29 @@ export function StartPage({
     reader.readAsDataURL(file);
   };
 
+  const backgroundImage =
+    wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
+
   return (
     <div
       className={`start-page start-page-v2 start-wallpaper-${wallpaper}`}
       style={
-        wallpaperImage
+        backgroundImage
           ? {
-              backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg) 18%, transparent), color-mix(in srgb, var(--bg) 45%, transparent)), url(${wallpaperImage})`,
+              backgroundImage: `linear-gradient(color-mix(in srgb, var(--bg) 18%, transparent), color-mix(in srgb, var(--bg) 45%, transparent)), url(${backgroundImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }
           : undefined
       }
     >
-      <div className="start-aurora" aria-hidden="true">
-        <span className="start-blob start-blob-a" />
-        <span className="start-blob start-blob-b" />
-        <span className="start-blob start-blob-c" />
-      </div>
+      {wallpaper === 'aurora' && !backgroundImage && (
+        <div className="start-aurora" aria-hidden="true">
+          <span className="start-blob start-blob-a" />
+          <span className="start-blob start-blob-b" />
+          <span className="start-blob start-blob-c" />
+        </div>
+      )}
 
       <div className="start-sheet">
         <section className="start-hero-v2">
@@ -514,9 +573,18 @@ export function StartPage({
                     <button
                       key={item.id}
                       className={`start-wallpaper-dot start-wallpaper-${item.id}${
-                        wallpaper === item.id ? ' is-active' : ''
+                        wallpaper === item.id && !wallpaperImage ? ' is-active' : ''
                       }`}
                       title={item.label}
+                      style={
+                        item.id === 'bing' && bingWallpaper
+                          ? {
+                              backgroundImage: `url(${bingWallpaper.url})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center'
+                            }
+                          : undefined
+                      }
                       onClick={() => {
                         setWallpaper(item.id);
                         setWallpaperImage('');
@@ -1068,8 +1136,16 @@ export function StartPage({
         <div className="start-footnote">
           <Sparkles size={12} />
           {editMode
-            ? '编辑中：点图标改名称/网址/分组，拖到别的分组即可归类，× 删除；完成后点右上角「完成」'
+            ? '编辑中：点图标改名称/网址/分组，拖动可排序或换组，× 删除；完成后点右上角「完成」'
             : '点右上角「编辑」可增删/排序快捷方式；设置会跟随导出/导入一起备份'}
+          {editMode && shortcutBackup.length > shortcuts.length && (
+            <button
+              className="start-foot-link"
+              onClick={() => void persistShortcuts(shortcutBackup)}
+            >
+              恢复上次备份（{shortcutBackup.length}）
+            </button>
+          )}
           <button
             className="start-foot-link"
             onClick={async () => {

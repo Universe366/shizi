@@ -10,6 +10,14 @@ describe('compactUrl', () => {
     expect(compactUrl('http://example.com/a/b/')).toBe('example.com/a/b');
   });
 
+  it('去掉常见跟踪参数', () => {
+    expect(
+      compactUrl(
+        'https://www.bilibili.com/video/BV1xx411c7mD/?spm_id_from=333.999&vd_source=abc&t=12'
+      )
+    ).toBe('bilibili.com/video/BV1xx411c7mD?t=12');
+  });
+
   it('保留查询串，去掉 hash', () => {
     expect(compactUrl('https://search.bilibili.com/all?keyword=test#anchor')).toBe(
       'search.bilibili.com/all?keyword=test'

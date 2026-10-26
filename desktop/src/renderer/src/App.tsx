@@ -12,6 +12,7 @@ import { ReaderMode } from './components/ReaderMode';
 import { StartPage } from './components/StartPage';
 import { lazy, Suspense } from 'react';
 import { requestSummaryPanel } from './lib/summaryRequest';
+import { speakText } from './lib/speech';
 
 const SettingsPage = lazy(() =>
   import('./SettingsPage').then((module) => ({ default: module.SettingsPage }))
@@ -66,6 +67,16 @@ export default function App() {
   const handlePeekChange = useCallback((peek: boolean, width: number) => {
     setTabPeek({ open: peek, width });
   }, []);
+
+  // 垂直标签栏折叠/探出会改变网页可用区域；原生视图偶发停在旧坐标，
+  // 这里在布局变化后主动重报一次，避免页面被推到窗口外。
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('bsub:layout-refresh'));
+      window.bsub.refreshView();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tabPeek.open, tabPeek.width, verticalTabs, tabs.length]);
   const [bookmarked, setBookmarked] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
@@ -208,6 +219,36 @@ export default function App() {
   useEffect(() => window.bsub.onOpenSettings(() => setSettingsOpen(true)), []);
   useEffect(
     () =>
+      window.bsub.onWebContextAction(({ action, text }) => {
+        const openChat = (prompt: string) => {
+          setStartOpen(false);
+          setSettingsOpen(false);
+          setLibraryOpen(false);
+          setSection('chat');
+          window.setTimeout(
+            () => window.dispatchEvent(new CustomEvent('bsub:chat-prefill', { detail: prompt })),
+            160
+          );
+        };
+        if (action === 'explain') openChat(`请解释这段内容：\n\n${text}`);
+        else if (action === 'translate')
+          openChat(`请把这段内容翻译成中文（若原文是中文则翻译成英文），保留结构：\n\n${text}`);
+        else if (action === 'summarize') openChat(`请总结这段内容，给出要点与结论：\n\n${text}`);
+        else if (action === 'ask') openChat(`关于这段内容，请帮我分析：\n\n${text}`);
+        else if (action === 'speak') void speakText(text);
+        else if (action === 'search') void window.bsub.newTab(text);
+        else if (action === 'summarize-page') {
+          setStartOpen(false);
+          setSettingsOpen(false);
+          setLibraryOpen(false);
+          setSection('summary');
+          window.setTimeout(() => requestSummaryPanel('summary'), 60);
+        } else if (action === 'ask-page') openChat('请基于当前页面内容，提炼核心观点并指出值得继续追问的问题。');
+      }),
+    []
+  );
+  useEffect(
+    () =>
       window.bsub.onTrayAction((action) => {
         if (action === 'start') {
           setSettingsOpen(false);
@@ -229,6 +270,18 @@ export default function App() {
   useEffect(
     () =>
       window.bsub.onSelectionAction((payload) => {
+        if (payload.action === 'copy') {
+          void window.bsub.writeClipboard(payload.text);
+          return;
+        }
+        if (payload.action === 'speak') {
+          void speakText(payload.text);
+          return;
+        }
+        if (payload.action === 'search') {
+          void window.bsub.newTab(payload.text);
+          return;
+        }
         setSection('chat');
         window.setTimeout(
           () =>
@@ -555,7 +608,6 @@ export default function App() {
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
       }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
-      style={tabPeek.open ? { paddingLeft: Math.max(52, tabPeek.width) } : undefined}
       {...drop.handlers}
     >
       {!settingsOpen && (
@@ -565,6 +617,11 @@ export default function App() {
           onSearch={() => setSearchOpen(true)}
           onNewTab={() => setStartOpen(true)}
           onPeekChange={handlePeekChange}
+          onActivate={() => {
+            setStartOpen(false);
+            setSettingsOpen(false);
+            setLibraryOpen(false);
+          }}
         />
       )}
       <div className="app-main">

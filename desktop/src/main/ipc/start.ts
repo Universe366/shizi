@@ -15,6 +15,7 @@ const WEATHER_TTL = 30 * 60 * 1000;
 const HOT_TTL = 10 * 60 * 1000;
 let weatherCache: { city: string; at: number; data: WeatherInfo } | null = null;
 let hotCache: { at: number; data: string[] } | null = null;
+let bingCache: { at: number; data: { url: string; copyright: string } } | null = null;
 
 const WEATHER_CODES: Record<number, string> = {
   0: '晴',
@@ -106,6 +107,39 @@ export function registerStartIpc(): void {
       return { ok: true, data };
     } catch (error) {
       return failure(`天气获取失败：${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('start:bing-wallpaper', async () => {
+    const now = Date.now();
+    if (bingCache && now - bingCache.at < 60 * 60 * 1000) {
+      return { ok: true, data: bingCache.data };
+    }
+    try {
+      const response = await fetch(
+        'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN',
+        {
+          headers: {
+            'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            referer: 'https://www.bing.com/'
+          },
+          signal: AbortSignal.timeout(10000)
+        }
+      );
+      const json = (await response.json()) as {
+        images?: Array<{ urlbase?: string; copyright?: string }>;
+      };
+      const image = json.images?.[0];
+      if (!image?.urlbase) return failure('必应壁纸不可用');
+      const data = {
+        url: `https://www.bing.com${image.urlbase}_1920x1080.jpg`,
+        copyright: String(image.copyright || '')
+      };
+      bingCache = { at: now, data };
+      return { ok: true, data };
+    } catch (error) {
+      return failure(`必应壁纸获取失败：${(error as Error).message}`);
     }
   });
 

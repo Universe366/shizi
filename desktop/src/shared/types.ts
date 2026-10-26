@@ -1057,7 +1057,7 @@ export interface AppSettings {
     /** 起始页自定义快捷方式 */
     startShortcuts: StartShortcut[];
     /** 起始页壁纸主题 */
-    startWallpaper: 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach';
+    startWallpaper: 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach' | 'bing';
     /** 自定义壁纸（压缩后的 dataURL） */
     startWallpaperImage: string;
     /** 起始页小组件顺序 */
@@ -1102,6 +1102,12 @@ export interface AppSettings {
     density: 'comfortable' | 'compact';
     /** 自定义 CSS（追加到界面） */
     customCss: string;
+    /** 界面圆角（px） */
+    uiRadius: number;
+    /** 毛玻璃面板 */
+    uiGlass: boolean;
+    /** 界面动效 */
+    uiMotion: boolean;
   };
   ai: {
     activeId: string;

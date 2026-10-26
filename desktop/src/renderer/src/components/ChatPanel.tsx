@@ -999,6 +999,18 @@ export function ChatPanel({
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
   };
 
+  // 网页右键/选中文字触发的操作：直接带入对话并生成。
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const prompt = String((event as CustomEvent).detail || '').trim();
+      if (!prompt) return;
+      setComposerOpen(false);
+      void send(prompt);
+    };
+    window.addEventListener('bsub:chat-prefill', handler);
+    return () => window.removeEventListener('bsub:chat-prefill', handler);
+  }, [send]);
+
   /** 重新生成最后一条回答：截断数据库与界面，再把同一个问题发一次。 */
   const regenerate = async () => {
     if (streaming) return;
@@ -1101,7 +1113,9 @@ export function ChatPanel({
           ? '翻译成中文（原文是中文就翻译成英文）'
           : action === 'summarize'
             ? '用要点总结'
-            : '解释';
+            : action === 'ask'
+              ? '解释并回答其中的问题'
+              : '解释';
       void send(`请${label}下面这段选中的内容：\n"""\n${clipped}\n"""`, true);
     };
     window.addEventListener('bsub:selection-action', handler);

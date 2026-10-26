@@ -9,6 +9,20 @@ describe('外观应用', () => {
     document.documentElement.removeAttribute('data-color-scheme');
   });
 
+  it('圆角/毛玻璃/动效写入根节点', () => {
+    applyAppearance({
+      colorScheme: 'custom',
+      accentColor: '#4f6f8f',
+      density: 'comfortable',
+      uiRadius: 20,
+      uiGlass: false,
+      uiMotion: false
+    });
+    expect(document.documentElement.style.getPropertyValue('--radius-lg')).toBe('20px');
+    expect(document.documentElement.dataset.uiGlass).toBe('off');
+    expect(document.documentElement.dataset.uiMotion).toBe('off');
+  });
+
   it('预设配色使用对应的强调色', () => {
     applyAppearance({ colorScheme: 'forest', accentColor: '#123abc', density: 'comfortable' });
     expect(document.documentElement.style.getPropertyValue('--accent')).toBe('#3f7d62');

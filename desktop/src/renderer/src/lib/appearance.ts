@@ -5,6 +5,9 @@ interface AppearanceInput {
   colorScheme?: string;
   density?: string;
   customCss?: string;
+  uiRadius?: number;
+  uiGlass?: boolean;
+  uiMotion?: boolean;
 }
 
 let current: AppearanceInput = {};
@@ -45,6 +48,11 @@ export function applyAppearance(general: AppearanceInput): void {
   applyColors();
   const root = document.documentElement;
   root.dataset.density = general.density === 'compact' ? 'compact' : 'comfortable';
+  const radius = Math.min(24, Math.max(6, Number(general.uiRadius) || 14));
+  root.style.setProperty('--radius-lg', `${radius}px`);
+  root.style.setProperty('--radius-md', `${Math.max(6, radius - 4)}px`);
+  root.dataset.uiGlass = general.uiGlass === false ? 'off' : 'on';
+  root.dataset.uiMotion = general.uiMotion === false ? 'off' : 'on';
 
   // 跟随系统深浅色时，预设配色需要跟着切换；监听只绑定一次。
   if (!media) {

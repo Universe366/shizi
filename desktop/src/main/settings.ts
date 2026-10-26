@@ -18,8 +18,7 @@ import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { isSearchEngineId } from '../shared/searchEngines';
-import { isColorSchemeId } from '../shared/colorSchemes';
-import { parseShortcut } from '../shared/shortcutKeys';
+import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
 import { shortcutAction } from '../shared/shortcuts';
 import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
 import { DEFAULT_SUBTITLE_TOOLBAR } from '../shared/subtitleToolbar';
@@ -86,7 +85,7 @@ const DEFAULT_TEMPLATES: PromptTemplate[] = [
   {
     id: 'brief',
     name: '精简',
-    text: '用 Markdown 输出简洁总结，最多 5 条要点，总字数控制在 300 字以内。只依据字幕，不要编造；不确定的地方标注「不确定」。'
+    text: '用 Markdown 输出简洁总结，先给结论再列要点；保留关键数字、结论与步骤，不要为了短而删信息，也不要重复灌水。只依据字幕，不要编造；不确定的地方标注「不确定」。'
   },
   {
     id: 'detailed',
@@ -211,7 +210,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     accentColor: '#4f6f8f',
     colorScheme: 'custom',
     density: 'comfortable',
-    customCss: ''
+    customCss: '',
+    uiRadius: 14,
+    uiGlass: true,
+    uiMotion: true
   },
   ai: {
     activeId: 'deepseek',
@@ -626,6 +628,12 @@ function normalize(input: unknown): AppSettings {
       if (typeof raw.general.customCss === 'string') {
         base.general.customCss = raw.general.customCss.slice(0, 20000);
       }
+      const uiRadius = Number(raw.general.uiRadius);
+      base.general.uiRadius = Number.isFinite(uiRadius)
+        ? Math.min(24, Math.max(6, Math.round(uiRadius)))
+        : 14;
+      base.general.uiGlass = raw.general.uiGlass !== false;
+      base.general.uiMotion = raw.general.uiMotion !== false;
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])
             .filter(
@@ -635,13 +643,15 @@ function normalize(input: unknown): AppSettings {
             .map((item) => ({
               id: String(item.id || `s-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
               label: String(item.label || '').trim().slice(0, 20),
-              url: String(item.url || '').trim().slice(0, 500),
+              url: /^https?:\/\//i.test(String(item.url || '').trim())
+                ? String(item.url).trim().slice(0, 500)
+                : `https://${String(item.url || '').trim()}`.slice(0, 500),
               group: String(item.group || '常用').trim().slice(0, 12) || '常用'
             }))
-            .filter((item) => item.label && /^https?:\/\//i.test(item.url))
+            .filter((item) => item.label && /^https?:\/\/[^\s]+$/i.test(item.url))
             .slice(0, 24)
         : base.general.startShortcuts;
-      const wallpapers = ['aurora', 'midnight', 'paper', 'mint', 'peach'] as const;
+      const wallpapers = ['aurora', 'midnight', 'paper', 'mint', 'peach', 'bing'] as const;
       base.general.startWallpaper = wallpapers.includes(raw.general.startWallpaper as never)
         ? (raw.general.startWallpaper as (typeof wallpapers)[number])
         : 'aurora';
@@ -983,6 +993,12 @@ function normalize(input: unknown): AppSettings {
       if (defaultTemplate && /^你是一个严谨的中文视频笔记助手/.test(defaultTemplate.text.trim())) {
         defaultTemplate.text = DEFAULT_PROMPT;
         defaultTemplate.name = '默认（视频整理）';
+      }
+      // 旧版「精简」模板写死了 300 字上限，导致总结被截短；未自定义过的模板直接升级。
+      const brief = templates.find((template) => template.id === 'brief');
+      if (brief && brief.text.includes('总字数控制在 300 字以内')) {
+        brief.text =
+          '用 Markdown 输出简洁总结，先给结论再列要点；保留关键数字、结论与步骤，不要为了短而删信息，也不要重复灌水。只依据字幕，不要编造；不确定的地方标注「不确定」。';
       }
       base.prompt.templates = templates;
       const promptActive = String(raw.prompt?.activeId || '');
@@ -1357,7 +1373,13 @@ export function loadSettings(): AppSettings {
     const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
     settings = openSecrets(normalize(raw));
   } catch {
-    settings = openSecrets(normalize(null));
+    // 主文件损坏/被清空时尝试上一份备份，避免用户保存的网址、提示词直接消失。
+    try {
+      const raw = JSON.parse(fs.readFileSync(`${settingsFile()}.bak`, 'utf8'));
+      settings = openSecrets(normalize(raw));
+    } catch {
+      settings = openSecrets(normalize(null));
+    }
   }
   setUsageEnabled(settings.usage.enabled !== false);
   return settings;
@@ -1488,6 +1510,13 @@ export function setSidebarLayout(patch: {
 export function saveSettings(next: AppSettings): AppSettings {
   const normalized = normalize(mergeSecrets(next, loadSettings()));
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
+  try {
+    if (fs.existsSync(settingsFile())) {
+      fs.copyFileSync(settingsFile(), `${settingsFile()}.bak`);
+    }
+  } catch {
+    // 备份失败不阻塞保存
+  }
   fs.writeFileSync(settingsFile(), JSON.stringify(sealSecrets(normalized), null, 2), 'utf8');
   setUsageEnabled(normalized.usage.enabled !== false);
   return normalized;

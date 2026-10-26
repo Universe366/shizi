@@ -200,6 +200,31 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('快捷方式缺协议时自动补 https，不再被过滤', () => {
+    const settings = loadSettings();
+    settings.general.startShortcuts = [
+      { id: 'x', label: '示例', url: 'example.com', group: '常用' }
+    ];
+    saveSettings(settings);
+    expect(loadSettings().general.startShortcuts[0]?.url).toBe('https://example.com');
+    settings.general.startShortcuts = [];
+    saveSettings(settings);
+  });
+
+  it('旧版「精简」提示词的 300 字限制会自动升级', () => {
+    const settings = loadSettings();
+    const brief = settings.prompt.templates.find((template) => template.id === 'brief');
+    if (brief) {
+      brief.text =
+        '用 Markdown 输出简洁总结，最多 5 条要点，总字数控制在 300 字以内。只依据字幕，不要编造；不确定的地方标注「不确定」。';
+      saveSettings(settings);
+      const reloaded = loadSettings();
+      expect(reloaded.prompt.templates.find((item) => item.id === 'brief')?.text).not.toContain(
+        '300 字'
+      );
+    }
+  });
+
   it('模型能力覆盖保存', () => {
     const settings = loadSettings();
     settings.ai.capabilities = { 'p1::gpt-4o': { vision: false, audio: true } };

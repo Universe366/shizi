@@ -197,6 +197,7 @@
   "skills:import-folder",
   "skills:import-url",
   "source:resolve-collection",
+  "start:bing-wallpaper",
   "start:hot",
   "start:weather",
   "subtitle:pick-file",

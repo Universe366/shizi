@@ -28,6 +28,10 @@ function installBsub() {
       data: { city: '上海', temperature: 22, description: '多云', high: 25, low: 18 }
     })),
     startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
+    startBingWallpaper: vi.fn(async () => ({
+      ok: true as const,
+      data: { url: 'https://www.bing.com/bing.jpg', copyright: 'Bing' }
+    })),
     exportSettings: vi.fn(async () => ({ ok: true as const, data: { canceled: true } })),
     importSettings: vi.fn(async () => ({ ok: true as const, data: { canceled: true } })),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
@@ -148,6 +152,47 @@ describe('StartPage', () => {
       general: { petTodos: unknown[] };
     };
     expect(last.general.petTodos).toEqual([]);
+  });
+
+  it('设置丢失时用本地备份恢复快捷方式', async () => {
+    const api = installBsub();
+    localStorage.setItem(
+      'start-shortcut-backup',
+      JSON.stringify([{ id: 'x', label: '备份站点', url: 'https://example.com', group: '常用' }])
+    );
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('备份站点')).toBeTruthy());
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalled());
+    localStorage.clear();
+  });
+
+  it('必应壁纸会应用到起始页背景', async () => {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [],
+            startShortcuts: [],
+            startWallpaper: 'bing',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.39.2'
+      }
+    }));
+    api.startBingWallpaper.mockResolvedValue({
+      ok: true as const,
+      data: { url: 'https://www.bing.com/bing.jpg', copyright: 'Bing' }
+    } as never);
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(api.startBingWallpaper).toHaveBeenCalled());
+    const page = document.querySelector('.start-page') as HTMLElement;
+    await waitFor(() => expect(page.style.backgroundImage).toContain('bing.jpg'));
   });
 
   it('展示最近的库条目，点击打开', async () => {

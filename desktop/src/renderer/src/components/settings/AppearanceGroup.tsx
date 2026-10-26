@@ -94,6 +94,35 @@ export function AppearanceGroup({ value, onChange }: Props) {
         onChange={(event) => onChange({ fontScale: Number(event.target.value) })}
       />
 
+      <div className="settings-label">界面圆角（{value.uiRadius ?? 14}px）</div>
+      <input
+        className="settings-range"
+        type="range"
+        min={6}
+        max={24}
+        step={1}
+        value={value.uiRadius ?? 14}
+        onChange={(event) => onChange({ uiRadius: Number(event.target.value) })}
+      />
+
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.uiGlass !== false}
+          onChange={(event) => onChange({ uiGlass: event.target.checked })}
+        />
+        毛玻璃面板（半透明 + 背景模糊）
+      </label>
+
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.uiMotion !== false}
+          onChange={(event) => onChange({ uiMotion: event.target.checked })}
+        />
+        界面动效（关闭后减少过渡与呼吸动画）
+      </label>
+
       <div className="settings-label">侧栏宽度（px，也可直接拖动侧栏边缘）</div>
       <input
         className="settings-input"

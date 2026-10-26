@@ -1889,6 +1889,7 @@ ${result.data.text}`
           else if (dblAction === 'screenshot') void takeRegionShot();
         }}
       >
+        <span className="pet-tail" />
         <span className="pet-glow" />
         <span className="pet-eye left" />
         <span className="pet-eye right" />
