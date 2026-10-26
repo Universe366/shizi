@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Copy, Download, History, ImagePlus, Loader2, Mic, Pencil, Plus, RotateCcw, Send, Square, Trash2, Volume2, X } from 'lucide-react';
 import type {
+  AssistantProfile,
   ChatConversation,
   ChatMessage,
   ChatToolEvent,
+  ChatToolRecord,
   McpToolOption,
   PageContextSummary,
   PageInfo,
@@ -111,7 +113,8 @@ function fromStoredMessage(row: StoredChatMessage): ChatMessage {
     ...(row.images.length ? { images: row.images } : {}),
     ...(row.sources.length ? { sources: row.sources } : {}),
     ...(row.webEngine ? { webEngine: row.webEngine } : {}),
-    ...(row.webNotice ? { webNotice: row.webNotice } : {})
+    ...(row.webNotice ? { webNotice: row.webNotice } : {}),
+    ...(row.tools.length ? { tools: row.tools } : {})
   };
 }
 
@@ -122,6 +125,27 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error || new Error('读取录音失败'));
     reader.readAsDataURL(blob);
   });
+}
+
+/** 聊天图片压到最长边 1568px 的 JPEG：既省 token，也避免 chat.db 被 base64 撑爆。 */
+async function compressImage(file: File): Promise<string> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1568;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('canvas unavailable');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch {
+    return blobToDataUrl(file).catch(() => '');
+  }
 }
 
 export function ChatPanel({
@@ -139,6 +163,14 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [skills, setSkills] = useState<SkillItem[]>([]);
+  const [profiles, setProfiles] = useState<AssistantProfile[]>([]);
+  const [profileId, setProfileId] = useState(() => {
+    try {
+      return localStorage.getItem('chat-profile') || '';
+    } catch {
+      return '';
+    }
+  });
   const [skillId, setSkillId] = useState('');
   const [sendOnEnter, setSendOnEnter] = useState(true);
   const [expandReasoning, setExpandReasoning] = useState(false);
@@ -156,6 +188,7 @@ export function ChatPanel({
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
   const [toolPanelOpen, setToolPanelOpen] = useState(false);
   const [toolOptions, setToolOptions] = useState<McpToolOption[]>([]);
@@ -170,6 +203,7 @@ export function ChatPanel({
     }
   });
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
+  const toolEventsRef = useRef<ChatToolEvent[]>([]);
   const conversationRef = useRef<number | null>(null);
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -204,6 +238,7 @@ export function ChatPanel({
   };
 
   const openConversation = async (id: number): Promise<void> => {
+    if (streaming) return;
     const rows = await window.bsub.chatHistoryMessages(id);
     if (!rows.ok) return;
     conversationRef.current = id;
@@ -213,6 +248,7 @@ export function ChatPanel({
   };
 
   const removeConversation = async (id: number): Promise<void> => {
+    if (streaming) return;
     const response = await window.bsub.chatHistoryDelete(id);
     if (!response.ok) return;
     if (conversationRef.current === id) {
@@ -279,6 +315,12 @@ export function ChatPanel({
       );
       setSkills(items);
       setSkillId((current) => (items.some((item) => item.id === current) ? current : ''));
+      setProfiles(response.data.settings.ai.profiles || []);
+      setProfileId((current) =>
+        (response.data.settings.ai.profiles || []).some((profile) => profile.id === current)
+          ? current
+          : ''
+      );
       setSendOnEnter(response.data.settings.ai.sendOnEnter !== false);
       setExpandReasoning(response.data.settings.ai.expandReasoning === true);
       const searchOn = response.data.settings.search.enabled !== false;
@@ -295,6 +337,10 @@ export function ChatPanel({
     return window.bsub.onSettingsChanged((snapshot) => {
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
+      setProfiles(snapshot.settings.ai.profiles || []);
+      setSkillId((current) =>
+        snapshot.settings.skills.items.some((item) => item.id === current) ? current : ''
+      );
       if (!searchOn) {
         setWebSearch(false);
         try {
@@ -412,6 +458,14 @@ export function ChatPanel({
         ...reference,
         snippet: reference.snippet.slice(0, 240)
       }));
+      const tools: ChatToolRecord[] = toolEventsRef.current
+        .filter((tool) => tool.phase === 'done')
+        .map((tool) => ({
+          name: tool.name,
+          ok: tool.ok !== false,
+          detail: tool.detail || '',
+          at: Date.now()
+        }));
       setMessages((previous) => [
         ...previous,
         {
@@ -420,9 +474,12 @@ export function ChatPanel({
           reasoning: event.reasoning,
           ...(sources.length ? { sources } : {}),
           ...(event.webEngine ? { webEngine: event.webEngine } : {}),
-          ...(event.webError ? { webNotice: event.webError } : {})
+          ...(event.webError ? { webNotice: event.webError } : {}),
+          ...(tools.length ? { tools } : {})
         }
       ]);
+      setToolEvents([]);
+      toolEventsRef.current = [];
       const conversation = conversationRef.current;
       if (conversation) {
         void window.bsub.chatHistoryAppend(conversation, {
@@ -432,7 +489,8 @@ export function ChatPanel({
           model: event.model,
           sources,
           webEngine: event.webEngine,
-          webNotice: event.webError
+          webNotice: event.webError,
+          tools
         });
         void refreshConversations();
       }
@@ -493,12 +551,15 @@ export function ChatPanel({
           for (let index = next.length - 1; index >= 0; index -= 1) {
             if (next[index].name === event.name && next[index].phase === 'start') {
               next[index] = { ...next[index], ...event, phase: 'done' };
+              toolEventsRef.current = next;
               return next;
             }
           }
           next.push(event);
         }
-        return next.slice(-8);
+        const trimmed = next.slice(-8);
+        toolEventsRef.current = trimmed;
+        return trimmed;
       });
     });
     return () => {
@@ -528,12 +589,7 @@ export function ChatPanel({
         setError('图片不能超过 5MB');
         continue;
       }
-      const data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      }).catch(() => '');
+      const data = await compressImage(file);
       if (data) next = [...next, data];
     }
     setImages(next.slice(0, 2));
@@ -623,6 +679,7 @@ export function ChatPanel({
     setStreaming(true);
     setStreamText('');
     setToolEvents([]);
+    toolEventsRef.current = [];
     setStatus(isVideoPage ? '读取字幕…' : '读取页面…');
 
     const nextMessages: ChatMessage[] = [
@@ -655,6 +712,7 @@ export function ChatPanel({
         lines: context.lines,
         messages: nextMessages,
         skillIds: skillId ? [skillId] : [],
+        profileId: profileId || undefined,
         mcpToolIds: toolSelection ?? undefined,
         includePage: forcePage ? true : includePage,
         web: webSearch
@@ -890,10 +948,25 @@ export function ChatPanel({
               刷新
             </button>
           </div>
+          <input
+            className="settings-input chat-history-search"
+            placeholder="搜索标题 / 视频"
+            value={historyQuery}
+            spellCheck={false}
+            onChange={(event) => setHistoryQuery(event.target.value)}
+          />
           {!conversations.length && (
             <div className="settings-hint">还没有历史对话，发第一句话就会保存。</div>
           )}
-          {conversations.map((conversation) => (
+          {conversations
+            .filter((conversation) => {
+              const query = historyQuery.trim().toLowerCase();
+              if (!query) return true;
+              return `${conversation.title} ${conversation.videoTitle}`
+                .toLowerCase()
+                .includes(query);
+            })
+            .map((conversation) => (
             <div
               key={conversation.id}
               className={`chat-history-row${conversationId === conversation.id ? ' is-active' : ''}`}
@@ -999,6 +1072,29 @@ export function ChatPanel({
                         {message.webNotice}
                       </div>
                     )}
+                    {message.tools?.length ? (
+                      <details className="chat-tool-history">
+                        <summary>工具调用 {message.tools.length} 次</summary>
+                        <div className="chat-tool-cards">
+                          {message.tools.map((tool, toolIndex) => (
+                            <div
+                              key={`${tool.name}-${toolIndex}`}
+                              className={`chat-tool-card${tool.ok ? '' : ' is-error'}`}
+                            >
+                              <div className="chat-tool-head">
+                                <span className="chat-tool-name">{tool.name}</span>
+                                <span className="chat-tool-state">
+                                  {tool.ok ? '完成' : '失败'}
+                                </span>
+                              </div>
+                              {tool.detail && (
+                                <div className="chat-tool-detail">{tool.detail}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    ) : null}
                     <div className="chat-msg-actions">
                       <button
                         className="chat-action"
@@ -1181,6 +1277,11 @@ export function ChatPanel({
             ).toLocaleString('zh-CN')}{' '}
             tokens
           </span>
+          {profiles.find((profile) => profile.id === profileId) && (
+            <span className="chat-context-chip is-selection">
+              助手 · {profiles.find((profile) => profile.id === profileId)?.name}
+            </span>
+          )}
         </div>
       )}
 
@@ -1189,6 +1290,36 @@ export function ChatPanel({
       {composerOpen && activeTab && (
         <div className="chat-composer-panel">
           <div className="chat-composer-actions">
+            <select
+              className="settings-input chat-profile-select"
+              title="助手档案：提示词 / 模型 / 技能 / 工具 / 联网"
+              value={profileId}
+              onChange={(event) => {
+                const next = event.target.value;
+                setProfileId(next);
+                try {
+                  localStorage.setItem('chat-profile', next);
+                } catch {
+                  // ignore
+                }
+                const target = profiles.find((profile) => profile.id === next);
+                if (target?.web) {
+                  setWebSearch(true);
+                  try {
+                    localStorage.setItem('chat-web', '1');
+                  } catch {
+                    // ignore
+                  }
+                }
+              }}
+            >
+              <option value="">无助手档案</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.icon} {profile.name}
+                </option>
+              ))}
+            </select>
             <button className="mini-btn" onClick={() => void openToolPanel()}>
               MCP 工具{toolSelection ? ` · ${toolSelection.length}` : ''}
             </button>

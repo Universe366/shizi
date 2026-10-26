@@ -47,13 +47,15 @@ describe('对话持久化', () => {
       role: 'assistant',
       content: '答一句',
       reasoning: '想一想',
-      sources: [{ title: '来源', url: 'https://example.com', snippet: '摘要' }]
+      sources: [{ title: '来源', url: 'https://example.com', snippet: '摘要' }],
+      tools: [{ name: 'search_library', ok: true, detail: '找到 2 条', at: Date.now() }]
     });
 
     const messages = listMessages(conversation.id);
     expect(messages.length).toBe(2);
     expect(messages[1].sources[0].url).toBe('https://example.com');
     expect(messages[1].reasoning).toBe('想一想');
+    expect(messages[1].tools[0]).toMatchObject({ name: 'search_library', ok: true });
 
     const latest = latestConversationForVideo('BV1');
     expect(latest?.id).toBe(conversation.id);

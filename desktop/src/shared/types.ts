@@ -579,6 +579,25 @@ export interface AiTaskModel {
   model: string;
 }
 
+/** 助手档案：提示词 + 模型 + 技能 + 工具 + 联网，一次性套用到对话。 */
+export interface AssistantProfile {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  prompt: string;
+  /** 空 = 跟随任务槽位/当前平台 */
+  platformId: string;
+  /** 空 = 用平台的默认模型 */
+  model: string;
+  skillIds: string[];
+  toolMode: 'all' | 'none' | 'custom';
+  toolIds: string[];
+  web: boolean;
+  temperature: number | null;
+  maxTokens: number | null;
+}
+
 /** 一次 AI 请求的 token 用量（由服务端返回，缺失时不记录）。 */
 export interface AiUsage {
   inputTokens: number;
@@ -641,6 +660,7 @@ export interface StoredChatMessage {
   sources: WebReference[];
   webEngine: string;
   webNotice: string;
+  tools: ChatToolRecord[];
   createdAt: number;
 }
 
@@ -1077,6 +1097,8 @@ export interface AppSettings {
     appTools: boolean;
     /** 按任务覆盖模型；缺省跟随当前平台 */
     taskModels: Partial<Record<AiTask, AiTaskModel>>;
+    /** 助手档案 */
+    profiles: AssistantProfile[];
   };
   usage: {
     /** 记录 token 用量（关闭后不再写库） */
@@ -1222,6 +1244,14 @@ export interface AiReasoningEvent {
   delta: string;
 }
 
+export interface ChatToolRecord {
+  name: string;
+  ok: boolean;
+  detail: string;
+  /** 毫秒时间戳 */
+  at: number;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -1233,6 +1263,8 @@ export interface ChatMessage {
   webEngine?: string;
   /** 联网失败/未启用的提示，回答本身仍然有效 */
   webNotice?: string;
+  /** 这一轮调用过的工具（持久化到对话库） */
+  tools?: ChatToolRecord[];
 }
 
 export interface ChatRequest {
@@ -1241,6 +1273,8 @@ export interface ChatRequest {
   lines: SubtitleLine[];
   messages: ChatMessage[];
   skillIds?: string[];
+  /** 助手档案 id：套用提示词/模型/技能/工具/联网 */
+  profileId?: string;
   /** 本次对话允许使用的 MCP 工具（`serverId__toolName`）；不传 = 全部，空数组 = 不用 MCP */
   mcpToolIds?: string[];
   /** 是否把当前网页正文/选中内容带给模型（默认 true） */

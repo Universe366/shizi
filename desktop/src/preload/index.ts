@@ -72,6 +72,7 @@ import type {
   McpPrompt,
   McpToolOption,
   ChatToolEvent,
+  ChatToolRecord,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -620,6 +621,7 @@ const api: BsubApi = {
       sources?: WebReference[];
       webEngine?: string;
       webNotice?: string;
+      tools?: ChatToolRecord[];
     }
   ) =>
     ipcRenderer.invoke('chat:history-append', { conversationId, message }) as Promise<

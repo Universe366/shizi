@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DiagnosticsInfo } from '../../../shared/types';
+import { AssistantSection } from './settings/AssistantSection';
 import { BridgeSection } from './settings/BridgeSection';
 import { DataBackupSection } from './settings/DataBackupSection';
 import { CorrectionSection } from './settings/CorrectionSection';
@@ -1177,6 +1178,15 @@ export function SettingsPanel({
 
       {show('ai') && (
         <TaskModelSection value={draft.ai} updateAi={(patch) => updateAi(patch)} />
+      )}
+
+      {show('ai') && (
+        <AssistantSection
+          value={draft.ai}
+          platforms={draft.ai.platforms}
+          skills={draft.skills.items}
+          updateAi={(patch) => updateAi(patch)}
+        />
       )}
 
       {show('ai') && (

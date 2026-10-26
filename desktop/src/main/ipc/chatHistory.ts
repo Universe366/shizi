@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {
   ChatConversation,
+  ChatToolRecord,
   Result,
   StoredChatMessage,
   WebReference
@@ -78,6 +79,7 @@ export function registerChatHistoryIpc(): void {
           sources?: WebReference[];
           webEngine?: string;
           webNotice?: string;
+          tools?: ChatToolRecord[];
         };
       }
     ) => {

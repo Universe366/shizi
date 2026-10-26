@@ -37,6 +37,7 @@ export interface ChatOptions {
   lines: SubtitleLine[];
   messages: ChatMessage[];
   skillIds?: string[];
+  profileId?: string;
   web?: boolean;
   surface?: 'main' | 'pet';
   context?: string;
@@ -97,7 +98,18 @@ async function aiWantsSearch(
 
 export async function chat(options: ChatOptions): Promise<ChatResult> {
   const settings = loadSettings();
-  const platform = platformForTask('chat', settings);
+  const profile = options.profileId
+    ? settings.ai.profiles.find((item) => item.id === options.profileId)
+    : undefined;
+  let platform = platformForTask('chat', settings);
+  if (profile?.platformId) {
+    const target = settings.ai.platforms.find((item) => item.id === profile.platformId);
+    if (target) platform = { ...target, model: profile.model || target.model };
+  } else if (profile?.model) {
+    platform = { ...platform, model: profile.model };
+  }
+  const temperature = profile?.temperature ?? settings.ai.temperature;
+  const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;
   if (!platform || !platform.baseUrl.trim()) throw new Error('请先在设置里选择一个 AI 平台');
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
@@ -121,9 +133,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   let webError = '';
   const lastUser = [...options.messages].reverse().find((message) => message.role === 'user');
   const question = String(lastUser?.content || '').trim();
+  const profileWeb = profile?.web === true;
   let wantsSearch = false;
   if (settings.search.enabled && Boolean(question)) {
-    if (options.web === true || settings.search.alwaysSearchOnChat) {
+    if (options.web === true || profileWeb || settings.search.alwaysSearchOnChat) {
       wantsSearch = true;
     } else if (settings.search.autoSearchOnChat) {
       if (settings.search.autoSearchAi) {
@@ -135,7 +148,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       }
     }
   }
-  if (options.web === true && !settings.search.enabled) {
+  if ((options.web === true || profileWeb) && !settings.search.enabled) {
     webError = '联网检索没有启用，请到设置 → 检索与核对开启';
     options.onStatus?.(webError);
   }
@@ -227,8 +240,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
 
   const mainSystem = [
     settings.prompt.chat,
+    profile?.prompt ? `【助手档案：${profile.name}】\n${profile.prompt}` : '',
     glossaryBlock,
-    skillPrompt(settings, options.skillIds),
+    skillPrompt(settings, [
+      ...new Set([...(options.skillIds || []), ...(profile?.skillIds || [])])
+    ]),
     `${hasVideo ? '视频标题' : '页面标题'}：${options.info.title || page?.title || '未知'}`,
     ...(options.info.owner ? [`UP 主：${options.info.owner}`] : []),
     ...(settings.search.useVideoMeta !== false && options.info.desc
@@ -302,7 +318,13 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     }
   }
 
-  const activeBindings = selectByAllowed(toolBindings, options.mcpToolIds);
+  const profileToolIds =
+    profile?.toolMode === 'none'
+      ? []
+      : profile?.toolMode === 'custom'
+        ? profile.toolIds
+        : undefined;
+  const activeBindings = selectByAllowed(toolBindings, options.mcpToolIds ?? profileToolIds);
 
   const localTools = appToolsEnabled ? APP_TOOL_DEFS : [];
 
@@ -328,8 +350,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         }))
       ],
       {
-        temperature: settings.ai.temperature,
-        maxTokens: settings.ai.maxTokens || undefined,
+        temperature,
+        maxTokens: maxTokens || undefined,
         maxRounds: settings.mcp.maxToolRounds || 6,
         signal: options.signal,
         task: 'chat'
@@ -387,8 +409,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   }
 
   const chatOptions = {
-    temperature: settings.ai.temperature,
-    maxTokens: settings.ai.maxTokens || undefined,
+    temperature,
+    maxTokens: maxTokens || undefined,
     timeoutMs: REQUEST_TIMEOUT_MS,
     signal: options.signal,
     task: 'chat' as const

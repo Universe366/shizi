@@ -7,6 +7,7 @@ export function DictationListener() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const busyRef = useRef(false);
+  const stopRequestedRef = useRef(false);
 
   useEffect(() => {
     const cleanup = () => {
@@ -25,6 +26,7 @@ export function DictationListener() {
     };
 
     const stop = () => {
+      stopRequestedRef.current = true;
       try {
         if (recorderRef.current && recorderRef.current.state !== 'inactive') {
           recorderRef.current.stop();
@@ -37,6 +39,7 @@ export function DictationListener() {
     const start = async () => {
       if (busyRef.current) return;
       busyRef.current = true;
+      stopRequestedRef.current = false;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
@@ -80,6 +83,11 @@ export function DictationListener() {
         };
         recorder.start();
         recorderRef.current = recorder;
+        // 录音还没就绪时用户就按了停止：启动后立即停，避免一直录到超时。
+        if (stopRequestedRef.current) {
+          recorder.stop();
+          return;
+        }
         // 最长 30 秒，避免忘记停止一直占麦克风
         timerRef.current = window.setTimeout(stop, 30000);
       } catch (error) {

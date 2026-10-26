@@ -96,6 +96,7 @@ import type {
   McpPrompt,
   McpToolOption,
   ChatToolEvent,
+  ChatToolRecord,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -466,6 +467,7 @@ export interface BsubApi {
       sources?: WebReference[];
       webEngine?: string;
       webNotice?: string;
+      tools?: ChatToolRecord[];
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;

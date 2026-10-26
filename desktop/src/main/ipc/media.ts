@@ -489,6 +489,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             lines,
             messages: payload.messages,
             skillIds: payload.skillIds,
+            profileId: payload.profileId,
             web: payload.web === true,
             surface: payload.surface === 'pet' ? 'pet' : 'main',
             context: payload.context,

@@ -18,7 +18,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { loadSettings, platformForTask, saveSettings, stripSecrets } from './settings';
+import { loadSettings, platformForTask, saveSettings, settingsSnapshot, stripSecrets } from './settings';
 
 describe('任务槽位 / 用量设置', () => {
   beforeAll(() => {
@@ -147,6 +147,57 @@ describe('任务槽位 / 用量设置', () => {
     const fallback = loadSettings();
     expect(fallback.general.accentColor).toBe('#4f6f8f');
     expect(fallback.general.customCss).toBe('');
+  });
+
+  it('删除中间的额外 Key 不会串位', () => {
+    const settings = loadSettings();
+    const platform = settings.ai.platforms.find((item) => item.id === 'deepseek')!;
+    platform.apiKey = 'main-key';
+    platform.extraKeys = ['key-one', 'key-two', 'key-three'];
+    saveSettings(settings);
+
+    const snapshot = settingsSnapshot();
+    const masked = snapshot.settings.ai.platforms.find((item) => item.id === 'deepseek')!;
+    expect(masked.extraKeys?.[0]).toContain('•');
+    masked.extraKeys = (masked.extraKeys || []).filter((_, index) => index !== 0);
+    saveSettings(snapshot.settings);
+
+    const loaded = loadSettings().ai.platforms.find((item) => item.id === 'deepseek')!;
+    expect(loaded.extraKeys).toEqual(['key-two', 'key-three']);
+    expect(loaded.apiKey).toBe('main-key');
+  });
+
+  it('助手档案保存与校验', () => {
+    const settings = loadSettings();
+    settings.ai.profiles = [
+      {
+        id: 'p1',
+        name: '字幕助教',
+        icon: '📚',
+        description: '只依据字幕',
+        prompt: '先给结论再列依据',
+        platformId: 'deepseek',
+        model: 'deepseek-reasoner',
+        skillIds: ['skill_deep_summary'],
+        toolMode: 'custom',
+        toolIds: ['srv__search'],
+        web: true,
+        temperature: 0.2,
+        maxTokens: 4000
+      }
+    ];
+    saveSettings(settings);
+    const loaded = loadSettings();
+    expect(loaded.ai.profiles[0]).toMatchObject({
+      name: '字幕助教',
+      toolMode: 'custom',
+      web: true,
+      temperature: 0.2,
+      maxTokens: 4000
+    });
+
+    settings.ai.profiles = [];
+    saveSettings(settings);
   });
 
   it('快捷取词设置保存', () => {

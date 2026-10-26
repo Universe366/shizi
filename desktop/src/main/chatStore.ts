@@ -4,6 +4,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type {
   ChatConversation,
+  ChatToolRecord,
   StoredChatMessage,
   WebReference
 } from '../shared/types';
@@ -49,6 +50,13 @@ function db(): DatabaseSync | null {
       CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id);
       CREATE INDEX IF NOT EXISTS conversations_video ON conversations(video_key);
     `);
+    // 老库没有 tools_json：补列，历史消息按空数组读。
+    const columns = database.prepare('PRAGMA table_info(messages)').all() as Array<{
+      name?: string;
+    }>;
+    if (!columns.some((column) => column.name === 'tools_json')) {
+      database.exec("ALTER TABLE messages ADD COLUMN tools_json TEXT NOT NULL DEFAULT '[]'");
+    }
     return database;
   } catch (error) {
     console.warn('[chat] 打开对话库失败:', (error as Error).message);
@@ -160,6 +168,7 @@ interface MessageRow {
   sources_json: string;
   web_engine: string;
   web_notice: string;
+  tools_json: string;
   created_at: number;
 }
 
@@ -184,6 +193,7 @@ function mapMessage(row: MessageRow): StoredChatMessage {
     sources: parseJsonArray<WebReference>(row.sources_json),
     webEngine: String(row.web_engine || ''),
     webNotice: String(row.web_notice || ''),
+    tools: parseJsonArray<ChatToolRecord>(row.tools_json),
     createdAt: Number(row.created_at) || 0
   };
 }
@@ -212,13 +222,14 @@ export function appendMessage(
     sources?: WebReference[];
     webEngine?: string;
     webNotice?: string;
+    tools?: ChatToolRecord[];
   }
 ): StoredChatMessage {
   const now = Date.now();
   const statement = db()?.prepare(
     `INSERT INTO messages
-       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -231,6 +242,7 @@ export function appendMessage(
     JSON.stringify(message.sources || []),
     String(message.webEngine || ''),
     String(message.webNotice || ''),
+    JSON.stringify(message.tools || []),
     now
   );
   try {
@@ -251,6 +263,7 @@ export function appendMessage(
     sources: message.sources || [],
     webEngine: String(message.webEngine || ''),
     webNotice: String(message.webNotice || ''),
+    tools: message.tools || [],
     createdAt: now
   };
 }
@@ -321,6 +334,13 @@ export function conversationMarkdown(conversationId: number): string {
       lines.push('来源：');
       for (const source of row.sources.slice(0, 5)) {
         lines.push(`- [${source.title || source.url}](${source.url})`);
+      }
+      lines.push('');
+    }
+    if (row.tools.length) {
+      lines.push('工具：');
+      for (const tool of row.tools) {
+        lines.push(`- ${tool.name}：${tool.ok ? '完成' : '失败'}${tool.detail ? `（${tool.detail.slice(0, 120)}）` : ''}`);
       }
       lines.push('');
     }

@@ -220,6 +220,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     expandReasoning: false,
     appTools: true,
     taskModels: {},
+    profiles: [],
     presetVersion: AI_PRESET_VERSION,
     platforms: AI_PRESETS.map((platform) => ({
       ...platform,
@@ -755,6 +756,44 @@ function normalize(input: unknown): AppSettings {
         taskModels[task.id] = { platformId, model };
       }
       base.ai.taskModels = taskModels;
+    }
+
+    if (Array.isArray(raw.ai?.profiles)) {
+      base.ai.profiles = raw.ai.profiles
+        .filter(
+          (profile) => profile && typeof profile === 'object' && String(profile.id || '').trim()
+        )
+        .slice(0, 30)
+        .map((profile) => {
+          const toolModes = ['all', 'none', 'custom'];
+          const temperature = Number(profile.temperature);
+          const maxTokens = Number(profile.maxTokens);
+          return {
+            id: String(profile.id).slice(0, 60),
+            name: String(profile.name || '助手').trim().slice(0, 40) || '助手',
+            icon: String(profile.icon || '🤖').trim().slice(0, 8) || '🤖',
+            description: String(profile.description || '').trim().slice(0, 200),
+            prompt: String(profile.prompt || '').slice(0, 20000),
+            platformId: String(profile.platformId || '').trim().slice(0, 60),
+            model: String(profile.model || '').trim().slice(0, 120),
+            skillIds: Array.isArray(profile.skillIds)
+              ? profile.skillIds.map(String).filter(Boolean).slice(0, 30)
+              : [],
+            toolMode: toolModes.includes(String(profile.toolMode))
+              ? (profile.toolMode as 'all' | 'none' | 'custom')
+              : 'all',
+            toolIds: Array.isArray(profile.toolIds)
+              ? profile.toolIds.map(String).filter(Boolean).slice(0, 100)
+              : [],
+            web: profile.web === true,
+            temperature: Number.isFinite(temperature)
+              ? Math.min(2, Math.max(0, Math.round(temperature * 100) / 100))
+              : null,
+            maxTokens: Number.isFinite(maxTokens)
+              ? Math.min(64000, Math.max(256, Math.round(maxTokens)))
+              : null
+          };
+        });
     }
 
     if (raw.usage && typeof raw.usage === 'object') {
@@ -1319,6 +1358,32 @@ function resolveSecret(incoming: string, current: string): string {
   return incoming;
 }
 
+function resolveExtraKeys(incoming: string[], current: string[]): string[] {
+  const used = new Set<number>();
+  const result: string[] = [];
+  incoming.forEach((key, index) => {
+    const text = String(key || '');
+    if (!text || text === CLEAR_SECRET) return;
+    if (!isMaskedSecret(text)) {
+      result.push(text);
+      return;
+    }
+    // 遮罩值按后缀匹配原 Key：删除中间某个 Key 后不会串位。
+    const suffix = text.replace(/^•+/, '');
+    let matchIndex = suffix
+      ? current.findIndex((candidate, candidateIndex) => {
+          return !used.has(candidateIndex) && candidate.endsWith(suffix);
+        })
+      : -1;
+    if (matchIndex < 0 && index < current.length && !used.has(index)) matchIndex = index;
+    if (matchIndex >= 0 && current[matchIndex]) {
+      used.add(matchIndex);
+      result.push(current[matchIndex]);
+    }
+  });
+  return result;
+}
+
 function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
   const merged: AppSettings = JSON.parse(JSON.stringify(next));
   for (const platform of merged.ai.platforms) {
@@ -1328,9 +1393,7 @@ function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
     );
     const existing =
       current.ai.platforms.find((item) => item.id === platform.id)?.extraKeys || [];
-    platform.extraKeys = (platform.extraKeys || [])
-      .map((key, index) => resolveSecret(key, existing[index] || ''))
-      .filter(Boolean);
+    platform.extraKeys = resolveExtraKeys(platform.extraKeys || [], existing);
   }
   for (const platform of merged.asr.platforms) {
     platform.apiKey = resolveSecret(
