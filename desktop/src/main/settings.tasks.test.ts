@@ -200,6 +200,19 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('知识库设置保存', () => {
+    const settings = loadSettings();
+    settings.knowledge = { enabled: true, platformId: 'deepseek', model: 'bge-m3' };
+    saveSettings(settings);
+    expect(loadSettings().knowledge).toEqual({
+      enabled: true,
+      platformId: 'deepseek',
+      model: 'bge-m3'
+    });
+    settings.knowledge = { enabled: false, platformId: '', model: 'text-embedding-3-small' };
+    saveSettings(settings);
+  });
+
   it('MCP 审批模式保存', () => {
     const settings = loadSettings();
     settings.mcp.approvalMode = 'all';

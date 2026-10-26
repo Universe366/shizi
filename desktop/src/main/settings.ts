@@ -250,6 +250,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     lang: 'auto',
     paddleUrl: ''
   },
+  knowledge: {
+    enabled: false,
+    platformId: '',
+    model: 'text-embedding-3-small'
+  },
   asr: {
     activeId: 'siliconflow',
     platforms: ASR_PRESETS.map((platform) => ({
@@ -845,6 +850,14 @@ function normalize(input: unknown): AppSettings {
       base.ocr.engine = raw.ocr.engine === 'paddle' ? 'paddle' : 'system';
       base.ocr.lang = String(raw.ocr.lang || 'auto').trim().slice(0, 40) || 'auto';
       base.ocr.paddleUrl = String(raw.ocr.paddleUrl || '').trim().slice(0, 300);
+    }
+
+    if (raw.knowledge && typeof raw.knowledge === 'object') {
+      base.knowledge.enabled = raw.knowledge.enabled === true;
+      base.knowledge.platformId = String(raw.knowledge.platformId || '').trim().slice(0, 60);
+      base.knowledge.model =
+        String(raw.knowledge.model || '').trim().slice(0, 120) ||
+        'text-embedding-3-small';
     }
 
     if (raw.asr && typeof raw.asr === 'object') {

@@ -75,6 +75,9 @@ import type {
   ChatToolRecord,
   ChatApprovalEvent,
   ChatCompareResult,
+  KbStatus,
+  KbHit,
+  KbProgress,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -479,6 +482,13 @@ const api: BsubApi = {
     >,
   ocrStatus: () =>
     ipcRenderer.invoke('ocr:status') as Promise<Result<{ available: boolean }>>,
+  kbStatus: () => ipcRenderer.invoke('kb:status') as Promise<Result<KbStatus>>,
+  kbIndex: () => ipcRenderer.invoke('kb:index') as Promise<Result<KbStatus>>,
+  kbSearch: (question: string) =>
+    ipcRenderer.invoke('kb:search', question) as Promise<Result<KbHit[]>>,
+  kbAsk: (question: string) =>
+    ipcRenderer.invoke('kb:ask', question) as Promise<Result<{ text: string; hits: KbHit[] }>>,
+  onKbProgress: (cb: (progress: KbProgress) => void) => on<KbProgress>('kb:progress', cb),
   ttsSpeak: (payload: { text: string; override?: TtsSettings }) =>
     ipcRenderer.invoke('tts:speak', payload) as Promise<
       Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>

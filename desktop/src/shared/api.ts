@@ -99,6 +99,9 @@ import type {
   ChatToolRecord,
   ChatApprovalEvent,
   ChatCompareResult,
+  KbStatus,
+  KbHit,
+  KbProgress,
   PodcastFeed,
   PageDocument
 } from './types';
@@ -320,6 +323,11 @@ export interface BsubApi {
     lang?: string;
   }): Promise<Result<{ text: string; ms: number; engine?: 'system' | 'paddle' }>>;
   ocrStatus(): Promise<Result<{ available: boolean }>>;
+  kbStatus(): Promise<Result<KbStatus>>;
+  kbIndex(): Promise<Result<KbStatus>>;
+  kbSearch(question: string): Promise<Result<KbHit[]>>;
+  kbAsk(question: string): Promise<Result<{ text: string; hits: KbHit[] }>>;
+  onKbProgress(cb: (progress: KbProgress) => void): () => void;
   /** 文字朗读：主进程合成音频，返回 dataURL。 */
   ttsSpeak(payload: { text: string; override?: TtsSettings }): Promise<
     Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>

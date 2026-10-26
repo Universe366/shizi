@@ -1116,6 +1116,12 @@ export interface AppSettings {
     /** PaddleOCR 服务地址（POST { image: base64 } → { text } 或 Paddle 常见结构） */
     paddleUrl: string;
   };
+  knowledge: {
+    enabled: boolean;
+    /** 空 = 使用当前 AI 平台（必须支持 OpenAI 兼容 /embeddings） */
+    platformId: string;
+    model: string;
+  };
   asr: AsrSettings;
   prompt: {
     activeId: string;
@@ -1324,6 +1330,30 @@ export interface ChatCompareResult {
   model: string;
   text: string;
   error: string;
+}
+
+export interface KbStatus {
+  chunks: number;
+  videos: number;
+  model: string;
+  ready: boolean;
+}
+
+export interface KbHit {
+  videoId: number;
+  title: string;
+  kind: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  score: number;
+}
+
+export interface KbProgress {
+  phase: 'collect' | 'embed' | 'done' | 'error';
+  done: number;
+  total: number;
+  message: string;
 }
 
 export interface PageContextSummary {

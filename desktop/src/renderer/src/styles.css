@@ -2338,6 +2338,96 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.knowledge-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  max-width: 960px;
+}
+
+.knowledge-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.knowledge-ask {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.knowledge-input {
+  flex: 1;
+  resize: vertical;
+}
+
+.knowledge-answer {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.knowledge-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.knowledge-hits-title {
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.knowledge-hit {
+  display: grid;
+  grid-template-columns: 32px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.knowledge-hit:hover {
+  border-color: var(--accent);
+}
+
+.knowledge-hit-index {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.knowledge-hit-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-hit-time,
+.knowledge-hit-score {
+  font-size: 9.5px;
+  color: var(--faint);
+}
+
+.knowledge-hit-text {
+  grid-column: 2 / -1;
+  font-size: 9.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-thinking {
   display: inline-flex;
   gap: 6px;

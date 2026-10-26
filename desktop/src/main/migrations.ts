@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * 现在用 `PRAGMA user_version` 记录版本，迁移只能顺序向前，每一步都必须幂等，
  * 这样「给 videos 加 kind/source」这类改动才有地方落。
  */
-export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_VERSION = 6;
 
 interface Migration {
   version: number;
@@ -133,6 +133,34 @@ const MIGRATIONS: Migration[] = [
       if (!columns.some((column) => column.name === 'verification_json')) {
         db.exec('ALTER TABLE summaries ADD COLUMN verification_json TEXT');
       }
+    }
+  },
+  {
+    version: 6,
+    name: 'knowledge-base',
+    up: (db) => {
+      // 跨视频知识库：字幕/总结/笔记切块 + 向量；向量按模型区分。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS kb_chunks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          video_id INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          start_ms INTEGER NOT NULL DEFAULT 0,
+          end_ms INTEGER NOT NULL DEFAULT 0,
+          text TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS kb_chunks_video ON kb_chunks(video_id);
+        CREATE INDEX IF NOT EXISTS kb_chunks_hash ON kb_chunks(hash);
+        CREATE TABLE IF NOT EXISTS kb_vectors (
+          chunk_id INTEGER PRIMARY KEY,
+          model TEXT NOT NULL,
+          dim INTEGER NOT NULL,
+          vector BLOB NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS kb_vectors_model ON kb_vectors(model);
+      `);
     }
   }
 ];

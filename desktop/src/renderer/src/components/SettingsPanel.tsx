@@ -15,6 +15,7 @@ import { EfficiencyGroup } from './settings/EfficiencyGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
+import { KnowledgeSection } from './settings/KnowledgeSection';
 import { OcrSection } from './settings/OcrSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
@@ -1228,6 +1229,16 @@ export function SettingsPanel({
         <OcrSection
           value={draft.ocr}
           onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
+        />
+      )}
+
+      {show('ai') && (
+        <KnowledgeSection
+          value={draft.knowledge}
+          platforms={draft.ai.platforms}
+          onChange={(patch) =>
+            setDraft({ ...draft, knowledge: { ...draft.knowledge, ...patch } })
+          }
         />
       )}
 
