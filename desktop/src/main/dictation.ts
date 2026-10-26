@@ -1,4 +1,4 @@
-import { BrowserWindow, Notification, clipboard, globalShortcut, ipcMain } from 'electron';
+import { BrowserWindow, Notification, clipboard, globalShortcut } from 'electron';
 import { spawn } from 'node:child_process';
 import type { AppSettings } from '../shared/types';
 import { loadSettings } from './settings';
@@ -140,9 +140,6 @@ export function applyDictation(settings: AppSettings): void {
 
 export function initDictation(win: BrowserWindow, settings: AppSettings): void {
   setDictationWindow(win);
-  ipcMain.on('dictation:finish', (_event, payload: { text?: string; error?: string }) => {
-    void handleDictationResult(payload || {});
-  });
   applyDictation(settings);
 }
 

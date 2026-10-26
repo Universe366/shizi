@@ -58,6 +58,7 @@
   "diagnostics:export",
   "diagnostics:get",
   "dialog:pick-file",
+  "dictation:finish",
   "downloads:clear",
   "downloads:control",
   "downloads:delete",

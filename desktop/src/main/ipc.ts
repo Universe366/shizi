@@ -20,6 +20,7 @@ import { registerUsageIpc } from './ipc/usage';
 import { registerOcrIpc } from './ipc/ocr';
 import { registerTtsIpc } from './ipc/tts';
 import { registerChatHistoryIpc } from './ipc/chatHistory';
+import { registerDictationIpc } from './ipc/dictation';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -66,6 +67,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerTtsIpc();
 
   registerChatHistoryIpc();
+
+  registerDictationIpc();
 
   registerStartIpc();
 
