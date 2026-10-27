@@ -189,6 +189,45 @@ describe('流式工具循环', () => {
     });
   };
 
+  it('轮次用尽时改用无工具请求收尾', async () => {
+    const toolChunk =
+      'data: ' +
+      JSON.stringify({
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_1',
+                  function: { name: 'app__web_search', arguments: '{"query":"测试"}' }
+                }
+              ]
+            }
+          }
+        ]
+      }) +
+      '\n\n';
+    state.queue.push(sse([toolChunk, 'data: [DONE]\n\n']));
+    state.queue.push(sse(['data: {"choices":[{"delta":{"content":"收尾"}}]}\n\n', 'data: [DONE]\n\n']));
+    const result = await chatToolLoopStream(
+      platform({ kind: 'openai' }),
+      [{ role: 'user', content: '搜一下' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: { query: { type: 'string' } } }
+        }
+      ],
+      { task: 'chat', maxRounds: 1 },
+      async () => '{"results":[]}'
+    );
+    expect(result.text).toBe('收尾');
+    const finalBody = JSON.parse(String(state.calls[1].init.body));
+    expect(finalBody.tools).toBeUndefined();
+  });
+
   it('先流式解析 tool_calls，执行后再流式输出答案', async () => {
     const callChunk = (args: string, name?: string) =>
       'data: ' +

@@ -629,8 +629,10 @@ async function buildAiQueries(
     : '';
 
   const system = [
-    '你是检索词生成助手。根据视频标题、字幕节选与候选句，生成 3~6 条适合外部事实验证的搜索查询。',
+    '你是检索词生成助手。根据视频标题、字幕节选与候选句，生成 1~4 条适合外部事实验证的搜索查询。',
     '要求：',
+    '0. 只处理可外部验证的硬信息（数字 / 时间 / 版本 / 事件 / 人物身份 / 产品参数）。',
+    '   故事、观点、情绪、教程步骤、主观评价都不要生成查询；如果整段视频没有这类硬信息，直接输出 []，不要为了凑数而搜。',
     '1. 每条查询都要还原字幕里的一个具体说法：实体 + 要核实的限定（时间 / 数字 / 版本 / 因果），',
     '   例如「DeepSeek V4 2026 年 3 月发布」「DeepSeek V4 6710 亿参数」；',
     '2. 不要只输出实体名（「DeepSeek」），也不要写行业空话（「AI 行业趋势」「最新进展」）；',
@@ -800,14 +802,15 @@ export async function verifySummary(
       onProgress(done, items.length, label);
       return { ...item, references: [] as WebReference[] };
     }
+    let refs = raw;
     const pickReferences = (query: string) =>
-      rankReferences(query, raw)
+      rankReferences(query, refs)
         .filter((reference) => relevant(query, reference))
         .slice(0, 4)
         .map((reference) => ({ ...reference, site: siteOf(reference.url) }));
     let ranked = pickReferences(searchQuery);
     if (!ranked.length) {
-      // 原查询太窄（引号、年份、长尾修饰）时，用去掉年份/引号的简化词在同一批结果里再筛一次。
+      // 原查询太窄（引号、年份、长尾修饰）时，用去掉年份/引号的简化词再试一次。
       const simplified = searchQuery
         .replace(/[“”"'‘’]/g, ' ')
         .replace(/\b(19|20)\d{2}\b/g, ' ')
@@ -815,6 +818,29 @@ export async function verifySummary(
         .trim();
       if (simplified && simplified !== searchQuery && simplified.length >= 4) {
         ranked = pickReferences(simplified);
+        if (!ranked.length) {
+          // 同一批结果里没有可用的，再真正搜一次简化词，而不是直接判「无证据」。
+          const retryAbort = new AbortController();
+          const forwardRetry = () => retryAbort.abort(signal?.reason);
+          signal?.addEventListener('abort', forwardRetry, { once: true });
+          try {
+            const more = await withDeadline(
+              withSearchSignal(retryAbort.signal, () => searchWeb(settings, simplified)),
+              12000,
+              signal,
+              '检索超时',
+              () => retryAbort.abort(new Error('检索超时'))
+            );
+            if (more.length) {
+              refs = [...refs, ...more];
+              ranked = pickReferences(simplified);
+            }
+          } catch {
+            // 简化词二次检索失败就保留空结果
+          } finally {
+            signal?.removeEventListener('abort', forwardRetry);
+          }
+        }
       }
     }
     done += 1;

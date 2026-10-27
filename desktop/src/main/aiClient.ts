@@ -941,6 +941,7 @@ async function chatAnthropicToolLoopStream(
     }
     convo.push({ role: 'user', content: results });
   }
+  if (text.trim()) return finish();
   throw new Error('工具调用轮次过多');
 }
 
@@ -1021,6 +1022,7 @@ async function chatGeminiToolLoopStream(
     }
     contents.push({ role: 'user', parts: responses });
   }
+  if (text.trim()) return finish();
   throw new Error('工具调用轮次过多');
 }
 
@@ -1200,7 +1202,40 @@ export async function chatToolLoopStream(
       });
     }
   }
-  throw new Error('工具调用轮次过多');
+  // 工具轮次用尽：再要一次「不带工具」的收尾回答，而不是把错误直接丢给用户。
+  const finalBody: Record<string, unknown> = {
+    model: platform.model.trim(),
+    max_tokens: Math.max(1, options.maxTokens || 8192),
+    temperature: options.temperature,
+    stream: true,
+    stream_options: { include_usage: true },
+    messages: convo
+  };
+  const finalResponse = await postJson(platform, finalBody, options);
+  if (!finalResponse.ok) {
+    const detail = await finalResponse.text().catch(() => '');
+    throw new Error(errorForStatus(finalResponse.status, detail));
+  }
+  const finalSse = await readSseEvents(finalResponse, (json) => {
+    usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
+    const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
+    const delta = (choice?.delta || {}) as Record<string, unknown>;
+    const content = String(delta.content || '');
+    if (content) {
+      text += content;
+      options.onDelta?.(content);
+    }
+  });
+  if (!finalSse) {
+    const json = (await finalResponse.json()) as AiPayload;
+    const content = String(json?.choices?.[0]?.message?.content || '');
+    if (content) {
+      text += content;
+      options.onDelta?.(content);
+    }
+    usage = mergeUsage(usage, usageFromPayload(json?.usage as Record<string, unknown>));
+  }
+  return finish();
 }
 
 export async function chatToolLoop(

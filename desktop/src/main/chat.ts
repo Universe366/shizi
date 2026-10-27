@@ -429,6 +429,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     ...(appToolsEnabled ? APP_TOOL_DEFS : []),
     ...(useWebTool ? [WEB_SEARCH_TOOL] : [])
   ];
+  let webSearchCalls = 0;
+  const webSearchCache = new Map<string, string>();
 
   const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
     try {
@@ -454,7 +456,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       {
         temperature,
         maxTokens: maxTokens || undefined,
-        maxRounds: settings.mcp.maxToolRounds || 6,
+        maxRounds: useWebTool ? 10 : settings.mcp.maxToolRounds || 6,
         signal: options.signal,
         task: 'chat',
         onDelta: options.onDelta,
@@ -480,6 +482,14 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         if (call.name === WEB_SEARCH_TOOL.name) {
           const query = String(args.query || '').trim();
           if (!query) return finish('query 不能为空', false);
+          const cached = webSearchCache.get(query);
+          if (cached) {
+            return finish(cached + '\n（这条查询已经搜过，直接使用上面的结果，不要重复搜索）', true);
+          }
+          if (webSearchCalls >= 5) {
+            return finish('本次联网搜索已达到 5 次上限，请基于已有结果直接回答，不要再调用工具。', true);
+          }
+          webSearchCalls += 1;
           options.onStatus?.(`联网检索：${query}`);
           try {
             const result = await searchWebPlan(settings, [{ query, angle: 'base' }], {
@@ -506,8 +516,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               });
             }
             webEngine = result.meta.engine || webEngine;
+            const payload = JSON.stringify({ query, results: rows });
+            webSearchCache.set(query, payload);
             options.onStatus?.(`已找到 ${rows.length} 条网页结果`);
-            return finish(JSON.stringify({ query, results: rows }), true);
+            return finish(payload, true);
           } catch (error) {
             const message = (error as Error)?.message || String(error);
             webError = message;
