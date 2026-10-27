@@ -161,7 +161,7 @@ describe('KnowledgePanel', () => {
     expect(await screen.findByText(/120 块 \/ 8 个视频/)).toBeTruthy();
     expect(await screen.findByText('课程合集')).toBeTruthy();
     expect(document.querySelectorAll('.kb-doc-row').length).toBe(4);
-    fireEvent.click(pick('.kb-side-filters button', '待复习') as HTMLElement);
+    fireEvent.change(screen.getByTitle('按学习状态筛选'), { target: { value: 'review' } });
     await waitFor(() => expect(screen.queryByText('字幕片段')).toBeNull());
     expect(pick('.kb-doc-row', '本地 ASR 测试')).toBeTruthy();
   });
@@ -189,14 +189,15 @@ describe('KnowledgePanel', () => {
     expect(api.openLibrarySource).toHaveBeenCalledWith(1, 65000);
   });
 
-  it('引用栏可以跳到具体时间', async () => {
+  it('回答下方的引用可以跳到具体时间', async () => {
     const { api } = installBsub();
     render(<KnowledgePanel />);
     await docRow('课程合集');
     const input = screen.getByPlaceholderText(/这几期视频里/);
     fireEvent.change(input, { target: { value: '本地 ASR' } });
     fireEvent.click(document.querySelector('.kb-ask-side .mini-btn') as HTMLElement);
-    await waitFor(() => expect(document.querySelectorAll('.kb-rail-hit').length).toBe(2));
+    await waitFor(() => expect(document.querySelectorAll('.kb-cite').length).toBe(2));
+    expect(document.querySelector('.kb-rail')).toBeNull();
     fireEvent.click(screen.getByText(/跳到 1:05/));
     expect(api.openLibrarySource).toHaveBeenCalledWith(2, 65000);
   });

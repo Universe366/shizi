@@ -11590,16 +11590,6 @@ body.is-resizing-tabs {
   color: var(--accent);
 }
 
-.kb-turn {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
 .kb-turn-q {
   display: flex;
   align-items: center;
@@ -11723,7 +11713,7 @@ body.is-resizing-tabs {
 
 .kb-layout {
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   gap: 14px;
   flex: 1;
   min-height: 0;
@@ -11768,27 +11758,6 @@ body.is-resizing-tabs {
   border-radius: 8px;
   background: var(--surface);
   font-size: var(--fs-sm);
-}
-
-.kb-side-filters {
-  display: flex;
-  gap: 4px;
-}
-
-.kb-side-filters button {
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-}
-
-.kb-side-filters button.is-active {
-  border-color: transparent;
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .kb-doc-list {
@@ -11920,15 +11889,6 @@ body.is-resizing-tabs {
   opacity: 0.5;
 }
 
-.kb-hybrid-hint {
-  margin-left: auto;
-}
-
-/* ---------- 知识库 v3：树 + 文档 + 引用栏 ---------- */
-.kb-layout.has-rail {
-  grid-template-columns: 250px minmax(0, 1fr) 300px;
-}
-
 .kb-export {
   width: auto;
   min-width: 78px;
@@ -11975,15 +11935,6 @@ body.is-resizing-tabs {
   font-size: var(--fs-xs);
 }
 
-.kb-turn {
-  cursor: default;
-}
-
-.kb-turn.is-active {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
 .kb-turn-actions {
   display: flex;
   align-items: center;
@@ -11992,86 +11943,6 @@ body.is-resizing-tabs {
 
 .kb-turn-actions .settings-hint {
   margin-left: auto;
-}
-
-.kb-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-  padding-left: 10px;
-  border-left: 1px solid var(--border);
-}
-
-.kb-rail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.kb-rail-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.kb-rail-hit {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.kb-rail-hit-head {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-.kb-rail-hit-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.kb-rail-hit-kind {
-  color: var(--faint);
-  font-size: var(--fs-xs);
-}
-
-.kb-rail-hit-text {
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.kb-rail-hit-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.kb-rail-hit-score {
-  margin-left: auto;
-  color: var(--faint);
-  font-size: var(--fs-xs);
 }
 
 .kb-doc-body {
@@ -12189,53 +12060,6 @@ body.is-resizing-tabs {
   color: var(--muted);
 }
 
-@media (max-width: 1240px) {
-  .kb-layout.has-rail {
-    grid-template-columns: 230px minmax(0, 1fr);
-  }
-
-  .kb-rail {
-    display: none;
-  }
-}
-
-/* 窄面板时引用栏改为右侧浮层；宽面板才并排 */
-.kb-layout {
-  position: relative;
-  container-type: inline-size;
-}
-
-.kb-layout.has-rail {
-  grid-template-columns: 250px minmax(0, 1fr);
-}
-
-.kb-rail {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 3;
-  width: min(320px, 88%);
-  padding: 10px 12px;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: -16px 0 40px rgba(8, 12, 18, 0.18);
-}
-
-@container (min-width: 1180px) {
-  .kb-layout.has-rail {
-    grid-template-columns: 250px minmax(0, 1fr) 300px;
-  }
-
-  .kb-rail {
-    position: static;
-    width: auto;
-    padding: 0 0 0 10px;
-    border-left: 1px solid var(--border);
-    background: transparent;
-    box-shadow: none;
-  }
-}
 
 /* ---------- 知识库：复习与历史 ---------- */
 .kb-tab-badge {
@@ -12394,4 +12218,125 @@ body.is-resizing-tabs {
 .kb-related-meta {
   color: var(--faint);
   font-size: var(--fs-xs);
+}
+
+/* ---------- 知识库：回答下方引用 ---------- */
+.kb-cites {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.kb-cites summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.kb-cites summary::-webkit-details-marker {
+  display: none;
+}
+
+.kb-cites summary::before {
+  content: '▸';
+  color: var(--faint);
+  transition: transform 0.12s ease;
+}
+
+.kb-cites[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.kb-cites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.kb-cite {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.kb-cite-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kb-cite-index {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.kb-cite-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.kb-cite-kind,
+.kb-cite-score {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.kb-cite-text {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.kb-cite-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 知识库：精简后的筛选与折叠区块 */
+.kb-status-filter {
+  width: 100%;
+}
+
+.kb-doc-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.kb-doc-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.kb-doc-section > summary::before {
+  content: '▸';
+  margin-right: 4px;
+  color: var(--faint);
+  transition: transform 0.12s ease;
+}
+
+.kb-doc-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.kb-doc-section[open] .kb-doc-chunks {
+  margin-top: 8px;
 }

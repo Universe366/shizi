@@ -320,7 +320,8 @@ start-footnote   操作提示、导入导出设置
 
 ### 知识库（`KnowledgePanel`）
 
-- 三栏：左侧「全部 / 合集 / 视频」树 + 搜索 + 学习状态筛选；中间「问答 / 文档 / 复习 / 历史」；右侧引用栏（容器 < 1180px 时变右侧浮层）。
+- 两栏：左侧「全部 / 合集 / 视频」树 + 搜索 + 学习状态下拉；右侧「问答 / 文档 / 复习 / 历史」。
+- 引用：回答下方 `<details class="kb-cites">` 折叠展示（最新一条默认展开），每条可直接「跳到 mm:ss / 打开」；不再使用右侧引用栏。
 - 范围：`kbAsk(question, { videoId })` / `{ collectionId }`；合集 id 由 `kb:collection-videos` 换成视频集合后在 SQL 里过滤。
 - 索引：`kb:index` + `kb:progress`；`kb:documents` 返回每篇的块数、向量数、标签与学习状态；`kb:status-set` 修改状态。
 - 文档页签：`library:get` 的总结/笔记 + `kb:chunks` 的索引片段；片段点击 `openLibrarySource(videoId, startMs)` 跳时间。

@@ -6,8 +6,6 @@ import {
   History as HistoryIcon,
   Layers,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
   Plus,
   RefreshCw,
   Search,
@@ -34,7 +32,6 @@ import { Markdown } from './Markdown';
 type Mode = 'ask' | 'search';
 type MainTab = 'ask' | 'doc' | 'review' | 'history';
 type CardFilter = 'due' | 'all';
-type HitFilter = 'all' | 'subtitle' | 'summary' | 'note';
 type StatusFilter = 'all' | KbLearningStatus;
 type Scope =
   | { type: 'all' }
@@ -56,21 +53,6 @@ const STATUS_LABEL: Record<KbLearningStatus, string> = {
   review: '待复习',
   mastered: '已掌握'
 };
-
-const STATUS_FILTERS: Array<{ id: StatusFilter; label: string }> = [
-  { id: 'all', label: '全部' },
-  { id: 'new', label: '未学' },
-  { id: 'learning', label: '学习中' },
-  { id: 'review', label: '待复习' },
-  { id: 'mastered', label: '已掌握' }
-];
-
-const HIT_FILTERS: Array<{ id: HitFilter; label: string }> = [
-  { id: 'all', label: '全部' },
-  { id: 'subtitle', label: '字幕' },
-  { id: 'summary', label: '总结' },
-  { id: 'note', label: '笔记' }
-];
 
 const KIND_LABEL: Record<string, string> = {
   subtitle: '字幕',
@@ -113,7 +95,6 @@ export function KnowledgePanel() {
   const [docQuery, setDocQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [activeTurn, setActiveTurn] = useState(0);
   const [docs, setDocs] = useState<KbDocument[]>([]);
   const [history, setHistory] = useState<KbQaEntry[]>([]);
   const [cards, setCards] = useState<KbCard[]>([]);
@@ -133,13 +114,11 @@ export function KnowledgePanel() {
     const raw = Number(localStorage.getItem(FONT_KEY));
     return Number.isFinite(raw) && raw >= 12 && raw <= 20 ? raw : 14;
   });
-  const [railOpen, setRailOpen] = useState(true);
   const [progress, setProgress] = useState<KbProgress | null>(null);
   const [indexing, setIndexing] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [hitFilter, setHitFilter] = useState<HitFilter>('all');
 
   const selectedDoc = useMemo(
     () => (scope.type === 'video' ? docs.find((doc) => doc.videoId === scope.id) || null : null),
@@ -308,7 +287,6 @@ export function KnowledgePanel() {
           ].slice(0, 12)
         );
       }
-      setActiveTurn(0);
       setQuestion('');
       void loadHistory();
     } finally {
@@ -433,8 +411,6 @@ export function KnowledgePanel() {
     void window.bsub.openLibrarySource(hit.videoId, hit.startMs);
   };
 
-  const activeHits = turns[activeTurn]?.hits || [];
-  const shownHits = activeHits.filter((hit) => hitFilter === 'all' || hit.kind === hitFilter);
   const totalChunks = docs.reduce((sum, doc) => sum + doc.chunks, 0);
   const readyDocs = docs.filter((doc) => doc.indexed > 0).length;
 
@@ -465,19 +441,9 @@ export function KnowledgePanel() {
             <option value="markdown">Markdown</option>
             <option value="json">JSON</option>
           </select>
-          <button className="mini-btn" onClick={() => void loadStatus()} title="刷新状态">
-            <RefreshCw size={12} />
-          </button>
           <button className="mini-btn primary" disabled={indexing} onClick={() => void buildIndex()}>
             {indexing ? <Loader2 size={12} className="spin" /> : <Sparkles size={12} />}
             {status?.ready ? '重建索引' : '构建索引'}
-          </button>
-          <button
-            className="mini-btn"
-            title={railOpen ? '收起引用栏' : '展开引用栏'}
-            onClick={() => setRailOpen((value) => !value)}
-          >
-            {railOpen ? <PanelRightClose size={12} /> : <PanelRightOpen size={12} />}
           </button>
         </div>
       </header>
@@ -507,7 +473,7 @@ export function KnowledgePanel() {
       {error && <div className="warn-card">{error}</div>}
       {message && <div className="settings-hint">{message}</div>}
 
-      <div className={`kb-layout${railOpen ? ' has-rail' : ''}`}>
+      <div className="kb-layout">
         <aside className="kb-side">
           <div className="kb-side-search">
             <Search size={13} />
@@ -519,17 +485,18 @@ export function KnowledgePanel() {
               onChange={(event) => setDocQuery(event.target.value)}
             />
           </div>
-          <div className="kb-side-filters">
-            {STATUS_FILTERS.map((item) => (
-              <button
-                key={item.id}
-                className={statusFilter === item.id ? 'is-active' : ''}
-                onClick={() => setStatusFilter(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <select
+            className="mini-select kb-status-filter"
+            title="按学习状态筛选"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+          >
+            <option value="all">全部状态</option>
+            <option value="new">未学</option>
+            <option value="learning">学习中</option>
+            <option value="review">待复习</option>
+            <option value="mastered">已掌握</option>
+          </select>
 
           <div className="kb-doc-list">
             <button
@@ -693,7 +660,6 @@ export function KnowledgePanel() {
                     {skill.label}
                   </button>
                 ))}
-                <span className="settings-hint kb-hybrid-hint">向量 + 关键词混合检索</span>
               </div>
 
               {!status?.ready && (
@@ -712,11 +678,7 @@ export function KnowledgePanel() {
               )}
 
               {turns.map((turn, turnIndex) => (
-                <article
-                  className={`kb-turn${turnIndex === activeTurn ? ' is-active' : ''}`}
-                  key={`${turn.q}-${turnIndex}`}
-                  onClick={() => setActiveTurn(turnIndex)}
-                >
+                <article className="kb-turn" key={`${turn.q}-${turnIndex}`}>
                   <div className="kb-turn-q">
                     <span className="kb-turn-mark">Q</span>
                     <span>{turn.q}</span>
@@ -729,6 +691,43 @@ export function KnowledgePanel() {
                     <div className="knowledge-answer kb-answer">
                       <Markdown content={turn.a} />
                     </div>
+                  )}
+                  {turn.hits.length > 0 && (
+                    <details className="kb-cites" open={turnIndex === 0}>
+                      <summary>引用片段（{turn.hits.length}）</summary>
+                      <div className="kb-cites-list">
+                        {turn.hits.map((hit, index) => (
+                          <div className="kb-cite" key={`${hit.videoId}-${hit.startMs}-${index}`}>
+                            <div className="kb-cite-head">
+                              <span className="kb-cite-index">[{index + 1}]</span>
+                              <span className="kb-cite-title" title={hit.title}>
+                                {hit.title || '未命名'}
+                              </span>
+                              <span className="kb-cite-kind">
+                                {hit.kind === 'subtitle'
+                                  ? clock(hit.startMs)
+                                  : KIND_LABEL[hit.kind] || '资料'}
+                              </span>
+                              <span className="kb-cite-score">{hit.score.toFixed(2)}</span>
+                            </div>
+                            <div className="kb-cite-text">{hit.text.slice(0, 180)}</div>
+                            <div className="kb-cite-actions">
+                              {hit.kind === 'subtitle' && hit.startMs > 0 && (
+                                <button className="mini-btn" onClick={() => jump(hit)}>
+                                  跳到 {clock(hit.startMs)}
+                                </button>
+                              )}
+                              <button
+                                className="mini-btn"
+                                onClick={() => void window.bsub.openLibrarySource(hit.videoId)}
+                              >
+                                <ExternalLink size={11} /> 打开
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   )}
                   <div className="kb-turn-actions">
                     <button
@@ -756,10 +755,7 @@ export function KnowledgePanel() {
                     >
                       <Layers size={11} /> 存为复习卡
                     </button>
-                    <span className="settings-hint">
-                      {turn.hits.length} 个引用
-                      {activeTurn === turnIndex ? ' · 右侧查看' : ''}
-                    </span>
+                    <span className="settings-hint">{turn.hits.length} 个引用</span>
                   </div>
                 </article>
               ))}
@@ -844,7 +840,6 @@ export function KnowledgePanel() {
                                   scope: entry.scopeLabel
                                 }
                               ]);
-                              setActiveTurn(0);
                               setTab('ask');
                             }}
                           >
@@ -871,11 +866,11 @@ export function KnowledgePanel() {
                     )}
                   </section>
 
-                  <section className="kb-doc-section">
-                    <div className="kb-doc-section-title">
+                  <details className="kb-doc-section">
+                    <summary className="kb-doc-section-title">
                       索引片段
                       <span className="settings-hint">{detail?.chunks.length || 0} 块</span>
-                    </div>
+                    </summary>
                     <div className="kb-doc-chunks">
                       {(detail?.chunks || []).slice(0, 80).map((chunk, index) => (
                         <button
@@ -893,7 +888,7 @@ export function KnowledgePanel() {
                         <div className="settings-hint">还没有索引片段，先构建索引。</div>
                       )}
                     </div>
-                  </section>
+                  </details>
                 </article>
               )}
             </>
@@ -1039,8 +1034,7 @@ export function KnowledgePanel() {
                             scope: entry.scopeLabel
                           }
                         ]);
-                        setActiveTurn(0);
-                        setTab('ask');
+                                          setTab('ask');
                       }}
                     >
                       <span className="kb-history-q">{entry.question}</span>
@@ -1056,59 +1050,6 @@ export function KnowledgePanel() {
           )}
         </main>
 
-        {railOpen && (
-          <aside className="kb-rail">
-            <div className="kb-rail-head">
-              <span>引用来源</span>
-              <span className="settings-hint">
-                {turns[activeTurn] ? `第 ${activeTurn + 1} 条回答` : '暂无'}
-              </span>
-            </div>
-            <div className="kb-filters">
-              {HIT_FILTERS.map((item) => (
-                <button
-                  key={item.id}
-                  className={hitFilter === item.id ? 'is-active' : ''}
-                  onClick={() => setHitFilter(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <div className="kb-rail-list">
-              {shownHits.map((hit, index) => (
-                <div className="kb-rail-hit" key={`${hit.videoId}-${hit.startMs}-${index}`}>
-                  <div className="kb-rail-hit-head">
-                    <span className="knowledge-hit-index">[{index + 1}]</span>
-                    <span className="kb-rail-hit-title" title={hit.title}>
-                      {hit.title || '未命名'}
-                    </span>
-                    <span className="kb-rail-hit-kind">
-                      {hit.kind === 'subtitle' ? clock(hit.startMs) : KIND_LABEL[hit.kind] || '资料'}
-                    </span>
-                  </div>
-                  <div className="kb-rail-hit-text">{hit.text.slice(0, 180)}</div>
-                  <div className="kb-rail-hit-actions">
-                    {hit.kind === 'subtitle' && hit.startMs > 0 ? (
-                      <button className="mini-btn" onClick={() => jump(hit)}>
-                        跳到 {clock(hit.startMs)}
-                      </button>
-                    ) : null}
-                    <button className="mini-btn" onClick={() => void window.bsub.openLibrarySource(hit.videoId)}>
-                      <ExternalLink size={11} /> 打开
-                    </button>
-                    <span className="kb-rail-hit-score">{hit.score.toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
-              {!shownHits.length && (
-                <div className="settings-hint">
-                  {activeHits.length ? '这个类型没有命中片段' : '提问后这里会列出引用片段'}
-                </div>
-              )}
-            </div>
-          </aside>
-        )}
       </div>
     </div>
   );
