@@ -12690,3 +12690,144 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: var(--fs-xs);
 }
+
+/* ---------- AI 平台列表 ---------- */
+.ai-provider-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ai-provider-toolbar .settings-input {
+  flex: 1;
+}
+
+.ai-provider-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 268px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.ai-provider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-provider-row:last-child {
+  border-bottom: 0;
+}
+
+.ai-provider-row:hover {
+  background: var(--surface-3, var(--surface-2));
+}
+
+.ai-provider-row.is-active {
+  background: var(--accent-soft);
+}
+
+.ai-provider-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-provider-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ai-provider-status {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3, transparent);
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.ai-provider-status.is-ok {
+  color: var(--muted);
+}
+
+.ai-provider-status.is-current {
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+
+.ai-local-scan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ai-local-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 9px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-local-result:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ai-model-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.ai-model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.ai-model-chip button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ai-model-chip button:hover {
+  color: var(--danger, var(--accent));
+}

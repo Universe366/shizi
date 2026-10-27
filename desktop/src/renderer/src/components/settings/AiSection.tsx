@@ -44,7 +44,44 @@ export function AiSection({
   platformStatus
 }: AiSectionProps) {
   const [newModel, setNewModel] = useState('');
+  const [providerQuery, setProviderQuery] = useState('');
+  const [scanningLocal, setScanningLocal] = useState(false);
+  const [localScan, setLocalScan] = useState<
+    Array<{ id: string; name: string; baseUrl: string; models: string[]; error?: string }>
+  >([]);
   if (!active) return null;
+  const filteredPlatforms = draft.ai.platforms.filter((item) =>
+    `${item.name} ${item.model} ${item.baseUrl}`.toLowerCase().includes(providerQuery.trim().toLowerCase())
+  );
+  const scanLocal = async () => {
+    setScanningLocal(true);
+    setLocalScan([]);
+    const targets = [
+      { id: 'ollama', name: 'Ollama', baseUrl: 'http://127.0.0.1:11434/v1' },
+      { id: 'lmstudio', name: 'LM Studio', baseUrl: 'http://127.0.0.1:1234/v1' },
+      { id: 'llamacpp', name: 'llama.cpp', baseUrl: 'http://127.0.0.1:8080/v1' }
+    ];
+    const results = await Promise.all(
+      targets.map(async (target) => {
+        try {
+          const response = await window.bsub.probePlatformModels?.('ai', {
+            id: target.id,
+            name: target.name,
+            baseUrl: target.baseUrl,
+            apiKey: '',
+            model: ''
+          });
+          return response?.ok
+            ? { ...target, models: response.data.models }
+            : { ...target, models: [], error: response?.error || '连接失败' };
+        } catch (error) {
+          return { ...target, models: [], error: (error as Error).message };
+        }
+      })
+    );
+    setLocalScan(results);
+    setScanningLocal(false);
+  };
   const useLocal = (preset: { id: string; name: string; baseUrl: string; model: string }) => {
     const existing = draft.ai.platforms.find(
       (item) => item.id === preset.id || item.baseUrl === preset.baseUrl
@@ -79,38 +116,86 @@ export function AiSection({
 
   <div className="settings-group">
     <div className="settings-group-title">使用哪个平台</div>
-    <div className="ai-provider-grid">
-      {draft.ai.platforms.map((item) => (
+    <div className="ai-provider-toolbar">
+      <input
+        className="settings-input"
+        value={providerQuery}
+        placeholder="搜索平台…"
+        spellCheck={false}
+        onChange={(event) => setProviderQuery(event.target.value)}
+      />
+      <button
+        className="mini-btn"
+        type="button"
+        disabled={scanningLocal}
+        onClick={() => void scanLocal()}
+      >
+        {scanningLocal ? <Loader2 size={12} className="spin" /> : null} 扫描本地模型
+      </button>
+    </div>
+    <div className="ai-provider-list">
+      {filteredPlatforms.map((item) => (
         <button
           key={item.id}
           type="button"
-          className={`ai-provider-card${active.id === item.id ? ' is-active' : ''}${
-            item.id === draft.ai.activeId ? ' is-current' : ''
-          }`}
+          className={`ai-provider-row${active.id === item.id ? ' is-active' : ''}`}
           onClick={() => setEditingAiId(item.id)}
         >
-          <span className="ai-provider-name">{item.name}</span>
-          <span className="ai-provider-meta">{item.model || '未填模型'}</span>
-          <span className="ai-provider-badge">
-            {item.id === draft.ai.activeId ? '使用中' : item.apiKey ? '已配 Key' : '未配 Key'}
+          <span className="ai-provider-logo">{item.name.slice(0, 1)}</span>
+          <span className="ai-provider-main">
+            <span className="ai-provider-name">{item.name}</span>
+            <span className="ai-provider-meta">
+              {item.model || '未填模型'} · {item.kind || 'OpenAI 兼容'}
+            </span>
+          </span>
+          <span
+            className={`ai-provider-status${
+              item.id === draft.ai.activeId
+                ? ' is-current'
+                : item.apiKey || /127\.0\.0\.1|localhost/.test(item.baseUrl)
+                  ? ' is-ok'
+                  : ''
+            }`}
+          >
+            {item.id === draft.ai.activeId
+              ? '使用中'
+              : item.apiKey
+                ? '已配 Key'
+                : /127\.0\.0\.1|localhost/.test(item.baseUrl)
+                  ? '本地'
+                  : '未配 Key'}
           </span>
         </button>
       ))}
+      {!filteredPlatforms.length && <div className="settings-hint">没有匹配的平台。</div>}
     </div>
-    <div className="settings-inline">
-      <select
-        className="settings-input"
-        value={active?.id || ''}
-        onChange={(event) => setEditingAiId(event.target.value)}
-      >
-        {draft.ai.platforms.map((platform) => (
-          <option key={platform.id} value={platform.id}>
-            {platform.name}
-            {platform.id === draft.ai.activeId ? '（使用中）' : ''}
-            {!platform.apiKey ? ' · 未配 Key' : ''}
-          </option>
+    {localScan.length > 0 && (
+      <div className="ai-local-scan">
+        {localScan.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="ai-local-result"
+            disabled={!item.models.length}
+            onClick={() => {
+              if (!item.models.length) return;
+              useLocal({
+                id: item.id,
+                name: item.name,
+                baseUrl: item.baseUrl,
+                model: item.models[0]
+              });
+            }}
+          >
+            <span>{item.name}</span>
+            <span className="ai-provider-meta">
+              {item.error ? item.error : `${item.models.length} 个模型`}
+            </span>
+          </button>
         ))}
-      </select>
+      </div>
+    )}
+    <div className="settings-inline">
       {active && active.id !== draft.ai.activeId && (
         <button
           className="mini-btn primary"
@@ -275,6 +360,30 @@ export function AiSection({
         添加
       </button>
     </div>
+    {(active.models || []).length > 0 && (
+      <div className="ai-model-list">
+        {(active.models || []).map((modelName) => (
+          <span className="ai-model-chip" key={modelName}>
+            {modelName}
+            <button
+              type="button"
+              title="从列表移除（不影响平台默认模型）"
+              onClick={() => {
+                const models = (active.models || []).filter((item) => item !== modelName);
+                updatePlatform({
+                  models,
+                  ...(active.model === modelName
+                    ? { model: models[0] || '' }
+                    : {})
+                });
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    )}
 
     {(() => {
       const key = capabilityKey(active.id, active.model);
