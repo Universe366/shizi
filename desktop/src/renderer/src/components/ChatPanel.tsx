@@ -1397,6 +1397,12 @@ export function ChatPanel({
                     {[
                       conversation.videoTitle,
                       profiles.find((profile) => profile.id === conversation.profileId)?.name,
+                      conversation.model
+                        ? `${
+                            platforms.find((platform) => platform.id === conversation.platformId)
+                              ?.name || conversation.platformId
+                          } / ${conversation.model}`
+                        : '',
                       `${conversation.messageCount} 条`,
                       new Date(conversation.updatedAt).toLocaleString('zh-CN')
                     ]

@@ -348,7 +348,9 @@ export function branchConversation(sourceId: number, keep: number): ChatConversa
     title: `${source.title} · 分支`,
     videoKey: source.videoKey,
     videoTitle: source.videoTitle,
-    profileId: source.profileId
+    profileId: source.profileId,
+    platformId: source.platformId,
+    model: source.model
   });
   const rows = listMessages(sourceId).slice(0, Math.max(1, Math.round(keep)));
   for (const row of rows) {

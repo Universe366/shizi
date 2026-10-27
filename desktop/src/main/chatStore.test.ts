@@ -144,7 +144,9 @@ describe('对话持久化', () => {
     const source = createConversation({
       title: '分支源',
       videoKey: 'BV9',
-      profileId: 'p9'
+      profileId: 'p9',
+      platformId: 'deepseek',
+      model: 'deepseek-reasoner'
     });
     appendMessage(source.id, { role: 'user', content: 'q1' });
     appendMessage(source.id, { role: 'assistant', content: 'a1' });
@@ -152,6 +154,8 @@ describe('对话持久化', () => {
     const branch = branchConversation(source.id, 2);
     expect(branch).not.toBeNull();
     expect(branch?.profileId).toBe('p9');
+    expect(branch?.platformId).toBe('deepseek');
+    expect(branch?.model).toBe('deepseek-reasoner');
     expect(listMessages(branch!.id).map((row) => row.content)).toEqual(['q1', 'a1']);
     expect(listMessages(source.id).length).toBe(3);
     expect(branch?.title).toContain('分支');
