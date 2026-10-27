@@ -2,10 +2,13 @@ import { Bot, Cpu, Gem, Loader2, Plus, RefreshCw, Server, Sparkles, Trash2, Wifi
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AiPlatform, AppSettings } from '../../../../shared/types';
+import { ProviderBrandIcon } from './ProviderBrandIcon';
 import { ModelChips, SettingsSection } from './SettingsSection';
 import {
   capabilityKey,
   effectiveModelCapabilities,
+  formatContextWindow,
+  inferContextWindow,
   inferModelCapabilities
 } from '../../../../shared/modelCapabilities';
 
@@ -158,11 +161,13 @@ export function AiSection({
               className="ai-provider-select"
               onClick={() => setEditingAiId(item.id)}
             >
-              <span
-                className="ai-provider-logo"
-                style={{ background: `hsl(${hue} 42% 46%)` }}
-              >
-                <Icon size={13} />
+              <span className="ai-provider-logo" style={{ background: 'var(--surface-3)' }}>
+                <ProviderBrandIcon
+                  name={item.name}
+                  kind={item.kind}
+                  size={14}
+                  fallback={<Icon size={13} style={{ color: `hsl(${hue} 42% 58%)` }} />}
+                />
               </span>
               <span className="ai-provider-main">
                 <span className="ai-provider-name">{item.name}</span>
@@ -423,8 +428,10 @@ export function AiSection({
                 modelName,
                 draft.ai.capabilities?.[capabilityKey(active.id, modelName)]
               );
+              const context = formatContextWindow(inferContextWindow(modelName));
               return (
                 <>
+                  {context && <span className="ai-model-tag">{context}</span>}
                   {capability.vision && <span className="ai-model-tag">图片</span>}
                   {capability.audio && <span className="ai-model-tag">音频</span>}
                 </>

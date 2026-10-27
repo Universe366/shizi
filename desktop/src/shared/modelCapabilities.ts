@@ -43,6 +43,25 @@ export function effectiveModelCapabilities(
   };
 }
 
+/** 按模型名推断上下文窗口（token）；未知返回 0。 */
+export function inferContextWindow(model: string): number {
+  const name = String(model || '').toLowerCase();
+  if (/gemini/.test(name)) return 1_000_000;
+  if (/claude/.test(name)) return 200_000;
+  if (/gpt-4\.1|gpt-5/.test(name)) return 1_000_000;
+  if (/gpt-4o|o3|o4/.test(name)) return 128_000;
+  if (/deepseek/.test(name)) return 64_000;
+  if (/qwen/.test(name)) return 32_768;
+  if (/glm-4/.test(name)) return 128_000;
+  return 0;
+}
+
+export function formatContextWindow(tokens: number): string {
+  if (!tokens) return '';
+  if (tokens >= 1_000_000) return `${Math.round(tokens / 1_000_000)}M`;
+  return `${Math.round(tokens / 1000)}k`;
+}
+
 export function capabilityLabel(capability: ModelCapability): string {
   if (capability === 'vision') return '图片';
   if (capability === 'audio') return '音频';

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
+import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, Captions, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
-  effectiveModelCapabilities
+  effectiveModelCapabilities,
+  formatContextWindow,
+  inferContextWindow
 } from '../../../shared/modelCapabilities';
 import type {
   AiPlatform,
@@ -2151,7 +2154,15 @@ export function ChatPanel({
                         );
                       return (
                         <div key={platform.id} className="chat-model-group">
-                          <div className="chat-model-group-title">{platform.name}</div>
+                          <div className="chat-model-group-title">
+                            <ProviderBrandIcon
+                              name={platform.name}
+                              kind={platform.kind}
+                              size={12}
+                              style={{ marginRight: 4, verticalAlign: '-2px' }}
+                            />
+                            {platform.name}
+                          </div>
                           {models.map((model) => (
                             <button
                               key={model}
@@ -2174,8 +2185,12 @@ export function ChatPanel({
                                   model,
                                   capabilityOverrides[capabilityKey(platform.id, model)]
                                 );
+                                const context = formatContextWindow(inferContextWindow(model));
                                 return (
                                   <>
+                                    {context && (
+                                      <span className="chat-model-tag">{context}</span>
+                                    )}
                                     {capability.vision && (
                                       <span className="chat-model-tag">图片</span>
                                     )}

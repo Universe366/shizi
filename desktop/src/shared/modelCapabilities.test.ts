@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   capabilityKey,
   effectiveModelCapabilities,
+  formatContextWindow,
+  inferContextWindow,
   inferModelCapabilities
 } from './modelCapabilities';
 
@@ -11,6 +13,14 @@ describe('模型能力识别', () => {
     expect(inferModelCapabilities('anthropic', 'claude-3-7-sonnet').vision).toBe(true);
     expect(inferModelCapabilities('openai', 'qwen2.5-vl-72b').vision).toBe(true);
     expect(inferModelCapabilities('openai', 'gpt-4o-audio-preview').audio).toBe(true);
+  });
+
+  it('按模型名推断上下文窗口', () => {
+    expect(formatContextWindow(inferContextWindow('gemini-2.5-pro'))).toBe('1M');
+    expect(formatContextWindow(inferContextWindow('claude-3-7-sonnet'))).toBe('200k');
+    expect(formatContextWindow(inferContextWindow('gpt-4o'))).toBe('128k');
+    expect(formatContextWindow(inferContextWindow('qwen2.5:7b'))).toBe('33k');
+    expect(inferContextWindow('unknown-model')).toBe(0);
   });
 
   it('普通文本模型不误判', () => {
