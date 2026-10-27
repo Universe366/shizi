@@ -13034,3 +13034,106 @@ sup:has(> .cite-ref) {
   opacity: 0.5;
   border-color: var(--accent);
 }
+
+/* ---------- Skills / MCP 折叠卡片 ---------- */
+.mcp-card,
+.skill-card {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.mcp-card > summary,
+.skill-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.mcp-card > summary::-webkit-details-marker,
+.skill-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mcp-card[open] > summary,
+.skill-card[open] > summary {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.mcp-card > :not(summary),
+.skill-card > :not(summary) {
+  margin: 6px 10px 0;
+}
+
+.mcp-card > :last-child,
+.skill-card > :last-child {
+  margin-bottom: 8px;
+}
+
+.mcp-status {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.mcp-status.is-ok {
+  background: var(--success, #43a047);
+}
+
+.mcp-status.is-testing {
+  background: var(--accent);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.mcp-name,
+.skill-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.mcp-badge,
+.skill-source {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.mcp-count {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.skill-icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.skill-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.skill-badge.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
