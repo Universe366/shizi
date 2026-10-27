@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/types';
 import { Markdown } from './Markdown';
 import { EmptyState } from './ui/EmptyState';
+import { SourcesCard } from './SourcesCard';
 import { VerifyCard } from './VerifyCard';
 import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
@@ -693,11 +694,23 @@ export function SummaryPanel({
           </div>
         )}
 
-      {!streaming && verification && <VerifyCard verification={verification} />}
+      {!streaming && verification?.sources?.length ? (
+        <SourcesCard sources={verification.sources} />
+      ) : null}
+
+      {!streaming &&
+        verification &&
+        (verification.items.length > 0 ||
+          verification.references.length > 0 ||
+          Boolean(verification.error)) && <VerifyCard verification={verification} />}
 
       {!streaming && summary && (
         <div className="summary-content">
-          <Markdown content={summary} />
+          <Markdown
+            content={summary}
+            citations={verification?.sources}
+            citePrefix="summary"
+          />
         </div>
       )}
 

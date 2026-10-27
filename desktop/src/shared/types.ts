@@ -970,6 +970,8 @@ export interface VerificationItem {
 
 export interface VerificationSummary {
   items: VerificationItem[];
+  /** 本次实际检索到的外部资料（总结侧「外部资料」面板） */
+  sources?: WebReference[];
   references: VerifiedReference[];
   supplements: string[];
   attempted: number;

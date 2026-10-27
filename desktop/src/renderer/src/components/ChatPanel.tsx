@@ -1388,7 +1388,11 @@ export function ChatPanel({
                     {message.reasoning && (
                       <ReasoningBlock text={message.reasoning} defaultOpen={expandReasoning} />
                     )}
-                    <Markdown content={message.content} />
+                    <Markdown
+                      content={message.content}
+                      citations={safeSources(message.sources)}
+                      citePrefix={`m${index}`}
+                    />
                     {safeSources(message.sources).length > 0 && (
                       <div className="chat-sources">
                         <div className="chat-sources-title">
@@ -1400,6 +1404,7 @@ export function ChatPanel({
                         {safeSources(message.sources).map((reference, sourceIndex) => (
                           <button
                             key={`${sourceIndex}-${reference.url}`}
+                            id={`cite-m${index}-${sourceIndex + 1}`}
                             className="chat-source"
                             title={reference.url}
                             onClick={() => void window.bsub.openExternal(reference.url)}
@@ -1407,7 +1412,10 @@ export function ChatPanel({
                             <span className="chat-source-title">
                               {reference.title || reference.url}
                             </span>
-                            <span className="chat-source-site">{hostOf(reference.url)}</span>
+                            <span className="chat-source-site">
+                              {reference.site || hostOf(reference.url)}
+                              {reference.date ? ` · ${String(reference.date).slice(0, 10)}` : ''}
+                            </span>
                           </button>
                         ))}
                       </div>

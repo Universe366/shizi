@@ -574,7 +574,7 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
           (done, total, query) =>
             options.onStatus?.(`联网核对 ${done}/${total}：${query.slice(0, 28)}`)
         );
-        verification = verified;
+        verification = { ...verified, sources: verified.references };
         referencesBlock = buildVerifyBlock(verified);
         if (referencesBlock) {
           options.onStatus?.(
@@ -633,6 +633,16 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
               result.meta.fetched ? ` · 读取 ${result.meta.fetched} 篇` : ''
             }）`
           );
+          verification = {
+            items: [],
+            references: [],
+            supplements: [],
+            attempted: 0,
+            failed: 0,
+            judged: false,
+            dropped: 0,
+            sources: references
+          };
         } else {
           options.onStatus?.('没有检索到参考资料，仅根据字幕总结');
         }

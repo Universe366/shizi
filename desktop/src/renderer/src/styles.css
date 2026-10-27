@@ -12340,3 +12340,117 @@ body.is-resizing-tabs {
 .kb-doc-section[open] .kb-doc-chunks {
   margin-top: 8px;
 }
+
+/* ---------- 引用 chip 与外部资料面板 ---------- */
+.cite-ref {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  margin: 0 1px;
+  padding: 0 3px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+.cite-ref:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+sup:has(> .cite-ref) {
+  line-height: 0;
+}
+
+.chat-source.is-flash,
+.sources-row.is-flash {
+  animation: cite-flash 1.2s ease;
+}
+
+@keyframes cite-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  30% {
+    background: var(--accent-soft);
+  }
+}
+
+.sources-card {
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.sources-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.sources-head::-webkit-details-marker {
+  display: none;
+}
+
+.sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 6px 8px;
+}
+
+.sources-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.sources-row:hover {
+  background: var(--surface-2);
+}
+
+.sources-index {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.sources-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sources-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.sources-meta {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}

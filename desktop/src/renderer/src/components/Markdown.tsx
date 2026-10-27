@@ -1,8 +1,14 @@
 import React from 'react';
+import type { WebReference } from '../../../shared/types';
 
-function inline(text: string, keyPrefix: string): React.ReactNode[] {
+interface InlineOptions {
+  citations?: WebReference[];
+  citePrefix?: string;
+}
+
+function inline(text: string, keyPrefix: string, options: InlineOptions = {}): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\d{1,2}\])/g;
   let last = 0;
   let index = 0;
   let match: RegExpExecArray | null;
@@ -16,8 +22,37 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
     } else if (token.startsWith('`')) {
       nodes.push(<code key={`${keyPrefix}-c-${index++}`}>{token.slice(1, -1)}</code>);
     } else {
-      const link = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/.exec(token);
-      if (link) {
+      const cite = /^\[(\d{1,2})\]$/.exec(token);
+      const reference = cite ? options.citations?.[Number(cite[1]) - 1] : undefined;
+      if (cite && reference) {
+        const marker = cite[1];
+        nodes.push(
+          <sup key={`${keyPrefix}-cite-${index++}`}>
+            <button
+              type="button"
+              className="cite-ref"
+              title={`${reference.title || reference.url}${
+                reference.site ? ` · ${reference.site}` : ''
+              }`}
+              onClick={() => {
+                const id = `cite-${options.citePrefix || 'default'}-${marker}`;
+                const target = document.getElementById(id);
+                if (target) {
+                  target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+                  target.classList.add('is-flash');
+                  window.setTimeout(() => target.classList.remove('is-flash'), 1200);
+                  return;
+                }
+                void window.bsub.openExternal(reference.url);
+              }}
+            >
+              {marker}
+            </button>
+          </sup>
+        );
+      } else {
+        const link = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/.exec(token);
+        if (link) {
         nodes.push(
           <a
             key={`${keyPrefix}-a-${index++}`}
@@ -30,8 +65,9 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
             {link[1]}
           </a>
         );
-      } else {
-        nodes.push(token);
+        } else {
+          nodes.push(token);
+        }
       }
     }
     last = match.index + token.length;
@@ -51,7 +87,17 @@ function isTableSeparator(line: string): boolean {
   return cells.length >= 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
 }
 
-export function Markdown({ content }: { content: string }) {
+export function Markdown({
+  content,
+  citations,
+  citePrefix
+}: {
+  content: string;
+  citations?: WebReference[];
+  citePrefix?: string;
+}) {
+  const renderInline = (text: string, keyPrefix: string) =>
+    inline(text, keyPrefix, { citations, citePrefix });
   const lines = content.replace(/\r\n/g, '\n').split('\n');
   const blocks: React.ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
@@ -61,7 +107,7 @@ export function Markdown({ content }: { content: string }) {
   const flushList = () => {
     if (!list) return;
     const items = list.items.map((item, index) => (
-      <li key={`li-${key}-${index}`}>{inline(item, `li-${key}-${index}`)}</li>
+      <li key={`li-${key}-${index}`}>{renderInline(item, `li-${key}-${index}`)}</li>
     ));
     blocks.push(
       list.ordered ? (
@@ -119,7 +165,7 @@ export function Markdown({ content }: { content: string }) {
             <thead>
               <tr>
                 {header.map((cell, index) => (
-                  <th key={`th-${index}`}>{inline(cell, `th-${key}-${index}`)}</th>
+                  <th key={`th-${index}`}>{renderInline(cell, `th-${key}-${index}`)}</th>
                 ))}
               </tr>
             </thead>
@@ -128,7 +174,7 @@ export function Markdown({ content }: { content: string }) {
                 <tr key={`tr-${rowIndex}`}>
                   {header.map((_, cellIndex) => (
                     <td key={`td-${rowIndex}-${cellIndex}`}>
-                      {inline(row[cellIndex] || '', `td-${rowIndex}-${cellIndex}`)}
+                      {renderInline(row[cellIndex] || '', `td-${rowIndex}-${cellIndex}`)}
                     </td>
                   ))}
                 </tr>
@@ -144,7 +190,7 @@ export function Markdown({ content }: { content: string }) {
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
     if (heading) {
       flushList();
-      const body = inline(heading[2], `h-${key}`);
+      const body = renderInline(heading[2], `h-${key}`);
       const level = heading[1].length;
       if (level === 1) blocks.push(<h1 key={`h-${key++}`}>{body}</h1>);
       else if (level === 2) blocks.push(<h2 key={`h-${key++}`}>{body}</h2>);
@@ -176,7 +222,7 @@ export function Markdown({ content }: { content: string }) {
     const quote = /^>\s?(.*)$/.exec(line);
     if (quote) {
       flushList();
-      blocks.push(<blockquote key={`quote-${key++}`}>{inline(quote[1], `q-${key}`)}</blockquote>);
+      blocks.push(<blockquote key={`quote-${key++}`}>{renderInline(quote[1], `q-${key}`)}</blockquote>);
       continue;
     }
 
@@ -187,7 +233,7 @@ export function Markdown({ content }: { content: string }) {
     }
 
     flushList();
-    blocks.push(<p key={`p-${key++}`}>{inline(line, `p-${key}`)}</p>);
+    blocks.push(<p key={`p-${key++}`}>{renderInline(line, `p-${key}`)}</p>);
   }
 
   flushList();
