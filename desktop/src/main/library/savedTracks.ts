@@ -41,6 +41,9 @@ function tracksOf(videoId: number): SubtitleTrack[] {
 export function listSavedTracks(info: PageInfo): SubtitleTrack[] {
   try {
     const database = requireDb();
+    // 页面脚本偶尔拿不到 bvid（SPA 刚切页/插件未注入），从 URL 里补一次。
+    const bvid =
+      info.bvid || (/BV[0-9A-Za-z]{10}/.exec(String(info.url || ''))?.[0] ?? '');
     const exact = database.prepare('SELECT id FROM videos WHERE uid = ?').get(uidOf(info)) as
       | { id?: number }
       | undefined;
@@ -50,17 +53,28 @@ export function listSavedTracks(info: PageInfo): SubtitleTrack[] {
     }
 
     // 同 bvid/epId：优先找确实有本地字幕的那条（例如旧版本按 cid=0 存过一次）。
-    if (info.bvid || info.epId) {
+    if (bvid || info.epId) {
       const siblings = database
         .prepare(
           'SELECT id FROM videos WHERE (bvid = ? OR ep_id = ?) AND id != ? ORDER BY updated_at DESC LIMIT 6'
         )
-        .all(info.bvid || '', Number(info.epId) || 0, Number(exact?.id) || 0) as Array<{
+        .all(bvid, Number(info.epId) || 0, Number(exact?.id) || 0) as Array<{
         id?: number;
       }>;
       for (const row of siblings) {
         if (!row.id) continue;
         const tracks = tracksOf(row.id);
+        if (tracks.length) return tracks;
+      }
+    }
+
+    // 老库的 bvid 字段可能为空，但 URL 里有 BV 号。
+    if (bvid) {
+      const byBvUrl = database
+        .prepare('SELECT id FROM videos WHERE url LIKE ? ORDER BY updated_at DESC LIMIT 1')
+        .get(`%${bvid}%`) as { id?: number } | undefined;
+      if (byBvUrl?.id) {
+        const tracks = tracksOf(byBvUrl.id);
         if (tracks.length) return tracks;
       }
     }

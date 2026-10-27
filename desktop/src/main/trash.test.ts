@@ -184,6 +184,35 @@ describe('转写字幕的 cid 回退', () => {
   });
 });
 
+describe('页面缺少 bvid 时的回退', () => {
+  it('从 URL 提取 bvid，仍能加载已保存转写', () => {
+    const savedInfo = { ...info, bvid: 'BV1url000001', cid: 11, title: 'URL 回退测试' };
+    const result = ingestVideo({
+      info: savedInfo,
+      track: {
+        lan: 'asr',
+        lanDoc: '语音转录',
+        url: 'library://pending-x',
+        isAi: false,
+        aiStatus: null,
+        source: 'asr'
+      },
+      lines: [{ start: 0, end: 1, text: '第一句' }]
+    });
+    const tracks = listSavedTracks({
+      ...savedInfo,
+      bvid: '',
+      cid: 0,
+      url: 'https://www.bilibili.com/video/BV1url000001/'
+    });
+    expect(tracks.length).toBe(1);
+    expect(tracks[0].url).toBe('library://track/' + result.trackId);
+    removeVideos([result.videoId]);
+    const entry = listTrash().find((item) => item.title === 'URL 回退测试');
+    if (entry) deleteTrash(entry.id);
+  });
+});
+
 describe('旧转写 URL 兼容', () => {
   it('pending URL 会映射成真实 track 地址', () => {
     const savedInfo = { ...info, bvid: 'BV1test00011', cid: 7, title: 'pending 兼容测试' };

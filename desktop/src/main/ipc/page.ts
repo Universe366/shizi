@@ -123,7 +123,17 @@ export function registerPageIpc(ctx: IpcContext): void {
     'page:saved-subtitles',
     async (_event, info: PageInfo): Promise<Result<SubtitleTrack[]>> => {
       try {
-        return { ok: true, data: listSavedTracks(info) };
+        const tracks = listSavedTracks(info);
+        console.log(
+          '[saved-subtitles]',
+          JSON.stringify({
+            bvid: info?.bvid || '',
+            cid: info?.cid ?? 0,
+            url: String(info?.url || '').slice(0, 80),
+            tracks: tracks.length
+          })
+        );
+        return { ok: true, data: tracks };
       } catch (error) {
         return failure<SubtitleTrack[]>(error);
       }

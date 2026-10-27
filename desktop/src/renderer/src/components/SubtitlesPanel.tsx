@@ -195,6 +195,11 @@ async function evaluateTracks(
 const isLocalTrack = (track: SubtitleTrack): boolean =>
   track.source === 'asr' || track.source === 'import' || track.url.startsWith('library://');
 
+export function bvidFromUrl(url: string): string {
+  const match = /BV[0-9A-Za-z]{10}/.exec(String(url || ''));
+  return match ? match[0] : '';
+}
+
 export const preferLocal = (tracks: SubtitleTrack[], failed: Set<string>): SubtitleTrack[] =>
   tracks
     .filter((track) => track.url && !failed.has(track.url))
@@ -741,11 +746,24 @@ export function SubtitlesPanel({
             aiStatus: null,
             source: cachedAsr?.source || 'asr'
           };
-          const savedInfo = infoData || info;
+          // 页面信息可能比字幕列表晚到；用当前标签页 URL 兜底，避免第一次加载时直接跳过本地转写。
+          const tabInfo = activeTab?.url
+            ? ({
+                url: activeTab.url,
+                bvid: bvidFromUrl(activeTab.url),
+                cid: 0,
+                epId: undefined,
+                title: ''
+              } as unknown as PageInfo)
+            : null;
+          const savedInfo = infoData || info || tabInfo;
           const savedResponse = savedInfo
             ? await window.bsub.savedSubtitles(savedInfo)
             : null;
           const savedTracks = savedResponse?.ok ? savedResponse.data : [];
+          if (savedResponse && !savedResponse.ok) {
+            console.warn('[saved-subtitles] 加载失败', savedResponse.error);
+          }
           const localTracks = [
             ...savedTracks.filter(
               (item) => !cachedAsr || (item.source !== 'asr' && item.source !== 'import')
@@ -1732,7 +1750,7 @@ export function SubtitlesPanel({
       )}
 
       {!loadingLines && track && lines.length === 0 && !error && (
-        <div className="panel-empty">这条字幕没有正文</div>
+        <div className="panel-empty">{error || '这条字幕没有正文'}</div>
       )}
 
       {!track && !loading && bundle && bundle.tracks.length === 0 && !bundle.needLogin && (
