@@ -79,6 +79,7 @@ import type {
   ChatAttachment,
   ChatCompareResult,
   KbChunk,
+  WebSearchDiagnostics,
   KbCard,
   KbDocument,
   KbQaEntry,
@@ -514,6 +515,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('kb:collection-videos', collectionId) as Promise<Result<number[]>>,
   kbExport: (format: 'markdown' | 'json') =>
     ipcRenderer.invoke('kb:export', format) as Promise<Result<string | null>>,
+  webMetrics: () =>
+    ipcRenderer.invoke('web:metrics') as Promise<Result<WebSearchDiagnostics>>,
+  webMetricsClear: () => ipcRenderer.invoke('web:metrics-clear') as Promise<Result<number>>,
+  webCacheClear: () => ipcRenderer.invoke('web:cache-clear') as Promise<Result<number>>,
   kbHistory: (payload?: { videoId?: number; limit?: number }) =>
     ipcRenderer.invoke('kb:history', payload) as Promise<Result<KbQaEntry[]>>,
   kbCards: (payload?: { dueOnly?: boolean; videoId?: number; limit?: number }) =>

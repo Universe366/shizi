@@ -10,6 +10,8 @@ import {
   runProviderSearch,
   withSearchSignal
 } from '../search';
+import { cachedDocument, rememberDocument } from './documents';
+import { recordSearch } from './metrics';
 import type { SearchPlanItem } from './plan';
 
 export interface WebSearchMeta {
@@ -309,10 +311,13 @@ export async function searchWebPlan(
   const evidence: WebEvidence[] = [];
   const fetched = await Promise.allSettled(
     ranked.slice(0, readCount).map(async (ref) => {
+      const cached = cachedDocument(ref.url);
+      if (cached) return { url: ref.url, text: cached, cached: true };
       const text = await withSearchSignal(options.signal, () =>
         fetchPageText(ref.url, Math.max(600, settings.search.snippetChars || 2000))
       );
-      return { url: ref.url, text };
+      if (text) rememberDocument(ref.url, text);
+      return { url: ref.url, text, cached: false };
     })
   );
   const pageText = new Map<string, string>();
@@ -332,18 +337,27 @@ export async function searchWebPlan(
     });
   });
 
-  return {
-    evidence,
-    meta: {
-      queries,
-      engine: platform.name || platform.kind || '检索',
-      fallback,
-      cached,
-      raw: raw.length,
-      deduped: deduped.length,
-      fetched: pageText.size,
-      elapsedMs: Date.now() - started,
-      failures
-    }
+  const meta: WebSearchMeta = {
+    queries,
+    engine: platform.name || platform.kind || '检索',
+    fallback,
+    cached,
+    raw: raw.length,
+    deduped: deduped.length,
+    fetched: pageText.size,
+    elapsedMs: Date.now() - started,
+    failures
   };
+  recordSearch({
+    queries,
+    engine: meta.engine,
+    fallback,
+    cached,
+    raw: meta.raw,
+    deduped: meta.deduped,
+    fetched: meta.fetched,
+    elapsedMs: meta.elapsedMs,
+    failures: failures.length
+  });
+  return { evidence, meta };
 }

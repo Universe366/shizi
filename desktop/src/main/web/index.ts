@@ -9,4 +9,6 @@ export {
   siteOf,
   sourceTypeOf
 } from './service';
-export type { SearchWebOptions, WebEvidence, WebSearchMeta, WebSearchResult } from './service';
+export type { SearchWebOptions, WebEvidence, WebSearchMeta, WebSearchResult } from './service';export { clearDocumentCache, documentCacheSize } from './documents';
+export { clearSearchMetrics, recentSearches, searchStats } from './metrics';
+export type { SearchMetric, SearchStats } from './metrics';

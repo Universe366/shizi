@@ -5,6 +5,7 @@ import type {
   SearchTimeRange,
   WebReference
 } from '../../../../shared/types';
+import { SearchDiagnostics } from './SearchDiagnostics';
 import { SettingsSection } from './SettingsSection';
 
 interface SearchSectionProps {
@@ -507,6 +508,7 @@ export function SearchSection({
       />
     </div>
   </details>
+  <SearchDiagnostics />
 </SettingsSection>
   );
 }

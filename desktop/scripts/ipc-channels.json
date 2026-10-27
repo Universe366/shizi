@@ -285,5 +285,8 @@
   "video:transcribe-local",
   "video:tts-voices",
   "voice:transcribe",
+  "web:cache-clear",
+  "web:metrics",
+  "web:metrics-clear",
   "window:foreground"
 ]

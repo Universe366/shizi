@@ -968,6 +968,34 @@ export interface VerificationItem {
   references: VerifiedReference[];
 }
 
+export interface WebSearchMetric {
+  at: number;
+  queries: string[];
+  engine: string;
+  fallback: boolean;
+  cached: boolean;
+  raw: number;
+  deduped: number;
+  fetched: number;
+  elapsedMs: number;
+  failures: number;
+}
+
+export interface WebSearchStats {
+  count: number;
+  avgLatency: number;
+  dedupeRate: number;
+  failureRate: number;
+  fetched: number;
+  lastAt: number | null;
+}
+
+export interface WebSearchDiagnostics {
+  stats: WebSearchStats;
+  recent: WebSearchMetric[];
+  cacheSize: number;
+}
+
 export interface VerificationSummary {
   items: VerificationItem[];
   /** 本次实际检索到的外部资料（总结侧「外部资料」面板） */

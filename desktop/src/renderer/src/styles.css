@@ -12454,3 +12454,58 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: var(--fs-xs);
 }
+
+/* ---------- 检索诊断 ---------- */
+.search-diag-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.search-diag-grid .settings-label {
+  margin-bottom: 2px;
+}
+
+.search-diag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0;
+}
+
+.search-diag-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+}
+
+.search-diag-time {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-diag-engine {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.search-diag-query {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.search-diag-stat {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}

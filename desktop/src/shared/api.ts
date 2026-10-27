@@ -107,6 +107,7 @@ import type {
   ChatCompareResult,
   KbCard,
   KbChunk,
+  WebSearchDiagnostics,
   KbQaEntry,
   KbDocument,
   KbLearningStatus,
@@ -342,6 +343,9 @@ export interface BsubApi {
   kbStatusSet(videoId: number, status: KbLearningStatus): Promise<Result<KbLearningStatus>>;
   kbCollectionVideos(collectionId: number): Promise<Result<number[]>>;
   kbExport(format: 'markdown' | 'json'): Promise<Result<string | null>>;
+  webMetrics(): Promise<Result<WebSearchDiagnostics>>;
+  webMetricsClear(): Promise<Result<number>>;
+  webCacheClear(): Promise<Result<number>>;
   kbHistory(payload?: { videoId?: number; limit?: number }): Promise<Result<KbQaEntry[]>>;
   kbCards(payload?: {
     dueOnly?: boolean;

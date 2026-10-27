@@ -1,4 +1,5 @@
 import { Markdown } from './Markdown';
+import { SourcesCard } from './SourcesCard';
 import { formatDateTime } from '../lib/format';
 import type { DiffOp } from '../lib/diff';
 import type { VerificationSummary } from '../../../shared/types';
@@ -91,8 +92,16 @@ export function LibrarySummaryTab({
           ))}
         </div>
       ) : (
-        <Markdown content={preview ? preview.content : summary.content} />
+        <Markdown
+          content={preview ? preview.content : summary.content}
+          citations={verification?.sources}
+          citePrefix="library"
+        />
       )}
+
+      {!preview && !diff && verification?.sources?.length ? (
+        <SourcesCard sources={verification.sources} citePrefix="library" />
+      ) : null}
 
       {!preview && !diff && verification && <VerifyCard verification={verification} />}
 

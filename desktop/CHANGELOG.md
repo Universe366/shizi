@@ -1,3 +1,12 @@
+## 0.41.0（2026-10-27）
+
+### 联网搜索 · 收尾三项
+
+- **provider 拆分**：`src/main/web/providers/` 下 13 个协议模块（deepseek/tavily/bocha/serper/zhipu/metaso/baidu/brave/exa/anysearch/jina/searxng/custom）+ 共享传输/解析层 + 注册表；`search.ts` 只保留兼容入口与通用检索逻辑。
+- **抓取缓存**：按 URL 缓存正文 6 小时（最多 120 篇），重复检索不再重复抓取；`web:cache-clear` 可手动清空。
+- **检索诊断**：记录每次计划的耗时、原始/去重条数、抓取数、失败数；设置 → 检索与知识 → 高级设置新增「检索诊断」（次数、平均耗时、去重率、失败率、缓存大小、最近记录），`web:metrics` / `web:metrics-clear`。
+- **资料库总结**：详情页总结复用「外部资料」面板与 `[n]` 引用定位。
+
 ## 0.40.1（2026-10-27）
 
 ### 联网资料 · 引用与来源面板

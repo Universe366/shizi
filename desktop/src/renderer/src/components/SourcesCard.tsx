@@ -11,7 +11,13 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 /** 总结下方的「外部资料」面板：只展示来源，不参与正文改写。 */
-export function SourcesCard({ sources }: { sources: WebReference[] }) {
+export function SourcesCard({
+  sources,
+  citePrefix = 'summary'
+}: {
+  sources: WebReference[];
+  citePrefix?: string;
+}) {
   if (!sources.length) return null;
   return (
     <details className="sources-card">
@@ -23,7 +29,7 @@ export function SourcesCard({ sources }: { sources: WebReference[] }) {
         {sources.map((source, index) => (
           <button
             key={`${index}-${source.url}`}
-            id={`cite-summary-${index + 1}`}
+            id={`cite-${citePrefix}-${index + 1}`}
             className="sources-row"
             title={source.url}
             onClick={() => void window.bsub.openExternal(source.url)}

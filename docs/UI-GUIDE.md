@@ -311,6 +311,8 @@ start-footnote   操作提示、导入导出设置
 - 结果元数据：`site / date / authority / rerank / summary / content / sourceType`；对话资料块要求用 `[n]` 标注来源。
 - `[n]` 渲染：`Markdown` 接收 `citations` 后把 `[n]` 渲染为 `.cite-ref` chip，点击滚动到来源并高亮（`SourcesCard` / 对话来源列表的 `id=cite-*`）。
 - 原则：外部资料只做补充与提示差异，不改写视频/字幕事实；总结里的「外部资料」与正文分开呈现。
+- provider 协议在 `main/web/providers/`（13 个模块 + `shared.ts` + `index.ts` 注册表）；新增一家只需加模块并在注册表登记。
+- 抓取正文按 URL 缓存 6 小时；设置「高级设置 → 检索诊断」可看次数/平均耗时/去重率/失败率/缓存大小，并可清空统计与缓存。
 
 ## 11. 长视频总结的 UI
 
@@ -340,7 +342,7 @@ start-footnote   操作提示、导入导出设置
 ## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 147 文件 / 842 用例）
+- `npm test`（当前 150 文件 / 848 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。
