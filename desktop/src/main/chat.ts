@@ -8,11 +8,11 @@ import type {
 import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream, chatToolLoop } from './aiClient';
-import type { AiMessage, AiPart, AiToolDef } from './aiClient';
+import type { AiMessage, AiPart } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
-import { parseAutoSearchIntent, shouldAutoSearch } from './search';
-import { buildSearchPlan, searchWebPlan } from './web';
+import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
+import { searchWebPlan } from './web';
 import type { WebSearchMeta } from './web';
 import { listMcpTools, callMcpTool } from './mcp';
 import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
@@ -26,22 +26,6 @@ import { toolNeedsApproval } from '../shared/mcpApproval';
 import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
 
 const MAX_HISTORY = 16;
-
-const WEB_SEARCH_TOOL: AiToolDef = {
-  name: 'app__web_search',
-  description:
-    '搜索公开网页获取最新或外部事实。可以多次调用、换关键词；结果里的 index 可用于引用 [n]。',
-  parameters: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: '自包含的搜索词，不要用“它/这个”等代词；需要时换语言或换关键词再搜一次'
-      }
-    },
-    required: ['query']
-  }
-};
 
 const UNBOUND_CHAT_PROMPT = `你是一个严谨、直接的中文助手。本轮没有视频字幕或页面正文可供依据：
 - 按用户的问题和联网结果回答；需要外部事实时使用联网参考并标注 [n]。
@@ -86,6 +70,43 @@ export interface ChatResult {
 }
 
 /** 解析「是否需要联网」的小模型输出；无法判断时交给规则兜底。 */
+async function planWebQueries(
+  platform: AiPlatform,
+  question: string,
+  info: PageInfo,
+  signal?: AbortSignal
+): Promise<string[]> {
+  const fallback = buildChatQuery(question, info);
+  try {
+    const result = await chatOnce(
+      platform,
+      [
+        {
+          role: 'system',
+          content:
+            '你是搜索词生成器。把用户问题改写成 1-3 条适合搜索引擎的短查询，' +
+            '保留实体、时间和要核实的限定；不要用代词，不要写解释。只输出 JSON 字符串数组。'
+        },
+        {
+          role: 'user',
+          content: `页面标题：${info.title || '未知'}\n用户问题：${question.slice(0, 500)}`
+        }
+      ],
+      { temperature: 0, maxTokens: 160, timeoutMs: 5000, signal, task: 'quick' }
+    );
+    const text = String(result.text || '').trim();
+    const match = /\[[\s\S]*\]/.exec(text);
+    const list = match ? (JSON.parse(match[0]) as unknown[]) : [];
+    const queries = (Array.isArray(list) ? list : [])
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.length >= 3 && item.length <= 80)
+      .slice(0, 3);
+    return queries.length ? queries : [fallback];
+  } catch {
+    return [fallback];
+  }
+}
+
 async function aiWantsSearch(
   platform: AiPlatform,
   question: string,
@@ -189,9 +210,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     webError = '联网检索没有启用，请到设置 → 检索与核对开启';
     options.onStatus?.(webError);
   }
-  // 用户显式点了「联网」：走 Cherry 式工具搜索，由模型决定搜什么、搜几次。
-  const useWebTool = options.web === true && settings.search.enabled;
-  if (wantsSearch && !useWebTool) {
+  if (wantsSearch) {
     const userMessages = options.messages.filter(
       (message) => message.role === 'user' && String(message.content || '').trim()
     );
@@ -199,15 +218,15 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       userMessages.length >= 2
         ? String(userMessages[userMessages.length - 2].content || '')
         : '';
-    const plan = buildSearchPlan(
+    // 让模型自己决定搜什么（像 Cherry 一样），但用流式回答，避免工具回合“没有中间输出”。
+    options.onStatus?.('正在理解问题…');
+    const queries = await planWebQueries(
+      platformForTask('quick', settings),
       previousQuestion ? `${previousQuestion} ${question}` : question,
-      {
-        title: options.info?.title,
-        partTitle: options.info?.partTitle,
-        timeRange: settings.search.timeRange,
-        maxQueries: settings.search.planQueries ?? 3
-      }
+      options.info,
+      options.signal
     );
+    const plan = queries.map((query) => ({ query, angle: 'base' as const }));
     options.onStatus?.(`联网检索：${plan.map((item) => item.query).join(' / ')}`);
     // 单独一个 controller：用户停止/18 秒超时都能真正中止底层 HTTP，而不是只放弃等待。
     const searchAbort = new AbortController();
@@ -217,7 +236,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     let searchMeta: WebSearchMeta | undefined;
     try {
       const result = await withDeadline(
-        searchWebPlan(settings, plan, { signal: searchAbort.signal, read: 3 }),
+        searchWebPlan(settings, plan, { signal: searchAbort.signal, read: 2 }),
         18000,
         options.signal,
         '联网检索超时',
@@ -317,9 +336,6 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               ])
         ]),
     pageBlock,
-    useWebTool
-      ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
-      : '',
     webBlock
       ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
       : '',
@@ -390,7 +406,6 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
 
   const localTools = [
     ...(appToolsEnabled ? APP_TOOL_DEFS : []),
-    ...(useWebTool ? [WEB_SEARCH_TOOL] : [])
   ];
 
   const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
@@ -438,44 +453,6 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           emitTool({ phase: 'done', name, detail: content.slice(0, 280), ok });
           return content;
         };
-        if (call.name === WEB_SEARCH_TOOL.name) {
-          const query = String(args.query || '').trim();
-          if (!query) return finish('query 不能为空', false);
-          options.onStatus?.(`联网检索：${query}`);
-          try {
-            const result = await searchWebPlan(settings, [{ query, angle: 'base' }], {
-              signal: options.signal,
-              maxResults: 6,
-              read: 2
-            });
-            const rows: Array<Record<string, unknown>> = [];
-            for (const item of result.evidence.slice(0, 6)) {
-              let index = references.findIndex((ref) => ref.url === item.url);
-              if (index < 0) {
-                references.push(item);
-                index = references.length - 1;
-              }
-              rows.push({
-                index: index + 1,
-                title: item.title,
-                url: item.url,
-                site: item.site,
-                date: item.date || null,
-                excerpt: String(item.content || item.summary || item.snippet || '')
-                  .replace(/\s+/g, ' ')
-                  .slice(0, 800)
-              });
-            }
-            webEngine = result.meta.engine || webEngine;
-            options.onStatus?.(`已找到 ${rows.length} 条网页结果`);
-            return finish(JSON.stringify({ query, results: rows }), true);
-          } catch (error) {
-            const message = (error as Error)?.message || String(error);
-            webError = message;
-            options.onStatus?.(`联网检索失败：${message}`);
-            return finish(`联网检索失败：${message}`, false);
-          }
-        }
         if (call.name.startsWith(APP_TOOL_PREFIX)) {
           try {
             return finish(await callAppTool(call.name, args));
