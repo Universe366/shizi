@@ -12987,3 +12987,41 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: var(--fs-xs);
 }
+
+.chat-compare-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.chat-compare-inline-col {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.chat-compare-inline-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.chat-compare-inline-title span {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.compare-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}

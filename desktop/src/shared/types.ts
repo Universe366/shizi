@@ -766,6 +766,7 @@ export interface StoredChatMessage {
   webNotice: string;
   tools: ChatToolRecord[];
   attachments: ChatAttachment[];
+  compare?: ChatCompareResult[];
   createdAt: number;
 }
 
@@ -1285,7 +1286,12 @@ export interface AppSettings {
     /** 助手档案 */
     profiles: AssistantProfile[];
     /** 按「平台/模型」覆盖自动识别的能力（图片/音频） */
-    capabilities: Record<string, { vision?: boolean; audio?: boolean }>;
+    capabilities: Record<string, {
+      vision?: boolean;
+      audio?: boolean;
+      /** 手动覆盖上下文窗口（token） */
+      contextWindow?: number;
+    }>;
   };
   usage: {
     /** 记录 token 用量（关闭后不再写库） */
@@ -1462,6 +1468,8 @@ export interface ChatMessage {
   tools?: ChatToolRecord[];
   /** 用户上传的文本附件（只保存截断后的文本） */
   attachments?: ChatAttachment[];
+  /** 多模型并行回答（一条消息内多列） */
+  compare?: ChatCompareResult[];
 }
 
 export interface ChatRequest {

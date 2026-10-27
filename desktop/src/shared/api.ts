@@ -566,6 +566,7 @@ export interface BsubApi {
       webNotice?: string;
       tools?: ChatToolRecord[];
       attachments?: ChatAttachment[];
+      compare?: ChatCompareResult[];
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;

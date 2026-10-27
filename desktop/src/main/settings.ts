@@ -892,15 +892,21 @@ function normalize(input: unknown): AppSettings {
     }
 
     if (raw.ai?.capabilities && typeof raw.ai.capabilities === 'object') {
-      const capabilities: Record<string, { vision?: boolean; audio?: boolean }> = {};
+      const capabilities: Record<
+        string,
+        { vision?: boolean; audio?: boolean; contextWindow?: number }
+      > = {};
       for (const [key, value] of Object.entries(
         raw.ai.capabilities as Record<string, unknown>
       ).slice(0, 500)) {
         if (!key || typeof value !== 'object' || !value) continue;
-        const row = value as { vision?: unknown; audio?: unknown };
-        const entry: { vision?: boolean; audio?: boolean } = {};
+        const row = value as { vision?: unknown; audio?: unknown; contextWindow?: unknown };
+        const entry: { vision?: boolean; audio?: boolean; contextWindow?: number } = {};
         if (typeof row.vision === 'boolean') entry.vision = row.vision;
         if (typeof row.audio === 'boolean') entry.audio = row.audio;
+        if (Number.isFinite(Number(row.contextWindow)) && Number(row.contextWindow) > 0) {
+          entry.contextWindow = Math.min(10_000_000, Math.round(Number(row.contextWindow)));
+        }
         if (Object.keys(entry).length) capabilities[String(key).slice(0, 200)] = entry;
       }
       base.ai.capabilities = capabilities;

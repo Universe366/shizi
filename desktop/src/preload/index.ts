@@ -746,6 +746,7 @@ const api: BsubApi = {
       sources?: WebReference[];
       webEngine?: string;
       webNotice?: string;
+      compare?: ChatCompareResult[];
       tools?: ChatToolRecord[];
       attachments?: ChatAttachment[];
     }

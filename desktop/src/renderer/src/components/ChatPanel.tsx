@@ -4,9 +4,9 @@ import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, Captions, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
+  effectiveContextWindow,
   effectiveModelCapabilities,
-  formatContextWindow,
-  inferContextWindow
+  formatContextWindow
 } from '../../../shared/modelCapabilities';
 import type {
   AiPlatform,
@@ -127,7 +127,8 @@ function fromStoredMessage(row: StoredChatMessage): ChatMessage {
     ...(row.webEngine ? { webEngine: row.webEngine } : {}),
     ...(row.webNotice ? { webNotice: row.webNotice } : {}),
     ...(row.tools.length ? { tools: row.tools } : {}),
-    ...(row.attachments.length ? { attachments: row.attachments } : {})
+    ...(row.attachments.length ? { attachments: row.attachments } : {}),
+    ...(row.compare?.length ? { compare: row.compare } : {})
   };
 }
 
@@ -241,7 +242,7 @@ export function ChatPanel({
     model: string;
   } | null>(null);
   const [capabilityOverrides, setCapabilityOverrides] = useState<
-    Record<string, { vision?: boolean; audio?: boolean }>
+    Record<string, { vision?: boolean; audio?: boolean; contextWindow?: number }>
   >({});
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareSelection, setCompareSelection] = useState<string[]>(() => {
@@ -499,6 +500,29 @@ export function ChatPanel({
     } finally {
       setComparing(false);
     }
+  };
+
+  const saveComparisonAll = async (): Promise<void> => {
+    const question = comparison?.question;
+    const results = comparison?.results || [];
+    if (!question || !results.length) return;
+    const last = messages[messages.length - 1];
+    const hasUser = last?.role === 'user' && last.content === question;
+    const base = hasUser ? messages : [...messages, { role: 'user' as const, content: question }];
+    setMessages([...base, { role: 'assistant', content: '', compare: results }]);
+    const conversation = await ensureConversation(question);
+    if (conversation) {
+      if (!hasUser) {
+        await window.bsub.chatHistoryAppend(conversation, { role: 'user', content: question });
+      }
+      await window.bsub.chatHistoryAppend(conversation, {
+        role: 'assistant',
+        content: '',
+        compare: results
+      });
+      void refreshConversations();
+    }
+    setComparison(null);
   };
 
   const adoptComparison = async (result: ChatCompareResult): Promise<void> => {
@@ -1500,11 +1524,32 @@ export function ChatPanel({
                     {message.reasoning && (
                       <ReasoningBlock text={message.reasoning} defaultOpen={expandReasoning} />
                     )}
-                    <Markdown
-                      content={message.content}
-                      citations={safeSources(message.sources)}
-                      citePrefix={`m${index}`}
-                    />
+                    {message.compare?.length ? (
+                      <div className="chat-compare-inline">
+                        {message.compare.map((result) => (
+                          <div
+                            key={`${result.platformId}:${result.model}`}
+                            className="chat-compare-inline-col"
+                          >
+                            <div className="chat-compare-inline-title">
+                              {result.platformName}
+                              <span>{result.model}</span>
+                            </div>
+                            {result.error ? (
+                              <div className="compare-error">{result.error}</div>
+                            ) : (
+                              <Markdown content={result.text} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <Markdown
+                        content={message.content}
+                        citations={safeSources(message.sources)}
+                        citePrefix={`m${index}`}
+                      />
+                    )}
                     {safeSources(message.sources).length > 0 && (
                       <div className="chat-sources">
                         <div className="chat-sources-title">
@@ -2185,7 +2230,13 @@ export function ChatPanel({
                                   model,
                                   capabilityOverrides[capabilityKey(platform.id, model)]
                                 );
-                                const context = formatContextWindow(inferContextWindow(model));
+                                const context = formatContextWindow(
+                                  effectiveContextWindow(
+                                    model,
+                                    capabilityOverrides[capabilityKey(platform.id, model)]
+                                      ?.contextWindow
+                                  )
+                                );
                                 return (
                                   <>
                                     {context && (
@@ -2361,6 +2412,14 @@ export function ChatPanel({
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="compare-footer">
+              <button
+                className="mini-btn primary"
+                onClick={() => void saveComparisonAll()}
+              >
+                全部保存到对话
+              </button>
             </div>
           </div>
         </div>

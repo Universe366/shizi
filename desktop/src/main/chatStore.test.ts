@@ -161,6 +161,27 @@ describe('对话持久化', () => {
     expect(branch?.title).toContain('分支');
   });
 
+  it('多模型并行结果可持久化并随分叉复制', () => {
+    const conversation = createConversation({ title: '并行' });
+    appendMessage(conversation.id, {
+      role: 'assistant',
+      content: '',
+      compare: [
+        {
+          platformId: 'p1',
+          platformName: 'P1',
+          model: 'm1',
+          text: '答案一',
+          error: ''
+        }
+      ]
+    });
+    const rows = listMessages(conversation.id);
+    expect(rows[0].compare?.[0]?.text).toBe('答案一');
+    const branch = branchConversation(conversation.id, 1);
+    expect(listMessages(branch!.id)[0].compare?.[0]?.model).toBe('m1');
+  });
+
   it('导出 Markdown 带标题、对话与来源', () => {
     const conversation = createConversation({
       title: '导出测试',

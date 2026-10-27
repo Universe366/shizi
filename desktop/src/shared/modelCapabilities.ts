@@ -56,6 +56,11 @@ export function inferContextWindow(model: string): number {
   return 0;
 }
 
+export function effectiveContextWindow(model: string, override?: number): number {
+  if (Number.isFinite(override) && Number(override) > 0) return Number(override);
+  return inferContextWindow(model);
+}
+
 export function formatContextWindow(tokens: number): string {
   if (!tokens) return '';
   if (tokens >= 1_000_000) return `${Math.round(tokens / 1_000_000)}M`;

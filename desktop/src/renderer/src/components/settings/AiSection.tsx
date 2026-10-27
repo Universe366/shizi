@@ -6,6 +6,7 @@ import { ProviderBrandIcon } from './ProviderBrandIcon';
 import { ModelChips, SettingsSection } from './SettingsSection';
 import {
   capabilityKey,
+  effectiveContextWindow,
   effectiveModelCapabilities,
   formatContextWindow,
   inferContextWindow,
@@ -47,6 +48,14 @@ export function AiSection({
   platformStatus
 }: AiSectionProps) {
   const [newModel, setNewModel] = useState('');
+  const moveModel = (index: number, delta: number) => {
+    if (!active) return;
+    const models = [...(active.models || [])];
+    const target = index + delta;
+    if (target < 0 || target >= models.length) return;
+    [models[index], models[target]] = [models[target], models[index]];
+    updatePlatform({ models });
+  };
   const [providerQuery, setProviderQuery] = useState('');
   const [scanningLocal, setScanningLocal] = useState(false);
   const [localScan, setLocalScan] = useState<
@@ -419,16 +428,37 @@ export function AiSection({
     </div>
     {(active.models || []).length > 0 && (
       <div className="ai-model-list">
-        {(active.models || []).map((modelName) => (
+        {(active.models || []).map((modelName, index) => (
           <span className="ai-model-chip" key={modelName}>
             {modelName}
+            <button
+              type="button"
+              title="上移"
+              disabled={index === 0}
+              onClick={() => moveModel(index, -1)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              title="下移"
+              disabled={index === (active.models || []).length - 1}
+              onClick={() => moveModel(index, 1)}
+            >
+              ↓
+            </button>
             {(() => {
               const capability = effectiveModelCapabilities(
                 active.kind,
                 modelName,
                 draft.ai.capabilities?.[capabilityKey(active.id, modelName)]
               );
-              const context = formatContextWindow(inferContextWindow(modelName));
+              const context = formatContextWindow(
+                effectiveContextWindow(
+                  modelName,
+                  draft.ai.capabilities?.[capabilityKey(active.id, modelName)]?.contextWindow
+                )
+              );
               return (
                 <>
                   {context && <span className="ai-model-tag">{context}</span>}
@@ -460,9 +490,10 @@ export function AiSection({
     {(() => {
       const key = capabilityKey(active.id, active.model);
       const inferred = inferModelCapabilities(active.kind, active.model);
+      const inferredContext = inferContextWindow(active.model);
       const override = draft.ai.capabilities?.[key] || {};
       const capability = effectiveModelCapabilities(active.kind, active.model, override);
-      const setCapability = (patch: { vision?: boolean; audio?: boolean }) =>
+      const setCapability = (patch: { vision?: boolean; audio?: boolean; contextWindow?: number }) =>
         updateAi({
           capabilities: {
             ...(draft.ai.capabilities || {}),
@@ -500,6 +531,25 @@ export function AiSection({
           </div>
           <div className="settings-hint">
             识别依据模型名（如 gpt-4o / claude / gemini / qwen-vl）；识别不准时在这里改。
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">上下文窗口（k tokens，留空自动）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={4096}
+              placeholder={
+                inferredContext ? `自动：${formatContextWindow(inferredContext)}` : '自动识别'
+              }
+              value={override.contextWindow ? Math.round(override.contextWindow / 1000) : ''}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                setCapability({
+                  contextWindow: value > 0 ? Math.round(value * 1000) : undefined
+                });
+              }}
+            />
           </div>
         </div>
       );

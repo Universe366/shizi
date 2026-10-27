@@ -4,6 +4,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type {
   ChatAttachment,
+  ChatCompareResult,
   ChatConversation,
   ChatToolRecord,
   StoredChatMessage,
@@ -46,6 +47,7 @@ function db(): DatabaseSync | null {
         sources_json TEXT NOT NULL DEFAULT '[]',
         web_engine TEXT NOT NULL DEFAULT '',
         web_notice TEXT NOT NULL DEFAULT '',
+        compare_json TEXT NOT NULL DEFAULT '[]',
         created_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id);
@@ -62,6 +64,9 @@ function db(): DatabaseSync | null {
       database.exec(
         "ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'"
       );
+    }
+    if (!columns.some((column) => column.name === 'compare_json')) {
+      database.exec("ALTER TABLE messages ADD COLUMN compare_json TEXT NOT NULL DEFAULT '[]'");
     }
     const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all() as Array<{
       name?: string;
@@ -237,6 +242,7 @@ interface MessageRow {
   web_notice: string;
   tools_json: string;
   attachments_json: string;
+  compare_json: string;
   created_at: number;
 }
 
@@ -263,6 +269,7 @@ function mapMessage(row: MessageRow): StoredChatMessage {
     webNotice: String(row.web_notice || ''),
     tools: parseJsonArray<ChatToolRecord>(row.tools_json),
     attachments: parseJsonArray<ChatAttachment>(row.attachments_json),
+    compare: parseJsonArray<ChatCompareResult>(row.compare_json),
     createdAt: Number(row.created_at) || 0
   };
 }
@@ -293,13 +300,14 @@ export function appendMessage(
     webNotice?: string;
     tools?: ChatToolRecord[];
     attachments?: ChatAttachment[];
+    compare?: ChatCompareResult[];
   }
 ): StoredChatMessage {
   const now = Date.now();
   const statement = db()?.prepare(
     `INSERT INTO messages
-       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, compare_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -314,6 +322,7 @@ export function appendMessage(
     String(message.webNotice || ''),
     JSON.stringify(message.tools || []),
     JSON.stringify(message.attachments || []),
+    JSON.stringify(message.compare || []),
     now
   );
   try {
@@ -336,6 +345,7 @@ export function appendMessage(
     webNotice: String(message.webNotice || ''),
     tools: message.tools || [],
     attachments: message.attachments || [],
+    compare: message.compare || [],
     createdAt: now
   };
 }
@@ -364,7 +374,8 @@ export function branchConversation(sourceId: number, keep: number): ChatConversa
       webEngine: row.webEngine,
       webNotice: row.webNotice,
       tools: row.tools,
-      attachments: row.attachments
+      attachments: row.attachments,
+      compare: row.compare
     });
   }
   return { ...created, messageCount: rows.length };
