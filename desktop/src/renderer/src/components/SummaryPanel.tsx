@@ -700,9 +700,12 @@ export function SummaryPanel({
 
       {!streaming &&
         verification &&
-        (verification.items.length > 0 ||
-          verification.references.length > 0 ||
-          Boolean(verification.error)) && <VerifyCard verification={verification} />}
+        !(
+          verification.sources?.length &&
+          verification.items.length === 0 &&
+          verification.references.length === 0 &&
+          !verification.error
+        ) && <VerifyCard verification={verification} />}
 
       {!streaming && summary && (
         <div className="summary-content">

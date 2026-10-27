@@ -574,7 +574,14 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
           (done, total, query) =>
             options.onStatus?.(`联网核对 ${done}/${total}：${query.slice(0, 28)}`)
         );
-        verification = { ...verified, sources: verified.references };
+        const searchPlatform =
+          settings.search.platforms.find((item) => item.id === settings.search.activeId) ||
+          settings.search.platforms[0];
+        verification = {
+          ...verified,
+          sources: verified.references,
+          engine: searchPlatform?.name || searchPlatform?.kind || ''
+        };
         referencesBlock = buildVerifyBlock(verified);
         if (referencesBlock) {
           options.onStatus?.(

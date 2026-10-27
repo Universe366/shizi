@@ -1009,6 +1009,8 @@ export interface VerificationSummary {
   error?: string;
   /** 非致命提示（例如语义判定返回格式异常，证据已保留） */
   note?: string;
+  /** 本次使用的检索平台名 */
+  engine?: string;
 }
 
 export interface CorrectionRule {

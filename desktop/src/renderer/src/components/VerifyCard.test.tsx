@@ -87,6 +87,54 @@ describe('VerifyCard', () => {
 
   it('旧数据缺字段时只显示空状态，不崩溃', () => {
     render(<VerifyCard verification={{ } as never} />);
-    expect(screen.getByText(/本次没有取得可用证据/)).toBeTruthy();
+    expect(screen.getByText(/没有从字幕里抽到可核实项|本次没有取得可用证据/)).toBeTruthy();
+  });
+});
+
+describe('VerifyCard 空状态诊断', () => {
+  afterEach(cleanup);
+
+  it('全部检索失败时给出原因、引擎与检索词', () => {
+    render(
+      <VerifyCard
+        verification={summary({
+          items: [
+            { label: 'ASR 价格', query: 'ASR 价格 2026', line: '这个工具只要 99 元', references: [] },
+            { label: '模型版本', query: '模型版本 2026', line: '最新版本是 4.0', references: [] }
+          ],
+          references: [],
+          attempted: 2,
+          failed: 2,
+          judged: false,
+          dropped: 0,
+          engine: 'Exa'
+        })}
+      />
+    );
+    expect(screen.getByText(/检索全部失败/)).toBeTruthy();
+    expect(screen.getByText('检索：Exa')).toBeTruthy();
+    expect(screen.getByText('ASR 价格')).toBeTruthy();
+    expect(screen.getAllByText('这一项没有检索到证据')).toHaveLength(2);
+  });
+
+  it('证据被判定全部丢弃时单独说明', () => {
+    render(
+      <VerifyCard
+        verification={summary({
+          items: [{ label: '结论', query: '结论', line: '字幕原句', references: [] }],
+          references: [],
+          attempted: 1,
+          judged: true,
+          dropped: 3,
+          failed: 0
+        })}
+      />
+    );
+    expect(screen.getByText(/都被判定为无关/)).toBeTruthy();
+  });
+
+  it('没有抽到可核实项时给出提示', () => {
+    render(<VerifyCard verification={summary({ items: [], references: [], attempted: 0 })} />);
+    expect(screen.getByText(/没有从字幕里抽到可核实项/)).toBeTruthy();
   });
 });
