@@ -2,7 +2,8 @@ import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '..
 import { activePrompt, loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream } from './aiClient';
-import { buildSearchPlan, searchWebPlan } from './web';
+import { buildSearchPlan } from './web';
+import { retrieveEvidence } from './web/retrieve';
 import { buildVerifyBlock, verifySummary } from './verify';
 import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
@@ -618,7 +619,11 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
           timeRange: settings.search.timeRange,
           maxQueries: settings.search.planQueries ?? 3
         });
-        const result = await searchWebPlan(settings, plan, { signal: options.signal, read: 2 });
+        const result = await retrieveEvidence(settings, {
+          purpose: 'summary',
+          queries: plan.map((item) => item.query),
+          signal: options.signal
+        });
         const references = result.evidence;
         if (references.length) {
           let budget = 6000;

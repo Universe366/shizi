@@ -10,7 +10,9 @@ import type {
 import { platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce } from './aiClient';
-import { rankReferences, searchWeb, withSearchSignal } from './search';
+import { withSearchSignal } from './search';
+import { rankEvidence } from './web';
+import { retrieveEvidence } from './web/retrieve';
 import { withDeadline } from './async';
 
 const STOPWORDS = new Set([
@@ -220,23 +222,6 @@ async function mapLimit<T, R>(
   });
   await Promise.all(runners);
   return out;
-}
-
-function relevant(query: string, reference: WebReference): boolean {
-  const hay = normalizeMatch(`${reference.title} ${reference.snippet}`);
-  if (!hay) return false;
-  const { strong, cjk } = queryTokens(query);
-  if (!strong.length && !cjk.length) return false;
-  if (strong.length) {
-    const hits = strong.filter((term) => hay.includes(term)).length;
-    if (hits === 0) return false;
-  }
-  if (cjk.length) {
-    const hits = cjk.filter((term) => hay.includes(term)).length;
-    if (hits === 0) return false;
-    if (cjk.length >= 4 && hits / cjk.length < 0.25) return false;
-  }
-  return true;
 }
 
 function evidenceText(reference: WebReference): string {
@@ -767,6 +752,7 @@ export async function verifySummary(
       : item.query;
     const label = item.label || item.query;
     let raw: WebReference[] | null = null;
+    // 与对话/总结共用同一套联网规则（查询清洗、排序、正文读取、预算）。
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const searchAbort = new AbortController();
       const forwardAbort = () => searchAbort.abort(signal?.reason);
@@ -775,7 +761,14 @@ export async function verifySummary(
       try {
         // 单个核对项最多等 15 秒；超时/取消都会真正中止底层 HTTP。
         raw = await withDeadline(
-          withSearchSignal(searchAbort.signal, () => searchWeb(settings, searchQuery)),
+          withSearchSignal(searchAbort.signal, async () => {
+            const result = await retrieveEvidence(settings, {
+              purpose: 'verify',
+              queries: [searchQuery],
+              signal: searchAbort.signal
+            });
+            return result.evidence;
+          }),
           15000,
           signal,
           '检索超时',
@@ -804,10 +797,9 @@ export async function verifySummary(
     }
     let refs = raw;
     const pickReferences = (query: string) =>
-      rankReferences(query, refs)
-        .filter((reference) => relevant(query, reference))
+      rankEvidence(refs, [query])
         .slice(0, 4)
-        .map((reference) => ({ ...reference, site: siteOf(reference.url) }));
+        .map((reference) => ({ ...reference, site: reference.site || siteOf(reference.url) }));
     let ranked = pickReferences(searchQuery);
     if (!ranked.length) {
       // 原查询太窄（引号、年份、长尾修饰）时，用去掉年份/引号的简化词再试一次。
@@ -825,7 +817,14 @@ export async function verifySummary(
           signal?.addEventListener('abort', forwardRetry, { once: true });
           try {
             const more = await withDeadline(
-              withSearchSignal(retryAbort.signal, () => searchWeb(settings, simplified)),
+              withSearchSignal(retryAbort.signal, async () => {
+                const result = await retrieveEvidence(settings, {
+                  purpose: 'verify',
+                  queries: [simplified],
+                  signal: retryAbort.signal
+                });
+                return result.evidence;
+              }),
               12000,
               signal,
               '检索超时',

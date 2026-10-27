@@ -12,7 +12,7 @@ import type { AiMessage, AiPart, AiToolDef } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
 import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
-import { searchWebPlan } from './web';
+import { retrieveEvidence } from './web/retrieve';
 import type { WebSearchMeta } from './web';
 import { listMcpTools, callMcpTool } from './mcp';
 import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
@@ -254,7 +254,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     let searchMeta: WebSearchMeta | undefined;
     try {
       const result = await withDeadline(
-        searchWebPlan(settings, plan, { signal: searchAbort.signal, read: 2 }),
+        retrieveEvidence(settings, {
+          purpose: 'chat',
+          queries: plan.map((item) => item.query),
+          signal: searchAbort.signal
+        }),
         18000,
         options.signal,
         '联网检索超时',
@@ -492,10 +496,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           webSearchCalls += 1;
           options.onStatus?.(`联网检索：${query}`);
           try {
-            const result = await searchWebPlan(settings, [{ query, angle: 'base' }], {
-              signal: options.signal,
-              maxResults: 6,
-              read: 2
+            const result = await retrieveEvidence(settings, {
+              purpose: 'chat',
+              queries: [query],
+              signal: options.signal
             });
             const rows: Array<Record<string, unknown>> = [];
             for (const item of result.evidence.slice(0, 6)) {
