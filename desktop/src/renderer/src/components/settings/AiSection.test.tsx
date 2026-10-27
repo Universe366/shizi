@@ -75,6 +75,26 @@ describe('AiSection', () => {
     expect(p.testConnection).toHaveBeenCalledWith('ai');
   });
 
+  it('可以停用非当前服务商', () => {
+    const two = {
+      ...draft,
+      ai: {
+        ...draft.ai,
+        platforms: [platform, { ...platform, id: 'ai2', name: '备用平台' }]
+      }
+    } as unknown as AppSettings;
+    const p = props({ draft: two });
+    render(<AiSection {...p} />);
+    const toggle = screen.getByTitle('停用这个服务商').querySelector('input') as HTMLInputElement;
+    fireEvent.click(toggle);
+    expect(p.updateAi).toHaveBeenCalledWith({
+      platforms: [
+        platform,
+        { ...platform, id: 'ai2', name: '备用平台', enabled: false }
+      ]
+    });
+  });
+
   it('本地模型按钮新增并切换到 Ollama', () => {
     const p = props();
     render(<AiSection {...p} />);

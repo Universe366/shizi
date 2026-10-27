@@ -653,6 +653,8 @@ export interface AiPlatform {
   extraKeys?: string[];
   /** Azure OpenAI 的 api-version（kind=azure 时使用） */
   apiVersion?: string;
+  /** 是否在模型选择/对比里启用；默认 true，当前平台不可停用 */
+  enabled?: boolean;
 }
 
 /** 可以单独指定模型的 AI 任务；没配置就跟随「当前平台」。 */

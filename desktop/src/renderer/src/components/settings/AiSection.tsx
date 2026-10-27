@@ -1,4 +1,4 @@
-import { Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
+import { Bot, Cpu, Gem, Loader2, Plus, RefreshCw, Server, Sparkles, Trash2, Wifi } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AiPlatform, AppSettings } from '../../../../shared/types';
@@ -134,39 +134,90 @@ export function AiSection({
       </button>
     </div>
     <div className="ai-provider-list">
-      {filteredPlatforms.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={`ai-provider-row${active.id === item.id ? ' is-active' : ''}`}
-          onClick={() => setEditingAiId(item.id)}
-        >
-          <span className="ai-provider-logo">{item.name.slice(0, 1)}</span>
-          <span className="ai-provider-main">
-            <span className="ai-provider-name">{item.name}</span>
-            <span className="ai-provider-meta">
-              {item.model || '未填模型'} · {item.kind || 'OpenAI 兼容'}
-            </span>
-          </span>
-          <span
-            className={`ai-provider-status${
-              item.id === draft.ai.activeId
-                ? ' is-current'
-                : item.apiKey || /127\.0\.0\.1|localhost/.test(item.baseUrl)
-                  ? ' is-ok'
-                  : ''
+      {filteredPlatforms.map((item) => {
+        const key = `${item.name}${item.kind || ''}`.toLowerCase();
+        const Icon = /ollama|lm ?studio|llama|本地/.test(key)
+          ? Cpu
+          : item.kind === 'gemini'
+            ? Gem
+            : item.kind === 'anthropic'
+              ? Bot
+              : /openai|azure|deepseek|qwen|glm/.test(key)
+                ? Sparkles
+                : Server;
+        const hue = [...item.name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+        return (
+          <div
+            key={item.id}
+            className={`ai-provider-row${active.id === item.id ? ' is-active' : ''}${
+              item.enabled === false ? ' is-disabled' : ''
             }`}
           >
-            {item.id === draft.ai.activeId
-              ? '使用中'
-              : item.apiKey
-                ? '已配 Key'
-                : /127\.0\.0\.1|localhost/.test(item.baseUrl)
-                  ? '本地'
-                  : '未配 Key'}
-          </span>
-        </button>
-      ))}
+            <button
+              type="button"
+              className="ai-provider-select"
+              onClick={() => setEditingAiId(item.id)}
+            >
+              <span
+                className="ai-provider-logo"
+                style={{ background: `hsl(${hue} 42% 46%)` }}
+              >
+                <Icon size={13} />
+              </span>
+              <span className="ai-provider-main">
+                <span className="ai-provider-name">{item.name}</span>
+                <span className="ai-provider-meta">
+                  {item.model || '未填模型'} · {item.kind || 'OpenAI 兼容'}
+                </span>
+              </span>
+              <span
+                className={`ai-provider-status${
+                  item.id === draft.ai.activeId
+                    ? ' is-current'
+                    : item.apiKey || /127\.0\.0\.1|localhost/.test(item.baseUrl)
+                      ? ' is-ok'
+                      : ''
+                }`}
+              >
+                {item.id === draft.ai.activeId
+                  ? '使用中'
+                  : item.enabled === false
+                    ? '已停用'
+                    : item.apiKey
+                      ? '已配 Key'
+                      : /127\.0\.0\.1|localhost/.test(item.baseUrl)
+                        ? '本地'
+                        : '未配 Key'}
+              </span>
+            </button>
+            <label
+              className="ai-provider-toggle"
+              title={
+                item.id === draft.ai.activeId
+                  ? '当前使用中，不能停用'
+                  : item.enabled === false
+                    ? '启用这个服务商'
+                    : '停用这个服务商'
+              }
+              onClick={(event) => event.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={item.enabled !== false}
+                disabled={item.id === draft.ai.activeId}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  updateAi({
+                    platforms: draft.ai.platforms.map((platform) =>
+                      platform.id === item.id ? { ...platform, enabled } : platform
+                    )
+                  });
+                }}
+              />
+            </label>
+          </div>
+        );
+      })}
       {!filteredPlatforms.length && <div className="settings-hint">没有匹配的平台。</div>}
     </div>
     {localScan.length > 0 && (

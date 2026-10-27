@@ -807,6 +807,7 @@ function normalize(input: unknown): AppSettings {
           keyUrl: String(item.keyUrl || preset?.keyUrl || ''),
           kind: String(item.kind || preset?.kind || ''),
           apiVersion: String(item.apiVersion || preset?.apiVersion || ''),
+          enabled: item.enabled !== false,
           extraKeys: Array.isArray(item.extraKeys)
             ? item.extraKeys
                 .map((key) => String(key || '').trim())
@@ -821,6 +822,8 @@ function normalize(input: unknown): AppSettings {
     base.ai.activeId = base.ai.platforms.some((platform) => platform.id === active)
       ? active
       : base.ai.platforms[0].id;
+    const activePlatform = base.ai.platforms.find((platform) => platform.id === base.ai.activeId);
+    if (activePlatform) activePlatform.enabled = true;
 
     const presetVersion = Number(raw.ai?.presetVersion) || 0;
     if (presetVersion < AI_PRESET_VERSION) {
@@ -1658,7 +1661,9 @@ export function platformForTask(task: AiTask, settings: AppSettings = loadSettin
   const override = settings.ai.taskModels?.[task];
   if (!override) return base;
   const platform = override.platformId
-    ? settings.ai.platforms.find((item) => item.id === override.platformId)
+    ? settings.ai.platforms.find(
+        (item) => item.id === override.platformId && item.enabled !== false
+      )
     : undefined;
   const target = platform || base;
   const model = override.model.trim() || (platform ? platform.model : base.model);

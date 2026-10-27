@@ -11,6 +11,9 @@ interface Props {
 export function TaskModelSection({ value, updateAi }: Props) {
   const current =
     value.platforms.find((platform) => platform.id === value.activeId) || value.platforms[0];
+  const enabledPlatforms = value.platforms.filter(
+    (platform) => platform.enabled !== false || platform.id === value.activeId
+  );
 
   const patchTask = (task: AiTask, platformId: string, model: string) => {
     const next = { ...(value.taskModels || {}) };
@@ -57,7 +60,7 @@ export function TaskModelSection({ value, updateAi }: Props) {
                     }
                   >
                     <option value="">跟随当前平台</option>
-                    {value.platforms.map((item) => (
+                    {enabledPlatforms.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name}
                       </option>

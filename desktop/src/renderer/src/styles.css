@@ -12831,3 +12831,40 @@ sup:has(> .cite-ref) {
 .ai-model-chip button:hover {
   color: var(--danger, var(--accent));
 }
+
+.ai-provider-row {
+  padding: 0;
+}
+
+.ai-provider-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-provider-row.is-disabled .ai-provider-select {
+  opacity: 0.5;
+}
+
+.ai-provider-toggle {
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  cursor: pointer;
+}
+
+.ai-provider-toggle input {
+  cursor: pointer;
+}
+
+.ai-provider-toggle input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
