@@ -55,7 +55,7 @@ export function SearchDiagnostics() {
     <details className="settings-advanced">
       <summary>检索诊断</summary>
       <div className="settings-hint">
-        只统计当前会话内的检索计划：耗时、去重率与失败率，用于判断 provider 与计划条数是否合适。
+        统计会跨会话保留（最近 200 次）：耗时、去重率与失败率，用于判断 provider 与计划条数是否合适。
       </div>
       {data && data.stats.count > 0 ? (
         <>

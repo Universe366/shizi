@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TabManager } from './tabs';
 import { registerIpc } from './ipc';
+import { hydrateMetrics } from './web';
 import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
@@ -216,6 +217,7 @@ function createWindow(): void {
       }
     }
   );
+  void hydrateMetrics();
   registerIpc(mainWindow, tabManager);
   initDictation(mainWindow, loadSettings());
   applyQuickAsk(loadSettings());

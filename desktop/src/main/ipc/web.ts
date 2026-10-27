@@ -4,6 +4,7 @@ import {
   clearDocumentCache,
   clearSearchMetrics,
   documentCacheSize,
+  hydrateMetrics,
   recentSearches,
   searchStats
 } from '../web';
@@ -13,7 +14,8 @@ function ok<T>(data: T): Result<T> {
 }
 
 export function registerWebIpc(): void {
-  ipcMain.handle('web:metrics', (): Result<WebSearchDiagnostics> => {
+  ipcMain.handle('web:metrics', async (): Promise<Result<WebSearchDiagnostics>> => {
+    await hydrateMetrics();
     return ok({
       stats: searchStats(),
       recent: recentSearches(30),
