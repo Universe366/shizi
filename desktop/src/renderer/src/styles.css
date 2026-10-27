@@ -623,7 +623,6 @@ button:disabled {
 .tab-empty,
 .tab-menu-empty,
 .workbench-empty,
-.renders-empty,
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -7455,16 +7454,6 @@ html[data-density='compact'] .chat-history-row {
   font-weight: 600;
 }
 
-.renders-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 60px 10px;
-  color: var(--muted);
-  text-align: center;
-}
-
 .renders-list {
   display: flex;
   flex-direction: column;
@@ -10775,4 +10764,240 @@ body.is-resizing-tabs {
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
+}
+/* ---------- 导出成片：样式 + 预览 ---------- */
+.synth-card {
+  width: min(980px, 94vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.synth-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.synth-head > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.synth-mode {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.synth-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.synth-mode-btn em {
+  font-style: normal;
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.synth-mode-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.synth-mode-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.synth-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 356px;
+  gap: 16px;
+  align-items: start;
+}
+
+.synth-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.synth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.synth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.synth-field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.synth-color {
+  width: 100%;
+  height: 28px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.synth-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.synth-preset-select {
+  width: auto;
+  min-width: 108px;
+}
+
+.synth-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.synth-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: linear-gradient(160deg, #1c2531 0%, #0e131a 100%);
+}
+
+.synth-preview-video {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 30% 30%, rgba(120, 160, 220, 0.22), transparent 70%),
+    radial-gradient(50% 70% at 75% 65%, rgba(90, 200, 170, 0.16), transparent 70%);
+}
+
+.synth-preview-caption {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.synth-preview-text {
+  text-align: center;
+  line-height: 1.25;
+  max-width: 96%;
+  word-break: break-word;
+}
+
+.synth-preview-translated {
+  font-size: 0.78em;
+  opacity: 0.92;
+  margin-bottom: 0.15em;
+}
+
+.synth-preview-meta {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(8, 11, 16, 0.45);
+  color: #dfe6f0;
+  font-size: var(--fs-xs);
+}
+
+.synth-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.synth-source {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .synth-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- 工作台：成片进度 ---------- */
+.workbench-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.workbench-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.workbench-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.workbench-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.workbench-progress .mini-btn {
+  align-self: flex-start;
 }

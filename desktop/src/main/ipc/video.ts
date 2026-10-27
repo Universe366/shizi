@@ -267,6 +267,11 @@ export function registerVideoIpc(ctx: IpcContext): void {
                     message: progress.message
                   })
                 );
+                ctx.send('synthesize:progress', {
+                  requestId,
+                  percent: progress.percent,
+                  message: progress.message
+                });
               },
               controller.signal
             );

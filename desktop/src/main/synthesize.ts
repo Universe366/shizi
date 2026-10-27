@@ -3,28 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import ffmpegStatic from 'ffmpeg-static';
-import type { SubtitleLine, SynthesizeRequest } from '../shared/types';
+import type { SynthesizeRequest } from '../shared/types';
 import { buildAss } from '../shared/ass';
 import { probeDuration } from './media';
-
-function srtTime(seconds: number): string {
-  const total = Math.max(0, Number(seconds) || 0);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = Math.floor(total % 60);
-  const millis = Math.round((total - Math.floor(total)) * 1000);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(millis).padStart(3, '0')}`;
-}
-
-function buildSrt(lines: SubtitleLine[]): string {
-  return `${lines
-    .map((line, index) => {
-      const start = Math.max(0, line.start);
-      const end = Math.max(start + 0.2, line.end);
-      return `${index + 1}\n${srtTime(start)} --> ${srtTime(end)}\n${line.text}`;
-    })
-    .join('\n\n')}\n`;
-}
 
 export interface SynthesizeProgress {
   percent: number;
@@ -46,19 +27,16 @@ export async function synthesizeVideo(
 
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'shizi-synth-'));
   const duration = await probeDuration(videoPath);
-  const subtitleFile = path.join(temp, request.mode === 'hard' ? 'sub.ass' : 'sub.srt');
-  if (request.mode === 'hard') {
-    fs.writeFileSync(
-      subtitleFile,
-      buildAss(request.lines, {
-        style: request.style,
-        translated: request.translatedLines
-      }),
-      'utf8'
-    );
-  } else {
-    fs.writeFileSync(subtitleFile, buildSrt(request.lines), 'utf8');
-  }
+  // 软字幕也封装 ASS：播放器里可以开关字幕，样式（字体/颜色/位置）也能保留。
+  const subtitleFile = path.join(temp, 'sub.ass');
+  fs.writeFileSync(
+    subtitleFile,
+    buildAss(request.lines, {
+      style: request.style,
+      translated: request.translatedLines
+    }),
+    'utf8'
+  );
 
   const args =
     request.mode === 'hard'
@@ -95,9 +73,11 @@ export async function synthesizeVideo(
           '-c',
           'copy',
           '-c:s',
-          path.extname(outputPath).toLowerCase() === '.mkv' ? 'srt' : 'mov_text',
+          'ass',
           '-metadata:s:s:0',
-          'language=chi',
+          `language=${request.softLanguage || 'chi'}`,
+          '-metadata:s:s:0',
+          `title=${request.style?.bilingual ? '双语字幕' : '字幕'}`,
           outputPath
         ];
 

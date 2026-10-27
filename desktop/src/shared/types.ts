@@ -1535,6 +1535,14 @@ export interface SynthesizeRequest {
   translatedLines?: SubtitleLine[];
   mode: 'hard' | 'soft';
   style: SubtitleStyle;
+  /** 软字幕轨道语言标签（mkv），默认 chi */
+  softLanguage?: string;
+}
+
+export interface SynthesizeProgressEvent {
+  requestId: string;
+  percent: number;
+  message: string;
 }
 
 export interface SynthesizeDoneEvent {

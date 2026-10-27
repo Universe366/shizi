@@ -227,6 +227,8 @@ start-footnote   操作提示、导入导出设置
 
 - 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；`Ctrl/⌘ + K` 聚焦，`Esc` 先清空再关闭。
 - 卡片：左键打开，右键菜单「打开 / 编辑 / 删除」，编辑模式下可拖拽排序与换组。
+- 分组：编辑态可重命名分组（分组标题旁 ✎），删除分组会把站点移到「常用」。
+- 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
 - 壁纸：右侧抽屉，含 6 套壁纸、本地上传、模糊与遮罩滑杆。
 - 极简模式：隐藏小组件与分组标签，只留时钟、搜索和站点。
 
@@ -293,6 +295,14 @@ start-footnote   操作提示、导入导出设置
 - 成片记录 `RendersPanel` 放在流水线底部，不再占用右侧栏。
 - 新增步骤：在 JSX 里加 section + connector，并保持 `id` 稳定（`step-source` 等），滚动定位依赖它。
 
+### 成片样式（`SynthesizeDialog`）
+
+- 样式模型在 `shared/ass.ts`（`SubtitleStyle`）：字体、字号、主色、描边色/宽度、阴影、距底部、对齐、双语。
+- 对话框左侧改样式，右侧 16:9 预览按 1080p 等比缩放（`PREVIEW_SCALE`）；预览只是近似，真正渲染以 ASS 为准。
+- 硬字幕 → MP4 烧录；软字幕 → MKV 内嵌 **ASS**（样式与双语都保留，播放器可开关）。
+- 预设存在 `general.subtitlePresets`（最多 12 个），提交时会记住当前样式到 `general.subtitleStyle`。
+- 合成进度通过 `synthesize:progress` 事件回到工作台（`.workbench-progress`），任务中心仍保留一份。
+
 ## 10. 长视频总结的 UI
 
 - 状态文案来自 `main/ai.ts` 的 `onStatus`：分段进度、失败段数、中间层合并、最终合并。
@@ -302,7 +312,7 @@ start-footnote   操作提示、导入导出设置
 ## 11. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 136 文件 / 781 用例）
+- `npm test`（当前 138 文件 / 793 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
-- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步。
+- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

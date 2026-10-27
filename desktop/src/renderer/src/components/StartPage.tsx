@@ -17,6 +17,8 @@ import type { HistoryEntry, LibraryVideo, PetTodo, StartShortcut } from '../../.
 import { SearchBar, type Suggestion } from './start/SearchBar';
 import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
+import { BatchAddDialog } from './start/BatchAddDialog';
+import { askConfirm } from './ui/confirm';
 import { WidgetPanel } from './start/WidgetPanel';
 import { WallpaperDrawer } from './start/WallpaperDrawer';
 import {
@@ -122,6 +124,7 @@ export function StartPage({
   const [hot, setHot] = useState<string[]>([]);
   const [hotOn, setHotOn] = useState(true);
   const [editing, setEditing] = useState<ShortcutDraft | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -421,6 +424,37 @@ export function StartPage({
     void persistShortcuts(shortcuts.filter((item) => item.id !== id));
   };
 
+  const addShortcuts = (items: Array<{ label: string; url: string; group: string }>) => {
+    const stamp = Date.now().toString(36);
+    void persistShortcuts([
+      ...shortcuts,
+      ...items.map((item, index) => ({ ...item, id: `s-${stamp}-${index}` }))
+    ]);
+  };
+
+  const renameGroup = (from: string, to: string) => {
+    const next = shortcuts.map((item) =>
+      (item.group || '常用') === from ? { ...item, group: to } : item
+    );
+    if (activeGroup === from) setActiveGroup(to);
+    void persistShortcuts(next);
+  };
+
+  const removeGroup = async (group: string) => {
+    const items = shortcuts.filter((item) => (item.group || '常用') === group);
+    if (!items.length) return;
+    const ok = await askConfirm({
+      title: `删除分组「${group}」？`,
+      description: `${items.length} 个站点会移到「常用」，不会丢失。`,
+      confirmText: '删除分组'
+    });
+    if (!ok) return;
+    if (activeGroup === group) setActiveGroup('全部');
+    void persistShortcuts(
+      shortcuts.map((item) => ((item.group || '常用') === group ? { ...item, group: '常用' } : item))
+    );
+  };
+
   const openEditor = (item?: StartShortcut, group?: string) => {
     setEditing(
       item
@@ -557,6 +591,7 @@ export function StartPage({
     wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
 
   const menuItem = shortcutMenu ? shortcuts.find((item) => item.id === shortcutMenu.id) : null;
+  const groupNames = groups.map(([group]) => group);
 
   return (
     <div
@@ -682,6 +717,9 @@ export function StartPage({
           onEdit={(item) => openEditor(item)}
           onRemove={removeShortcut}
           onAdd={() => openEditor()}
+          onBatchAdd={() => setBatchOpen(true)}
+          onRenameGroup={renameGroup}
+          onRemoveGroup={(group) => void removeGroup(group)}
           onMove={moveShortcutTo}
           onMenu={(item, x, y) => setShortcutMenu({ x, y, id: item.id })}
           onDragStart={() => setSearchOpen(false)}
@@ -797,6 +835,14 @@ export function StartPage({
         onDim={(value) => updateEffect({ ...effect, dim: value })}
         onMinimal={toggleMinimal}
         onClose={() => setWallpaperOpen(false)}
+      />
+
+      <BatchAddDialog
+        open={batchOpen}
+        groups={groupNames}
+        defaultGroup={activeGroup === '全部' ? '常用' : activeGroup}
+        onCancel={() => setBatchOpen(false)}
+        onAdd={addShortcuts}
       />
 
       {editing && (

@@ -47,6 +47,7 @@ import type {
   ExportPayload,
   SynthesizeRequest,
   SynthesizeDoneEvent,
+  SynthesizeProgressEvent,
   SaveTextPayload,
   SaveTextResult,
   LayoutRect,
@@ -949,6 +950,8 @@ const api: BsubApi = {
     lines: SubtitleLine[];
   }) =>
     ipcRenderer.invoke('video:save-local', payload) as Promise<Result<{ videoId: number }>>,
+  onSynthesizeProgress: (cb: (event: SynthesizeProgressEvent) => void) =>
+    on<SynthesizeProgressEvent>('synthesize:progress', cb),
   onSynthesizeDone: (cb: (event: SynthesizeDoneEvent) => void) =>
     on<SynthesizeDoneEvent>('synthesize:done', cb),
   onSynthesizeError: (cb: (event: { requestId: string; error: string }) => void) =>

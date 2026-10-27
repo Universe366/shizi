@@ -1,6 +1,6 @@
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
+import { Plus, Tags, X, type LucideIcon } from 'lucide-react';
 import { EmptyState } from '../ui/EmptyState';
-import { Plus, X, type LucideIcon } from 'lucide-react';
 import type { StartShortcut } from '../../../../shared/types';
 import { faviconOf, hostOf, originOf, tileColor } from './model';
 
@@ -23,6 +23,9 @@ interface ShortcutBoardProps {
   onEdit: (item: StartShortcut) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
+  onBatchAdd: () => void;
+  onRenameGroup: (from: string, to: string) => void;
+  onRemoveGroup: (group: string) => void;
   onMove: (fromId: string, group: string, targetId?: string) => void;
   onMenu: (item: StartShortcut, x: number, y: number) => void;
   onDragStart: () => void;
@@ -61,10 +64,28 @@ export function ShortcutBoard({
   onEdit,
   onRemove,
   onAdd,
+  onBatchAdd,
+  onRenameGroup,
+  onRemoveGroup,
   onMove,
   onMenu,
   onDragStart
 }: ShortcutBoardProps) {
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  const startRename = (group: string) => {
+    setRenaming(group);
+    setDraft(group);
+    window.setTimeout(() => renameRef.current?.select(), 30);
+  };
+
+  const commitRename = (group: string) => {
+    const next = draft.trim();
+    setRenaming(null);
+    if (next && next !== group) onRenameGroup(group, next);
+  };
   const dropOn = (group: string, targetId?: string) => (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -92,10 +113,16 @@ export function ShortcutBoard({
             <span className="start-tab-count">{items.length}</span>
           </button>
         ))}
-        <button className="start-tab start-tab-add" title="添加快捷方式" onClick={onAdd}>
-          <Plus size={13} />
-          添加
-        </button>
+        <span className="start-tab-actions">
+          <button className="start-tab start-tab-add" title="批量导入网址" onClick={onBatchAdd}>
+            <Tags size={13} />
+            批量
+          </button>
+          <button className="start-tab start-tab-add" title="添加快捷方式" onClick={onAdd}>
+            <Plus size={13} />
+            添加
+          </button>
+        </span>
       </div>
 
       {(activeGroup === '全部' || activeGroup === '拾字') && (
@@ -128,8 +155,41 @@ export function ShortcutBoard({
           onDrop={dropOn(group)}
         >
           <div className="start-group-head">
-            <span className="start-group-title">{group}</span>
+            {renaming === group ? (
+              <input
+                ref={renameRef}
+                className="start-group-rename"
+                value={draft}
+                maxLength={12}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={() => commitRename(group)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitRename(group);
+                  if (event.key === 'Escape') setRenaming(null);
+                }}
+              />
+            ) : (
+              <span className="start-group-title">{group}</span>
+            )}
             <span className="start-group-count">{items.length}</span>
+            {editMode && renaming !== group && (
+              <span className="start-group-actions">
+                <button
+                  className="start-tile-action"
+                  title="重命名分组"
+                  onClick={() => startRename(group)}
+                >
+                  ✎
+                </button>
+                <button
+                  className="start-tile-action is-danger"
+                  title="删除分组"
+                  onClick={() => onRemoveGroup(group)}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
           </div>
           <div className="start-grid">
             {items.map((item) => (
@@ -196,6 +256,24 @@ export function ShortcutBoard({
 
       {visibleGroups.length === 0 && activeGroup !== '全部' && activeGroup !== '拾字' && (
         <EmptyState compact desc="这个分组还没有网址" />
+      )}
+
+      {total === 0 && (
+        <EmptyState
+          icon={<Plus size={22} />}
+          title="还没有自定义快捷方式"
+          desc="添加常用站点，或把浏览器书签粘贴进来批量导入。"
+          action={
+            <div className="start-empty-actions">
+              <button className="mini-btn primary" onClick={onAdd}>
+                添加站点
+              </button>
+              <button className="mini-btn" onClick={onBatchAdd}>
+                批量导入
+              </button>
+            </div>
+          }
+        />
       )}
     </section>
   );

@@ -675,7 +675,7 @@ try {
         `(async () => {
           [...document.querySelectorAll('.start-pill')].find((el) => el.textContent.includes('编辑'))?.click();
           await new Promise((r) => setTimeout(r, 150));
-          document.querySelector('.start-tab-add')?.click();
+          document.querySelector('.start-tab-add[title="添加快捷方式"]')?.click();
           await new Promise((r) => setTimeout(r, 120));
           const inputs = document.querySelectorAll('.start-modal-field input');
           const setValue = (el, value) => {

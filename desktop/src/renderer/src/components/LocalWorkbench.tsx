@@ -54,6 +54,9 @@ export function LocalWorkbench() {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const translateId = useRef('');
   const [translating, setTranslating] = useState(false);
+  const [render, setRender] = useState<{ requestId: string; percent: number; message: string } | null>(
+    null
+  );
   const pipelineRef = useRef<HTMLDivElement>(null);
 
   const scrollToStep = (id: string) => {
@@ -83,6 +86,20 @@ export function LocalWorkbench() {
       setBusy(false);
       setMessage(event.error);
     });
+    return () => {
+      offProgress?.();
+      offDone?.();
+      offError?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const offProgress = window.bsub.onSynthesizeProgress?.((event) => setRender(event));
+    const offDone = window.bsub.onSynthesizeDone?.(() => {
+      setRender((current) => (current ? { ...current, percent: 100, message: '合成完成' } : current));
+      window.setTimeout(() => setRender(null), 2600);
+    });
+    const offError = window.bsub.onSynthesizeError?.(() => setRender(null));
     return () => {
       offProgress?.();
       offDone?.();
@@ -443,6 +460,23 @@ export function LocalWorkbench() {
           </span>
         </header>
         <div className="pipeline-body">
+          {render && (
+            <div className="workbench-progress">
+              <div className="workbench-progress-head">
+                <span>{render.message || '合成中…'}</span>
+                <span>{Math.round(render.percent)}%</span>
+              </div>
+              <div className="workbench-progress-bar">
+                <span style={{ width: `${Math.max(2, Math.round(render.percent))}%` }} />
+              </div>
+              <button
+                className="mini-btn"
+                onClick={() => window.bsub.cancelSynthesize?.(render.requestId)}
+              >
+                取消
+              </button>
+            </div>
+          )}
           {!lines.length ? (
             <div className="workbench-empty">
               <div>先有字幕才能出成片。</div>

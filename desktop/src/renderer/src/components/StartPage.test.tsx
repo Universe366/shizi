@@ -415,3 +415,105 @@ describe('StartPage 壁纸抽屉与极简模式', () => {
     );
   });
 });
+
+describe('StartPage 批量导入与分组管理', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  function withGroups() {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [],
+            startShortcuts: [
+              { id: 's1', label: '知乎', url: 'https://www.zhihu.com', group: '常用' },
+              { id: 's2', label: 'MDN', url: 'https://developer.mozilla.org', group: '学习' }
+            ],
+            startWallpaper: 'aurora',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.39.4'
+      }
+    }));
+    return api;
+  }
+
+  it('批量粘贴多行网址并写入设置', async () => {
+    const api = withGroups();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    fireEvent.click(screen.getByTitle('批量导入网址'));
+    const textarea = screen.getByPlaceholderText(/哔哩哔哩/);
+    fireEvent.change(textarea, {
+      target: {
+        value: 'Figma https://www.figma.com\nhttps://github.com\n# 注释行'
+      }
+    });
+    fireEvent.click(screen.getByText('导入 2'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ label: 'Figma', url: 'https://www.figma.com' }),
+              expect.objectContaining({ label: 'github.com', url: 'https://github.com' })
+            ])
+          })
+        })
+      )
+    );
+  });
+
+  it('编辑态可以重命名分组', async () => {
+    const api = withGroups();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('MDN')).toBeTruthy());
+    fireEvent.click(screen.getByText('编辑'));
+    const renameButtons = screen.getAllByTitle('重命名分组');
+    fireEvent.click(renameButtons[1]);
+    const input = document.querySelector('.start-group-rename') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '课程' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ label: 'MDN', group: '课程' })
+            ])
+          })
+        })
+      )
+    );
+  });
+
+  it('删除分组会把站点移到常用', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const api = withGroups();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('MDN')).toBeTruthy());
+    fireEvent.click(screen.getByText('编辑'));
+    fireEvent.click(screen.getAllByTitle('删除分组')[1]);
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ label: 'MDN', group: '常用' })
+            ])
+          })
+        })
+      )
+    );
+  });
+});

@@ -60,6 +60,7 @@ import type {
   ExportPayload,
   SynthesizeRequest,
   SynthesizeDoneEvent,
+  SynthesizeProgressEvent,
   SubtitleStyle,
   SaveTextPayload,
   SaveTextResult,
@@ -685,6 +686,7 @@ export interface BsubApi {
     duration: number;
     lines: SubtitleLine[];
   }): Promise<Result<{ videoId: number }>>;
+  onSynthesizeProgress?(cb: (event: SynthesizeProgressEvent) => void): () => void;
   onSynthesizeDone?(cb: (event: SynthesizeDoneEvent) => void): () => void;
   onSynthesizeError?(cb: (event: { requestId: string; error: string }) => void): () => void;
   saveTextFile(payload: SaveTextPayload): Promise<Result<SaveTextResult>>;

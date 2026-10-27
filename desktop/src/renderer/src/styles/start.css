@@ -695,8 +695,13 @@
   border-color: color-mix(in srgb, #d64545 40%, transparent);
 }
 
-.start-tab-add {
+.start-tab-actions {
+  display: inline-flex;
+  gap: 4px;
   margin-left: auto;
+}
+
+.start-tab-add {
   gap: 4px;
   color: var(--start-faint);
   border-bottom-color: transparent;
@@ -1431,4 +1436,73 @@
 
 .start-menu button.is-danger {
   color: #d64545;
+}
+
+/* ---------- 分组管理 / 批量导入 ---------- */
+.start-group-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.start-group:hover .start-group-actions,
+.start-group:focus-within .start-group-actions {
+  opacity: 1;
+}
+
+.start-group-rename {
+  width: 120px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--start-surface-solid);
+  color: var(--start-text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.start-empty-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.start-modal-wide {
+  width: min(560px, 100%);
+}
+
+.start-batch-textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--start-border);
+  background: var(--start-soft);
+  color: var(--start-text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.start-batch-textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: var(--start-surface-solid);
+}
+
+.start-batch-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--start-muted);
+  font-size: var(--fs-sm);
+}
+
+.start-batch-preview {
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
 }

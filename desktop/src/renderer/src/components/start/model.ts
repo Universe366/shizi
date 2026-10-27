@@ -95,6 +95,55 @@ export function matchShortcut(item: StartShortcut, query: string): boolean {
   );
 }
 
+export interface ParsedShortcut {
+  label: string;
+  url: string;
+  group: string;
+}
+
+/**
+ * 批量粘贴解析：每行支持
+ *   名称 URL / 名称,URL / 名称 | URL / 纯网址
+ * 空行与 # 开头的行会忽略，重复网址只保留第一条。
+ */
+export function parseShortcutLines(text: string, defaultGroup = '常用'): ParsedShortcut[] {
+  const result: ParsedShortcut[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const urlFirst = line.match(/^((?:https?:\/\/)?[^\s,|]+\.[^\s,|]+)(?:[\s,|]+(.+))?$/i);
+    let label = '';
+    let url = '';
+
+    if (urlFirst && !/\s/.test(urlFirst[1])) {
+      url = normalizeUrl(urlFirst[1]);
+      label = (urlFirst[2] || '').trim();
+    } else {
+      const parts = line.split(/[\s,|]+/).filter(Boolean);
+      if (parts.length < 2) continue;
+      url = normalizeUrl(parts[parts.length - 1]);
+      label = parts.slice(0, -1).join(' ');
+    }
+
+    if (!/^https?:\/\/[^\s]+$/i.test(url)) continue;
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const host = hostOf(url).replace(/^www\./i, '');
+    result.push({
+      label: (label || host || url).slice(0, 20),
+      url,
+      group: defaultGroup
+    });
+  }
+
+  return result;
+}
+
 export function isUrlLike(value: string): boolean {
   const text = value.trim();
   if (!text) return false;

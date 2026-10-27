@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Clapperboard, ExternalLink, FolderOpen, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import type { ExportRecord } from '../../../shared/types';
 import { formatDateTime } from '../lib/format';
+import { EmptyState } from './ui/EmptyState';
 
 /** 成片：已经合成好的视频（硬字幕/软字幕），可直接打开或定位。 */
 export function RendersPanel() {
@@ -57,13 +58,11 @@ export function RendersPanel() {
 
       {message && <div className="settings-hint">{message}</div>}
       {!loading && items.length === 0 && (
-        <div className="renders-empty">
-          <Clapperboard size={20} />
-          <div>还没有成片</div>
-          <div className="settings-hint">
-            在字幕面板的「导出 → 视频成片」生成；仅支持本地视频文件。
-          </div>
-        </div>
+        <EmptyState
+          icon={<Clapperboard size={20} />}
+          title="还没有成片"
+          desc="在「成片与处理」或字幕面板的「导出 → 视频成片」生成；仅支持本地视频文件。"
+        />
       )}
 
       <div className="renders-list">
