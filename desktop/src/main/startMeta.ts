@@ -83,16 +83,30 @@ export async function probeSiteMeta(rawUrl: string): Promise<SiteMeta> {
     return { ...cached.data, url: url.toString() };
   }
 
-  const response = await fetch(url.toString(), {
-    headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(8000)
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const type = response.headers.get('content-type') || '';
-  if (!/text\/html|application\/xhtml/i.test(type)) throw new Error('不是网页内容');
-  const html = (await response.text()).slice(0, MAX_HTML);
-  const meta = parseSiteMeta(html, response.url || url.toString());
-  cache.set(url.origin, { at: Date.now(), data: meta });
-  return meta;
+  // 手动跟随重定向：每一跳都校验目标，避免公网地址 302 到内网形成 SSRF。
+  let current = url;
+  for (let hop = 0; hop < 3; hop += 1) {
+    const response = await fetch(current.toString(), {
+      headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(8000)
+    });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get('location');
+      if (!location) throw new Error(`HTTP ${response.status}`);
+      const next = new URL(location, current);
+      if (!/^https?:$/.test(next.protocol)) throw new Error('只支持 http/https 地址');
+      if (PRIVATE_HOST.test(next.hostname)) throw new Error('不能访问本机或内网地址');
+      current = next;
+      continue;
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const type = response.headers.get('content-type') || '';
+    if (!/text\/html|application\/xhtml/i.test(type)) throw new Error('不是网页内容');
+    const html = (await response.text()).slice(0, MAX_HTML);
+    const meta = parseSiteMeta(html, response.url || current.toString());
+    cache.set(url.origin, { at: Date.now(), data: meta });
+    return meta;
+  }
+  throw new Error('重定向次数过多');
 }

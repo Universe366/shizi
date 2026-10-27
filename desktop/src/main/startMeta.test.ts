@@ -43,6 +43,16 @@ describe('probeSiteMeta', () => {
     await expect(probeSiteMeta('http://192.168.1.2/')).rejects.toThrow('本机或内网');
   });
 
+  it('重定向到内网地址会被拦截', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/secret' } })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(probeSiteMeta('https://probe-c.example.com/')).rejects.toThrow('本机或内网');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('非网页内容报错', async () => {
     vi.stubGlobal(
       'fetch',
