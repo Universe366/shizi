@@ -117,7 +117,8 @@ import type {
   OnlineDownloadOptions,
   PageContextSummary,
   PodcastFeed,
-  PageDocument
+  PageDocument,
+  SiteMeta
 } from '../shared/types';
 
 const on = <T>(channel: string, cb: (payload: T) => void) => {
@@ -586,6 +587,8 @@ const api: BsubApi = {
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
   startHotSearch: (force?: boolean) => ipcRenderer.invoke('start:hot', force === true),
   startBingWallpaper: () => ipcRenderer.invoke('start:bing-wallpaper'),
+  startProbeSite: (url: string) =>
+    ipcRenderer.invoke('start:probe-site', url) as Promise<Result<SiteMeta>>,
   chooseSyncFolder: () => ipcRenderer.invoke('sync:choose'),
   syncStatus: (folder: string) => ipcRenderer.invoke('sync:status', folder),
   syncPush: (folder: string) => ipcRenderer.invoke('sync:push', folder),

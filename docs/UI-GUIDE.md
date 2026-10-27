@@ -232,6 +232,7 @@ start-footnote   操作提示、导入导出设置
 - 密度：标签栏右侧「舒适 / 紧凑 / 大图标」，紧凑模式隐藏域名、只留图标与名称。
 - 常用：按打开次数排序的虚拟标签（最多 8 个），次数存在本地。
 - 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式与外观偏好；导入走 `parseStartBackup()` 校验并 askConfirm 合并。
+- 自动获取：编辑弹窗「自动获取」调用 `start:probe-site` 填标题/描述；批量导入时名称仍是域名的条目会自动补全（最多 8 个、3 并发），失败保留原值。
 - 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
 - 壁纸：右侧抽屉，含 6 套壁纸、本地上传、模糊与遮罩滑杆。
 - 极简模式：隐藏小组件与分组标签，只留时钟、搜索和站点。
@@ -349,7 +350,7 @@ start-footnote   操作提示、导入导出设置
 ## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 152 文件 / 863 用例）
+- `npm test`（当前 154 文件 / 870 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

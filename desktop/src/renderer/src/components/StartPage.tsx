@@ -36,6 +36,7 @@ import {
   isUrlLike,
   matchShortcut,
   mergeShortcuts,
+  autofillShortcuts,
   filterByTag,
   normalizeTags,
   parseStartBackup,
@@ -531,10 +532,21 @@ export function StartPage({
 
   const addShortcuts = (items: Array<{ label: string; url: string; group: string }>) => {
     const stamp = Date.now().toString(36);
-    void persistShortcuts([
-      ...shortcuts,
-      ...items.map((item, index) => ({ ...item, id: `s-${stamp}-${index}` }))
-    ]);
+    const created = items.map((item, index) => ({ ...item, id: `s-${stamp}-${index}` }));
+    void (async () => {
+      const result = await autofillShortcuts(
+        created,
+        async (url) => {
+          const response = await window.bsub.startProbeSite?.(url);
+          return response?.ok
+            ? { title: response.data.title, description: response.data.description }
+            : { title: '', description: '' };
+        },
+        8
+      );
+      if (result.filled) showNotice(`已自动补全 ${result.filled} 个站点`);
+      void persistShortcuts([...shortcuts, ...result.items]);
+    })();
   };
 
   const renameGroup = (from: string, to: string) => {

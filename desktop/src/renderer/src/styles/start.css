@@ -1757,3 +1757,18 @@
   font-size: var(--fs-xs);
   word-break: break-all;
 }
+
+.start-modal-probe {
+  margin-left: 8px;
+  padding: 0;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.start-modal-probe:disabled {
+  color: var(--faint);
+  text-decoration: none;
+  cursor: default;
+}

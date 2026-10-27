@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron';
+import { probeSiteMeta } from '../startMeta';
 import { failure } from './shared';
 
 /** 起始页小组件：天气（Open-Meteo，免 key）与 B 站热搜，都带内存缓存。 */
@@ -140,6 +141,15 @@ export function registerStartIpc(): void {
       return { ok: true, data };
     } catch (error) {
       return failure(`必应壁纸获取失败：${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('start:probe-site', async (_event, rawUrl: unknown) => {
+    try {
+      const meta = await probeSiteMeta(String(rawUrl || ''));
+      return { ok: true, data: meta };
+    } catch (error) {
+      return failure(`站点信息获取失败：${(error as Error).message}`);
     }
   });
 

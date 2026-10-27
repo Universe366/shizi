@@ -214,6 +214,7 @@
   "source:resolve-collection",
   "start:bing-wallpaper",
   "start:hot",
+  "start:probe-site",
   "start:weather",
   "subtitle:pick-file",
   "subtitle:resegment",

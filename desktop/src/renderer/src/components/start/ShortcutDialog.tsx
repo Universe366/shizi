@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { hostOf } from './model';
 
 export interface ShortcutDraft {
@@ -32,6 +32,32 @@ export function ShortcutDialog({ draft, groups, onChange, onCancel, onSave }: Sh
 
   const preview = draft.url.trim() ? hostOf(draft.url) : '';
   const canSave = Boolean(draft.label.trim() && draft.url.trim());
+  const [probing, setProbing] = useState(false);
+  const [probeHint, setProbeHint] = useState('');
+
+  const autofill = async () => {
+    const url = draft.url.trim();
+    if (!url || probing) return;
+    setProbing(true);
+    setProbeHint('');
+    try {
+      const response = await window.bsub.startProbeSite?.(url);
+      if (!response?.ok) {
+        setProbeHint(response?.error || '没有取到站点信息');
+        return;
+      }
+      const title = String(response.data.title || '').trim();
+      const description = String(response.data.description || '').trim();
+      onChange({
+        ...draft,
+        ...(title && !draft.label.trim() ? { label: title.slice(0, 20) } : {}),
+        ...(description && !String(draft.desc || '').trim() ? { desc: description.slice(0, 120) } : {})
+      });
+      setProbeHint(title ? `已获取：${title}` : '没有取到标题');
+    } finally {
+      setProbing(false);
+    }
+  };
 
   return (
     <div className="start-modal-backdrop" onMouseDown={onCancel}>
@@ -62,6 +88,7 @@ export function ShortcutDialog({ draft, groups, onChange, onCancel, onSave }: Sh
             }}
           />
           {preview && <em className="start-modal-hint">将打开 {preview}</em>}
+          {probeHint && <em className="start-modal-hint">{probeHint}</em>}
         </label>
 
         <label className="start-modal-field">
@@ -81,7 +108,17 @@ export function ShortcutDialog({ draft, groups, onChange, onCancel, onSave }: Sh
         </label>
 
         <label className="start-modal-field">
-          <span>描述</span>
+          <span>
+            描述
+            <button
+              type="button"
+              className="start-modal-probe"
+              disabled={!draft.url.trim() || probing}
+              onClick={() => void autofill()}
+            >
+              {probing ? '获取中…' : '自动获取'}
+            </button>
+          </span>
           <input
             maxLength={120}
             value={draft.desc || ''}

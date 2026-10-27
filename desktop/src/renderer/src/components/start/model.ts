@@ -386,6 +386,60 @@ export function filterByTag(items: StartShortcut[], tag: string): StartShortcut[
   return items.filter((item) => (item.tags || []).some((value) => value.toLowerCase() === key));
 }
 
+export interface SiteProbe {
+  title: string;
+  description: string;
+}
+
+/** 批量导入时，名称还是“域名”的条目才值得自动补全。 */
+export function shouldAutofillLabel(label: string, url: string): boolean {
+  const value = String(label || '').trim().toLowerCase();
+  if (!value) return true;
+  return value === hostOf(url).toLowerCase();
+}
+
+/**
+ * 给批量导入的条目补标题/描述：只处理名称是域名的条目，最多 limit 个，
+ * 3 路并发；任何一条失败都保留原值。
+ */
+export async function autofillShortcuts(
+  items: StartShortcut[],
+  probe: (url: string) => Promise<SiteProbe>,
+  limit = 8
+): Promise<{ items: StartShortcut[]; filled: number }> {
+  const next = items.map((item) => ({ ...item }));
+  const targets = next
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => shouldAutofillLabel(item.label, item.url))
+    .slice(0, Math.max(0, limit));
+  let filled = 0;
+
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < targets.length) {
+      const current = targets[cursor];
+      cursor += 1;
+      try {
+        const meta = await probe(current.item.url);
+        const title = String(meta?.title || '').trim().slice(0, 40);
+        const description = String(meta?.description || '').trim().slice(0, 120);
+        if (!title && !description) continue;
+        next[current.index] = {
+          ...next[current.index],
+          ...(title ? { label: title } : {}),
+          ...(description && !next[current.index].desc ? { desc: description } : {})
+        };
+        filled += 1;
+      } catch {
+        // 单个站点失败不影响其它条目
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(3, targets.length) }, () => worker()));
+  return { items: next, filled };
+}
+
 export type StartUsage = Record<string, number>;
 
 export function bumpUsage(usage: StartUsage, id: string): StartUsage {

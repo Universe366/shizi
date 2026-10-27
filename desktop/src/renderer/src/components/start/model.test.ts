@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseShortcutLines } from './model';
 
 describe('parseShortcutLines', () => {
@@ -128,5 +128,28 @@ describe('标签', () => {
     expect(matchShortcut(item, '识别')).toBe(true);
     expect(matchShortcut(item, '语音')).toBe(true);
     expect(matchShortcut(item, '不存在')).toBe(false);
+  });
+});
+
+import { autofillShortcuts, shouldAutofillLabel } from './model';
+
+describe('批量自动补全', () => {
+  it('只补名称还是域名的条目，失败保留原值', async () => {
+    const items = [
+      { id: 'a', label: 'a.com', url: 'https://a.com/' },
+      { id: 'b', label: '自己起的名字', url: 'https://b.com/' },
+      { id: 'c', label: 'c.com', url: 'https://c.com/' }
+    ];
+    const probe = vi.fn(async (url: string) => {
+      if (url.includes('c.com')) throw new Error('boom');
+      return { title: '站点标题', description: '站点描述' };
+    });
+    expect(shouldAutofillLabel('a.com', 'https://a.com/')).toBe(true);
+    expect(shouldAutofillLabel('自己起的名字', 'https://b.com/')).toBe(false);
+    const result = await autofillShortcuts(items, probe);
+    expect(result.filled).toBe(1);
+    expect(result.items[0]).toMatchObject({ label: '站点标题', desc: '站点描述' });
+    expect(result.items[1].label).toBe('自己起的名字');
+    expect(result.items[2].label).toBe('c.com');
   });
 });

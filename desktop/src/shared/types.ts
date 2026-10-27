@@ -1034,6 +1034,13 @@ export interface GlossaryTerm {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export interface SiteMeta {
+  url: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
 export interface StartShortcut {
   id: string;
   label: string;
