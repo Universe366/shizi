@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
-import { AlertTriangle, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Captions, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
   effectiveModelCapabilities
@@ -188,6 +188,13 @@ export function ChatPanel({
   const [expandReasoning, setExpandReasoning] = useState(false);
   const [pageContext, setPageContext] = useState<PageContextSummary | null>(null);
   const [includePage, setIncludePage] = useState(true);
+  const [includeTranscript, setIncludeTranscript] = useState(() => {
+    try {
+      return localStorage.getItem('chat-transcript') !== '0';
+    } catch {
+      return true;
+    }
+  });
   const [webSearch, setWebSearch] = useState(() => {
     try {
       return localStorage.getItem('chat-web') === '1';
@@ -984,6 +991,7 @@ export function ChatPanel({
         // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
         mcpToolIds: profileId ? undefined : toolSelection ?? undefined,
         includePage: forcePage ? true : includePage,
+        includeTranscript,
         web: webSearch
       });
       if (!started.ok) throw new Error(started.error);
@@ -1994,6 +2002,25 @@ export function ChatPanel({
               onClick={() => setIncludePage((value) => !value)}
             >
               <FileText size={12} /> 页面
+            </button>
+            <button
+              className={`chat-chip${includeTranscript ? ' is-on' : ''}`}
+              title={
+                includeTranscript
+                  ? '本次会带上当前视频字幕；关掉可只做联网问答'
+                  : '本次不带字幕，只按问题/联网回答'
+              }
+              onClick={() => {
+                const next = !includeTranscript;
+                setIncludeTranscript(next);
+                try {
+                  localStorage.setItem('chat-transcript', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              <Captions size={12} /> 字幕
             </button>
             <button
               className={`chat-chip${webSearch ? ' is-on' : ''}`}

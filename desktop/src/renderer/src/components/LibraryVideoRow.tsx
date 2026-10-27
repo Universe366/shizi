@@ -3,12 +3,21 @@ import type { LibraryVideo } from '../../../shared/types';
 import { formatDate } from '../lib/format';
 import { metaLine } from '../lib/libraryView';
 
+interface DownloadProgress {
+  percent: number;
+  speed: string;
+  eta: string;
+  message: string;
+  startedAt: number;
+}
+
 interface LibraryVideoRowProps {
   video: LibraryVideo;
   selectMode: boolean;
   selected: boolean;
   cursor?: boolean;
   downloading?: boolean;
+  downloadProgress?: DownloadProgress;
   onToggleSelect: (id: number, shift?: boolean) => void;
   onOpen: (video: LibraryVideo) => void;
   onDelete: (video: LibraryVideo) => void;
@@ -23,6 +32,7 @@ export function LibraryVideoRow({
   onToggleSelect,
   cursor = false,
   downloading = false,
+  downloadProgress,
   onOpen,
   onDelete,
   onDownload
@@ -73,6 +83,19 @@ export function LibraryVideoRow({
               ? `总结于 ${formatDate(video.summaryUpdatedAt)}`
               : `入库于 ${formatDate(video.createdAt)}`}
         </div>
+        {downloadProgress && (
+          <div className="lib-dl">
+            <div className="lib-dl-bar">
+              <span style={{ width: `${Math.max(2, Math.min(100, downloadProgress.percent))}%` }} />
+            </div>
+            <div className="lib-dl-meta">
+              {Math.round(downloadProgress.percent)}%
+              {downloadProgress.speed ? ` · ${downloadProgress.speed}` : ''}
+              {downloadProgress.eta ? ` · 剩余 ${downloadProgress.eta}` : ''}
+              {` · 已用 ${Math.max(0, Math.round((Date.now() - downloadProgress.startedAt) / 1000))} 秒`}
+            </div>
+          </div>
+        )}
       </div>
       {!selectMode && (
         <>

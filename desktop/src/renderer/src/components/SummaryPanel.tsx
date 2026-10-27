@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Copy, Loader2, Sparkles, Square, Volume2 } from 'lucide-react';
 import type {
   Chapter,
@@ -55,14 +55,8 @@ export function SummaryPanel({
   const [summaryVideoKey, setSummaryVideoKey] = useState('');
   const [streamText, setStreamText] = useState('');
   const [status, setStatus] = useState('');
-  const progress = useMemo(() => {
-    const match = /(\d+)\s*\/\s*(\d+)/.exec(status);
-    if (!match) return null;
-    const done = Number(match[1]);
-    const total = Number(match[2]);
-    if (!total || done < 0 || done > total) return null;
-    return Math.max(2, Math.round((done / total) * 100));
-  }, [status]);
+  const [progress, setProgress] = useState<number | null>(null);
+  const progressPhaseRef = useRef('');
   const [loading, setLoading] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chaptersOpen, setChaptersOpen] = useState(false);
@@ -72,6 +66,7 @@ export function SummaryPanel({
   const [copied, setCopied] = useState(false);
   const [preProofread, setPreProofread] = useState(false);
   const [reasoning, setReasoning] = useState('');
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   const [asrRunning, setAsrRunning] = useState(false);
   const [asrProgress, setAsrProgress] = useState(0);
   const [asrMessage, setAsrMessage] = useState('');
@@ -281,6 +276,33 @@ export function SummaryPanel({
   }, []);
 
   useEffect(() => {
+    const phase = /^联网核对|^正在从字幕抽取/.test(status)
+      ? 'verify'
+      : /^长视频分段|^正在合并|^第 \d+\/\d+ 段/.test(status)
+        ? 'chunk'
+        : /^先校对|^已校对/.test(status)
+          ? 'proof'
+          : /^正在生成/.test(status)
+            ? 'generate'
+            : '';
+    const match = /(\d+)\s*\/\s*(\d+)/.exec(status);
+    if (!phase) {
+      progressPhaseRef.current = '';
+      setProgress(null);
+      return;
+    }
+    const pct = match
+      ? Math.max(2, Math.min(100, Math.round((Number(match[1]) / Number(match[2])) * 100)))
+      : null;
+    if (phase !== progressPhaseRef.current) {
+      progressPhaseRef.current = phase;
+      setProgress(pct);
+      return;
+    }
+    if (pct !== null) setProgress((prev) => Math.max(prev ?? 0, pct));
+  }, [status]);
+
+  useEffect(() => {
     if (!streaming) return;
     const timer = window.setInterval(() => {
       if (startedAtRef.current) setElapsedMs(Date.now() - startedAtRef.current);
@@ -364,6 +386,8 @@ export function SummaryPanel({
     setVerification(null);
     setFromSaved(false);
     setStatus('准备字幕…');
+    setProgress(null);
+    progressPhaseRef.current = '';
     startedAtRef.current = Date.now();
     setElapsedMs(0);
     setTotalMs(0);
@@ -674,8 +698,28 @@ export function SummaryPanel({
       )}
 
       {reasoning && (
-        <details className="chat-reasoning">
-          <summary>💭 思考过程{streaming ? '（生成中）' : ''}</summary>
+        <details
+          className="chat-reasoning"
+          open={reasoningOpen}
+          onToggle={(event) => setReasoningOpen((event.target as HTMLDetailsElement).open)}
+        >
+          <summary>
+            💭 思考过程{streaming ? '（生成中）' : ''}
+            <button
+              type="button"
+              className="chat-reasoning-close"
+              title="隐藏思考过程"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                reasoningBufferRef.current = '';
+                setReasoning('');
+                setReasoningOpen(false);
+              }}
+            >
+              隐藏
+            </button>
+          </summary>
           <pre>{reasoning}</pre>
         </details>
       )}

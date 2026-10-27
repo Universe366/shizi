@@ -68,6 +68,7 @@
   "diagnostics:get",
   "dialog:pick-file",
   "dictation:finish",
+  "download:pick-dir",
   "downloads:clear",
   "downloads:control",
   "downloads:delete",

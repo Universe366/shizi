@@ -32,6 +32,8 @@ export interface DownloadSettings {
   template: 'title' | 'title-id' | 'uploader-title';
   /** 合集、分P、播放列表下载时按列表名建子文件夹 */
   folderPerList: boolean;
+  /** 自定义保存目录；空 = 系统下载目录/Shizi */
+  dir: string;
 }
 
 export interface OnlineDownloadOptions {
@@ -42,6 +44,8 @@ export interface OnlineDownloadOptions {
   subtitles?: boolean;
   metadata?: boolean;
   template?: DownloadSettings['template'];
+  /** 保存目录；空则用默认下载目录 */
+  dir?: string;
   folderPerList?: boolean;
   /** 只下载列表里的这些序号（从 1 开始）；为空表示单个视频 */
   playlistItems?: number[];
@@ -1460,6 +1464,8 @@ export interface ChatRequest {
   mcpToolIds?: string[];
   /** 是否把当前网页正文/选中内容带给模型（默认 true） */
   includePage?: boolean;
+  /** 是否把当前视频字幕带给模型（默认 true）；关掉后可只做联网问答 */
+  includeTranscript?: boolean;
   /** 本次对话强制联网检索（覆盖设置里的自动检索策略） */
   web?: boolean;
   /** 桌宠等场景附带的上下文（前台窗口、来源说明） */

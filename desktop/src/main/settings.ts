@@ -223,7 +223,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       subtitles: false,
       metadata: false,
       template: 'title-id',
-      folderPerList: true
+      folderPerList: true,
+      dir: ''
     },
     radial: {
       enabled: false,
@@ -669,7 +670,8 @@ function normalize(input: unknown): AppSettings {
           )
             ? (download.template as 'title' | 'title-id' | 'uploader-title')
             : 'title-id',
-          folderPerList: download.folderPerList !== false
+          folderPerList: download.folderPerList !== false,
+          dir: String(download.dir || '').trim().slice(0, 500)
         };
       }
       if (raw.general.radial && typeof raw.general.radial === 'object') {

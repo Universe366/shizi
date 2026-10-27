@@ -112,6 +112,20 @@ export function LibraryPanel() {
   const [synthOpen, setSynthOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadBusyId, setDownloadBusyId] = useState<number | null>(null);
+  const [downloadTasks, setDownloadTasks] = useState<
+    Record<
+      string,
+      {
+        videoId: number;
+        percent: number;
+        speed: string;
+        eta: string;
+        message: string;
+        startedAt: number;
+      }
+    >
+  >({});
+  const [, setDownloadTick] = useState(0);
   const [synthData, setSynthData] = useState<{
     videoPath: string;
     title: string;
@@ -200,6 +214,45 @@ export function LibraryPanel() {
       if (seq === detailSeq.current) setDetailLoading(false);
     }
   }, [loadVersions, loadNoteVersions]);
+
+  useEffect(() => {
+    const offProgress = window.bsub.onDownloadProgress?.((event) => {
+      setDownloadTasks((current) => {
+        const task = current[event.requestId];
+        if (!task) return current;
+        return {
+          ...current,
+          [event.requestId]: {
+            ...task,
+            percent: Math.max(0, Math.min(100, Number(event.percent) || 0)),
+            speed: event.speed || '',
+            eta: event.eta || '',
+            message: event.message || ''
+          }
+        };
+      });
+    });
+    const remove = (requestId: string) =>
+      setDownloadTasks((current) => {
+        if (!current[requestId]) return current;
+        const next = { ...current };
+        delete next[requestId];
+        return next;
+      });
+    const offDone = window.bsub.onDownloadDone?.((event) => remove(event.requestId));
+    const offError = window.bsub.onDownloadError?.((event) => remove(event.requestId));
+    return () => {
+      offProgress?.();
+      offDone?.();
+      offError?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!Object.keys(downloadTasks).length) return;
+    const timer = window.setInterval(() => setDownloadTick((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [downloadTasks]);
 
   useEffect(() => {
     void load();
@@ -1276,6 +1329,9 @@ export function LibraryPanel() {
               selected={selectedIds.has(video.id)}
               cursor={video.id === cursorId}
               downloading={downloadBusyId === video.id}
+              downloadProgress={Object.values(downloadTasks).find(
+                (task) => task.videoId === video.id
+              )}
               onToggleSelect={toggleSelect}
               onOpen={openDetail}
               onDelete={(item) => setPendingDelete(item)}
@@ -1288,6 +1344,20 @@ export function LibraryPanel() {
                     url: item.url,
                     options: snapshot.ok ? snapshot.data.settings.general.download : undefined
                   });
+                  if (response?.ok && response.data?.requestId) {
+                    const requestId = response.data.requestId;
+                    setDownloadTasks((current) => ({
+                      ...current,
+                      [requestId]: {
+                        videoId: item.id,
+                        percent: 0,
+                        speed: '',
+                        eta: '',
+                        message: '准备下载…',
+                        startedAt: Date.now()
+                      }
+                    }));
+                  }
                   setDownloadBusyId(null);
                   setNotice(
                     response?.ok

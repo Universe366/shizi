@@ -3,6 +3,7 @@ import type { BrowserWindow, DownloadItem } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { addDownload, updateDownload } from './library';
+import { loadSettings } from './settings';
 import { registerDownloadItem, unregisterDownloadItem } from './downloads';
 
 /**
@@ -18,7 +19,15 @@ export function installDownloadHook(getWindow: () => BrowserWindow | null): void
   };
 
   session.defaultSession.on('will-download', (_event, item: DownloadItem) => {
-    const autoDir = String(process.env.BSUB_DOWNLOAD_DIR || '').trim();
+    const configuredDir = String(process.env.BSUB_DOWNLOAD_DIR || '').trim();
+    let autoDir = configuredDir;
+    if (!autoDir) {
+      try {
+        autoDir = loadSettings().general.download.dir.trim();
+      } catch {
+        autoDir = '';
+      }
+    }
     if (autoDir) {
       try {
         fs.mkdirSync(autoDir, { recursive: true });

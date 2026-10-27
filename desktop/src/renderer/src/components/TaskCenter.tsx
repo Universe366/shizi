@@ -9,6 +9,14 @@ import type {
 } from '../../../shared/types';
 import { formatRelativeTime } from '../lib/format';
 
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  if (total < 60) return total + ' 秒';
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return seconds ? minutes + ' 分 ' + seconds + ' 秒' : minutes + ' 分钟';
+}
+
 export const JOB_TYPE_LABEL: Record<JobType, string> = {
   summary: '总结',
   asr: '转录',
@@ -202,6 +210,9 @@ export function TaskCenter({
 
               <div className="task-meta">
                 {active ? `${Math.round(job.progress)}%` : formatRelativeTime(job.updatedAt)}
+                <span className="task-elapsed">
+                  已用 {formatElapsed((job.finishedAt || Date.now()) - job.createdAt)}
+                </span>
                 {job.message ? ` · ${job.message}` : ''}
                 {job.error ? ` · ${job.error}` : ''}
               </div>

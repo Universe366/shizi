@@ -12567,3 +12567,53 @@ sup:has(> .cite-ref) {
   cursor: pointer;
   user-select: none;
 }
+
+.chat-reasoning-close {
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.chat-reasoning-close:hover {
+  color: var(--text);
+}
+
+.chat-reasoning summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-elapsed {
+  margin-left: 6px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-dl {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lib-dl-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.lib-dl-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.lib-dl-meta {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}

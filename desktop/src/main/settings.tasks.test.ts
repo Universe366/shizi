@@ -231,7 +231,8 @@ describe('任务槽位 / 用量设置', () => {
       subtitles: true,
       metadata: true,
       template: 'uploader-title',
-      folderPerList: false
+      folderPerList: false,
+      dir: ''
     };
     saveSettings(settings);
     expect(loadSettings().general.download).toEqual({
@@ -242,7 +243,8 @@ describe('任务槽位 / 用量设置', () => {
       subtitles: true,
       metadata: true,
       template: 'uploader-title',
-      folderPerList: false
+      folderPerList: false,
+      dir: ''
     });
     settings.general.download = {
       quality: 'best',
@@ -252,7 +254,8 @@ describe('任务槽位 / 用量设置', () => {
       subtitles: false,
       metadata: false,
       template: 'title-id',
-      folderPerList: true
+      folderPerList: true,
+      dir: ''
     };
     saveSettings(settings);
   });

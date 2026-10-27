@@ -35,6 +35,8 @@ export interface ChatOptions {
   skillIds?: string[];
   profileId?: string;
   web?: boolean;
+  /** 是否把当前视频字幕带给模型（默认 true）；false 时按“无字幕”处理 */
+  includeTranscript?: boolean;
   surface?: 'main' | 'pet';
   context?: string;
   page?: PageContext | null;
@@ -127,7 +129,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   if (!platform.model.trim()) throw new Error('请先在设置里填写模型名');
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
 
-  const transcript = buildTranscript(options.info, options.lines);
+  const unbound = options.includeTranscript === false;
+  const transcript = unbound ? '' : buildTranscript(options.info, options.lines);
   // 对话不强依赖字幕：没有字幕时仍可提问（联网 / 简介 / 通用问答），
   // 但要在提示里说清“没有字幕依据”，避免模型假装看过视频。
   const hasTranscript = Boolean(transcript.trim());
@@ -274,17 +277,21 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     skillPrompt(settings, [
       ...new Set([...(options.skillIds || []), ...(profile?.skillIds || [])])
     ]),
-    `${hasVideo ? '视频标题' : '页面标题'}：${options.info.title || page?.title || '未知'}`,
-    ...(options.info.owner ? [`UP 主：${options.info.owner}`] : []),
-    ...(settings.search.useVideoMeta !== false && options.info.desc
-      ? [`视频简介：${options.info.desc.slice(0, 2000)}`]
-      : []),
-    ...(hasTranscript
+    ...(unbound
       ? []
       : [
-          hasVideo
-            ? '当前视频没有可用字幕：可以基于问题本身、视频简介和联网结果回答，但要明确说明“没有字幕依据”。'
-            : '当前页面没有提取到可用正文：可以基于问题本身、选中内容和联网结果回答，但要明确说明依据有限。'
+          `${hasVideo ? '视频标题' : '页面标题'}：${options.info.title || page?.title || '未知'}`,
+          ...(options.info.owner ? [`UP 主：${options.info.owner}`] : []),
+          ...(settings.search.useVideoMeta !== false && options.info.desc
+            ? [`视频简介：${options.info.desc.slice(0, 2000)}`]
+            : []),
+          ...(hasTranscript
+            ? []
+            : [
+                hasVideo
+                  ? '当前视频没有可用字幕：可以基于问题本身、视频简介和联网结果回答，但要明确说明“没有字幕依据”。'
+                  : '当前页面没有提取到可用正文：可以基于问题本身、选中内容和联网结果回答，但要明确说明依据有限。'
+              ])
         ]),
     pageBlock,
     webBlock

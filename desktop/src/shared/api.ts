@@ -449,6 +449,8 @@ export interface BsubApi {
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
+  /** 选择下载保存目录 */
+  pickDownloadDir(): Promise<Result<string | null>>;
   /** 起始页：抓取站点标题/描述/图标 */
   startProbeSite(url: string): Promise<Result<SiteMeta>>;
   /** 云同步：选择文件夹 */

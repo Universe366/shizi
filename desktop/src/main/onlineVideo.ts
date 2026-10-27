@@ -294,7 +294,8 @@ export async function downloadOnlineVideo(
   const report = (percent: number, message: string, speed?: string, eta?: string) =>
     onProgress({ percent, message, speed, eta });
   const ytdlp = await ensureYtDlp((percent, message) => report(percent, message), signal);
-  const outputDir = path.join(app.getPath('downloads'), 'Shizi');
+  const outputDir =
+    String(options.dir || '').trim() || path.join(app.getPath('downloads'), 'Shizi');
   fs.mkdirSync(outputDir, { recursive: true });
   const resultFile = path.join(os.tmpdir(), `shizi-ytdlp-${Date.now()}.txt`);
   const quality = options.quality || 'best';

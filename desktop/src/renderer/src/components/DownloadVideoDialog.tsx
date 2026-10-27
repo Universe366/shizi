@@ -25,7 +25,8 @@ const DEFAULT_OPTIONS: DownloadSettings = {
   subtitles: false,
   metadata: false,
   template: 'title-id',
-  folderPerList: true
+  folderPerList: true,
+    dir: ''
 };
 
 interface DownloadTask {

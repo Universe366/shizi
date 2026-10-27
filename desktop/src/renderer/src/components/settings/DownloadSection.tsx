@@ -14,6 +14,27 @@ export function DownloadSection({
       <div className="settings-hint">
         资料库每条视频右侧的下载按钮、下载弹窗都会使用这里的默认选项；仅处理你有权保存的内容。
       </div>
+      <div className="settings-field">
+        <div className="settings-label">保存目录</div>
+        <div className="settings-inline">
+          <input
+            className="settings-input"
+            value={value.dir}
+            placeholder="默认：系统下载目录 / Shizi"
+            spellCheck={false}
+            onChange={(event) => onChange({ ...value, dir: event.target.value })}
+          />
+          <button
+            className="mini-btn"
+            onClick={async () => {
+              const picked = await window.bsub.pickDownloadDir?.();
+              if (picked?.ok && picked.data) onChange({ ...value, dir: picked.data });
+            }}
+          >
+            选择…
+          </button>
+        </div>
+      </div>
       <div className="settings-inline">
         <div className="settings-field">
           <div className="settings-label">画质上限</div>

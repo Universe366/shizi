@@ -353,6 +353,7 @@ async function judgeEvidence(
     '- quote 必须逐字摘自对应证据的标题或摘要，4~60 字；找不到就判 irrelevant。',
     '- support：证据明确支持字幕说法；refute：证据明确矛盾；irrelevant：只是同名/同领域，没谈字幕里的那件事。',
     '- 不要因为出现同一个产品名就判 support。',
+    '- 先确认证据与字幕说的是同一实体、同一时间范围、同一单位；只是同领域或同名不同事就判 irrelevant。',
     '- supplements 最多 3 条，每条不超过 120 字，只能写证据确实补充/纠正的内容；没有就返回空数组。',
     '',
     ...evidence.map(
@@ -799,10 +800,23 @@ export async function verifySummary(
       onProgress(done, items.length, label);
       return { ...item, references: [] as WebReference[] };
     }
-    const ranked = rankReferences(searchQuery, raw)
-      .filter((reference) => relevant(searchQuery, reference))
-      .slice(0, 3)
-      .map((reference) => ({ ...reference, site: siteOf(reference.url) }));
+    const pickReferences = (query: string) =>
+      rankReferences(query, raw)
+        .filter((reference) => relevant(query, reference))
+        .slice(0, 4)
+        .map((reference) => ({ ...reference, site: siteOf(reference.url) }));
+    let ranked = pickReferences(searchQuery);
+    if (!ranked.length) {
+      // 原查询太窄（引号、年份、长尾修饰）时，用去掉年份/引号的简化词在同一批结果里再筛一次。
+      const simplified = searchQuery
+        .replace(/[“”"'‘’]/g, ' ')
+        .replace(/\b(19|20)\d{2}\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (simplified && simplified !== searchQuery && simplified.length >= 4) {
+        ranked = pickReferences(simplified);
+      }
+    }
     done += 1;
     onProgress(done, items.length, label);
     return { ...item, references: ranked };

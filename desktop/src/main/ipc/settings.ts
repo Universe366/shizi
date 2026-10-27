@@ -141,6 +141,18 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     ctx.send('ui:open-settings', null);
   });
 
+  ipcMain.handle('download:pick-dir', async (): Promise<Result<string | null>> => {
+    try {
+      const result = await dialog.showOpenDialog(ctx.win, {
+        title: '选择下载保存目录',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      return { ok: true, data: result.canceled ? null : result.filePaths[0] || null };
+    } catch (error) {
+      return failure<string | null>(error);
+    }
+  });
+
   ipcMain.handle(
     'dialog:pick-file',
     async (

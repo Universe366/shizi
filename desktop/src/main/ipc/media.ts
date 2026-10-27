@@ -503,7 +503,16 @@ export function registerMediaIpc(ctx: IpcContext): void {
             signal: controller.signal,
             onDelta: (delta) => ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
             onStatus: (status) => {
-              trackJob(() => updateJob(requestId, { message: status }));
+              const match = /(\d+)\s*\/\s*(\d+)/.exec(status);
+              const progress = match
+                ? Math.max(0, Math.min(100, (Number(match[1]) / Number(match[2])) * 100))
+                : undefined;
+              trackJob(() =>
+                updateJob(requestId, {
+                  message: status,
+                  ...(progress !== undefined ? { progress } : {})
+                })
+              );
               ctx.send('ai:status', { requestId, status } satisfies AiStatusEvent);
             },
             onReasoning: (delta) =>
@@ -577,7 +586,12 @@ export function registerMediaIpc(ctx: IpcContext): void {
       chatControllers.set(requestId, controller);
       const page =
         payload.includePage === false ? null : await readPageContext(ctx.tabs.activeWebContents());
-      const lines = Array.isArray(payload.lines) ? payload.lines : [];
+      const lines =
+        payload.includeTranscript === false
+          ? []
+          : Array.isArray(payload.lines)
+            ? payload.lines
+            : [];
 
       void (async () => {
         try {
@@ -588,6 +602,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             skillIds: payload.skillIds,
             profileId: payload.profileId,
             web: payload.web === true,
+            includeTranscript: payload.includeTranscript !== false,
             surface: payload.surface === 'pet' ? 'pet' : 'main',
             context: payload.context,
             page,
