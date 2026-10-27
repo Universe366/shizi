@@ -73,6 +73,18 @@ describe('SearchSection', () => {
     expect(p.updateSearch).toHaveBeenCalledWith({ timeRange: 'week' });
   });
 
+  it('三种自动联网模式映射到对应开关', () => {
+    const p = props();
+    render(<SearchSection {...p} />);
+    fireEvent.click(screen.getByLabelText(/智能：/));
+    expect(p.updateSearch).toHaveBeenCalledWith({
+      alwaysSearchOnChat: false,
+      autoSearchOnChat: true
+    });
+    fireEvent.click(screen.getByLabelText(/每轮都搜/));
+    expect(p.updateSearch).toHaveBeenCalledWith({ alwaysSearchOnChat: true });
+  });
+
   it('测试检索回调', () => {
     const p = props();
     render(<SearchSection {...p} />);

@@ -313,7 +313,10 @@ start-footnote   操作提示、导入导出设置
 
 ## 10. 联网检索与外部资料
 
-- 入口：对话输入区的联网 chip / 助手档案的 web 开关 / 总结前的联网检索。核心在 `main/web/`。
+- 入口：对话输入区的联网 chip / 助手档案的 web 开关 / 总结前的联网检索 / 核对。核心在 `main/web/`。
+- `retrieve.ts`：所有入口共用的检索门面，统一查询清洗/去重/排序/正文读取/预算；差异只在策略（对话与总结 3 条查询、8 条结果、读 2 篇；核对 2 条查询、6 条结果、读 1 篇）。
+- 设置页只保留三块：**用哪个搜索 / 什么时候自动搜 / 总结前核对**；协议与 Key、结果数、缓存、黑名单全部收进折叠项。
+- 联网工具：`app__web_search` 找链接，`app__web_fetch` 读具体页面正文（最多 3 次、内网地址拒绝）。
 - `plan.ts`：规则式检索计划，最多 4 条（基础 / 时效 / 对照 / 一手），不额外调用模型；设置项 `search.planQueries`。
 - `service.ts`：并发执行 → 合并 → 去重（URL + 内容指纹）→ 每域名最多 2 条 → 相关度/来源类型/时效排序 → 抓前 2 篇正文 → 分配 cite id。
 - 结果元数据：`site / date / authority / rerank / summary / content / sourceType`；对话资料块要求用 `[n]` 标注来源。
@@ -350,7 +353,7 @@ start-footnote   操作提示、导入导出设置
 ## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 157 文件 / 888 用例）
+- `npm test`（当前 157 文件 / 889 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。
