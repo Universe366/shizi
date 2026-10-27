@@ -12524,3 +12524,46 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: var(--fs-xs);
 }
+
+/* ---------- 总结进度与耗时 ---------- */
+.summary-progress.is-determinate span {
+  animation: none;
+  transform: none;
+  transition: width 0.3s ease;
+}
+
+.summary-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summary-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-elapsed {
+  margin-left: auto;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-elapsed-line {
+  margin: 2px 0 6px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.summary-verify-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  user-select: none;
+}

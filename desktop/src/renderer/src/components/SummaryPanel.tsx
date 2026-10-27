@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Copy, Loader2, Sparkles, Square, Volume2 } from 'lucide-react';
 import type {
   Chapter,
@@ -48,9 +48,21 @@ export function SummaryPanel({
   const [lines, setLines] = useState<SubtitleLine[]>([]);
   const [track, setTrack] = useState<SubtitleTrack | null>(null);
   const [streaming, setStreaming] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [totalMs, setTotalMs] = useState(0);
+  const [verifyThisRun, setVerifyThisRun] = useState(true);
+  const startedAtRef = useRef(0);
   const [summaryVideoKey, setSummaryVideoKey] = useState('');
   const [streamText, setStreamText] = useState('');
   const [status, setStatus] = useState('');
+  const progress = useMemo(() => {
+    const match = /(\d+)\s*\/\s*(\d+)/.exec(status);
+    if (!match) return null;
+    const done = Number(match[1]);
+    const total = Number(match[2]);
+    if (!total || done < 0 || done > total) return null;
+    return Math.max(2, Math.round((done / total) * 100));
+  }, [status]);
   const [loading, setLoading] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [chaptersOpen, setChaptersOpen] = useState(false);
@@ -202,6 +214,8 @@ export function SummaryPanel({
       setUpdatedAt(Date.now());
       setStreaming(false);
       setStreamText('');
+      setStatus('');
+      setTotalMs(startedAtRef.current ? Date.now() - startedAtRef.current : 0);
       if (autoReadSummaryRef.current && event.text.trim()) {
         void speakText(event.text);
       }
@@ -218,6 +232,7 @@ export function SummaryPanel({
       setError(event.error);
       setStreaming(false);
       setStatus('');
+      setTotalMs(startedAtRef.current ? Date.now() - startedAtRef.current : 0);
     });
     const offStatus = window.bsub.onAiStatus((event) => {
       if (event.requestId !== requestRef.current) return;
@@ -252,6 +267,7 @@ export function SummaryPanel({
         setPreProofread(response.data.settings.ai.preProofread === true);
         // 总结核对由 verifySummary 控制；verify 是「AI 优化时核对」，不要混用。
         setVerifyEnabled(response.data.settings.search.verifySummary !== false);
+        setVerifyThisRun(response.data.settings.search.verifySummary !== false);
         setSearchEnabled(response.data.settings.search.enabled !== false);
         autoReadSummaryRef.current = response.data.settings.tts?.autoRead?.summary === true;
       }
@@ -263,6 +279,14 @@ export function SummaryPanel({
       autoReadSummaryRef.current = snapshot.settings.tts?.autoRead?.summary === true;
     });
   }, []);
+
+  useEffect(() => {
+    if (!streaming) return;
+    const timer = window.setInterval(() => {
+      if (startedAtRef.current) setElapsedMs(Date.now() - startedAtRef.current);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [streaming]);
 
   const ensureLines = useCallback(async () => {
     const tabId = activeTabRef.current?.id;
@@ -340,6 +364,9 @@ export function SummaryPanel({
     setVerification(null);
     setFromSaved(false);
     setStatus('准备字幕…');
+    startedAtRef.current = Date.now();
+    setElapsedMs(0);
+    setTotalMs(0);
 
     try {
       const data = await ensureLines();
@@ -351,7 +378,7 @@ export function SummaryPanel({
         lines: data.lines,
         // 「快速」与插件一致：跳过字幕校对 + 联网核对，直接生成。
         skipProofread,
-        skipVerify: skipProofread
+        skipVerify: skipProofread || !verifyThisRun
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -403,6 +430,11 @@ export function SummaryPanel({
       const key = asrKeyRef.current;
       const info = asrInfoRef.current;
       if (info) setAsrResult(key, info, event.lines);
+      if (event.saved === false) {
+        setError(
+          `转录完成，但没有保存到资料库：${event.saveError || '未知原因'}。重启后会丢失，请重试。`
+        );
+      }
       // 等 asrStore 写入后，复用总结请求入口触发生成。
       if (key && key === videoKeyRef.current) {
         window.setTimeout(() => requestSummaryPanel('summary'), 0);
@@ -508,6 +540,16 @@ export function SummaryPanel({
             </button>
           )}
           {summary && <ExportMenu info={info} track={track} lines={lines} summary={summary} />}
+          {!streaming && searchEnabled && (
+            <label className="summary-verify-toggle" title="关闭可明显加快生成（不联网核对）">
+              <input
+                type="checkbox"
+                checked={verifyThisRun}
+                onChange={(event) => setVerifyThisRun(event.target.checked)}
+              />
+              核对
+            </label>
+          )}
           {!streaming && (preProofread || (verifyEnabled && searchEnabled)) && (
             <button
               className="mini-btn"
@@ -640,14 +682,30 @@ export function SummaryPanel({
 
       {streaming && (
         <>
-          {status && <div className="status-line">{status}</div>}
-          <div className="summary-progress" aria-label="正在生成">
-            <span />
+          {status && (
+            <div className="status-line summary-status">
+              <Loader2 size={13} className="spin" />
+              <span className="summary-status-text">{status}</span>
+              {elapsedMs > 0 && <span className="summary-elapsed">{formatDuration(elapsedMs)}</span>}
+            </div>
+          )}
+          <div
+            className={`summary-progress${progress !== null ? ' is-determinate' : ''}`}
+            aria-label="正在生成"
+          >
+            <span style={progress !== null ? { width: `${progress}%` } : undefined} />
           </div>
           <pre className="summary-live" ref={liveRef}>
             {streamText || '正在生成…'}
           </pre>
         </>
+      )}
+
+      {!streaming && totalMs > 0 && (
+        <div className="summary-elapsed-line">
+          本次耗时 {formatDuration(totalMs)}
+          {searchEnabled && verifyThisRun ? '（含联网核对）' : ''}
+        </div>
       )}
 
       {!streaming && summary && summaryVideoKey && summaryVideoKey !== videoKey && (

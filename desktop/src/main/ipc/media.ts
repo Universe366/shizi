@@ -683,8 +683,10 @@ export function registerMediaIpc(ctx: IpcContext): void {
             controller.signal
           );
           // 转写完成立即入库：重开视频时能从 library://track/<id> 直接加载，不用再转一遍。
+          let saved = false;
+          let saveError = '';
           try {
-            const saved = ingestVideo({
+            const savedTrack = ingestVideo({
               info,
               track: {
                 lan: 'asr',
@@ -696,15 +698,19 @@ export function registerMediaIpc(ctx: IpcContext): void {
               },
               lines: result.lines
             });
-            setTrackUrl(saved.trackId, `library://track/${saved.trackId}`);
+            setTrackUrl(savedTrack.trackId, `library://track/${savedTrack.trackId}`);
+            saved = true;
           } catch (error) {
-            console.warn('[asr] 保存到资料库失败:', (error as Error).message);
+            saveError = (error as Error)?.message || String(error);
+            console.warn('[asr] 保存到资料库失败:', saveError);
           }
           ctx.send('asr:done', {
             requestId,
             lines: result.lines,
             model: result.model,
-            duration: result.duration
+            duration: result.duration,
+            saved,
+            ...(saveError ? { saveError } : {})
           } satisfies AsrDoneEvent);
           trackJob(() => finishJob(requestId, 'done', null, `完成 · ${result.lines.length} 行`));
         } catch (error) {

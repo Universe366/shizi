@@ -344,6 +344,11 @@ export function SubtitlesPanel({
         setAsrResult(videoKeyRef.current, infoRef.current, event.lines);
         clearTranslationResult(videoKeyRef.current, 'asr://local');
       }
+      if (event.saved === false) {
+        setError(
+          `转录完成，但没有保存到资料库：${event.saveError || '未知原因'}。重启后会丢失，请重试。`
+        );
+      }
     });
     const offError = window.bsub.onAsrError((event) => {
       if (event.requestId !== asrRequestRef.current) return;

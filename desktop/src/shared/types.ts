@@ -1655,6 +1655,9 @@ export interface AsrDoneEvent {
   lines: SubtitleLine[];
   model: string;
   duration: number;
+  /** 是否已写入资料库；false 时重启后会丢失，需要提示用户 */
+  saved?: boolean;
+  saveError?: string;
 }
 
 export interface AsrErrorEvent {

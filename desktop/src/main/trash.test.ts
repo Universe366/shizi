@@ -155,3 +155,31 @@ describe('回收站与 schema 迁移', () => {
     expect(result.after).toBeGreaterThan(0);
   });
 });
+
+describe('转写字幕的 cid 回退', () => {
+  it('cid 缺失时，只有一条同 bvid 视频才回退加载', () => {
+    const savedInfo = { ...info, bvid: 'BV1test00010', cid: 99, title: 'cid 回退测试' };
+    const result = ingestVideo({
+      info: savedInfo,
+      track: {
+        lan: 'asr',
+        lanDoc: '语音转录',
+        url: 'library://pending',
+        isAi: false,
+        aiStatus: null,
+        source: 'asr'
+      },
+      lines: [{ start: 0, end: 2, text: '回退第一句' }]
+    });
+    setTrackUrl(result.trackId, 'library://track/' + result.trackId);
+    const withoutCid = { ...savedInfo, cid: 0 };
+    expect(
+      listSavedTracks(withoutCid).some(
+        (item) => item.url === 'library://track/' + result.trackId
+      )
+    ).toBe(true);
+    removeVideos([result.videoId]);
+    const entry = listTrash().find((item) => item.title === 'cid 回退测试');
+    if (entry) deleteTrash(entry.id);
+  });
+});
