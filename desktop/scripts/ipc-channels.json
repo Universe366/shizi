@@ -197,6 +197,7 @@
   "rules:import",
   "search:global",
   "search:test",
+  "search:test-fetch",
   "settings:export",
   "settings:get",
   "settings:import",

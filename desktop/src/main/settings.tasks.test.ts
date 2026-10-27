@@ -260,6 +260,26 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('URL 获取服务商与模型内置联网保存', () => {
+    const settings = loadSettings();
+    settings.search.fetchPlatforms = [
+      { id: 'direct', name: '内置抓取（免 Key）', kind: 'direct', baseUrl: '', apiKey: '' },
+      { id: 'jina', name: 'Jina Reader', kind: 'jina', baseUrl: 'https://r.jina.ai', apiKey: '' }
+    ];
+    settings.search.fetchActiveId = 'jina';
+    settings.search.preferModelWeb = true;
+    saveSettings(settings);
+
+    const loaded = loadSettings().search;
+    expect(loaded.fetchActiveId).toBe('jina');
+    expect(loaded.fetchPlatforms?.map((item) => item.kind)).toEqual(['direct', 'jina']);
+    expect(loaded.preferModelWeb).toBe(true);
+
+    settings.search.fetchActiveId = 'direct';
+    settings.search.preferModelWeb = false;
+    saveSettings(settings);
+  });
+
   it('快捷方式缺协议时自动补 https，不再被过滤', () => {
     const settings = loadSettings();
     settings.general.startShortcuts = [

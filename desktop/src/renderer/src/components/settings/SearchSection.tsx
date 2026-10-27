@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import type { AppSettings, SearchPlatform, SearchTimeRange, WebReference } from '../../../../shared/types';
 import { SearchDiagnostics } from './SearchDiagnostics';
@@ -51,6 +52,14 @@ export function SearchSection({
   const fetchPlatform =
     search.fetchPlatforms?.find((item) => item.id === search.fetchActiveId) ||
     search.fetchPlatforms?.[0];
+  const [fetchTestUrl, setFetchTestUrl] = useState('https://example.com');
+  const [fetchTesting, setFetchTesting] = useState(false);
+  const [fetchResult, setFetchResult] = useState<string>('');
+  const activeAi = draft.ai.platforms.find((item) => item.id === draft.ai.activeId);
+  const builtinSupported =
+    activeAi?.kind === 'gemini' ||
+    activeAi?.kind === 'anthropic' ||
+    /anthropic\.com/i.test(activeAi?.baseUrl || '');
 
   return (
     <SettingsSection title="联网检索" defaultOpen={false}>
@@ -253,16 +262,20 @@ export function SearchSection({
               jina: { name: 'Jina Reader', baseUrl: 'https://r.jina.ai' },
               tavily: { name: 'Tavily Extract', baseUrl: 'https://api.tavily.com' },
               exa: { name: 'Exa Contents', baseUrl: 'https://api.exa.ai' },
-              firecrawl: { name: 'Firecrawl', baseUrl: 'https://api.firecrawl.dev' }
+              firecrawl: { name: 'Firecrawl', baseUrl: 'https://api.firecrawl.dev' },
+              custom: { name: '自定义 URL 获取', baseUrl: '' }
             };
             const preset = presets[kind] || presets.direct;
-            const next = {
-              id: kind,
-              name: preset.name,
-              kind,
-              baseUrl: preset.baseUrl,
-              apiKey: fetchPlatform?.apiKey || ''
-            };
+            const existing = (search.fetchPlatforms || []).find((item) => item.id === kind);
+            const next = existing
+              ? { ...existing, name: preset.name }
+              : {
+                  id: kind,
+                  name: preset.name,
+                  kind,
+                  baseUrl: preset.baseUrl,
+                  apiKey: ''
+                };
             updateSearch({
               fetchActiveId: kind,
               fetchPlatforms: [
@@ -277,6 +290,7 @@ export function SearchSection({
           <option value="tavily">Tavily Extract</option>
           <option value="exa">Exa Contents</option>
           <option value="firecrawl">Firecrawl</option>
+          <option value="custom">自定义 URL 获取（{'{url}'} 占位）</option>
         </select>
         {fetchPlatform && fetchPlatform.kind !== 'direct' && (
           <>
@@ -317,6 +331,46 @@ export function SearchSection({
             </details>
           </>
         )}
+
+        <div className="settings-inline">
+          <input
+            className="settings-input"
+            value={fetchTestUrl}
+            spellCheck={false}
+            placeholder="https://example.com"
+            onChange={(event) => setFetchTestUrl(event.target.value)}
+          />
+          <button
+            className="mini-btn"
+            type="button"
+            disabled={fetchTesting}
+            onClick={async () => {
+              setFetchTesting(true);
+              setFetchResult('');
+              try {
+                const response = await window.bsub.testFetchPage?.({
+                  url: fetchTestUrl,
+                  platform: fetchPlatform
+                });
+                if (response?.ok) {
+                  setFetchResult(
+                    `成功：${response.data.title || '无标题'} · ${response.data.chars} 字` +
+                      (response.data.preview ? `\n${response.data.preview}` : '')
+                  );
+                } else {
+                  setFetchResult(`失败：${response?.error || '未知原因'}`);
+                }
+              } catch (error) {
+                setFetchResult(`失败：${(error as Error).message}`);
+              } finally {
+                setFetchTesting(false);
+              }
+            }}
+          >
+            {fetchTesting ? <Loader2 size={12} className="spin" /> : null} 测试抓取
+          </button>
+        </div>
+        {fetchResult && <div className="settings-hint">{fetchResult}</div>}
       </div>
 
       <div className="settings-group">
@@ -332,6 +386,13 @@ export function SearchSection({
           />
           优先使用模型内置 Web 工具
         </label>
+        <div className="settings-hint">
+          {activeAi
+            ? `当前对话模型：${activeAi.name}（${
+                builtinSupported ? '支持内置联网' : '不支持，开启后会自动回退到搜索服务商'
+              }）`
+            : '还没有配置对话模型，开启后会回退到搜索服务商。'}
+        </div>
       </div>
 
       <div className="settings-group">

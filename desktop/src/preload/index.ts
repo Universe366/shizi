@@ -587,6 +587,10 @@ const api: BsubApi = {
   startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
   startHotSearch: (force?: boolean) => ipcRenderer.invoke('start:hot', force === true),
   startBingWallpaper: () => ipcRenderer.invoke('start:bing-wallpaper'),
+  testFetchPage: (payload: { url: string; platform?: SearchPlatform }) =>
+    ipcRenderer.invoke('search:test-fetch', payload) as Promise<
+      Result<{ url: string; title: string; chars: number; preview: string }>
+    >,
   pickDownloadDir: () =>
     ipcRenderer.invoke('download:pick-dir') as Promise<Result<string | null>>,
   startProbeSite: (url: string) =>

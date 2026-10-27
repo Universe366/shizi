@@ -449,6 +449,11 @@ export interface BsubApi {
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
+  /** 测试 URL 获取服务商：抓取一页并返回标题/字数/预览 */
+  testFetchPage(payload: {
+    url: string;
+    platform?: import('./types').SearchPlatform;
+  }): Promise<Result<{ url: string; title: string; chars: number; preview: string }>>;
   /** 选择下载保存目录 */
   pickDownloadDir(): Promise<Result<string | null>>;
   /** 起始页：抓取站点标题/描述/图标 */

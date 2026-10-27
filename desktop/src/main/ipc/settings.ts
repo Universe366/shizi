@@ -57,6 +57,7 @@ import { installBrowserExtension } from '../extension-install';
 import { probePlatformModels, testPlatformConnection } from '../platform';
 
 import { listLibrary } from '../library';
+import { fetchWebPage } from '../web/fetch';
 import { failure, type IpcContext } from './shared';
 import {
   applyPetSettings,
@@ -140,6 +141,31 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     ctx.win.focus();
     ctx.send('ui:open-settings', null);
   });
+
+  ipcMain.handle(
+    'search:test-fetch',
+    async (
+      _event,
+      payload: { url?: string; platform?: SearchPlatform }
+    ): Promise<Result<{ url: string; title: string; chars: number; preview: string }>> => {
+      try {
+        const url = String(payload?.url || '').trim();
+        if (!/^https?:\/\//i.test(url)) return { ok: false, error: '请填写 http/https 链接' };
+        const page = await fetchWebPage(url, 1200, undefined, payload?.platform);
+        return {
+          ok: true,
+          data: {
+            url: page.url,
+            title: page.title,
+            chars: page.text.length,
+            preview: page.text.slice(0, 160)
+          }
+        };
+      } catch (error) {
+        return failure<{ url: string; title: string; chars: number; preview: string }>(error);
+      }
+    }
+  );
 
   ipcMain.handle('download:pick-dir', async (): Promise<Result<string | null>> => {
     try {
