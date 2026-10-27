@@ -276,6 +276,12 @@ export function SettingsPanel({
     });
   };
 
+  const testAllMcp = async () => {
+    for (const server of draft?.mcp.servers || []) {
+      if (server.enabled) await testMcp(server);
+    }
+  };
+
   const testMcp = async (server: McpServer) => {
     setMcpTesting(server.id);
     setMcpResult('');
@@ -400,6 +406,12 @@ export function SettingsPanel({
       sourceUrl: url
     });
     setMessage(`已更新技能：${response.data.name}`);
+  };
+
+  const refreshAllSkills = async () => {
+    for (const skill of draft?.skills.items || []) {
+      if (skill.sourceUrl) await refreshSkillUrl(skill.id, skill.sourceUrl);
+    }
   };
 
   const importSkillFolder = async () => {
@@ -1421,6 +1433,7 @@ export function SettingsPanel({
         onCall={(server, tool) => void callMcp(server, tool)}
         onReadResource={(server, uri) => void readMcpResource(server, uri)}
         onGetPrompt={(server, name) => void getMcpPrompt(server, name)}
+        onTestAll={() => void testAllMcp()}
       />
       )}
 
@@ -1436,6 +1449,7 @@ export function SettingsPanel({
         onUpdate={(id, patch) => updateSkill(id, patch)}
         onRemove={removeSkill}
         onRefresh={(id, url) => void refreshSkillUrl(id, url)}
+        onRefreshAll={() => void refreshAllSkills()}
       />
       )}
 

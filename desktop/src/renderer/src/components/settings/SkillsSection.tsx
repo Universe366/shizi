@@ -15,6 +15,7 @@ interface SkillsSectionProps {
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
   onRemove: (id: string) => void;
   onRefresh?: (id: string, url: string) => void;
+  onRefreshAll?: () => void;
 }
 
 /** Skills：技能提示词开关、导入 SKILL.md（文件/链接/文件夹）、新建/编辑/删除技能。 */
@@ -27,7 +28,8 @@ export function SkillsSection({
   onCreate,
   onUpdate,
   onRemove,
-  onRefresh
+  onRefresh,
+  onRefreshAll
 }: SkillsSectionProps) {
   const [url, setUrl] = useState('');
   const [query, setQuery] = useState('');
@@ -49,6 +51,28 @@ export function SkillsSection({
       </label>
       <div className="settings-hint">
         已启用 {enabledCount} / {value.items.length} 个；技能会注入总结和对话的系统提示词。
+      </div>
+
+      <div className="settings-inline">
+        <button
+          className="mini-btn"
+          disabled={!value.items.some((item) => item.sourceUrl)}
+          onClick={onRefreshAll}
+        >
+          检查全部更新
+        </button>
+        <button
+          className="mini-btn"
+          onClick={() => value.items.forEach((item) => onUpdate(item.id, { enabled: true }))}
+        >
+          全部启用
+        </button>
+        <button
+          className="mini-btn"
+          onClick={() => value.items.forEach((item) => onUpdate(item.id, { enabled: false }))}
+        >
+          全部停用
+        </button>
       </div>
 
       <div className="settings-inline">

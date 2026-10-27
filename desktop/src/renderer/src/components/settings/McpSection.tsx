@@ -22,6 +22,7 @@ interface McpSectionProps {
   onCall: (server: McpServer, tool: McpTool) => void;
   onReadResource: (server: McpServer, uri: string) => void;
   onGetPrompt: (server: McpServer, name: string) => void;
+  onTestAll?: () => void;
 }
 
 /** MCP 服务：服务列表、连接测试、工具/资源/提示词、超时/轮数与手动调用参数。 */
@@ -41,9 +42,11 @@ export function McpSection({
   onTest,
   onCall,
   onReadResource,
-  onGetPrompt
+  onGetPrompt,
+  onTestAll
 }: McpSectionProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [query, setQuery] = useState('');
   const [importNotice, setImportNotice] = useState('');
 
   const importServers = async (file: File) => {
@@ -118,8 +121,11 @@ export function McpSection({
       </label>
       <div className="settings-inline">
         <span className="settings-label" style={{ flex: 1 }}>
-          服务列表
+          服务列表 · {value.servers.length} 个 / {value.servers.filter((item) => item.enabled).length} 已启用
         </span>
+        <button className="mini-btn" onClick={onTestAll}>
+          测试全部
+        </button>
         <button className="mini-btn" onClick={onAddServer}>
           <Plus size={12} /> 服务
         </button>
@@ -164,8 +170,22 @@ export function McpSection({
         />
       </div>
       {importNotice && <div className="settings-hint">{importNotice}</div>}
+      <div className="settings-inline">
+        <input
+          className="settings-input"
+          placeholder="搜索服务 / 工具…"
+          spellCheck={false}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
 
-      {value.servers.map((server) => (
+      {value.servers
+        .filter((server) => {
+          const text = `${server.name} ${server.command || ''} ${server.url} ${(tools[server.id] || []).map((tool) => tool.name).join(' ')}`.toLowerCase();
+          return !query.trim() || text.includes(query.trim().toLowerCase());
+        })
+        .map((server) => (
         <details key={server.id} className="mcp-card">
           <summary className="mcp-card-head">
             <span
@@ -378,7 +398,7 @@ export function McpSection({
             </div>
           ) : null}
         </details>
-      ))}
+        ))}
 
       <div className="settings-inline">
         <div className="settings-field">
