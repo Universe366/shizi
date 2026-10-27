@@ -105,7 +105,9 @@ import type {
   ChatApprovalEvent,
   ChatAttachment,
   ChatCompareResult,
+  KbCard,
   KbChunk,
+  KbQaEntry,
   KbDocument,
   KbLearningStatus,
   KbStatus,
@@ -340,6 +342,15 @@ export interface BsubApi {
   kbStatusSet(videoId: number, status: KbLearningStatus): Promise<Result<KbLearningStatus>>;
   kbCollectionVideos(collectionId: number): Promise<Result<number[]>>;
   kbExport(format: 'markdown' | 'json'): Promise<Result<string | null>>;
+  kbHistory(payload?: { videoId?: number; limit?: number }): Promise<Result<KbQaEntry[]>>;
+  kbCards(payload?: {
+    dueOnly?: boolean;
+    videoId?: number;
+    limit?: number;
+  }): Promise<Result<KbCard[]>>;
+  kbCardAdd(payload: { videoId?: number; front: string; back: string }): Promise<Result<KbCard>>;
+  kbCardReview(id: number, grade: 'again' | 'hard' | 'good'): Promise<Result<KbCard>>;
+  kbCardDelete(id: number): Promise<Result<boolean>>;
   kbIndex(): Promise<Result<KbStatus>>;
   kbSearch(
     question: string,

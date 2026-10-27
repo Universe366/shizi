@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * 现在用 `PRAGMA user_version` 记录版本，迁移只能顺序向前，每一步都必须幂等，
  * 这样「给 videos 加 kind/source」这类改动才有地方落。
  */
-export const LATEST_SCHEMA_VERSION = 7;
+export const LATEST_SCHEMA_VERSION = 8;
 
 interface Migration {
   version: number;
@@ -175,6 +175,42 @@ const MIGRATIONS: Migration[] = [
           updated_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS kb_states_status ON kb_states(status);
+      `);
+    }
+  },
+  {
+    version: 8,
+    name: 'knowledge-memory',
+    up: (db) => {
+      // 问答历史（含引用视频，用于双向链接）与复习卡片。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS kb_qa (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          question TEXT NOT NULL,
+          answer TEXT NOT NULL DEFAULT '',
+          mode TEXT NOT NULL DEFAULT 'ask',
+          scope_label TEXT NOT NULL DEFAULT '全部文档',
+          hits_json TEXT NOT NULL DEFAULT '[]',
+          created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS kb_mentions (
+          qa_id INTEGER NOT NULL,
+          video_id INTEGER NOT NULL,
+          PRIMARY KEY (qa_id, video_id)
+        );
+        CREATE INDEX IF NOT EXISTS kb_mentions_video ON kb_mentions(video_id);
+        CREATE TABLE IF NOT EXISTS kb_cards (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          video_id INTEGER,
+          front TEXT NOT NULL,
+          back TEXT NOT NULL,
+          due_at INTEGER NOT NULL,
+          interval_days INTEGER NOT NULL DEFAULT 0,
+          streak INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS kb_cards_due ON kb_cards(due_at);
       `);
     }
   }

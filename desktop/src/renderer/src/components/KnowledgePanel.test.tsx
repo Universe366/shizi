@@ -24,6 +24,30 @@ const HITS = [
   }
 ];
 
+const HISTORY = [
+  {
+    id: 9,
+    question: '历史问题：本地 ASR 怎么装',
+    answer: '历史回答：装依赖',
+    mode: 'ask' as const,
+    scopeLabel: '本地 ASR 测试',
+    hits: HITS,
+    createdAt: Date.now()
+  }
+];
+
+const CARD = {
+  id: 1,
+  videoId: 1,
+  front: '什么是 ASR',
+  back: '自动语音识别',
+  dueAt: Date.now() - 1000,
+  intervalDays: 0,
+  streak: 0,
+  createdAt: Date.now(),
+  updatedAt: Date.now()
+};
+
 function installBsub() {
   const handlers: { progress?: (event: unknown) => void } = {};
   const api = {
@@ -78,6 +102,17 @@ function installBsub() {
     })),
     kbStatusSet: vi.fn(async () => ({ ok: true as const, data: 'learning' as const })),
     kbExport: vi.fn(async () => ({ ok: true as const, data: 'C:/tmp/kb.md' })),
+    kbHistory: vi.fn(async () => ({ ok: true as const, data: HISTORY })),
+    kbCards: vi.fn(async () => ({ ok: true as const, data: [CARD] })),
+    kbCardAdd: vi.fn(async (payload: { front: string; back: string }) => ({
+      ok: true as const,
+      data: { ...CARD, id: 2, front: payload.front, back: payload.back }
+    })),
+    kbCardReview: vi.fn(async () => ({
+      ok: true as const,
+      data: { ...CARD, intervalDays: 1, streak: 1, dueAt: Date.now() + 86400000 }
+    })),
+    kbCardDelete: vi.fn(async () => ({ ok: true as const, data: true })),
     getLibraryItem: vi.fn(async () => ({
       ok: true as const,
       data: {
@@ -108,6 +143,11 @@ const pick = (selector: string, text: string) =>
     | HTMLElement
     | undefined;
 
+const docRow = async (title: string) => {
+  await waitFor(() => expect(pick('.kb-doc-row', title)).toBeTruthy());
+  return pick('.kb-doc-row', title) as HTMLElement;
+};
+
 describe('KnowledgePanel', () => {
   afterEach(() => {
     cleanup();
@@ -120,17 +160,16 @@ describe('KnowledgePanel', () => {
     render(<KnowledgePanel />);
     expect(await screen.findByText(/120 块 \/ 8 个视频/)).toBeTruthy();
     expect(await screen.findByText('课程合集')).toBeTruthy();
-    expect(document.querySelectorAll('.kb-doc-row').length).toBe(4); // 全部 + 合集 + 2 文档
+    expect(document.querySelectorAll('.kb-doc-row').length).toBe(4);
     fireEvent.click(pick('.kb-side-filters button', '待复习') as HTMLElement);
     await waitFor(() => expect(screen.queryByText('字幕片段')).toBeNull());
-    expect(screen.getByText('本地 ASR 测试')).toBeTruthy();
+    expect(pick('.kb-doc-row', '本地 ASR 测试')).toBeTruthy();
   });
 
   it('选择合集后提问会带 collectionId', async () => {
     const { api } = installBsub();
     render(<KnowledgePanel />);
-    await screen.findByText('课程合集');
-    fireEvent.click(screen.getByText('课程合集'));
+    fireEvent.click(await docRow('课程合集'));
     const input = screen.getByPlaceholderText(/只在这个合集/);
     fireEvent.change(input, { target: { value: '课程讲什么' } });
     fireEvent.click(document.querySelector('.kb-ask-side .mini-btn') as HTMLElement);
@@ -142,9 +181,8 @@ describe('KnowledgePanel', () => {
   it('文档页签展示总结/笔记/片段，点击片段跳到时间', async () => {
     const { api } = installBsub();
     render(<KnowledgePanel />);
-    await screen.findByText('本地 ASR 测试');
-    fireEvent.click(screen.getByText('本地 ASR 测试'));
-    fireEvent.click(screen.getByText('文档'));
+    fireEvent.click(await docRow('本地 ASR 测试'));
+    fireEvent.click(pick('.kb-tabs > button', '文档') as HTMLElement);
     expect(await screen.findByText('总结内容')).toBeTruthy();
     expect(screen.getByText('已有笔记')).toBeTruthy();
     fireEvent.click(document.querySelector('.kb-doc-chunk') as HTMLElement);
@@ -154,7 +192,7 @@ describe('KnowledgePanel', () => {
   it('引用栏可以跳到具体时间', async () => {
     const { api } = installBsub();
     render(<KnowledgePanel />);
-    await screen.findByText('课程合集');
+    await docRow('课程合集');
     const input = screen.getByPlaceholderText(/这几期视频里/);
     fireEvent.change(input, { target: { value: '本地 ASR' } });
     fireEvent.click(document.querySelector('.kb-ask-side .mini-btn') as HTMLElement);
@@ -166,9 +204,8 @@ describe('KnowledgePanel', () => {
   it('回答可以追加到当前文档笔记', async () => {
     const { api } = installBsub();
     render(<KnowledgePanel />);
-    await screen.findByText('本地 ASR 测试');
-    fireEvent.click(screen.getByText('本地 ASR 测试'));
-    fireEvent.click(screen.getByText('问答'));
+    fireEvent.click(await docRow('本地 ASR 测试'));
+    fireEvent.click(pick('.kb-tabs > button', '问答') as HTMLElement);
     const input = screen.getByPlaceholderText(/只问/);
     fireEvent.change(input, { target: { value: '这篇讲了什么' } });
     fireEvent.click(document.querySelector('.kb-ask-side .mini-btn') as HTMLElement);
@@ -197,5 +234,54 @@ describe('KnowledgePanel', () => {
     fireEvent.change(screen.getByDisplayValue('导出…'), { target: { value: 'markdown' } });
     await waitFor(() => expect(api.kbExport).toHaveBeenCalledWith('markdown'));
     expect(await screen.findByText(/已导出到 C:\/tmp\/kb.md/)).toBeTruthy();
+  });
+
+  it('复习页签可以显示答案并按记住排期', async () => {
+    const { api } = installBsub();
+    render(<KnowledgePanel />);
+    await docRow('课程合集');
+    fireEvent.click(pick('.kb-tabs > button', '复习') as HTMLElement);
+    expect(await screen.findByText('什么是 ASR')).toBeTruthy();
+    fireEvent.click(screen.getByText('显示答案'));
+    expect(screen.getByText('自动语音识别')).toBeTruthy();
+    fireEvent.click(screen.getByText('记住'));
+    await waitFor(() => expect(api.kbCardReview).toHaveBeenCalledWith(1, 'good'));
+  });
+
+  it('历史页签可以恢复当时的回答', async () => {
+    installBsub();
+    render(<KnowledgePanel />);
+    await docRow('课程合集');
+    fireEvent.click(pick('.kb-tabs > button', '历史') as HTMLElement);
+    const row = await screen.findByText('历史问题：本地 ASR 怎么装');
+    fireEvent.click(row);
+    expect(await screen.findByText('历史回答：装依赖')).toBeTruthy();
+  });
+
+  it('问答可以存为复习卡', async () => {
+    const { api } = installBsub();
+    render(<KnowledgePanel />);
+    await docRow('课程合集');
+    const input = screen.getByPlaceholderText(/这几期视频里/);
+    fireEvent.change(input, { target: { value: 'ASR 是什么' } });
+    fireEvent.click(document.querySelector('.kb-ask-side .mini-btn') as HTMLElement);
+    await screen.findByText('这是回答');
+    fireEvent.click(screen.getByText('存为复习卡'));
+    await waitFor(() => expect(api.kbCardAdd).toHaveBeenCalled());
+    const payload = api.kbCardAdd.mock.calls.at(-1)?.[0] as unknown as {
+      front: string;
+      back: string;
+    };
+    expect(payload.front).toBe('ASR 是什么');
+    expect(payload.back).toContain('这是回答');
+  });
+
+  it('文档页签显示引用过这篇的问题', async () => {
+    installBsub();
+    render(<KnowledgePanel />);
+    fireEvent.click(await docRow('本地 ASR 测试'));
+    fireEvent.click(pick('.kb-tabs > button', '文档') as HTMLElement);
+    expect(await screen.findByText('相关问题')).toBeTruthy();
+    expect(screen.getByText('历史问题：本地 ASR 怎么装')).toBeTruthy();
   });
 });

@@ -79,7 +79,9 @@ import type {
   ChatAttachment,
   ChatCompareResult,
   KbChunk,
+  KbCard,
   KbDocument,
+  KbQaEntry,
   KbLearningStatus,
   KbStatus,
   KbHit,
@@ -512,6 +514,16 @@ const api: BsubApi = {
     ipcRenderer.invoke('kb:collection-videos', collectionId) as Promise<Result<number[]>>,
   kbExport: (format: 'markdown' | 'json') =>
     ipcRenderer.invoke('kb:export', format) as Promise<Result<string | null>>,
+  kbHistory: (payload?: { videoId?: number; limit?: number }) =>
+    ipcRenderer.invoke('kb:history', payload) as Promise<Result<KbQaEntry[]>>,
+  kbCards: (payload?: { dueOnly?: boolean; videoId?: number; limit?: number }) =>
+    ipcRenderer.invoke('kb:cards', payload) as Promise<Result<KbCard[]>>,
+  kbCardAdd: (payload: { videoId?: number; front: string; back: string }) =>
+    ipcRenderer.invoke('kb:card-add', payload) as Promise<Result<KbCard>>,
+  kbCardReview: (id: number, grade: 'again' | 'hard' | 'good') =>
+    ipcRenderer.invoke('kb:card-review', { id, grade }) as Promise<Result<KbCard>>,
+  kbCardDelete: (id: number) =>
+    ipcRenderer.invoke('kb:card-delete', id) as Promise<Result<boolean>>,
   kbSearch: (question: string, scope?: { videoId?: number; collectionId?: number }) =>
     ipcRenderer.invoke('kb:search', { question, ...scope }) as Promise<Result<KbHit[]>>,
   kbAsk: (question: string, scope?: { videoId?: number; collectionId?: number }) =>

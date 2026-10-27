@@ -43,6 +43,9 @@
 | `kb_chunks` | 切块：`video_id/kind(start 字幕/summary/note/meta)/start_ms/end_ms/text/hash` |
 | `kb_vectors` | 向量：`chunk_id/model/dim/vector`（Float32 BLOB），按模型区分 |
 | `kb_states`（v7） | 学习状态：`video_id/status(new·learning·review·mastered)/updated_at` |
+| `kb_qa`（v8） | 问答历史：`question/answer/mode/scope_label/hits_json/created_at` |
+| `kb_mentions`（v8） | 双向链接：`qa_id/video_id`（每条回答引用过哪些视频） |
+| `kb_cards`（v8） | 复习卡片：`video_id/front/back/due_at/interval_days/streak` |
 
 索引流程：`collectChunks()` 重建 `kb_chunks` → 调 `/embeddings` → 写 `kb_vectors`。
 检索用「向量余弦 + 关键词覆盖率」混合打分，模型名必须与建索引时一致。

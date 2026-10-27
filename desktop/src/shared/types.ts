@@ -1480,6 +1480,28 @@ export interface KbChunk {
   text: string;
 }
 
+export interface KbQaEntry {
+  id: number;
+  question: string;
+  answer: string;
+  mode: 'ask' | 'search';
+  scopeLabel: string;
+  hits: KbHit[];
+  createdAt: number;
+}
+
+export interface KbCard {
+  id: number;
+  videoId: number | null;
+  front: string;
+  back: string;
+  dueAt: number;
+  intervalDays: number;
+  streak: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface KbHit {
   videoId: number;
   title: string;

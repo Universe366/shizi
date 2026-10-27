@@ -2,11 +2,13 @@ import { app, dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
+  KbCard,
   KbChunk,
   KbDocument,
   KbHit,
   KbLearningStatus,
   KbProgress,
+  KbQaEntry,
   KbStatus,
   Result
 } from '../../shared/types';
@@ -22,6 +24,30 @@ import {
   type KbScope
 } from '../library/knowledge';
 import { buildKnowledgeExport, type KnowledgeExportFormat } from '../library/knowledgeExport';
+import {
+  createKbCard,
+  deleteKbCard,
+  listKbCards,
+  listKbQa,
+  reviewKbCard,
+  saveKbQa
+} from '../library/knowledgeMemory';
+import { getLibraryDetail } from '../library/videos';
+import { listCollections } from '../library/collections';
+import type { KbReviewGrade } from '../../shared/kbReview';
+
+/** 把范围翻译成可读标题（写进问答历史）。 */
+function describeScope(scope?: KbScope): string {
+  try {
+    if (scope?.videoId) return getLibraryDetail(scope.videoId).video?.title || '单篇文档';
+    if (scope?.collectionId) {
+      return listCollections().find((item) => item.id === scope.collectionId)?.name || '合集';
+    }
+  } catch {
+    // ignore
+  }
+  return '全部文档';
+}
 
 function ok<T>(data: T): Result<T> {
   return { ok: true, data };
@@ -113,6 +139,73 @@ export function registerKnowledgeIpc(): void {
     }
   );
 
+  ipcMain.handle(
+    'kb:history',
+    (_event, payload: { videoId?: number; limit?: number } | undefined): Result<KbQaEntry[]> => {
+      try {
+        return ok(listKbQa({ videoId: Number(payload?.videoId) || undefined, limit: payload?.limit }));
+      } catch (error) {
+        return failure<KbQaEntry[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'kb:cards',
+    (
+      _event,
+      payload: { dueOnly?: boolean; videoId?: number; limit?: number } | undefined
+    ): Result<KbCard[]> => {
+      try {
+        return ok(
+          listKbCards({
+            dueOnly: payload?.dueOnly === true,
+            videoId: Number(payload?.videoId) || undefined,
+            limit: payload?.limit
+          })
+        );
+      } catch (error) {
+        return failure<KbCard[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'kb:card-add',
+    (_event, payload: { videoId?: number; front?: string; back?: string }): Result<KbCard> => {
+      try {
+        return ok(
+          createKbCard({
+            videoId: Number(payload?.videoId) || null,
+            front: String(payload?.front || ''),
+            back: String(payload?.back || '')
+          })
+        );
+      } catch (error) {
+        return failure<KbCard>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'kb:card-review',
+    (_event, payload: { id?: number; grade?: KbReviewGrade }): Result<KbCard> => {
+      try {
+        return ok(reviewKbCard(Number(payload?.id) || 0, payload?.grade || 'good'));
+      } catch (error) {
+        return failure<KbCard>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('kb:card-delete', (_event, id: number): Result<boolean> => {
+    try {
+      return ok(deleteKbCard(Number(id) || 0));
+    } catch (error) {
+      return failure<boolean>(error);
+    }
+  });
+
   ipcMain.handle('kb:index', async (event): Promise<Result<KbStatus>> => {
     try {
       const sender = event.sender;
@@ -130,7 +223,19 @@ export function registerKnowledgeIpc(): void {
     async (_event, payload: string | ScopedPayload): Promise<Result<KbHit[]>> => {
       try {
         const { question, scope } = parseScoped(payload);
-        return ok(await searchKnowledge(question, 8, scope));
+        const hits = await searchKnowledge(question, 8, scope);
+        try {
+          saveKbQa({
+            question,
+            answer: '',
+            mode: 'search',
+            scopeLabel: describeScope(scope),
+            hits
+          });
+        } catch {
+          // 历史落库失败不影响检索
+        }
+        return ok(hits);
       } catch (error) {
         return failure<KbHit[]>(error);
       }
@@ -145,7 +250,19 @@ export function registerKnowledgeIpc(): void {
     ): Promise<Result<{ text: string; hits: KbHit[] }>> => {
       try {
         const { question, scope } = parseScoped(payload);
-        return ok(await askKnowledge(question, scope));
+        const result = await askKnowledge(question, scope);
+        try {
+          saveKbQa({
+            question,
+            answer: result.text,
+            mode: 'ask',
+            scopeLabel: describeScope(scope),
+            hits: result.hits
+          });
+        } catch {
+          // 历史落库失败不影响回答
+        }
+        return ok(result);
       } catch (error) {
         return failure<{ text: string; hits: KbHit[] }>(error);
       }

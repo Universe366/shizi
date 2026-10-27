@@ -12236,3 +12236,162 @@ body.is-resizing-tabs {
     box-shadow: none;
   }
 }
+
+/* ---------- 知识库：复习与历史 ---------- */
+.kb-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+}
+
+.kb-memory-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kb-memory-head .settings-hint {
+  margin-right: auto;
+}
+
+.kb-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.kb-card-form textarea {
+  resize: vertical;
+}
+
+.kb-card-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.kb-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.kb-card-front {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.kb-card-back {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.kb-card-grades {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kb-card-grades .settings-hint {
+  margin-left: auto;
+}
+
+.kb-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kb-history-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.kb-history-row:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.kb-history-q {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.kb-history-meta {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.kb-related-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kb-related-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 7px;
+  text-align: left;
+}
+
+.kb-related-row:hover {
+  background: var(--surface-2);
+}
+
+.kb-related-q {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.kb-related-meta {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}

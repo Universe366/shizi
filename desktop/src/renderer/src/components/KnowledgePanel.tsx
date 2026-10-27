@@ -3,28 +3,37 @@ import {
   ClipboardCopy,
   Database,
   ExternalLink,
+  History as HistoryIcon,
+  Layers,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
   RefreshCw,
   Search,
   Sparkles,
+  Trash2,
   X
 } from 'lucide-react';
 import type {
+  KbCard,
   KbChunk,
   KbDocument,
   KbHit,
   KbLearningStatus,
   KbProgress,
+  KbQaEntry,
   KbStatus,
   LibraryCollection
 } from '../../../shared/types';
+import type { KbReviewGrade } from '../../../shared/kbReview';
 import { clock } from '../../../shared/kb';
 import { EmptyState } from './ui/EmptyState';
 import { Markdown } from './Markdown';
 
 type Mode = 'ask' | 'search';
+type MainTab = 'ask' | 'doc' | 'review' | 'history';
+type CardFilter = 'due' | 'all';
 type HitFilter = 'all' | 'subtitle' | 'summary' | 'note';
 type StatusFilter = 'all' | KbLearningStatus;
 type Scope =
@@ -98,7 +107,7 @@ function readScope(): Scope {
 /** 工作台 → 知识库：文档树 + 问答/文档 + 引用栏，支持合集范围、学习状态与导出。 */
 export function KnowledgePanel() {
   const [scope, setScope] = useState<Scope>(readScope);
-  const [tab, setTab] = useState<'ask' | 'doc'>('ask');
+  const [tab, setTab] = useState<MainTab>('ask');
   const [mode, setMode] = useState<Mode>('ask');
   const [question, setQuestion] = useState('');
   const [docQuery, setDocQuery] = useState('');
@@ -106,6 +115,12 @@ export function KnowledgePanel() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [activeTurn, setActiveTurn] = useState(0);
   const [docs, setDocs] = useState<KbDocument[]>([]);
+  const [history, setHistory] = useState<KbQaEntry[]>([]);
+  const [cards, setCards] = useState<KbCard[]>([]);
+  const [cardFilter, setCardFilter] = useState<CardFilter>('due');
+  const [revealed, setRevealed] = useState<number[]>([]);
+  const [cardFormOpen, setCardFormOpen] = useState(false);
+  const [cardDraft, setCardDraft] = useState({ front: '', back: '' });
   const [collections, setCollections] = useState<LibraryCollection[]>([]);
   const [status, setStatus] = useState<KbStatus | null>(null);
   const [detail, setDetail] = useState<{
@@ -131,6 +146,13 @@ export function KnowledgePanel() {
     [docs, scope]
   );
 
+  const relatedQa = useMemo(() => {
+    if (!selectedDoc) return [];
+    return history
+      .filter((entry) => entry.hits.some((hit) => hit.videoId === selectedDoc.videoId))
+      .slice(0, 6);
+  }, [history, selectedDoc]);
+
   const loadStatus = async () => {
     const response = await window.bsub.kbStatus();
     if (response.ok) setStatus(response.data);
@@ -146,10 +168,22 @@ export function KnowledgePanel() {
     if (response.ok) setCollections(response.data);
   };
 
+  const loadHistory = async (videoId?: number) => {
+    const response = await window.bsub.kbHistory?.({ videoId, limit: 50 });
+    if (response?.ok) setHistory(response.data);
+  };
+
+  const loadCards = async (filter: CardFilter = cardFilter) => {
+    const response = await window.bsub.kbCards?.({ dueOnly: filter === 'due', limit: 100 });
+    if (response?.ok) setCards(response.data);
+  };
+
   useEffect(() => {
     void loadStatus();
     void loadDocs();
     void loadCollections();
+    void loadHistory();
+    void loadCards('due');
     const off = window.bsub.onKbProgress?.((event) => {
       setProgress(event);
       if (event.phase === 'done') {
@@ -276,6 +310,7 @@ export function KnowledgePanel() {
       }
       setActiveTurn(0);
       setQuestion('');
+      void loadHistory();
     } finally {
       setAsking(false);
     }
@@ -307,6 +342,49 @@ export function KnowledgePanel() {
     setDocs((current) =>
       current.map((doc) => (doc.videoId === videoId ? { ...doc, status: response.data } : doc))
     );
+  };
+
+  const addCard = async (front: string, back: string) => {
+    const response = await window.bsub.kbCardAdd?.({
+      videoId: scope.type === 'video' ? scope.id : undefined,
+      front,
+      back
+    });
+    if (!response?.ok) {
+      setError(response?.error || '添加卡片失败');
+      return;
+    }
+    setCardDraft({ front: '', back: '' });
+    setCardFormOpen(false);
+    setMessage('已加入复习队列');
+    await loadCards(cardFilter);
+  };
+
+  const saveCardFromTurn = (turn: Turn) => {
+    const sources = turn.hits
+      .slice(0, 5)
+      .map((hit, index) => `[${index + 1}] ${hit.title} @${clock(hit.startMs)}`)
+      .join('\n');
+    void addCard(turn.q, `${turn.a || '（仅检索）'}\n\n${sources}`);
+  };
+
+  const reviewCard = async (id: number, grade: KbReviewGrade) => {
+    const response = await window.bsub.kbCardReview?.(id, grade);
+    if (!response?.ok) {
+      setError(response?.error || '复习失败');
+      return;
+    }
+    setRevealed((current) => current.filter((item) => item !== id));
+    await loadCards(cardFilter);
+  };
+
+  const removeCard = async (id: number) => {
+    const response = await window.bsub.kbCardDelete?.(id);
+    if (!response?.ok) {
+      setError(response?.error || '删除失败');
+      return;
+    }
+    setCards((current) => current.filter((card) => card.id !== id));
   };
 
   const saveAsNote = async (turn: Turn) => {
@@ -526,6 +604,25 @@ export function KnowledgePanel() {
             >
               文档
             </button>
+            <button
+              className={tab === 'review' ? 'is-active' : ''}
+              onClick={() => {
+                setTab('review');
+                void loadCards(cardFilter);
+              }}
+            >
+              <Layers size={12} /> 复习
+              {cards.length > 0 && <span className="kb-tab-badge">{cards.length}</span>}
+            </button>
+            <button
+              className={tab === 'history' ? 'is-active' : ''}
+              onClick={() => {
+                setTab('history');
+                void loadHistory();
+              }}
+            >
+              <HistoryIcon size={12} /> 历史
+            </button>
             <span className="kb-scope-chip" title={scopeLabel}>
               {scopeLabel}
             </span>
@@ -649,6 +746,16 @@ export function KnowledgePanel() {
                     >
                       <ClipboardCopy size={11} /> 存为笔记
                     </button>
+                    <button
+                      className="mini-btn"
+                      title="把这条问答加入复习队列"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        saveCardFromTurn(turn);
+                      }}
+                    >
+                      <Layers size={11} /> 存为复习卡
+                    </button>
                     <span className="settings-hint">
                       {turn.hits.length} 个引用
                       {activeTurn === turnIndex ? ' · 右侧查看' : ''}
@@ -657,7 +764,7 @@ export function KnowledgePanel() {
                 </article>
               ))}
             </>
-          ) : (
+          ) : tab === 'doc' ? (
             <>
               {!selectedDoc ? (
                 <EmptyState compact desc="左侧选一篇视频，查看总结、笔记和索引片段。" />
@@ -717,6 +824,45 @@ export function KnowledgePanel() {
                   </section>
 
                   <section className="kb-doc-section">
+                    <div className="kb-doc-section-title">
+                      相关问题
+                      <span className="settings-hint">{relatedQa.length} 条</span>
+                    </div>
+                    {relatedQa.length ? (
+                      <div className="kb-related-list">
+                        {relatedQa.map((entry) => (
+                          <button
+                            key={entry.id}
+                            className="kb-related-row"
+                            onClick={() => {
+                              setTurns([
+                                {
+                                  q: entry.question,
+                                  a: entry.answer,
+                                  hits: entry.hits,
+                                  mode: entry.mode,
+                                  scope: entry.scopeLabel
+                                }
+                              ]);
+                              setActiveTurn(0);
+                              setTab('ask');
+                            }}
+                          >
+                            <span className="kb-related-q">{entry.question}</span>
+                            <span className="kb-related-meta">
+                              {new Date(entry.createdAt).toLocaleDateString('zh-CN')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="settings-hint">
+                        还没有问题引用过这篇；在问答里提问后会自动建立关联。
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="kb-doc-section">
                     <div className="kb-doc-section-title">笔记</div>
                     {detail?.note ? (
                       <Markdown content={detail.note} />
@@ -749,6 +895,162 @@ export function KnowledgePanel() {
                     </div>
                   </section>
                 </article>
+              )}
+            </>
+          ) : tab === 'review' ? (
+            <>
+              <div className="kb-memory-head">
+                <div className="kb-filters">
+                  <button
+                    className={cardFilter === 'due' ? 'is-active' : ''}
+                    onClick={() => {
+                      setCardFilter('due');
+                      void loadCards('due');
+                    }}
+                  >
+                    到期
+                  </button>
+                  <button
+                    className={cardFilter === 'all' ? 'is-active' : ''}
+                    onClick={() => {
+                      setCardFilter('all');
+                      void loadCards('all');
+                    }}
+                  >
+                    全部
+                  </button>
+                </div>
+                <span className="settings-hint">{cards.length} 张卡片</span>
+                <button className="mini-btn" onClick={() => setCardFormOpen((value) => !value)}>
+                  <Plus size={11} /> 新建卡片
+                </button>
+              </div>
+
+              {cardFormOpen && (
+                <div className="kb-card-form">
+                  <input
+                    className="settings-input"
+                    placeholder="正面：一个问题或要点"
+                    value={cardDraft.front}
+                    onChange={(event) => setCardDraft({ ...cardDraft, front: event.target.value })}
+                  />
+                  <textarea
+                    className="settings-input"
+                    rows={3}
+                    placeholder="背面：答案、结论或原文摘录"
+                    value={cardDraft.back}
+                    onChange={(event) => setCardDraft({ ...cardDraft, back: event.target.value })}
+                  />
+                  <div className="kb-card-form-actions">
+                    <button className="mini-btn" onClick={() => setCardFormOpen(false)}>
+                      取消
+                    </button>
+                    <button
+                      className="mini-btn primary"
+                      disabled={!cardDraft.front.trim() || !cardDraft.back.trim()}
+                      onClick={() => void addCard(cardDraft.front, cardDraft.back)}
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {cards.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<Layers size={18} />}
+                  title={cardFilter === 'due' ? '今天没有到期卡片' : '还没有复习卡片'}
+                  desc="问答里的「存为复习卡」或右上角「新建卡片」都会进入这里；记住 / 模糊 / 忘记会按间隔重复重新排期。"
+                />
+              ) : (
+                <div className="kb-card-list">
+                  {cards.map((card) => {
+                    const shown = revealed.includes(card.id);
+                    return (
+                      <article className="kb-card" key={card.id}>
+                        <div className="kb-card-front">{card.front}</div>
+                        {shown ? (
+                          <div className="kb-card-back">{card.back}</div>
+                        ) : (
+                          <button
+                            className="mini-btn"
+                            onClick={() => setRevealed((current) => [...current, card.id])}
+                          >
+                            显示答案
+                          </button>
+                        )}
+                        {shown && (
+                          <div className="kb-card-grades">
+                            <button className="mini-btn" onClick={() => void reviewCard(card.id, 'again')}>
+                              忘记
+                            </button>
+                            <button className="mini-btn" onClick={() => void reviewCard(card.id, 'hard')}>
+                              模糊
+                            </button>
+                            <button
+                              className="mini-btn primary"
+                              onClick={() => void reviewCard(card.id, 'good')}
+                            >
+                              记住
+                            </button>
+                            <button className="mini-btn" title="删除卡片" onClick={() => void removeCard(card.id)}>
+                              <Trash2 size={11} />
+                            </button>
+                            <span className="settings-hint">
+                              间隔 {card.intervalDays || 0} 天 · 连续 {card.streak}
+                            </span>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="kb-memory-head">
+                <span className="settings-hint">{history.length} 条问答记录</span>
+                <button className="mini-btn" onClick={() => void loadHistory()}>
+                  <RefreshCw size={11} /> 刷新
+                </button>
+              </div>
+              {history.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<HistoryIcon size={18} />}
+                  title="还没有问答历史"
+                  desc="提问或检索后会自动记录；点历史可以恢复当时的回答和引用，也能看到哪些文档被引用过。"
+                />
+              ) : (
+                <div className="kb-history-list">
+                  {history.map((entry) => (
+                    <button
+                      key={entry.id}
+                      className="kb-history-row"
+                      onClick={() => {
+                        setTurns([
+                          {
+                            q: entry.question,
+                            a: entry.answer,
+                            hits: entry.hits,
+                            mode: entry.mode,
+                            scope: entry.scopeLabel
+                          }
+                        ]);
+                        setActiveTurn(0);
+                        setTab('ask');
+                      }}
+                    >
+                      <span className="kb-history-q">{entry.question}</span>
+                      <span className="kb-history-meta">
+                        {entry.scopeLabel} · {new Date(entry.createdAt).toLocaleString('zh-CN')} ·{' '}
+                        {entry.mode === 'search' ? '检索' : '提问'} · {entry.hits.length} 引用
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
             </>
           )}
