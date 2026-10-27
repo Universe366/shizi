@@ -1506,3 +1506,132 @@
   color: var(--start-faint);
   font-size: var(--fs-xs);
 }
+
+/* ---------- 起始页：密度 / 折叠 / 常用 / 导入导出 ---------- */
+.start-tab-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.start-density {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--start-soft);
+}
+
+.start-density-btn {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+}
+
+.start-density-btn:hover {
+  color: var(--start-text);
+}
+
+.start-density-btn.is-active {
+  background: var(--start-surface-solid);
+  color: var(--start-text);
+  box-shadow: var(--start-shadow);
+}
+
+.start-board.is-density-compact .start-grid {
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+}
+
+.start-board.is-density-compact .start-tile {
+  height: 74px;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 12px;
+}
+
+.start-board.is-density-compact .start-tile-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.start-board.is-density-compact .start-tile-icon img {
+  inset: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.start-board.is-density-compact .start-tile-sub {
+  display: none;
+}
+
+.start-board.is-density-compact .start-tile-label {
+  font-size: var(--fs-xs);
+}
+
+.start-board.is-density-large .start-grid {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+}
+
+.start-board.is-density-large .start-tile {
+  height: 132px;
+  gap: 10px;
+  border-radius: 20px;
+}
+
+.start-board.is-density-large .start-tile-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  font-size: 24px;
+}
+
+.start-board.is-density-large .start-tile-icon img {
+  inset: 7px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+
+.start-board.is-density-large .start-tile-label {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.start-group-head {
+  align-items: center;
+}
+
+.start-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  color: var(--start-faint);
+}
+
+.start-group-toggle:hover {
+  background: var(--start-soft);
+  color: var(--start-text);
+}
+
+.start-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  z-index: 60;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--start-surface-solid);
+  border: 1px solid var(--start-border);
+  box-shadow: var(--start-shadow);
+  color: var(--start-text);
+  font-size: var(--fs-sm);
+}

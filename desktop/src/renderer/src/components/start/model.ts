@@ -149,3 +149,210 @@ export function isUrlLike(value: string): boolean {
   if (!text) return false;
   return /^(https?:\/\/|www\.)/i.test(text) || /^[\w-]+(\.[\w-]+)+(\/|$)/.test(text);
 }
+
+export type StartDensity = 'comfortable' | 'compact' | 'large';
+
+export const DENSITIES: Array<{ id: StartDensity; label: string; hint: string }> = [
+  { id: 'comfortable', label: '舒适', hint: '标准卡片，显示域名' },
+  { id: 'compact', label: '紧凑', hint: '小卡片，只显示图标和名称' },
+  { id: 'large', label: '大图标', hint: '更大的图标，适合少数常用站点' }
+];
+
+export function isStartDensity(value: unknown): value is StartDensity {
+  return value === 'comfortable' || value === 'compact' || value === 'large';
+}
+
+export interface StartBackup {
+  app: 'shizi-start';
+  version: 1;
+  exportedAt: string;
+  shortcuts: StartShortcut[];
+  prefs: {
+    wallpaper?: string;
+    wallpaperImage?: string;
+    effect?: { blur: number; dim: number };
+    minimal?: boolean;
+    engine?: string;
+    city?: string;
+    widgets?: string[];
+    weatherOn?: boolean;
+    hotOn?: boolean;
+  };
+}
+
+export interface StartBackupInput {
+  shortcuts: StartShortcut[];
+  wallpaper?: string;
+  wallpaperImage?: string;
+  effect?: { blur: number; dim: number };
+  minimal?: boolean;
+  engine?: string;
+  city?: string;
+  widgets?: string[];
+  weatherOn?: boolean;
+  hotOn?: boolean;
+}
+
+const MAX_BACKUP_SHORTCUTS = 500;
+
+function cleanText(value: unknown, max: number): string {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+function normalizeShortcutUrl(value: unknown): string {
+  const raw = cleanText(value, 2048);
+  if (!raw) return '';
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(withScheme);
+    if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes('.')) return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+/** 导出当前起始页：快捷方式 + 外观偏好，便于换机或分享。 */
+export function buildStartBackup(input: StartBackupInput): StartBackup {
+  return {
+    app: 'shizi-start',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    shortcuts: input.shortcuts
+      .map((item) => ({
+        id: item.id,
+        label: cleanText(item.label, 40),
+        url: normalizeShortcutUrl(item.url),
+        group: cleanText(item.group || '常用', 24)
+      }))
+      .filter((item) => item.label && item.url)
+      .slice(0, MAX_BACKUP_SHORTCUTS),
+    prefs: {
+      wallpaper: input.wallpaper,
+      wallpaperImage: input.wallpaperImage,
+      effect: input.effect,
+      minimal: input.minimal,
+      engine: input.engine,
+      city: input.city,
+      widgets: input.widgets,
+      weatherOn: input.weatherOn,
+      hotOn: input.hotOn
+    }
+  };
+}
+
+export type ParsedBackup =
+  | { ok: true; data: StartBackup }
+  | { ok: false; error: string };
+
+/** 解析导入文件：只接受本应用的格式，网址无效的条目会被跳过。 */
+export function parseStartBackup(text: string): ParsedBackup {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(text || ''));
+  } catch {
+    return { ok: false, error: '不是有效的 JSON 文件' };
+  }
+  if (!raw || typeof raw !== 'object') return { ok: false, error: '文件内容不是对象' };
+  const source = raw as Record<string, unknown>;
+  if (source.app !== 'shizi-start') return { ok: false, error: '不是拾字起始页的备份文件' };
+  const list = Array.isArray(source.shortcuts) ? source.shortcuts : [];
+  const shortcuts: StartShortcut[] = [];
+  const seen = new Set<string>();
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const label = cleanText(row.label, 40);
+    const url = normalizeShortcutUrl(row.url);
+    if (!label || !url) continue;
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    shortcuts.push({
+      id: typeof row.id === 'string' && row.id ? row.id : `s-${shortcuts.length + 1}`,
+      label,
+      url,
+      group: cleanText(row.group || '常用', 24) || '常用'
+    });
+    if (shortcuts.length >= MAX_BACKUP_SHORTCUTS) break;
+  }
+  if (!shortcuts.length) return { ok: false, error: '备份里没有可用的快捷方式' };
+  const prefsRaw = (source.prefs || {}) as Record<string, unknown>;
+  const effect = prefsRaw.effect as { blur?: unknown; dim?: unknown } | undefined;
+  return {
+    ok: true,
+    data: {
+      app: 'shizi-start',
+      version: 1,
+      exportedAt: String(source.exportedAt || ''),
+      shortcuts,
+      prefs: {
+        wallpaper: typeof prefsRaw.wallpaper === 'string' ? prefsRaw.wallpaper : undefined,
+        wallpaperImage:
+          typeof prefsRaw.wallpaperImage === 'string' ? prefsRaw.wallpaperImage : undefined,
+        effect:
+          effect && Number.isFinite(Number(effect.blur)) && Number.isFinite(Number(effect.dim))
+            ? { blur: Number(effect.blur), dim: Number(effect.dim) }
+            : undefined,
+        minimal: prefsRaw.minimal === true,
+        engine: typeof prefsRaw.engine === 'string' ? prefsRaw.engine : undefined,
+        city: typeof prefsRaw.city === 'string' ? prefsRaw.city : undefined,
+        widgets: Array.isArray(prefsRaw.widgets)
+          ? prefsRaw.widgets.filter((item): item is string => typeof item === 'string').slice(0, 12)
+          : undefined,
+        weatherOn: prefsRaw.weatherOn === true,
+        hotOn: prefsRaw.hotOn === true
+      }
+    }
+  };
+}
+
+/** 合并导入：按 URL 去重，保留现有的 id 与顺序，新条目追加到末尾。 */
+function urlKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    return parsed.toString().toLowerCase();
+  } catch {
+    return url.toLowerCase();
+  }
+}
+
+export function mergeShortcuts(
+  current: StartShortcut[],
+  incoming: StartShortcut[]
+): StartShortcut[] {
+  const seen = new Set(current.map((item) => urlKey(item.url)));
+  const merged = [...current];
+  const stamp = Date.now().toString(36);
+  for (const item of incoming) {
+    const key = urlKey(item.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({ ...item, id: `s-${stamp}-${merged.length}` });
+    if (merged.length >= MAX_BACKUP_SHORTCUTS) break;
+  }
+  return merged;
+}
+
+export type StartUsage = Record<string, number>;
+
+export function bumpUsage(usage: StartUsage, id: string): StartUsage {
+  if (!id) return usage;
+  return { ...usage, [id]: Math.min(9999, (usage[id] || 0) + 1) };
+}
+
+/** 常用站点：按打开次数倒序，最多 limit 个。 */
+export function topUsed(
+  shortcuts: StartShortcut[],
+  usage: StartUsage,
+  limit = 8
+): StartShortcut[] {
+  return shortcuts
+    .filter((item) => (usage[item.id] || 0) > 0)
+    .sort((a, b) => (usage[b.id] || 0) - (usage[a.id] || 0))
+    .slice(0, Math.max(1, limit));
+}

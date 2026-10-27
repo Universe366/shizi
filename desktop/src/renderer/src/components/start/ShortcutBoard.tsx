@@ -1,8 +1,18 @@
 import { useRef, useState, type DragEvent } from 'react';
-import { Plus, Tags, X, type LucideIcon } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Plus,
+  Star,
+  Tags,
+  Upload,
+  X,
+  type LucideIcon
+} from 'lucide-react';
 import { EmptyState } from '../ui/EmptyState';
 import type { StartShortcut } from '../../../../shared/types';
-import { faviconOf, hostOf, originOf, tileColor } from './model';
+import { DENSITIES, faviconOf, hostOf, originOf, tileColor, type StartDensity } from './model';
 
 export interface BuiltInEntry {
   id: string;
@@ -29,6 +39,13 @@ interface ShortcutBoardProps {
   onMove: (fromId: string, group: string, targetId?: string) => void;
   onMenu: (item: StartShortcut, x: number, y: number) => void;
   onDragStart: () => void;
+  density: StartDensity;
+  onDensity: (density: StartDensity) => void;
+  collapsed: string[];
+  onToggleGroup: (group: string) => void;
+  frequent: StartShortcut[];
+  onExport: () => void;
+  onImport: () => void;
 }
 
 /** 站点图标：优先站点自己的 /favicon.ico，失败时回退到域名生成的字母色块。 */
@@ -69,7 +86,14 @@ export function ShortcutBoard({
   onRemoveGroup,
   onMove,
   onMenu,
-  onDragStart
+  onDragStart,
+  density,
+  onDensity,
+  collapsed,
+  onToggleGroup,
+  frequent,
+  onExport,
+  onImport
 }: ShortcutBoardProps) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -94,7 +118,7 @@ export function ShortcutBoard({
   };
 
   return (
-    <section className="start-board" aria-label="快捷方式">
+    <section className={`start-board is-density-${density}`} aria-label="快捷方式">
       <div className="start-tabs">
         <button
           className={`start-tab${activeGroup === '全部' ? ' is-active' : ''}`}
@@ -103,6 +127,16 @@ export function ShortcutBoard({
           全部
           <span className="start-tab-count">{total}</span>
         </button>
+        {frequent.length > 0 && (
+          <button
+            className={`start-tab${activeGroup === '常用' ? ' is-active' : ''}`}
+            onClick={() => onGroup('常用')}
+            title="按打开次数排序"
+          >
+            <Star size={12} /> 常用
+            <span className="start-tab-count">{frequent.length}</span>
+          </button>
+        )}
         {groups.map(([group, items]) => (
           <button
             key={group}
@@ -114,6 +148,24 @@ export function ShortcutBoard({
           </button>
         ))}
         <span className="start-tab-actions">
+          <span className="start-density" role="group" aria-label="卡片密度">
+            {DENSITIES.map((item) => (
+              <button
+                key={item.id}
+                className={`start-density-btn${density === item.id ? ' is-active' : ''}`}
+                title={item.hint}
+                onClick={() => onDensity(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </span>
+          <button className="start-tab start-tab-add" title="导出起始页" onClick={onExport}>
+            <Download size={13} />
+          </button>
+          <button className="start-tab start-tab-add" title="导入起始页" onClick={onImport}>
+            <Upload size={13} />
+          </button>
           <button className="start-tab start-tab-add" title="批量导入网址" onClick={onBatchAdd}>
             <Tags size={13} />
             批量
@@ -155,6 +207,16 @@ export function ShortcutBoard({
           onDrop={dropOn(group)}
         >
           <div className="start-group-head">
+            <button
+              className="start-group-toggle"
+              title={collapsed.includes(group) ? '展开分组' : '折叠分组'}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleGroup(group);
+              }}
+            >
+              {collapsed.includes(group) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            </button>
             {renaming === group ? (
               <input
                 ref={renameRef}
@@ -191,6 +253,7 @@ export function ShortcutBoard({
               </span>
             )}
           </div>
+          {!collapsed.includes(group) && (
           <div className="start-grid">
             {items.map((item) => (
               <div
@@ -251,6 +314,7 @@ export function ShortcutBoard({
               </div>
             ))}
           </div>
+          )}
         </div>
       ))}
 

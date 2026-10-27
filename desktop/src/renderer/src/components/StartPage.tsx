@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
+  Copy,
   Download,
   History,
   Library,
@@ -22,11 +23,21 @@ import { askConfirm } from './ui/confirm';
 import { WidgetPanel } from './start/WidgetPanel';
 import { WallpaperDrawer } from './start/WallpaperDrawer';
 import {
+  ALL_WIDGETS,
   QUICK_LINKS,
+  WALLPAPERS,
+  buildStartBackup,
+  bumpUsage,
   greeting,
   hostOf,
+  isStartDensity,
   isUrlLike,
   matchShortcut,
+  mergeShortcuts,
+  parseStartBackup,
+  topUsed,
+  type StartDensity,
+  type StartUsage,
   type WallpaperId,
   type Weather
 } from './start/model';
@@ -34,6 +45,9 @@ import {
 const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
 const EFFECT_KEY = 'start-wallpaper-effect';
 const MINIMAL_KEY = 'start-minimal';
+const DENSITY_KEY = 'start-density';
+const COLLAPSED_KEY = 'start-collapsed-groups';
+const USAGE_KEY = 'start-usage';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -80,6 +94,39 @@ function readEffect(): { blur: number; dim: number } {
     };
   } catch {
     return { blur: 0, dim: 0.18 };
+  }
+}
+
+function readDensity(): StartDensity {
+  try {
+    const value = localStorage.getItem(DENSITY_KEY);
+    return isStartDensity(value) ? value : 'comfortable';
+  } catch {
+    return 'comfortable';
+  }
+}
+
+function readCollapsed(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function readUsage(): StartUsage {
+  try {
+    const raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}');
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out: StartUsage = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      const count = Number(value);
+      if (Number.isFinite(count) && count > 0) out[key] = Math.min(9999, Math.floor(count));
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 
@@ -149,6 +196,11 @@ export function StartPage({
   const [cityEditing, setCityEditing] = useState(false);
   const [cityDraft, setCityDraft] = useState('');
   const [hotLoading, setHotLoading] = useState(false);
+  const [density, setDensity] = useState<StartDensity>(readDensity);
+  const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
+  const [usage, setUsage] = useState<StartUsage>(readUsage);
+  const [notice, setNotice] = useState('');
+  const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
 
@@ -270,10 +322,24 @@ export function StartPage({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
+      const target = event.target as HTMLElement | null;
+      const typing =
+        Boolean(target) &&
+        (/^(INPUT|TEXTAREA|SELECT)$/.test(target!.tagName) || target!.isContentEditable);
       if (meta && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         searchRef.current?.focus();
         setSearchOpen(true);
+      }
+      if (!typing && !meta && event.key === '/') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (!typing && !meta && event.key.toLowerCase() === 'e') {
+        event.preventDefault();
+        setEditMode((value) => !value);
+        setShortcutMenu(null);
       }
       if (event.key === 'Escape') {
         setWallpaperOpen(false);
@@ -314,6 +380,15 @@ export function StartPage({
   };
 
   const openShortcut = (item: StartShortcut) => {
+    setUsage((current) => {
+      const next = bumpUsage(current, item.id);
+      try {
+        localStorage.setItem(USAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
     onClose();
     onNavigate(item.url);
   };
@@ -396,8 +471,14 @@ export function StartPage({
     return Array.from(map.entries());
   }, [shortcuts]);
 
+  const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
+
   const visibleGroups =
-    activeGroup === '全部' ? groups : groups.filter(([group]) => group === activeGroup);
+    activeGroup === '全部'
+      ? groups
+      : activeGroup === '常用'
+        ? ([['常用', frequent]] as Array<[string, StartShortcut[]]>)
+        : groups.filter(([group]) => group === activeGroup);
 
   useEffect(() => {
     if (activeGroup !== '全部' && !groups.some(([group]) => group === activeGroup)) {
@@ -587,6 +668,119 @@ export function StartPage({
     }
   };
 
+  const changeDensity = (next: StartDensity) => {
+    setDensity(next);
+    try {
+      localStorage.setItem(DENSITY_KEY, next);
+    } catch {
+      // ignore
+    }
+  };
+
+  const toggleGroupCollapsed = (group: string) => {
+    setCollapsed((current) => {
+      const next = current.includes(group)
+        ? current.filter((item) => item !== group)
+        : [...current, group];
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const showNotice = (text: string) => {
+    setNotice(text);
+    window.setTimeout(() => setNotice(''), 2600);
+  };
+
+  const exportStart = () => {
+    const backup = buildStartBackup({
+      shortcuts,
+      wallpaper,
+      wallpaperImage,
+      effect,
+      minimal,
+      engine,
+      city,
+      widgets: widgetOrder,
+      weatherOn,
+      hotOn
+    });
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shizi-start-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showNotice(`已导出 ${backup.shortcuts.length} 个快捷方式`);
+  };
+
+  const importStart = async (file: File) => {
+    let text = '';
+    try {
+      text = await file.text();
+    } catch {
+      showNotice('读取文件失败');
+      return;
+    }
+    const parsed = parseStartBackup(text);
+    if (!parsed.ok) {
+      showNotice(parsed.error);
+      return;
+    }
+    const incoming = parsed.data.shortcuts;
+    const ok = await askConfirm({
+      title: '导入起始页数据？',
+      description: `将合并 ${incoming.length} 个快捷方式（按网址去重），并应用备份里的外观设置。`,
+      confirmText: '合并导入'
+    });
+    if (!ok) return;
+    void persistShortcuts(mergeShortcuts(shortcuts, incoming));
+
+    const prefs = parsed.data.prefs;
+    if (prefs.wallpaper && WALLPAPERS.some((item) => item.id === prefs.wallpaper)) {
+      const next = prefs.wallpaper as WallpaperId;
+      setWallpaper(next);
+      void patchGeneral({ startWallpaper: next });
+    }
+    if (typeof prefs.wallpaperImage === 'string' && prefs.wallpaperImage.startsWith('data:image/')) {
+      setWallpaperImage(prefs.wallpaperImage);
+      void patchGeneral({ startWallpaperImage: prefs.wallpaperImage });
+    }
+    if (prefs.effect) {
+      const next = {
+        blur: Math.min(24, Math.max(0, prefs.effect.blur)),
+        dim: Math.min(0.8, Math.max(0, prefs.effect.dim))
+      };
+      updateEffect(next);
+    }
+    if (typeof prefs.minimal === 'boolean') toggleMinimal(prefs.minimal);
+    if (prefs.city) {
+      setCity(prefs.city);
+      void patchGeneral({ startCity: prefs.city });
+    }
+    if (prefs.widgets?.length) {
+      const widgets = prefs.widgets.filter((item) => (ALL_WIDGETS as readonly string[]).includes(item));
+      if (widgets.length) {
+        setWidgetOrder(widgets);
+        void patchGeneral({ startWidgets: widgets });
+      }
+    }
+    if (typeof prefs.weatherOn === 'boolean') {
+      setWeatherOn(prefs.weatherOn);
+      void patchGeneral({ startWeather: prefs.weatherOn });
+    }
+    if (typeof prefs.hotOn === 'boolean') {
+      setHotOn(prefs.hotOn);
+      void patchGeneral({ startHotSearch: prefs.hotOn });
+    }
+    showNotice(`已合并导入 ${incoming.length} 个快捷方式`);
+  };
+
   const backgroundImage =
     wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
 
@@ -723,6 +917,13 @@ export function StartPage({
           onMove={moveShortcutTo}
           onMenu={(item, x, y) => setShortcutMenu({ x, y, id: item.id })}
           onDragStart={() => setSearchOpen(false)}
+          density={density}
+          onDensity={changeDensity}
+          collapsed={collapsed}
+          onToggleGroup={toggleGroupCollapsed}
+          frequent={frequent}
+          onExport={exportStart}
+          onImport={() => importRef.current?.click()}
         />
 
         {!minimal && (
@@ -768,11 +969,17 @@ export function StartPage({
           />
         )}
 
+        {notice && (
+          <div className="start-toast" role="status">
+            {notice}
+          </div>
+        )}
+
         <footer className="start-footnote">
           <span className="start-footnote-text">
             {editMode
               ? '编辑中：拖动卡片可排序或换组，✎ 改名，× 删除'
-              : 'Ctrl/⌘ + K 聚焦搜索 · 右键卡片可编辑或删除'}
+              : 'Ctrl/⌘+K 或 / 搜索 · E 编辑 · 右键卡片更多'}
           </span>
           {editMode && shortcutBackup.length > shortcuts.length && (
             <button className="start-foot-link" onClick={() => void persistShortcuts(shortcutBackup)}>
@@ -837,6 +1044,18 @@ export function StartPage({
         onClose={() => setWallpaperOpen(false)}
       />
 
+      <input
+        ref={importRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void importStart(file);
+        }}
+      />
+
       <BatchAddDialog
         open={batchOpen}
         groups={groupNames}
@@ -868,6 +1087,17 @@ export function StartPage({
             }}
           >
             打开
+          </button>
+          <button
+            onClick={() => {
+              setShortcutMenu(null);
+              void navigator.clipboard?.writeText(menuItem.url).then(
+                () => showNotice('链接已复制'),
+                () => showNotice('复制失败')
+              );
+            }}
+          >
+            <Copy size={12} /> 复制链接
           </button>
           <button
             onClick={() => {
