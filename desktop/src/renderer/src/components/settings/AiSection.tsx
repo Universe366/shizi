@@ -10,7 +10,8 @@ import {
   effectiveModelCapabilities,
   formatContextWindow,
   inferContextWindow,
-  inferModelCapabilities
+  inferModelCapabilities,
+  moveListItem
 } from '../../../../shared/modelCapabilities';
 
 interface AiSectionProps {
@@ -48,12 +49,10 @@ export function AiSection({
   platformStatus
 }: AiSectionProps) {
   const [newModel, setNewModel] = useState('');
+  const [draggingModel, setDraggingModel] = useState<number | null>(null);
   const moveModel = (index: number, delta: number) => {
     if (!active) return;
-    const models = [...(active.models || [])];
-    const target = index + delta;
-    if (target < 0 || target >= models.length) return;
-    [models[index], models[target]] = [models[target], models[index]];
+    const models = moveListItem([...(active.models || [])], index, index + delta);
     updatePlatform({ models });
   };
   const [providerQuery, setProviderQuery] = useState('');
@@ -429,7 +428,21 @@ export function AiSection({
     {(active.models || []).length > 0 && (
       <div className="ai-model-list">
         {(active.models || []).map((modelName, index) => (
-          <span className="ai-model-chip" key={modelName}>
+          <span
+            className={`ai-model-chip${draggingModel === index ? ' is-dragging' : ''}`}
+            key={modelName}
+            draggable
+            onDragStart={() => setDraggingModel(index)}
+            onDragEnd={() => setDraggingModel(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => {
+              if (draggingModel === null || draggingModel === index) return;
+              updatePlatform({
+                models: moveListItem([...(active.models || [])], draggingModel, index)
+              });
+              setDraggingModel(null);
+            }}
+          >
             {modelName}
             <button
               type="button"

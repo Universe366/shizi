@@ -72,3 +72,14 @@ export function capabilityLabel(capability: ModelCapability): string {
   if (capability === 'audio') return '音频';
   return '文本';
 }
+/** 把列表里的 from 移到 to，返回新数组；越界时原样返回。 */
+export function moveListItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+

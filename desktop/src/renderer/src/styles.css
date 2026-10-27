@@ -13025,3 +13025,12 @@ sup:has(> .cite-ref) {
   padding: 8px 12px;
   border-top: 1px solid var(--border);
 }
+
+.ai-model-chip[draggable] {
+  cursor: grab;
+}
+
+.ai-model-chip.is-dragging {
+  opacity: 0.5;
+  border-color: var(--accent);
+}

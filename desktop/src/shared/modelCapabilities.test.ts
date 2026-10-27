@@ -4,7 +4,8 @@ import {
   effectiveModelCapabilities,
   formatContextWindow,
   inferContextWindow,
-  inferModelCapabilities
+  inferModelCapabilities,
+  moveListItem
 } from './modelCapabilities';
 
 describe('模型能力识别', () => {
@@ -13,6 +14,13 @@ describe('模型能力识别', () => {
     expect(inferModelCapabilities('anthropic', 'claude-3-7-sonnet').vision).toBe(true);
     expect(inferModelCapabilities('openai', 'qwen2.5-vl-72b').vision).toBe(true);
     expect(inferModelCapabilities('openai', 'gpt-4o-audio-preview').audio).toBe(true);
+  });
+
+  it('列表重排：移动、越界与同位置', () => {
+    expect(moveListItem(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a']);
+    expect(moveListItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
+    expect(moveListItem(['a', 'b'], 1, 5)).toEqual(['a', 'b']);
+    expect(moveListItem(['a', 'b'], 1, 1)).toEqual(['a', 'b']);
   });
 
   it('按模型名推断上下文窗口', () => {
