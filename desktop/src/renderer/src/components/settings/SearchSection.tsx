@@ -48,6 +48,9 @@ export function SearchSection({
     : search.autoSearchOnChat
       ? 'smart'
       : 'manual';
+  const fetchPlatform =
+    search.fetchPlatforms?.find((item) => item.id === search.fetchActiveId) ||
+    search.fetchPlatforms?.[0];
 
   return (
     <SettingsSection title="联网检索" defaultOpen={false}>
@@ -65,9 +68,9 @@ export function SearchSection({
       </label>
 
       <div className="settings-group">
-        <div className="settings-group-title">1. 用哪个搜索</div>
+        <div className="settings-group-title">1. 搜索服务商</div>
         <div className="settings-group-desc">
-          选一个检索服务；没有 Key 时会自动用免费引擎兜底。
+          决定「搜什么」；没有 Key 时会自动用免费引擎兜底。
         </div>
 
         <div className="settings-inline">
@@ -236,7 +239,103 @@ export function SearchSection({
       </div>
 
       <div className="settings-group">
-        <div className="settings-group-title">2. 什么时候自动搜</div>
+        <div className="settings-group-title">2. URL 获取服务商</div>
+        <div className="settings-group-desc">
+          决定 web_fetch 怎么打开网页：内置抓取免 Key；Jina 免费；Tavily / Exa / Firecrawl 需要 Key。
+        </div>
+        <select
+          className="settings-input"
+          value={fetchPlatform?.kind || 'direct'}
+          onChange={(event) => {
+            const kind = event.target.value;
+            const presets: Record<string, { name: string; baseUrl: string }> = {
+              direct: { name: '内置抓取（免 Key）', baseUrl: '' },
+              jina: { name: 'Jina Reader', baseUrl: 'https://r.jina.ai' },
+              tavily: { name: 'Tavily Extract', baseUrl: 'https://api.tavily.com' },
+              exa: { name: 'Exa Contents', baseUrl: 'https://api.exa.ai' },
+              firecrawl: { name: 'Firecrawl', baseUrl: 'https://api.firecrawl.dev' }
+            };
+            const preset = presets[kind] || presets.direct;
+            const next = {
+              id: kind,
+              name: preset.name,
+              kind,
+              baseUrl: preset.baseUrl,
+              apiKey: fetchPlatform?.apiKey || ''
+            };
+            updateSearch({
+              fetchActiveId: kind,
+              fetchPlatforms: [
+                ...(search.fetchPlatforms || []).filter((item) => item.id !== kind),
+                next
+              ]
+            });
+          }}
+        >
+          <option value="direct">内置抓取（免 Key）</option>
+          <option value="jina">Jina Reader（免 Key）</option>
+          <option value="tavily">Tavily Extract</option>
+          <option value="exa">Exa Contents</option>
+          <option value="firecrawl">Firecrawl</option>
+        </select>
+        {fetchPlatform && fetchPlatform.kind !== 'direct' && (
+          <>
+            <div className="settings-label">API Key</div>
+            <input
+              className="settings-input"
+              type="password"
+              value={fetchPlatform.apiKey}
+              placeholder="留空保存不改动"
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(event) =>
+                updateSearch({
+                  fetchPlatforms: (search.fetchPlatforms || []).map((item) =>
+                    item.id === fetchPlatform.id
+                      ? { ...item, apiKey: event.target.value }
+                      : item
+                  )
+                })
+              }
+            />
+            <details className="settings-advanced">
+              <summary>接口地址（一般不用改）</summary>
+              <input
+                className="settings-input"
+                value={fetchPlatform.baseUrl}
+                spellCheck={false}
+                onChange={(event) =>
+                  updateSearch({
+                    fetchPlatforms: (search.fetchPlatforms || []).map((item) =>
+                      item.id === fetchPlatform.id
+                        ? { ...item, baseUrl: event.target.value }
+                        : item
+                    )
+                  })
+                }
+              />
+            </details>
+          </>
+        )}
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-group-title">3. 优先使用模型内置 Web 工具</div>
+        <div className="settings-group-desc">
+          开启后，Gemini / Claude 直接用厂商内置搜索；其他模型自动回退到上面的搜索服务商。
+        </div>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={search.preferModelWeb === true}
+            onChange={(event) => updateSearch({ preferModelWeb: event.target.checked })}
+          />
+          优先使用模型内置 Web 工具
+        </label>
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-group-title">4. 什么时候自动搜</div>
         <div className="settings-group-desc">
           默认手动：只有你在对话里点「联网」才搜。
         </div>
@@ -282,7 +381,7 @@ export function SearchSection({
       </div>
 
       <div className="settings-group">
-        <div className="settings-group-title">3. 总结前核对</div>
+        <div className="settings-group-title">5. 总结前核对</div>
         <div className="settings-group-desc">
           从字幕里挑数字、时间、版本等硬信息逐条找证据；故事/观点类视频会自动跳过。
         </div>

@@ -53,6 +53,8 @@ export interface AiChatOptions {
   timeoutMs?: number;
   /** 任务类型，用于按任务选模型与用量统计；不传则不记用量。 */
   task?: AiTask;
+  /** 使用模型厂商内置的 Web 搜索工具（Gemini google_search / Claude web_search） */
+  builtinWeb?: boolean;
 }
 
 export interface AiChatResult {
@@ -391,9 +393,11 @@ function buildBody(
         temperature: options.temperature,
         maxOutputTokens: maxTokens
       },
-      ...(options.tools && options.tools.length
-        ? { tools: [{ functionDeclarations: toGeminiTools(options.tools) }] }
-        : {})
+      ...(options.builtinWeb
+        ? { tools: [{ google_search: {} }] }
+        : options.tools && options.tools.length
+          ? { tools: [{ functionDeclarations: toGeminiTools(options.tools) }] }
+          : {})
     };
   }
   if (isAnthropicPlatform(platform)) {
@@ -405,9 +409,11 @@ function buildBody(
       stream: options.stream === true,
       ...(payload.system ? { system: payload.system } : {}),
       messages: payload.messages,
-      ...(options.tools && options.tools.length
-        ? { tools: toAnthropicTools(options.tools), tool_choice: { type: 'auto' } }
-        : {})
+      ...(options.builtinWeb
+        ? { tools: [{ type: 'web_search_20250305', name: 'web_search' }] }
+        : options.tools && options.tools.length
+          ? { tools: toAnthropicTools(options.tools), tool_choice: { type: 'auto' } }
+          : {})
     };
   }
   return {

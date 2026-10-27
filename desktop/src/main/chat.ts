@@ -7,7 +7,13 @@ import type {
 } from '../shared/types';
 import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
-import { chatOnce, chatStream, chatToolLoopStream } from './aiClient';
+import {
+  chatOnce,
+  chatStream,
+  chatToolLoopStream,
+  isAnthropicPlatform,
+  isGeminiPlatform
+} from './aiClient';
 import type { AiMessage, AiPart, AiToolDef } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
@@ -241,8 +247,12 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     options.onStatus?.(webError);
   }
   // 显式点「联网」：走流式工具搜索，由模型决定搜什么、搜几次。
-  const useWebTool = options.web === true && settings.search.enabled;
-  if (wantsSearch && !useWebTool) {
+  const builtinCapable = isGeminiPlatform(platform) || isAnthropicPlatform(platform);
+  const useBuiltinWeb =
+    wantsSearch && settings.search.preferModelWeb === true && builtinCapable;
+  const useWebTool =
+    options.web === true && settings.search.enabled && !useBuiltinWeb;
+  if (wantsSearch && !useWebTool && !useBuiltinWeb) {
     const userMessages = options.messages.filter(
       (message) => message.role === 'user' && String(message.content || '').trim()
     );
@@ -441,12 +451,16 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       : profile?.toolMode === 'custom'
         ? profile.toolIds
         : undefined;
-  const activeBindings = selectByAllowed(toolBindings, options.mcpToolIds ?? profileToolIds);
+  const activeBindings = useBuiltinWeb
+    ? []
+    : selectByAllowed(toolBindings, options.mcpToolIds ?? profileToolIds);
 
-  const localTools = [
-    ...(appToolsEnabled ? APP_TOOL_DEFS : []),
-    ...(useWebTool ? [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] : [])
-  ];
+  const localTools = useBuiltinWeb
+    ? []
+    : [
+        ...(appToolsEnabled ? APP_TOOL_DEFS : []),
+        ...(useWebTool ? [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] : [])
+      ];
   let webSearchCalls = 0;
   let webFetchCalls = 0;
   const webSearchCache = new Map<string, string>();
@@ -511,7 +525,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           options.onStatus?.(`读取网页：${url.slice(0, 80)}`);
           try {
             // 工具结果在协议层会截到 4000 字符，正文留 3200 保证 JSON 完整。
-            const page = await fetchWebPage(url, 3200, options.signal);
+            const fetchPlatform =
+              settings.search.fetchPlatforms?.find(
+                (item) => item.id === settings.search.fetchActiveId
+              ) || settings.search.fetchPlatforms?.[0];
+            const page = await fetchWebPage(url, 3200, options.signal, fetchPlatform);
             if (!page.text.trim()) return finish('网页没有可用正文', false);
             const payload = JSON.stringify({
               url: page.url,
@@ -626,8 +644,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     maxTokens: maxTokens || undefined,
     timeoutMs: REQUEST_TIMEOUT_MS,
     signal: options.signal,
-    task: 'chat' as const
+    task: 'chat' as const,
+    builtinWeb: useBuiltinWeb
   };
+  if (useBuiltinWeb) options.onStatus?.('使用模型内置联网…');
 
   if (settings.ai.stream === false) {
     const result = await chatOnce(platform, messages, chatOptions);

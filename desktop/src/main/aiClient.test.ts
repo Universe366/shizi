@@ -131,6 +131,32 @@ describe('AI 协议适配与用量', () => {
     expect(result.usage).toEqual({ inputTokens: 3, outputTokens: 2 });
   });
 
+  it('模型内置联网：Gemini google_search / Claude web_search', async () => {
+    state.queue.push(jsonResponse({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }));
+    await chatOnce(
+      platform({
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        kind: 'gemini',
+        model: 'gemini-2.5-flash'
+      }),
+      [{ role: 'user', content: 'hi' }],
+      { task: 'chat', builtinWeb: true }
+    );
+    const geminiBody = JSON.parse(String(state.calls[0].init.body));
+    expect(geminiBody.tools).toEqual([{ google_search: {} }]);
+
+    state.queue.push(
+      jsonResponse({ content: [{ type: 'text', text: 'ok' }] })
+    );
+    await chatOnce(
+      platform({ baseUrl: 'https://api.anthropic.com/v1', kind: 'anthropic' }),
+      [{ role: 'user', content: 'hi' }],
+      { task: 'chat', builtinWeb: true }
+    );
+    const claudeBody = JSON.parse(String(state.calls[1].init.body));
+    expect(claudeBody.tools).toEqual([{ type: 'web_search_20250305', name: 'web_search' }]);
+  });
+
   it('Azure OpenAI：部署名路径与 api-key 头', async () => {
     state.queue.push(
       jsonResponse({

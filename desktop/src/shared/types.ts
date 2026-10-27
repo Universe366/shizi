@@ -875,6 +875,11 @@ export interface SearchSettings {
   enabled: boolean;
   activeId: string;
   platforms: SearchPlatform[];
+  /** URL 获取服务商：决定 web_fetch 用内置抓取还是 Jina/Tavily/Exa/Firecrawl */
+  fetchPlatforms?: SearchPlatform[];
+  fetchActiveId?: string;
+  /** 优先使用模型内置 Web 工具（Gemini google_search / Claude web_search） */
+  preferModelWeb?: boolean;
   maxResults: number;
   includeContent: boolean;
   timeRange: SearchTimeRange;

@@ -23,6 +23,25 @@ describe('web_fetch', () => {
     expect(page.text).toContain('第一段正文');
   });
 
+  it('按 URL 获取服务商走 Jina Reader', async () => {
+    state.fetch.mockResolvedValue(
+      new Response('Title: Jina 页面\n\n正文内容', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' }
+      })
+    );
+    const page = await fetchWebPage('https://example.com/j', 3000, undefined, {
+      id: 'jina',
+      name: 'Jina',
+      kind: 'jina',
+      baseUrl: 'https://r.jina.ai',
+      apiKey: ''
+    });
+    expect(page.title).toBe('Jina 页面');
+    expect(page.text).toContain('正文内容');
+    expect(String(state.fetch.mock.calls[0][0])).toContain('https://r.jina.ai/https://example.com/j');
+  });
+
   it('拒绝本机/内网地址', async () => {
     await expect(fetchWebPage('http://127.0.0.1/admin')).rejects.toThrow('本机');
     await expect(fetchWebPage('http://192.168.1.2/a')).rejects.toThrow('本机');

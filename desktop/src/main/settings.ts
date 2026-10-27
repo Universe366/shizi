@@ -371,6 +371,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     enabled: true,
     activeId: 'exa',
     platforms: SEARCH_PRESETS.map((platform) => ({ ...platform })),
+    fetchPlatforms: [
+      { id: 'direct', name: '内置抓取（免 Key）', kind: 'direct', baseUrl: '', apiKey: '' }
+    ],
+    fetchActiveId: 'direct',
+    preferModelWeb: false,
     maxResults: 5,
     includeContent: true,
     timeRange: 'any',
@@ -1252,6 +1257,37 @@ function normalize(input: unknown): AppSettings {
       base.search.activeId = base.search.platforms.some((platform) => platform.id === activeId)
         ? activeId
         : base.search.platforms[0].id;
+
+      const fetchKinds = ['direct', 'jina', 'tavily', 'exa', 'firecrawl', 'custom'];
+      let fetchPlatforms: SearchPlatform[] = [];
+      if (Array.isArray(raw.search.fetchPlatforms)) {
+        const seen = new Set<string>();
+        for (const item of raw.search.fetchPlatforms) {
+          if (!item || typeof item !== 'object') continue;
+          const id = String(item.id || '').trim();
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          fetchPlatforms.push({
+            id,
+            name: String(item.name || id),
+            kind: fetchKinds.includes(String(item.kind)) ? String(item.kind) : 'custom',
+            baseUrl: String(item.baseUrl || ''),
+            apiKey: String(item.apiKey || '')
+          });
+          if (fetchPlatforms.length >= 12) break;
+        }
+      }
+      if (!fetchPlatforms.length) {
+        fetchPlatforms = [
+          { id: 'direct', name: '内置抓取（免 Key）', kind: 'direct', baseUrl: '', apiKey: '' }
+        ];
+      }
+      base.search.fetchPlatforms = fetchPlatforms;
+      const fetchActiveId = String(raw.search.fetchActiveId || '');
+      base.search.fetchActiveId = fetchPlatforms.some((platform) => platform.id === fetchActiveId)
+        ? fetchActiveId
+        : fetchPlatforms[0].id;
+      base.search.preferModelWeb = raw.search.preferModelWeb === true;
 
       const maxResults = Number(raw.search.maxResults);
       if (Number.isFinite(maxResults)) {
