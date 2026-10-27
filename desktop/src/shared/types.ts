@@ -1464,6 +1464,9 @@ export interface ChatMessage {
 export interface ChatRequest {
   requestId: string;
   info: PageInfo;
+  /** 本轮临时模型覆盖（仅本对话，不改全局默认） */
+  platformId?: string;
+  model?: string;
   lines: SubtitleLine[];
   messages: ChatMessage[];
   skillIds?: string[];

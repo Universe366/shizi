@@ -597,6 +597,8 @@ export function registerMediaIpc(ctx: IpcContext): void {
         try {
           const result = await chat({
             info: payload.info,
+            platformId: payload.platformId,
+            model: payload.model,
             lines,
             messages: payload.messages,
             skillIds: payload.skillIds,

@@ -232,6 +232,10 @@ export function ChatPanel({
     model: string;
   } | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelOverride, setModelOverride] = useState<{
+    platformId: string;
+    model: string;
+  } | null>(null);
   const [capabilityOverrides, setCapabilityOverrides] = useState<
     Record<string, { vision?: boolean; audio?: boolean }>
   >({});
@@ -268,12 +272,19 @@ export function ChatPanel({
   const defaultPlatform = platforms.find(
     (platform) => platform.id === defaultModel?.platformId && platform.enabled !== false
   );
+  const overridePlatform = platforms.find(
+    (platform) => platform.id === modelOverride?.platformId && platform.enabled !== false
+  );
   const currentPlatform =
-    platforms.find((platform) => platform.id === (currentProfile?.platformId || activeAiId)) ||
+    (currentProfile
+      ? platforms.find((platform) => platform.id === currentProfile.platformId)
+      : undefined) ||
+    overridePlatform ||
     defaultPlatform ||
     platforms.find((platform) => platform.id === activeAiId);
   const currentModel =
     currentProfile?.model ||
+    (overridePlatform ? modelOverride?.model || overridePlatform.model : '') ||
     (defaultPlatform ? defaultModel?.model || defaultPlatform.model : '') ||
     currentPlatform?.model ||
     '';
@@ -999,6 +1010,8 @@ export function ChatPanel({
       const started = await window.bsub.chat({
         requestId,
         info: context.info,
+        platformId: modelOverride?.platformId,
+        model: modelOverride?.model,
         lines: context.lines,
         messages: nextMessages.map(expandForModel),
         skillIds: skillId ? [skillId] : [],
@@ -1023,10 +1036,19 @@ export function ChatPanel({
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
   };
 
-  const chooseModel = async (platformId: string, model: string) => {
-    const response = await window.bsub.setDefaultModel?.(platformId, model);
+  const useModel = (platformId: string, model: string) => {
+    setModelOverride({ platformId, model });
+    setModelMenuOpen(false);
+  };
+
+  const saveCurrentAsDefault = async () => {
+    if (!overridePlatform || !modelOverride) return;
+    const response = await window.bsub.setDefaultModel?.(
+      modelOverride.platformId,
+      modelOverride.model
+    );
     if (!response?.ok) {
-      setError(response?.error || '切换模型失败');
+      setError(response?.error || '设为默认失败');
       return;
     }
     setDefaultModelState(response.data);
@@ -1038,6 +1060,7 @@ export function ChatPanel({
           : platform
       )
     );
+    setModelOverride(null);
     setModelMenuOpen(false);
   };
 
@@ -2042,6 +2065,7 @@ export function ChatPanel({
                 onClick={() => setModelMenuOpen((value) => !value)}
               >
                 {currentPlatform?.name || '模型'} · {currentModel || '未选'}
+                {modelOverride ? '（临时）' : ''}
               </button>
               {modelMenuOpen && (
                 <div className="chat-model-menu">
@@ -2060,12 +2084,15 @@ export function ChatPanel({
                               key={model}
                               type="button"
                               className={`chat-model-option${
-                                platform.id === defaultModel?.platformId &&
-                                model === defaultModel?.model
+                                (modelOverride
+                                  ? platform.id === modelOverride.platformId &&
+                                    model === modelOverride.model
+                                  : platform.id === defaultModel?.platformId &&
+                                    model === defaultModel?.model)
                                   ? ' is-active'
                                   : ''
                               }`}
-                              onClick={() => void chooseModel(platform.id, model)}
+                              onClick={() => useModel(platform.id, model)}
                             >
                               {model}
                             </button>
@@ -2073,6 +2100,20 @@ export function ChatPanel({
                         </div>
                       );
                     })}
+                  <div className="chat-model-footer">
+                    {modelOverride && (
+                      <button type="button" onClick={() => setModelOverride(null)}>
+                        跟随默认
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!overridePlatform || !modelOverride}
+                      onClick={() => void saveCurrentAsDefault()}
+                    >
+                      设为全局默认
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

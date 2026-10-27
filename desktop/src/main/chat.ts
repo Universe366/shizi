@@ -83,6 +83,9 @@ export interface ChatOptions {
   page?: PageContext | null;
   /** 指定平台（多模型对比用），不传则按任务槽位/当前平台解析 */
   platform?: AiPlatform;
+  /** 本轮临时使用某个平台/模型（仅本对话） */
+  platformId?: string;
+  model?: string;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
@@ -187,6 +190,16 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     if (target) platform = { ...target, model: profile.model || target.model };
   } else if (profile?.model) {
     platform = { ...platform, model: profile.model };
+  } else if (options.platformId) {
+    const target = settings.ai.platforms.find(
+      (item) => item.id === options.platformId && item.enabled !== false
+    );
+    if (target) {
+      platform = {
+        ...target,
+        model: String(options.model || '').trim() || target.model
+      };
+    }
   }
   const temperature = profile?.temperature ?? settings.ai.temperature;
   const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;

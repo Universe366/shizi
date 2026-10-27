@@ -524,8 +524,15 @@ try {
           await new Promise((r) => setTimeout(r, 260));
           const collapsed = strip.className.includes('is-collapsed');
           strip.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-          await new Promise((r) => setTimeout(r, 320));
-          const peeking = strip.className.includes('is-peeking');
+          // 机器忙时 React 状态更新会晚于 320ms，改成轮询。
+          let peeking = false;
+          for (let index = 0; index < 10; index += 1) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (strip.className.includes('is-peeking')) {
+              peeking = true;
+              break;
+            }
+          }
           const peekWidth = Math.round(strip.getBoundingClientRect().width);
           strip.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
           await new Promise((r) => setTimeout(r, 320));
