@@ -320,14 +320,16 @@ start-footnote   操作提示、导入导出设置
 
 ### 知识库（`KnowledgePanel`）
 
-- 布局：左侧文档清单（搜索 / 全部·已索引·有总结），右侧问答；选中文档后提问只在该视频内检索（`kbAsk(question, videoId)`）。
-- 顶部「构建索引」调用 `kb:index`，进度走 `kb:progress`；文档清单来自 `kb:documents`（每篇的字幕/总结/笔记块数与向量数）。
-- 引用片段可按字幕/总结/笔记筛选；点片段调用 `openLibrarySource` 回到视频。
+- 三栏：左侧「全部 / 合集 / 视频」树 + 搜索 + 学习状态筛选；中间「问答 / 文档」；右侧引用栏（容器 < 1180px 时变右侧浮层）。
+- 范围：`kbAsk(question, { videoId })` / `{ collectionId }`；合集 id 由 `kb:collection-videos` 换成视频集合后在 SQL 里过滤。
+- 索引：`kb:index` + `kb:progress`；`kb:documents` 返回每篇的块数、向量数、标签与学习状态；`kb:status-set` 修改状态。
+- 文档页签：`library:get` 的总结/笔记 + `kb:chunks` 的索引片段；片段点击 `openLibrarySource(videoId, startMs)` 跳时间。
+- 沉淀与导出：`saveNote` 追加问答到笔记；`kb:export` 输出 Markdown / JSON。
 
 ## 12. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 142 文件 / 812 用例）
+- `npm test`（当前 142 文件 / 814 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

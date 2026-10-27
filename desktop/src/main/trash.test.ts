@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { LATEST_SCHEMA_VERSION } from './migrations';
 import type { PageInfo, SubtitleTrack } from '../shared/types';
 
 const state = vi.hoisted(() => ({ dir: '' }));
@@ -108,7 +109,7 @@ describe('回收站与 schema 迁移', () => {
     setVideoTags(ingested.videoId, ['测试标签']);
     addVideoToCollection(ingested.videoId, '测试合集');
 
-    expect(librarySchemaVersion()).toBe(6);
+    expect(librarySchemaVersion()).toBe(LATEST_SCHEMA_VERSION);
 
     expect(removeVideos([ingested.videoId])).toBe(1);
     expect(() => getLibraryDetail(ingested.videoId)).toThrow();

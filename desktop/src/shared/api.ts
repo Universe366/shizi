@@ -105,7 +105,9 @@ import type {
   ChatApprovalEvent,
   ChatAttachment,
   ChatCompareResult,
+  KbChunk,
   KbDocument,
+  KbLearningStatus,
   KbStatus,
   KbHit,
   KbProgress,
@@ -307,7 +309,7 @@ export interface BsubApi {
     content: string;
     model?: string;
   }): Promise<Result<{ videoId: number; created: boolean }>>;
-  openLibrarySource(id: number): Promise<Result<boolean>>;
+  openLibrarySource(id: number, startMs?: number): Promise<Result<boolean>>;
   onLibraryChanged(cb: () => void): () => void;
 
   getSettings(): Promise<Result<SettingsSnapshot>>;
@@ -334,9 +336,19 @@ export interface BsubApi {
   ocrStatus(): Promise<Result<{ available: boolean }>>;
   kbStatus(): Promise<Result<KbStatus>>;
   kbDocuments(): Promise<Result<KbDocument[]>>;
+  kbChunks(videoId: number): Promise<Result<KbChunk[]>>;
+  kbStatusSet(videoId: number, status: KbLearningStatus): Promise<Result<KbLearningStatus>>;
+  kbCollectionVideos(collectionId: number): Promise<Result<number[]>>;
+  kbExport(format: 'markdown' | 'json'): Promise<Result<string | null>>;
   kbIndex(): Promise<Result<KbStatus>>;
-  kbSearch(question: string, videoId?: number): Promise<Result<KbHit[]>>;
-  kbAsk(question: string, videoId?: number): Promise<Result<{ text: string; hits: KbHit[] }>>;
+  kbSearch(
+    question: string,
+    scope?: { videoId?: number; collectionId?: number }
+  ): Promise<Result<KbHit[]>>;
+  kbAsk(
+    question: string,
+    scope?: { videoId?: number; collectionId?: number }
+  ): Promise<Result<{ text: string; hits: KbHit[] }>>;
   onKbProgress(cb: (progress: KbProgress) => void): () => void;
   pickConvertFiles(): Promise<Result<string[]>>;
   runConvert(paths: string[], target: string): Promise<Result<{ requestId: string }>>;

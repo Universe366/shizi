@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import { session } from 'electron';
 import type {
   AiPlatform,
+  KbChunk,
   KbDocument,
   KbHit,
+  KbLearningStatus,
   KbProgress,
   KbStatus
 } from '../../shared/types';
@@ -213,10 +215,15 @@ export function kbDocuments(): KbDocument[] {
            SUM(CASE WHEN c.kind = 'summary' THEN 1 ELSE 0 END) AS summary,
            SUM(CASE WHEN c.kind = 'note' THEN 1 ELSE 0 END) AS note,
            SUM(CASE WHEN vec.chunk_id IS NOT NULL THEN 1 ELSE 0 END) AS indexed,
-           MAX(c.created_at) AS updatedAt
+           MAX(c.created_at) AS updatedAt,
+           COALESCE(s.status, 'new') AS status,
+           (SELECT GROUP_CONCAT(tg.name, char(31))
+              FROM video_tags vt JOIN tags tg ON tg.id = vt.tag_id
+             WHERE vt.video_id = c.video_id) AS tags
          FROM kb_chunks c
          JOIN videos v ON v.id = c.video_id
          LEFT JOIN kb_vectors vec ON vec.chunk_id = c.id AND vec.model = ?
+         LEFT JOIN kb_states s ON s.video_id = c.video_id
          GROUP BY c.video_id
          ORDER BY updatedAt DESC`
       )
@@ -230,11 +237,63 @@ export function kbDocuments(): KbDocument[] {
       summary: Number(row.summary) || 0,
       note: Number(row.note) || 0,
       indexed: Number(row.indexed) || 0,
-      updatedAt: Number(row.updatedAt) || 0
+      updatedAt: Number(row.updatedAt) || 0,
+      tags: String(row.tags || '')
+        .split(String.fromCharCode(31))
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      status: (['new', 'learning', 'review', 'mastered'] as string[]).includes(
+        String(row.status)
+      )
+        ? (String(row.status) as KbLearningStatus)
+        : 'new'
     }));
   } catch {
     return [];
   }
+}
+
+/** 设置学习状态（未学 / 学习中 / 待复习 / 已掌握）。 */
+export function setKbStatus(videoId: number, status: KbLearningStatus): KbLearningStatus {
+  const id = Number(videoId);
+  if (!id) throw new Error('缺少视频 id');
+  const next: KbLearningStatus = (['new', 'learning', 'review', 'mastered'] as string[]).includes(
+    status
+  )
+    ? status
+    : 'new';
+  const db = requireDb();
+  db.prepare(
+    `INSERT INTO kb_states (video_id, status, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(video_id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`
+  ).run(id, next, Date.now());
+  return next;
+}
+
+/** 某篇视频的索引块（文档页签里读原文用）。 */
+export function kbChunks(videoId: number, limit = 120): KbChunk[] {
+  const db = requireDb();
+  const rows = db
+    .prepare(
+      `SELECT kind, start_ms AS startMs, end_ms AS endMs, text
+       FROM kb_chunks WHERE video_id = ? ORDER BY start_ms ASC, id ASC LIMIT ?`
+    )
+    .all(Number(videoId) || 0, Math.max(1, Math.min(500, limit))) as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    kind: String(row.kind || ''),
+    startMs: Number(row.startMs) || 0,
+    endMs: Number(row.endMs) || 0,
+    text: String(row.text || '')
+  }));
+}
+
+/** 合集里的视频 id 列表（知识库按合集收窄范围）。 */
+export function collectionVideoIds(collectionId: number): number[] {
+  const db = requireDb();
+  const rows = db
+    .prepare('SELECT video_id AS videoId FROM collection_items WHERE collection_id = ?')
+    .all(Number(collectionId) || 0) as Array<{ videoId?: number }>;
+  return rows.map((row) => Number(row.videoId)).filter((id) => Number.isFinite(id) && id > 0);
 }
 
 export async function indexKnowledge(
@@ -307,10 +366,15 @@ export async function indexKnowledge(
   return status;
 }
 
+export interface KbScope {
+  videoId?: number;
+  collectionId?: number;
+}
+
 export async function searchKnowledge(
   question: string,
   limit = 8,
-  videoId?: number
+  scope?: KbScope
 ): Promise<KbHit[]> {
   const settings = loadSettings();
   const platform = resolveEmbeddingPlatform();
@@ -318,15 +382,21 @@ export async function searchKnowledge(
   const db = requireDb();
   const [vector] = await embedTexts(platform, model, [String(question || '').slice(0, 2000)]);
   if (!vector) return [];
+  let scopeIds: number[] | null = null;
+  if (scope?.videoId) scopeIds = [Number(scope.videoId)];
+  else if (scope?.collectionId) scopeIds = collectionVideoIds(scope.collectionId);
+  const scopeClause =
+    scopeIds && scopeIds.length ? " AND c.video_id IN (" + scopeIds.map(() => '?').join(',') + ")" : '';
+  const scopeParams = scopeIds && scopeIds.length ? scopeIds : [];
   const rows = db
     .prepare(
       `SELECT c.video_id AS videoId, c.kind AS kind, c.start_ms AS startMs, c.end_ms AS endMs,
               c.text AS text, v.title AS title, v.vector AS vector
        FROM kb_vectors v JOIN kb_chunks c ON c.id = v.chunk_id
        JOIN videos vi ON vi.id = c.video_id
-       WHERE v.model = ?${videoId ? ' AND c.video_id = ?' : ''}`
+       WHERE v.model = ?${scopeClause}`
     )
-    .all(...(videoId ? [model, videoId] : [model])) as unknown as Array<{
+    .all(model, ...scopeParams) as unknown as Array<{
     videoId: number;
     kind: string;
     startMs: number;
@@ -361,11 +431,11 @@ export async function searchKnowledge(
 
 export async function askKnowledge(
   question: string,
-  videoId?: number
+  scope?: KbScope
 ): Promise<{ text: string; hits: KbHit[] }> {
   const clean = String(question || '').trim();
   if (!clean) throw new Error('请输入问题');
-  const hits = await searchKnowledge(clean, 8, videoId);
+  const hits = await searchKnowledge(clean, 8, scope);
   if (!hits.length) throw new Error('知识库里没有可用的资料，请先在设置里构建索引');
   const settings = loadSettings();
   const platform = settings.ai.platforms.find(

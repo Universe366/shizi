@@ -217,12 +217,22 @@ export function registerLibraryIpc(ctx: IpcContext): void {
     }
   );
 
-  ipcMain.handle('library:open-source', async (_event, id: number): Promise<Result<boolean>> => {
+  ipcMain.handle(
+    'library:open-source',
+    async (
+      _event,
+      payload: number | { id?: number; startMs?: number }
+    ): Promise<Result<boolean>> => {
     try {
+      const id = typeof payload === 'number' ? payload : Number(payload?.id);
+      const startMs = typeof payload === 'number' ? 0 : Number(payload?.startMs) || 0;
       const detail = getLibraryDetail(Number(id));
       const url = detail.video.url;
       if (/^https?:\/\//i.test(url)) {
-        await shell.openExternal(url);
+        const seconds = Math.max(0, Math.floor(startMs / 1000));
+        const withTime =
+          seconds > 0 ? `${url}${url.includes('?') ? '&' : '?'}t=${seconds}` : url;
+        await shell.openExternal(withTime);
         return { ok: true, data: true };
       }
       if (!/^file:\/\//i.test(url)) return { ok: false, error: '这个条目没有可打开的来源' };
@@ -233,7 +243,8 @@ export function registerLibraryIpc(ctx: IpcContext): void {
     } catch (error) {
       return failure<boolean>(error);
     }
-  });
+  }
+  );
 
   ipcMain.handle('library:tags', (): Result<LibraryTag[]> => {
     try {

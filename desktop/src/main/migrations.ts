@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * 现在用 `PRAGMA user_version` 记录版本，迁移只能顺序向前，每一步都必须幂等，
  * 这样「给 videos 加 kind/source」这类改动才有地方落。
  */
-export const LATEST_SCHEMA_VERSION = 6;
+export const LATEST_SCHEMA_VERSION = 7;
 
 interface Migration {
   version: number;
@@ -160,6 +160,21 @@ const MIGRATIONS: Migration[] = [
           vector BLOB NOT NULL
         );
         CREATE INDEX IF NOT EXISTS kb_vectors_model ON kb_vectors(model);
+      `);
+    }
+  },
+  {
+    version: 7,
+    name: 'knowledge-state',
+    up: (db) => {
+      // 知识库学习状态：未学 / 学习中 / 待复习 / 已掌握；每篇视频一行。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS kb_states (
+          video_id INTEGER PRIMARY KEY,
+          status TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS kb_states_status ON kb_states(status);
       `);
     }
   }

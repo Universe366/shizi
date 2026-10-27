@@ -1455,6 +1455,8 @@ export interface KbStatus {
   ready: boolean;
 }
 
+export type KbLearningStatus = 'new' | 'learning' | 'review' | 'mastered';
+
 export interface KbDocument {
   videoId: number;
   title: string;
@@ -1465,6 +1467,17 @@ export interface KbDocument {
   note: number;
   indexed: number;
   updatedAt: number;
+  /** 视频标签（来自资料库） */
+  tags: string[];
+  /** 学习状态 */
+  status: KbLearningStatus;
+}
+
+export interface KbChunk {
+  kind: string;
+  startMs: number;
+  endMs: number;
+  text: string;
 }
 
 export interface KbHit {

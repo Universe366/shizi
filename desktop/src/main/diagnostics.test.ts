@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PageInfo, SubtitleTrack } from '../shared/types';
+import { LATEST_SCHEMA_VERSION } from './migrations';
 
 const state = vi.hoisted(() => ({ user: '', diag: '' }));
 
@@ -82,7 +83,7 @@ describe('exportDiagnostics', () => {
 
     const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
     expect(summary.app.version).toBe('0.0.0-test');
-    expect(summary.data.schemaVersion).toBe(6);
+    expect(summary.data.schemaVersion).toBe(LATEST_SCHEMA_VERSION);
     expect(summary.data.stats.videos).toBe(1);
     expect(summary.settings.ai.platforms.length).toBeGreaterThan(0);
     expect(JSON.stringify(summary)).not.toContain('sk-');

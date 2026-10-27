@@ -78,7 +78,9 @@ import type {
   ChatApprovalEvent,
   ChatAttachment,
   ChatCompareResult,
+  KbChunk,
   KbDocument,
+  KbLearningStatus,
   KbStatus,
   KbHit,
   KbProgress,
@@ -449,8 +451,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('library:save-page-summary', payload) as Promise<
       Result<{ videoId: number; created: boolean }>
     >,
-  openLibrarySource: (id: number) =>
-    ipcRenderer.invoke('library:open-source', id) as Promise<Result<boolean>>,
+  openLibrarySource: (id: number, startMs = 0) =>
+    ipcRenderer.invoke('library:open-source', { id, startMs }) as Promise<Result<boolean>>,
   onLibraryChanged: (cb: () => void) => on<null>('library:changed', () => cb()),
 
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<Result<SettingsSnapshot>>,
@@ -502,10 +504,18 @@ const api: BsubApi = {
   kbStatus: () => ipcRenderer.invoke('kb:status') as Promise<Result<KbStatus>>,
   kbIndex: () => ipcRenderer.invoke('kb:index') as Promise<Result<KbStatus>>,
   kbDocuments: () => ipcRenderer.invoke('kb:documents') as Promise<Result<KbDocument[]>>,
-  kbSearch: (question: string, videoId?: number) =>
-    ipcRenderer.invoke('kb:search', { question, videoId }) as Promise<Result<KbHit[]>>,
-  kbAsk: (question: string, videoId?: number) =>
-    ipcRenderer.invoke('kb:ask', { question, videoId }) as Promise<
+  kbChunks: (videoId: number) =>
+    ipcRenderer.invoke('kb:chunks', videoId) as Promise<Result<KbChunk[]>>,
+  kbStatusSet: (videoId: number, status: KbLearningStatus) =>
+    ipcRenderer.invoke('kb:status-set', { videoId, status }) as Promise<Result<KbLearningStatus>>,
+  kbCollectionVideos: (collectionId: number) =>
+    ipcRenderer.invoke('kb:collection-videos', collectionId) as Promise<Result<number[]>>,
+  kbExport: (format: 'markdown' | 'json') =>
+    ipcRenderer.invoke('kb:export', format) as Promise<Result<string | null>>,
+  kbSearch: (question: string, scope?: { videoId?: number; collectionId?: number }) =>
+    ipcRenderer.invoke('kb:search', { question, ...scope }) as Promise<Result<KbHit[]>>,
+  kbAsk: (question: string, scope?: { videoId?: number; collectionId?: number }) =>
+    ipcRenderer.invoke('kb:ask', { question, ...scope }) as Promise<
       Result<{ text: string; hits: KbHit[] }>
     >,
   onKbProgress: (cb: (progress: KbProgress) => void) => on<KbProgress>('kb:progress', cb),
