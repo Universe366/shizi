@@ -38,8 +38,11 @@ import type {
   BatchErrorEvent,
   Chapter,
   QualityReport,
+  McpOAuth,
+  McpResourceUpdate,
   McpServer,
   McpTool,
+  SkillIndexEntry,
   SkillItem,
   LibraryHistoryItem,
   LibraryTranscriptionItem,
@@ -897,6 +900,16 @@ const api: BsubApi = {
   generateChapters: (info: PageInfo, lines: SubtitleLine[]) =>
     ipcRenderer.invoke('chapters:generate', { info, lines }) as Promise<Result<Chapter[]>>,
 
+  mcpRestoreSubscriptions: (servers: McpServer[]) =>
+    ipcRenderer.invoke('mcp:restore-subscriptions', servers) as Promise<Result<boolean>>,
+  mcpWatchResource: (server: McpServer, uri: string) =>
+    ipcRenderer.invoke('mcp:watch-resource', { server, uri }) as Promise<Result<boolean>>,
+  mcpUnwatchResource: (server: McpServer, uri: string) =>
+    ipcRenderer.invoke('mcp:unwatch-resource', { server, uri }) as Promise<Result<boolean>>,
+  onMcpResourceUpdated: (cb: (event: McpResourceUpdate) => void) =>
+    on<McpResourceUpdate>('mcp:resource-updated', cb),
+  mcpOAuth: (server: McpServer) =>
+    ipcRenderer.invoke('mcp:oauth', server) as Promise<Result<McpOAuth>>,
   testMcp: (server: McpServer) =>
     ipcRenderer.invoke('mcp:test', server) as Promise<Result<McpTool[]>>,
   callMcp: (server: McpServer, name: string, args: Record<string, unknown>) =>
@@ -913,6 +926,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:prompt', { server, name, args }) as Promise<Result<string>>,
   importSkill: () =>
     ipcRenderer.invoke('skills:import') as Promise<Result<SkillItem | null>>,
+  fetchSkillIndex: (url: string) =>
+    ipcRenderer.invoke('skills:index', url) as Promise<Result<SkillIndexEntry[]>>,
   importSkillRepo: (url: string) =>
     ipcRenderer.invoke('skills:import-repo', url) as Promise<Result<SkillItem[]>>,
   importSkillUrl: (url: string) =>

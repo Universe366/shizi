@@ -27,6 +27,9 @@ function props(overrides: Record<string, unknown> = {}) {
     onRefresh: vi.fn(),
     onInstall: vi.fn(),
     onImportRepo: vi.fn(),
+    onLoadIndex: vi.fn().mockResolvedValue([]),
+    onInstallIndex: vi.fn(),
+    onIndexUrlChange: vi.fn(),
     ...overrides
   };
 }
@@ -60,6 +63,28 @@ describe('SkillsSection', () => {
       target: { value: '新描述' }
     });
     expect(p.onUpdate).toHaveBeenCalledWith('skill-1', { description: '新描述' });
+  });
+
+  it('远程技能索引可以读取并安装', async () => {
+    const entry = {
+      id: 'remote-1',
+      name: '远程技能',
+      description: '来自索引',
+      icon: '🌐',
+      category: '远程',
+      url: 'https://example.com/SKILL.md'
+    };
+    const p = props({ onLoadIndex: vi.fn().mockResolvedValue([entry]) });
+    render(<SkillsSection {...p} />);
+    fireEvent.click(screen.getByText('远程技能库'));
+    fireEvent.change(
+      screen.getByPlaceholderText('技能索引 JSON 地址，例如 https://example.com/skills.json'),
+      { target: { value: 'https://example.com/skills.json' } }
+    );
+    fireEvent.click(screen.getByText('获取索引'));
+    expect(await screen.findByText('远程技能')).toBeTruthy();
+    fireEvent.click(screen.getByText('安装'));
+    expect(p.onInstallIndex).toHaveBeenCalledWith(entry);
   });
 
   it('可以从 GitHub 仓库批量导入', () => {

@@ -4,6 +4,7 @@ import type {
   AppSettings,
   Chapter,
   CorrectionRuleGroup,
+  McpOAuth,
   McpServer,
   McpTool,
   McpResource,
@@ -13,6 +14,7 @@ import type {
   QualityReport,
   Result,
   SearchPlatform,
+  SkillIndexEntry,
   SkillItem,
   SubtitleLine,
   WebReference
@@ -26,6 +28,13 @@ import {
   listMcpTools,
   readMcpResource
 } from '../mcp';
+import { authorizeMcpServer } from '../mcpOAuth';
+import {
+  restoreMcpSubscriptions,
+  unwatchMcpResource,
+  watchMcpResource
+} from '../mcpSubscriptions';
+import { fetchSkillIndex } from '../skillIndex';
 import {
   fetchSkillsFromRepo,
   fetchSkillFromUrl,
@@ -95,6 +104,49 @@ export function registerToolsIpc(ctx: IpcContext): void {
   );
 
   ipcMain.handle(
+    'mcp:oauth',
+    async (_event, server: McpServer): Promise<Result<McpOAuth>> => {
+      try {
+        return { ok: true, data: await authorizeMcpServer(server) };
+      } catch (error) {
+        return failure<McpOAuth>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:watch-resource',
+    async (_event, payload: { server: McpServer; uri: string }): Promise<Result<boolean>> => {
+      try {
+        await watchMcpResource(payload.server, payload.uri);
+        return { ok: true, data: true };
+      } catch (error) {
+        return failure<boolean>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:unwatch-resource',
+    async (_event, payload: { server: McpServer; uri: string }): Promise<Result<boolean>> => {
+      try {
+        await unwatchMcpResource(payload.server, payload.uri);
+        return { ok: true, data: true };
+      } catch (error) {
+        return failure<boolean>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:restore-subscriptions',
+    (_event, servers: McpServer[]): Result<boolean> => {
+      restoreMcpSubscriptions(Array.isArray(servers) ? servers : []);
+      return { ok: true, data: true };
+    }
+  );
+
+  ipcMain.handle(
     'mcp:resources',
     async (_event, server: McpServer): Promise<Result<McpResource[]>> => {
       try {
@@ -140,6 +192,17 @@ export function registerToolsIpc(ctx: IpcContext): void {
         };
       } catch (error) {
         return failure<string>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'skills:index',
+    async (_event, url: string): Promise<Result<SkillIndexEntry[]>> => {
+      try {
+        return { ok: true, data: await fetchSkillIndex(String(url || '')) };
+      } catch (error) {
+        return failure<SkillIndexEntry[]>(error);
       }
     }
   );

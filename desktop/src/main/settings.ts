@@ -309,6 +309,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   skills: {
     enabled: true,
     builtinVersion: 2,
+    indexUrl: '',
     items: [
       {
         id: 'skill_deep_summary',
@@ -1211,7 +1212,24 @@ function normalize(input: unknown): AppSettings {
                 : {},
             toolNames: Array.isArray(server.toolNames)
               ? server.toolNames.map((name) => String(name)).filter(Boolean)
-              : []
+              : [],
+            subscriptions: Array.isArray(server.subscriptions)
+              ? server.subscriptions.map((uri) => String(uri)).filter(Boolean).slice(0, 50)
+              : [],
+            ...(server.oauth && typeof server.oauth === 'object' && server.oauth.accessToken
+              ? {
+                  oauth: {
+                    accessToken: String(server.oauth.accessToken),
+                    refreshToken: server.oauth.refreshToken
+                      ? String(server.oauth.refreshToken)
+                      : undefined,
+                    expiresAt: Number(server.oauth.expiresAt) || undefined,
+                    tokenEndpoint: String(server.oauth.tokenEndpoint || ''),
+                    clientId: String(server.oauth.clientId || ''),
+                    scope: server.oauth.scope ? String(server.oauth.scope) : undefined
+                  }
+                }
+              : {})
           }));
       }
     }
@@ -1228,7 +1246,9 @@ function normalize(input: unknown): AppSettings {
             body: String(item.body || ''),
             icon: String(item.icon || '✨'),
             enabled: item.enabled !== false,
-            source: ['builtin', 'manual', 'file'].includes(item.source) ? item.source : 'manual'
+            source: ['builtin', 'manual', 'file'].includes(item.source) ? item.source : 'manual',
+            ...(item.sourceUrl ? { sourceUrl: String(item.sourceUrl).slice(0, 2000) } : {}),
+            ...(item.category ? { category: String(item.category).slice(0, 40) } : {})
           }));
       }
       // 新增内置技能时补进老配置；版本号避免用户删掉后又被加回来。
@@ -1241,6 +1261,8 @@ function normalize(input: unknown): AppSettings {
         }
       }
       base.skills.builtinVersion = 2;
+      base.skills.indexUrl =
+        typeof raw.skills.indexUrl === 'string' ? raw.skills.indexUrl.slice(0, 2000) : '';
     }
 
     if (raw.search && typeof raw.search === 'object') {

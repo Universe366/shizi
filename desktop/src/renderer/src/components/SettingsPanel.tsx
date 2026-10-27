@@ -164,6 +164,7 @@ export function SettingsPanel({
           savedJsonRef.current = JSON.stringify(response.data.settings);
           setDataDir(response.data.dataDir);
           setVersion(response.data.version);
+          void window.bsub.mcpRestoreSubscriptions(response.data.settings.mcp.servers);
         } else {
           setError(response.error);
         }
@@ -174,6 +175,16 @@ export function SettingsPanel({
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const dispose = window.bsub.onMcpResourceUpdated?.((update) => {
+      setMcpResult(
+        `资源更新：${update.uri}\n\n${update.content.slice(0, 3000)}`
+      );
+      setMessage(`MCP 资源有新内容：${update.uri}`);
+    });
+    return () => dispose?.();
   }, []);
 
   useEffect(() => {
@@ -280,6 +291,37 @@ export function SettingsPanel({
     for (const server of draft?.mcp.servers || []) {
       if (server.enabled) await testMcp(server);
     }
+  };
+
+  const oauthMcp = async (server: McpServer) => {
+    setMcpTesting(server.id);
+    setMcpResult('等待浏览器完成 OAuth 授权…');
+    try {
+      const response = await window.bsub.mcpOAuth(server);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      updateMcpServer(server.id, { oauth: response.data });
+      setMessage('OAuth 授权成功');
+    } finally {
+      setMcpTesting('');
+    }
+  };
+
+  const watchMcpResource = async (server: McpServer, uri: string, watched: boolean) => {
+    const response = watched
+      ? await window.bsub.mcpWatchResource(server, uri)
+      : await window.bsub.mcpUnwatchResource(server, uri);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    const subscriptions = watched
+      ? [...new Set([...(server.subscriptions || []), uri])]
+      : (server.subscriptions || []).filter((item) => item !== uri);
+    updateMcpServer(server.id, { subscriptions });
+    setMessage(watched ? `已订阅资源：${uri}` : `已取消订阅：${uri}`);
   };
 
   const testMcp = async (server: McpServer) => {
@@ -469,6 +511,40 @@ export function SettingsPanel({
     );
     updateSkills({ items: [...draft.skills.items, ...fresh] });
     setMessage(`导入 ${fresh.length} 个技能`);
+  };
+
+  const loadSkillIndex = async (url: string) => {
+    const response = await window.bsub.fetchSkillIndex(url);
+    if (!response.ok) throw new Error(response.error);
+    return response.data;
+  };
+
+  const installIndexedSkill = async (entry: {
+    url: string;
+    name: string;
+    description: string;
+    icon?: string;
+    category?: string;
+  }) => {
+    const response = await window.bsub.importSkillUrl(entry.url);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    if (!draft) return;
+    const item = {
+      ...response.data,
+      name: response.data.name || entry.name,
+      description: response.data.description || entry.description,
+      icon: response.data.icon || entry.icon || '✨',
+      category: entry.category
+    };
+    if (draft.skills.items.some((skill) => skill.name === item.name)) {
+      setMessage(`技能「${item.name}」已经在列表里`);
+      return;
+    }
+    updateSkills({ items: [...draft.skills.items, item] });
+    setMessage(`已安装远程技能：${item.name}`);
   };
 
   const importSkillFolder = async () => {
@@ -1491,6 +1567,10 @@ export function SettingsPanel({
         onReadResource={(server, uri) => void readMcpResource(server, uri)}
         onGetPrompt={(server, name, args) => void getMcpPrompt(server, name, args)}
         onTestAll={() => void testAllMcp()}
+        onOAuth={(server) => void oauthMcp(server)}
+        onWatchResource={(server, uri, watched) =>
+          void watchMcpResource(server, uri, watched)
+        }
       />
       )}
 
@@ -1503,6 +1583,9 @@ export function SettingsPanel({
         onImportUrl={(url) => void importSkillUrl(url)}
         onImportRepo={(url) => void importSkillRepo(url)}
         onImportJson={(items) => importSkillsJson(items)}
+        onLoadIndex={(url) => loadSkillIndex(url)}
+        onInstallIndex={(entry) => void installIndexedSkill(entry)}
+        onIndexUrlChange={(url) => updateSkills({ indexUrl: url })}
         onImportFolder={() => void importSkillFolder()}
         onCreate={addSkill}
         onUpdate={(id, patch) => updateSkill(id, patch)}

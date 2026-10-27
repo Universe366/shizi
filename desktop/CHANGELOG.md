@@ -1,3 +1,13 @@
+## 0.82.0（2026-10-28）
+
+### MCP OAuth / 资源订阅 / 远程技能索引
+
+- MCP 支持 OAuth 2.1 PKCE：受保护资源发现 → 授权服务器发现 → 动态注册 → 本地回调 → token/refresh；HTTP 401 自动刷新重试，OAuth 状态持久化。
+- MCP 资源支持勾选订阅：尽力发送 `resources/subscribe`，并用 20 秒轮询兜底；内容变化通过 `mcp:resource-updated` 通知设置页，订阅随配置恢复。
+- Skills 支持远程索引：填写 JSON 索引地址（`{skills:[...]}`/数组）→ 读取条目 → 一键安装；`indexUrl` 持久化。
+- 修复 `sourceUrl` / `category` 在设置归一化时被丢掉的问题。
+- 测试：158 文件 / 910 用例。
+
 ## 0.81.0（2026-10-28）
 
 ### Skills / MCP · 导入导出与提示词参数

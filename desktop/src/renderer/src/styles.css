@@ -13272,3 +13272,41 @@ sup:has(> .cite-ref) {
   border-radius: 8px;
   background: var(--surface-2);
 }
+
+/* ---------- 远程技能索引 ---------- */
+.skill-index-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 6px 0;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.skill-index-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.skill-index-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.skill-index-meta {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.mcp-oauth-badge {
+  color: var(--success, #43a047);
+  font-size: var(--fs-xs);
+}

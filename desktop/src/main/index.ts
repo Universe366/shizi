@@ -7,6 +7,7 @@ import { hydrateMetrics } from './web';
 import { applyAutoStart } from './autoStart';
 import { applyProxy } from './proxy';
 import { disposeMcpClients } from './mcp';
+import { disposeMcpSubscriptions, restoreMcpSubscriptions } from './mcpSubscriptions';
 import { disposeDictation, initDictation } from './dictation';
 import { disposeQuickAsk, applyQuickAsk } from './quickAsk';
 import { applyRadial, disposeRadial } from './radial';
@@ -384,6 +385,7 @@ app
     writeLog('startup.log', 'ready');
     migrateSettingsSecrets();
     nativeTheme.themeSource = loadSettings().general.theme;
+    restoreMcpSubscriptions(loadSettings().mcp.servers);
     applyAutoStart(loadSettings().general.autoStart === true);
     void applyProxy(loadSettings());
     startTodoReminders();
@@ -468,6 +470,7 @@ app.on('before-quit', () => {
   disposeUpdater();
   stopBridge();
   disposeMcpClients();
+  disposeMcpSubscriptions();
   disposeDictation();
   disposeQuickAsk();
   disposeRadial();

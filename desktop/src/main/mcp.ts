@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { session } from 'electron';
+import { refreshMcpOAuth } from './mcpOAuth';
 import type {
   McpPrompt,
   McpResource,
@@ -23,7 +24,9 @@ function headersFor(server: McpServer): Record<string, string> {
     'content-type': 'application/json'
   };
   const token = String(server.token || '').trim();
+  const oauthToken = String(server.oauth?.accessToken || '').trim();
   if (token) headers.authorization = /^bearer\s/i.test(token) ? token : `Bearer ${token}`;
+  else if (oauthToken) headers.authorization = `Bearer ${oauthToken}`;
   for (const [key, value] of Object.entries(server.headers || {})) {
     if (key && value) headers[key] = String(value);
   }
@@ -96,12 +99,25 @@ function parseRpc(text: string, expectId: number | null): JsonRpcResponse | null
 
 async function postHttp(server: McpServer, body: unknown, timeoutMs = 40000): Promise<Response> {
   if (!server.url.trim()) throw new Error('MCP 服务地址为空');
-  const response = await session.defaultSession.fetch(server.url.trim(), {
-    method: 'POST',
-    headers: headersFor(server),
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
-  });
+  if (
+    server.oauth?.refreshToken &&
+    server.oauth.expiresAt &&
+    server.oauth.expiresAt - 60_000 < Date.now()
+  ) {
+    server.oauth = await refreshMcpOAuth(server.oauth);
+  }
+  const send = () =>
+    session.defaultSession.fetch(server.url.trim(), {
+      method: 'POST',
+      headers: headersFor(server),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  let response = await send();
+  if (response.status === 401 && server.oauth?.refreshToken) {
+    server.oauth = await refreshMcpOAuth(server.oauth);
+    response = await send();
+  }
   const sessionId = response.headers.get('mcp-session-id');
   if (sessionId) sessionIds.set(serverKey(server), sessionId);
   return response;
@@ -492,6 +508,24 @@ export async function listMcpResources(server: McpServer): Promise<McpResource[]
 }
 
 /** 读取一个资源；二进制资源用占位说明，不把 base64 塞进设置页。 */
+/** 尽力向服务端声明订阅；不支持时静默忽略，由本地轮询兜底。 */
+export async function subscribeMcpResource(server: McpServer, uri: string): Promise<void> {
+  await ensureSession(server);
+  try {
+    await rpc(server, 'resources/subscribe', { uri }, nextId(), 15000);
+  } catch {
+    // 服务端不支持订阅时继续轮询
+  }
+}
+
+export async function unsubscribeMcpResource(server: McpServer, uri: string): Promise<void> {
+  try {
+    await rpc(server, 'resources/unsubscribe', { uri }, nextId(), 15000);
+  } catch {
+    // ignore
+  }
+}
+
 export async function readMcpResource(server: McpServer, uri: string): Promise<string> {
   await ensureSession(server);
   const result = (await rpc(server, 'resources/read', { uri }, nextId())) as {

@@ -814,12 +814,32 @@ export interface McpServer {
   env?: Record<string, string>;
   /** 只允许这些工具；空数组 = 全部允许 */
   toolNames?: string[];
+  /** OAuth 授权得到的 token（仅 HTTP/SSE） */
+  oauth?: McpOAuth;
+  /** 已订阅的资源 URI */
+  subscriptions?: string[];
+}
+
+export interface McpOAuth {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  tokenEndpoint: string;
+  clientId: string;
+  scope?: string;
 }
 
 export interface McpTool {
   name: string;
   description: string;
   inputSchema?: unknown;
+}
+
+export interface McpResourceUpdate {
+  serverId: string;
+  uri: string;
+  content: string;
+  at: number;
 }
 
 export interface McpResource {
@@ -833,6 +853,17 @@ export interface McpPrompt {
   name: string;
   description: string;
   arguments: Array<{ name: string; description: string; required: boolean }>;
+}
+
+export interface SkillIndexEntry {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  category?: string;
+  version?: string;
+  author?: string;
+  url: string;
 }
 
 export interface SkillItem {
@@ -1339,6 +1370,8 @@ export interface AppSettings {
     enabled: boolean;
     builtinVersion: number;
     items: SkillItem[];
+    /** 远程技能索引 JSON 地址（可选） */
+    indexUrl?: string;
   };
   search: SearchSettings;
   correction: {

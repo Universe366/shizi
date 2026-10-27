@@ -24,6 +24,8 @@ interface McpSectionProps {
   onReadResource: (server: McpServer, uri: string) => void;
   onGetPrompt: (server: McpServer, name: string, args: Record<string, string>) => void;
   onTestAll?: () => void;
+  onOAuth?: (server: McpServer) => void;
+  onWatchResource?: (server: McpServer, uri: string, watched: boolean) => void;
 }
 
 /** MCP 服务：服务列表、连接测试、工具/资源/提示词、超时/轮数与手动调用参数。 */
@@ -44,7 +46,9 @@ export function McpSection({
   onCall,
   onReadResource,
   onGetPrompt,
-  onTestAll
+  onTestAll,
+  onOAuth,
+  onWatchResource
 }: McpSectionProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
@@ -374,6 +378,20 @@ export function McpSection({
                   onUpdateServer(server.id, { headers });
                 }}
               />
+              <div className="settings-inline">
+                <span className="settings-hint" style={{ flex: 1 }}>
+                  {server.oauth?.accessToken
+                    ? `OAuth 已授权${server.oauth.scope ? ` · ${server.oauth.scope}` : ''}`
+                    : '需要 OAuth 的服务可以先授权，也可以手填 Token'}
+                </span>
+                <button
+                  className="mini-btn"
+                  disabled={testing === server.id}
+                  onClick={() => onOAuth?.(server)}
+                >
+                  {server.oauth?.accessToken ? '重新授权' : 'OAuth 授权'}
+                </button>
+              </div>
             </>
           )}
           <button
@@ -419,16 +437,28 @@ export function McpSection({
           ) : null}
           {resources[server.id]?.length ? (
             <div className="mcp-tools">
-              {resources[server.id].map((resource) => (
-                <button
-                  key={resource.uri}
-                  className="mcp-tool"
-                  title={`${resource.uri}\n${resource.description}`}
-                  onClick={() => onReadResource(server, resource.uri)}
-                >
-                  资源 · {resource.name}
-                </button>
-              ))}
+              {resources[server.id].map((resource) => {
+                const watched = (server.subscriptions || []).includes(resource.uri);
+                return (
+                  <span key={resource.uri} className="mcp-tool-row">
+                    <input
+                      type="checkbox"
+                      checked={watched}
+                      title="订阅更新（每 20 秒检查一次，变化时提示）"
+                      onChange={(event) =>
+                        onWatchResource?.(server, resource.uri, event.target.checked)
+                      }
+                    />
+                    <button
+                      className="mcp-tool"
+                      title={`${resource.uri}\n${resource.description}`}
+                      onClick={() => onReadResource(server, resource.uri)}
+                    >
+                      资源 · {resource.name}
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           ) : null}
           {promptForm?.server.id === server.id && (

@@ -34,6 +34,8 @@ function props(overrides: Record<string, unknown> = {}) {
     onCall: vi.fn(),
     onReadResource: vi.fn(),
     onGetPrompt: vi.fn(),
+    onOAuth: vi.fn(),
+    onWatchResource: vi.fn(),
     ...overrides
   };
 }
@@ -64,6 +66,28 @@ describe('McpSection', () => {
     expect(p.onTest).toHaveBeenCalledWith(server);
     fireEvent.click(screen.getByTitle('搜索'));
     expect(p.onCall).toHaveBeenCalledWith(server, tool);
+  });
+
+  it('HTTP 服务可以发起 OAuth 授权', () => {
+    const p = props();
+    render(<McpSection {...p} />);
+    fireEvent.click(screen.getByText('OAuth 授权'));
+    expect(p.onOAuth).toHaveBeenCalledWith(server);
+  });
+
+  it('资源可以勾选订阅', () => {
+    const resource = {
+      uri: 'file:///a.md',
+      name: 'a.md',
+      description: '文件',
+      mimeType: 'text/markdown'
+    };
+    const p = props({ resources: { s1: [resource] } });
+    render(<McpSection {...p} />);
+    fireEvent.click(
+      screen.getByTitle('订阅更新（每 20 秒检查一次，变化时提示）')
+    );
+    expect(p.onWatchResource).toHaveBeenCalledWith(server, 'file:///a.md', true);
   });
 
   it('带参数的提示词会先收集参数再运行', () => {

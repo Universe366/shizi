@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
-import type { AppSettings, SkillItem } from '../../../../shared/types';
+import type {
+  AppSettings,
+  SkillIndexEntry,
+  SkillItem
+} from '../../../../shared/types';
 import { SKILL_CATALOG } from '../../../../shared/skillCatalog';
 import { SettingsSection } from './SettingsSection';
 
@@ -13,6 +17,9 @@ interface SkillsSectionProps {
   onImportUrl: (url: string) => void;
   onImportRepo?: (url: string) => void;
   onImportJson?: (items: SkillItem[]) => void;
+  onLoadIndex?: (url: string) => Promise<SkillIndexEntry[]>;
+  onInstallIndex?: (entry: SkillIndexEntry) => void;
+  onIndexUrlChange?: (url: string) => void;
   onImportFolder: () => void;
   onCreate: () => void;
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
@@ -30,6 +37,9 @@ export function SkillsSection({
   onImportUrl,
   onImportRepo,
   onImportJson,
+  onLoadIndex,
+  onInstallIndex,
+  onIndexUrlChange,
   onImportFolder,
   onCreate,
   onUpdate,
@@ -42,6 +52,11 @@ export function SkillsSection({
   const [repo, setRepo] = useState('');
   const [query, setQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [indexOpen, setIndexOpen] = useState(false);
+  const [indexUrl, setIndexUrl] = useState(value.indexUrl || '');
+  const [indexEntries, setIndexEntries] = useState<SkillIndexEntry[]>([]);
+  const [indexLoading, setIndexLoading] = useState(false);
+  const [indexError, setIndexError] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const enabledCount = value.items.filter((item) => item.enabled).length;
   const visible = value.items.filter((skill) => {
@@ -66,6 +81,9 @@ export function SkillsSection({
       <div className="settings-inline">
         <button className="mini-btn" onClick={() => setCatalogOpen((value) => !value)}>
           技能库
+        </button>
+        <button className="mini-btn" onClick={() => setIndexOpen((value) => !value)}>
+          远程技能库
         </button>
         <button className="mini-btn" onClick={() => fileRef.current?.click()}>
           导入 JSON
@@ -182,6 +200,59 @@ export function SkillsSection({
           从链接导入
         </button>
       </div>
+
+      {indexOpen && (
+        <div className="skill-index-panel">
+          <div className="settings-inline">
+            <input
+              className="settings-input"
+              placeholder="技能索引 JSON 地址，例如 https://example.com/skills.json"
+              spellCheck={false}
+              value={indexUrl}
+              onChange={(event) => {
+                setIndexUrl(event.target.value);
+                onIndexUrlChange?.(event.target.value);
+              }}
+            />
+            <button
+              className="mini-btn"
+              disabled={!indexUrl.trim() || indexLoading}
+              onClick={async () => {
+                if (!indexUrl.trim()) return;
+                setIndexLoading(true);
+                setIndexError('');
+                try {
+                  setIndexEntries((await onLoadIndex?.(indexUrl.trim())) || []);
+                } catch (error) {
+                  setIndexError((error as Error).message);
+                } finally {
+                  setIndexLoading(false);
+                }
+              }}
+            >
+              {indexLoading ? '读取中…' : '获取索引'}
+            </button>
+          </div>
+          {indexError && <div className="settings-hint">读取失败：{indexError}</div>}
+          {indexEntries.map((entry) => (
+            <div key={entry.id} className="skill-index-row">
+              <span className="skill-catalog-icon">{entry.icon || '✨'}</span>
+              <span className="skill-index-main">
+                <span className="skill-catalog-name">{entry.name}</span>
+                <span className="skill-catalog-desc">{entry.description}</span>
+                <span className="skill-index-meta">
+                  {[entry.category, entry.author, entry.version && `v${entry.version}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              </span>
+              <button className="mini-btn" onClick={() => onInstallIndex?.(entry)}>
+                安装
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {catalogOpen && (
         <div className="skill-catalog-grid">

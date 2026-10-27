@@ -37,8 +37,11 @@ import type {
   BatchErrorEvent,
   Chapter,
   QualityReport,
+  McpOAuth,
+  McpResourceUpdate,
   McpServer,
   McpTool,
+  SkillIndexEntry,
   SkillItem,
   LibraryHistoryItem,
   LibraryTranscriptionItem,
@@ -668,6 +671,11 @@ export interface BsubApi {
   checkQuality(info: PageInfo, lines: SubtitleLine[]): Promise<Result<QualityReport>>;
   generateChapters(info: PageInfo, lines: SubtitleLine[]): Promise<Result<Chapter[]>>;
 
+  mcpRestoreSubscriptions(servers: McpServer[]): Promise<Result<boolean>>;
+  mcpWatchResource(server: McpServer, uri: string): Promise<Result<boolean>>;
+  mcpUnwatchResource(server: McpServer, uri: string): Promise<Result<boolean>>;
+  onMcpResourceUpdated(cb: (event: McpResourceUpdate) => void): () => void;
+  mcpOAuth(server: McpServer): Promise<Result<McpOAuth>>;
   testMcp(server: McpServer): Promise<Result<McpTool[]>>;
   callMcp(server: McpServer, name: string, args: Record<string, unknown>): Promise<Result<string>>;
   mcpResources(server: McpServer): Promise<Result<McpResource[]>>;
@@ -680,6 +688,7 @@ export interface BsubApi {
     args: Record<string, string>
   ): Promise<Result<string>>;
   importSkill(): Promise<Result<SkillItem | null>>;
+  fetchSkillIndex(url: string): Promise<Result<SkillIndexEntry[]>>;
   importSkillRepo(url: string): Promise<Result<SkillItem[]>>;
   importSkillUrl(url: string): Promise<Result<SkillItem>>;
   importSkillFolder(): Promise<Result<SkillItem[]>>;
