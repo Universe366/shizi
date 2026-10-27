@@ -1635,3 +1635,125 @@
   color: var(--start-text);
   font-size: var(--fs-sm);
 }
+
+/* ---------- 起始页：标签筛选与详情 ---------- */
+.start-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 2px;
+}
+
+.start-tag-label {
+  font-size: var(--fs-xs);
+  color: var(--start-faint);
+}
+
+.start-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface);
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+}
+
+.start-tag:hover {
+  color: var(--start-text);
+  border-color: var(--start-border-strong);
+}
+
+.start-tag.is-active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.start-tag.is-static {
+  pointer-events: none;
+}
+
+.start-tag-count {
+  color: var(--start-faint);
+}
+
+.start-detail {
+  width: min(420px, 92vw);
+}
+
+.start-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.start-detail-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.start-detail-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.start-detail-host {
+  margin-top: 2px;
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
+}
+
+.start-detail-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: var(--start-faint);
+}
+
+.start-detail-close:hover {
+  background: var(--start-soft);
+  color: var(--start-text);
+}
+
+.start-detail-desc {
+  margin: 12px 0 0;
+  color: var(--start-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.start-detail-meta {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
+}
+
+.start-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.start-detail-url {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--start-soft);
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+  word-break: break-all;
+}

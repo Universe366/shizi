@@ -103,3 +103,30 @@ describe('使用次数', () => {
     expect(top.map((item) => item.id)).toEqual(['a', 'b']);
   });
 });
+
+import { normalizeTags, topTags, filterByTag, matchShortcut } from './model';
+
+describe('标签', () => {
+  it('归一化：支持逗号/空格、去重、最多 6 个', () => {
+    expect(normalizeTags('AI, 工具、AI  学习')).toEqual(['AI', '工具', '学习']);
+    expect(normalizeTags('a b c d e f g h')).toHaveLength(6);
+    expect(normalizeTags(['x', 'x', ' '])).toEqual(['x']);
+  });
+
+  it('统计与筛选', () => {
+    const items = [
+      { id: 'a', label: 'A', url: 'https://a.com/', tags: ['AI', '工具'] },
+      { id: 'b', label: 'B', url: 'https://b.com/', tags: ['AI'] }
+    ];
+    expect(topTags(items, 5)[0]).toEqual({ tag: 'AI', count: 2 });
+    expect(filterByTag(items, 'ai').map((item) => item.id)).toEqual(['a', 'b']);
+    expect(filterByTag(items, '工具').map((item) => item.id)).toEqual(['a']);
+  });
+
+  it('搜索可以命中描述与标签', () => {
+    const item = { id: 'a', label: 'A', url: 'https://a.com/', desc: '中文识别', tags: ['语音'] };
+    expect(matchShortcut(item, '识别')).toBe(true);
+    expect(matchShortcut(item, '语音')).toBe(true);
+    expect(matchShortcut(item, '不存在')).toBe(false);
+  });
+});

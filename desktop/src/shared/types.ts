@@ -1040,6 +1040,10 @@ export interface StartShortcut {
   url: string;
   /** 分组名，例如 常用 / 学习 / 工具 */
   group?: string;
+  /** 一句话说明，显示在详情与悬停提示里 */
+  desc?: string;
+  /** 标签，用于筛选（最多 6 个） */
+  tags?: string[];
 }
 
 export interface PetTodo {

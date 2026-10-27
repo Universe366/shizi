@@ -5,6 +5,7 @@ import {
   Download,
   History,
   Library,
+  Info,
   ListChecks,
   Palette,
   Pencil,
@@ -19,6 +20,7 @@ import { SearchBar, type Suggestion } from './start/SearchBar';
 import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
 import { BatchAddDialog } from './start/BatchAddDialog';
+import { ShortcutDetail } from './start/ShortcutDetail';
 import { askConfirm } from './ui/confirm';
 import { WidgetPanel } from './start/WidgetPanel';
 import { WallpaperDrawer } from './start/WallpaperDrawer';
@@ -34,7 +36,10 @@ import {
   isUrlLike,
   matchShortcut,
   mergeShortcuts,
+  filterByTag,
+  normalizeTags,
   parseStartBackup,
+  topTags,
   topUsed,
   type StartDensity,
   type StartUsage,
@@ -200,6 +205,8 @@ export function StartPage({
   const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
   const [usage, setUsage] = useState<StartUsage>(readUsage);
   const [notice, setNotice] = useState('');
+  const [activeTag, setActiveTag] = useState('');
+  const [detail, setDetail] = useState<StartShortcut | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -453,9 +460,18 @@ export function StartPage({
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
     if (!/^https?:\/\/[^\s]+$/i.test(url)) return;
     const id = editing.id || `s-${Date.now().toString(36)}`;
+    const desc = String(editing.desc || '').trim().slice(0, 120);
+    const tags = normalizeTags(editing.tagsText || '');
+    const patch = {
+      label,
+      url,
+      group,
+      ...(desc ? { desc } : {}),
+      ...(tags.length ? { tags } : {})
+    };
     const next = editing.id
-      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, label, url, group } : item))
-      : [...shortcuts, { id, label, url, group }];
+      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, ...patch } : item))
+      : [...shortcuts, { id, ...patch }];
     setEditing(null);
     void persistShortcuts(next);
   };
@@ -472,13 +488,21 @@ export function StartPage({
   }, [shortcuts]);
 
   const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
+  const tags = useMemo(() => topTags(shortcuts, 12), [shortcuts]);
 
-  const visibleGroups =
-    activeGroup === '全部'
-      ? groups
-      : activeGroup === '常用'
-        ? ([['常用', frequent]] as Array<[string, StartShortcut[]]>)
-        : groups.filter(([group]) => group === activeGroup);
+  const visibleGroups = useMemo(() => {
+    const base: Array<[string, StartShortcut[]]> =
+      activeGroup === '全部'
+        ? groups
+        : activeGroup === '常用'
+          ? [['常用', frequent]]
+          : groups.filter(([group]) => group === activeGroup);
+    return base
+      .map(
+        ([group, items]) => [group, filterByTag(items, activeTag)] as [string, StartShortcut[]]
+      )
+      .filter(([, items]) => !activeTag || items.length > 0);
+  }, [activeGroup, activeTag, frequent, groups]);
 
   useEffect(() => {
     if (activeGroup !== '全部' && !groups.some(([group]) => group === activeGroup)) {
@@ -539,7 +563,14 @@ export function StartPage({
   const openEditor = (item?: StartShortcut, group?: string) => {
     setEditing(
       item
-        ? { id: item.id, label: item.label, url: item.url, group: item.group || '常用' }
+        ? {
+          id: item.id,
+          label: item.label,
+          url: item.url,
+          group: item.group || '常用',
+          desc: item.desc || '',
+          tagsText: (item.tags || []).join(', ')
+        }
         : { label: '', url: '', group: group || (activeGroup === '全部' ? '常用' : activeGroup) }
     );
   };
@@ -924,6 +955,10 @@ export function StartPage({
           frequent={frequent}
           onExport={exportStart}
           onImport={() => importRef.current?.click()}
+          tags={tags}
+          activeTag={activeTag}
+          onTag={setActiveTag}
+          onDetail={setDetail}
         />
 
         {!minimal && (
@@ -1064,6 +1099,28 @@ export function StartPage({
         onAdd={addShortcuts}
       />
 
+      {detail && (
+        <ShortcutDetail
+          item={detail}
+          usage={usage[detail.id] || 0}
+          onOpen={(item) => {
+            setDetail(null);
+            openShortcut(item);
+          }}
+          onEdit={(item) => {
+            setDetail(null);
+            openEditor(item);
+          }}
+          onCopy={(url) => {
+            void navigator.clipboard?.writeText(url).then(
+              () => showNotice('链接已复制'),
+              () => showNotice('复制失败')
+            );
+          }}
+          onClose={() => setDetail(null)}
+        />
+      )}
+
       {editing && (
         <ShortcutDialog
           draft={editing}
@@ -1087,6 +1144,14 @@ export function StartPage({
             }}
           >
             打开
+          </button>
+          <button
+            onClick={() => {
+              setShortcutMenu(null);
+              setDetail(menuItem);
+            }}
+          >
+            <Info size={12} /> 详情
           </button>
           <button
             onClick={() => {

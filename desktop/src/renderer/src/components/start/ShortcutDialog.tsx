@@ -6,6 +6,10 @@ export interface ShortcutDraft {
   label: string;
   url: string;
   group: string;
+  /** 一句话说明（可选） */
+  desc?: string;
+  /** 编辑中的标签文本，保存时用 normalizeTags 解析 */
+  tagsText?: string;
 }
 
 interface ShortcutDialogProps {
@@ -74,6 +78,26 @@ export function ShortcutDialog({ draft, groups, onChange, onCancel, onSave }: Sh
               <option key={group} value={group} />
             ))}
           </datalist>
+        </label>
+
+        <label className="start-modal-field">
+          <span>描述</span>
+          <input
+            maxLength={120}
+            value={draft.desc || ''}
+            placeholder="一句话说明（可选）"
+            onChange={(event) => onChange({ ...draft, desc: event.target.value })}
+          />
+        </label>
+
+        <label className="start-modal-field">
+          <span>标签</span>
+          <input
+            maxLength={80}
+            value={draft.tagsText || ''}
+            placeholder="用逗号分隔，最多 6 个"
+            onChange={(event) => onChange({ ...draft, tagsText: event.target.value })}
+          />
         </label>
 
         <div className="start-modal-actions">

@@ -704,19 +704,36 @@ function normalize(input: unknown): AppSettings {
       base.general.startShortcuts = Array.isArray(raw.general.startShortcuts)
         ? (raw.general.startShortcuts as unknown[])
             .filter(
-              (item): item is { id?: unknown; label?: unknown; url?: unknown; group?: unknown } =>
-                Boolean(item) && typeof item === 'object'
+              (item): item is {
+                id?: unknown;
+                label?: unknown;
+                url?: unknown;
+                group?: unknown;
+                desc?: unknown;
+                tags?: unknown;
+              } => Boolean(item) && typeof item === 'object'
             )
-            .map((item) => ({
-              id: String(item.id || `s-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
-              label: String(item.label || '').trim().slice(0, 20),
-              url: /^https?:\/\//i.test(String(item.url || '').trim())
-                ? String(item.url).trim().slice(0, 500)
-                : `https://${String(item.url || '').trim()}`.slice(0, 500),
-              group: String(item.group || '常用').trim().slice(0, 12) || '常用'
-            }))
+            .map((item) => {
+              const tags = Array.isArray(item.tags)
+                ? [...new Set((item.tags as unknown[]).map((tag) => String(tag || '').trim().slice(0, 12)))]
+                    .filter(Boolean)
+                    .slice(0, 6)
+                : [];
+              return {
+                id: String(item.id || `s-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
+                label: String(item.label || '').trim().slice(0, 20),
+                url: /^https?:\/\//i.test(String(item.url || '').trim())
+                  ? String(item.url).trim().slice(0, 500)
+                  : `https://${String(item.url || '').trim()}`.slice(0, 500),
+                group: String(item.group || '常用').trim().slice(0, 12) || '常用',
+                ...(String(item.desc || '').trim()
+                  ? { desc: String(item.desc || '').trim().slice(0, 120) }
+                  : {}),
+                ...(tags.length ? { tags } : {})
+              };
+            })
             .filter((item) => item.label && /^https?:\/\/[^\s]+$/i.test(item.url))
-            .slice(0, 24)
+            .slice(0, 200)
         : base.general.startShortcuts;
       const wallpapers = ['aurora', 'midnight', 'paper', 'mint', 'peach', 'bing'] as const;
       base.general.startWallpaper = wallpapers.includes(raw.general.startWallpaper as never)

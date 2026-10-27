@@ -39,6 +39,10 @@ function setup(overrides: Partial<React.ComponentProps<typeof ShortcutBoard>> = 
     frequent: [] as typeof groups[number][1],
     onExport: vi.fn(),
     onImport: vi.fn(),
+    tags: [] as Array<{ tag: string; count: number }>,
+    activeTag: '',
+    onTag: vi.fn(),
+    onDetail: vi.fn(),
     ...overrides
   };
   render(<ShortcutBoard {...props} />);
@@ -69,6 +73,21 @@ describe('ShortcutBoard', () => {
   it('折叠状态隐藏卡片', () => {
     setup({ collapsed: ['常用'] });
     expect(screen.queryByText('B 站')).toBeNull();
+  });
+
+  it('标签行可以筛选，详情按钮回调', () => {
+    const props = setup({
+      tags: [{ tag: 'AI', count: 2 }],
+      activeTag: 'AI'
+    });
+    expect(document.querySelector('.start-tag.is-active')?.textContent).toContain('AI');
+    const allTag = [...document.querySelectorAll('.start-tag')].find((el) =>
+      el.textContent?.includes('全部')
+    ) as HTMLElement;
+    fireEvent.click(allTag);
+    expect(props.onTag).toHaveBeenCalledWith('');
+    fireEvent.click(screen.getAllByTitle('查看详情')[0]);
+    expect(props.onDetail).toHaveBeenCalled();
   });
 
   it('有常用数据时显示常用标签', () => {

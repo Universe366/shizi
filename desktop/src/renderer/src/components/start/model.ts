@@ -91,7 +91,9 @@ export function matchShortcut(item: StartShortcut, query: string): boolean {
   return (
     item.label.toLowerCase().includes(keyword) ||
     hostOf(item.url).toLowerCase().includes(keyword) ||
-    item.url.toLowerCase().includes(keyword)
+    item.url.toLowerCase().includes(keyword) ||
+    String(item.desc || '').toLowerCase().includes(keyword) ||
+    (item.tags || []).some((tag) => tag.toLowerCase().includes(keyword))
   );
 }
 
@@ -226,7 +228,9 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
         id: item.id,
         label: cleanText(item.label, 40),
         url: normalizeShortcutUrl(item.url),
-        group: cleanText(item.group || '常用', 24)
+        group: cleanText(item.group || '常用', 24),
+        ...(cleanText(item.desc, 120) ? { desc: cleanText(item.desc, 120) } : {}),
+        ...(item.tags?.length ? { tags: normalizeTags(item.tags).slice(0, 6) } : {})
       }))
       .filter((item) => item.label && item.url)
       .slice(0, MAX_BACKUP_SHORTCUTS),
@@ -275,7 +279,9 @@ export function parseStartBackup(text: string): ParsedBackup {
       id: typeof row.id === 'string' && row.id ? row.id : `s-${shortcuts.length + 1}`,
       label,
       url,
-      group: cleanText(row.group || '常用', 24) || '常用'
+      group: cleanText(row.group || '常用', 24) || '常用',
+      ...(cleanText(row.desc, 120) ? { desc: cleanText(row.desc, 120) } : {}),
+      ...(Array.isArray(row.tags) ? { tags: normalizeTags(row.tags as unknown[]) } : {})
     });
     if (shortcuts.length >= MAX_BACKUP_SHORTCUTS) break;
   }
@@ -336,6 +342,48 @@ export function mergeShortcuts(
     if (merged.length >= MAX_BACKUP_SHORTCUTS) break;
   }
   return merged;
+}
+
+/** 标签输入归一化：支持逗号/顿号/空格分隔，去重并限制个数与长度。 */
+export function normalizeTags(input: string | unknown[]): string[] {
+  const raw = Array.isArray(input) ? input.map(String) : String(input || '').split(/[,，、;；\s]+/);
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const value of raw) {
+    const tag = String(value || '').replace(/^#/, '').trim().slice(0, 12);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push(tag);
+    if (tags.length >= 6) break;
+  }
+  return tags;
+}
+
+/** 所有出现过的标签及使用次数，按次数倒序。 */
+export function topTags(
+  shortcuts: StartShortcut[],
+  limit = 12
+): Array<{ tag: string; count: number }> {
+  const map = new Map<string, { tag: string; count: number }>();
+  for (const item of shortcuts) {
+    for (const tag of item.tags || []) {
+      const key = tag.toLowerCase();
+      const current = map.get(key);
+      if (current) current.count += 1;
+      else map.set(key, { tag, count: 1 });
+    }
+  }
+  return [...map.values()]
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'zh-CN'))
+    .slice(0, Math.max(1, limit));
+}
+
+export function filterByTag(items: StartShortcut[], tag: string): StartShortcut[] {
+  if (!tag) return items;
+  const key = tag.toLowerCase();
+  return items.filter((item) => (item.tags || []).some((value) => value.toLowerCase() === key));
 }
 
 export type StartUsage = Record<string, number>;

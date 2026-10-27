@@ -267,6 +267,40 @@ describe('StartPage 自定义快捷方式与壁纸', () => {
     );
   });
 
+  it('快捷方式可以保存描述与标签', async () => {
+    const api = installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    fireEvent.click(screen.getByText('编辑'));
+    fireEvent.click(screen.getByTitle('添加快捷方式'));
+    fireEvent.change(screen.getByPlaceholderText('例如：知乎'), { target: { value: '语音工具' } });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com'), {
+      target: { value: 'example.com' }
+    });
+    fireEvent.change(screen.getByPlaceholderText('一句话说明（可选）'), {
+      target: { value: '中文识别' }
+    });
+    fireEvent.change(screen.getByPlaceholderText('用逗号分隔，最多 6 个'), {
+      target: { value: 'AI, 工具' }
+    });
+    fireEvent.click(screen.getByText('保存'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: [
+              expect.objectContaining({
+                label: '语音工具',
+                desc: '中文识别',
+                tags: ['AI', '工具']
+              })
+            ]
+          })
+        })
+      )
+    );
+  });
+
   it('可以切换壁纸并写设置', async () => {
     const api = installBsub();
     const p = props();

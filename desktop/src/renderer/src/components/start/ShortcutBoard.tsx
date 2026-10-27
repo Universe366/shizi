@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Info,
   Plus,
   Star,
   Tags,
@@ -46,6 +47,10 @@ interface ShortcutBoardProps {
   frequent: StartShortcut[];
   onExport: () => void;
   onImport: () => void;
+  tags: Array<{ tag: string; count: number }>;
+  activeTag: string;
+  onTag: (tag: string) => void;
+  onDetail: (item: StartShortcut) => void;
 }
 
 /** 站点图标：优先站点自己的 /favicon.ico，失败时回退到域名生成的字母色块。 */
@@ -93,7 +98,11 @@ export function ShortcutBoard({
   onToggleGroup,
   frequent,
   onExport,
-  onImport
+  onImport,
+  tags,
+  activeTag,
+  onTag,
+  onDetail
 }: ShortcutBoardProps) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -177,6 +186,28 @@ export function ShortcutBoard({
         </span>
       </div>
 
+      {tags.length > 0 && (
+        <div className="start-tag-row" aria-label="按标签筛选">
+          <span className="start-tag-label">标签</span>
+          <button
+            className={`start-tag${activeTag ? '' : ' is-active'}`}
+            onClick={() => onTag('')}
+          >
+            全部
+          </button>
+          {tags.map((item) => (
+            <button
+              key={item.tag}
+              className={`start-tag${activeTag === item.tag ? ' is-active' : ''}`}
+              onClick={() => onTag(activeTag === item.tag ? '' : item.tag)}
+            >
+              {item.tag}
+              <span className="start-tag-count">{item.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {(activeGroup === '全部' || activeGroup === '拾字') && (
         <div className="start-group">
           <div className="start-group-head">
@@ -259,7 +290,7 @@ export function ShortcutBoard({
               <div
                 key={item.id}
                 className={`start-tile${editMode ? ' is-editing' : ''}`}
-                title={item.url}
+                title={item.desc ? `${item.desc}\n${item.url}` : item.url}
                 role="button"
                 tabIndex={0}
                 draggable={editMode}
@@ -288,6 +319,16 @@ export function ShortcutBoard({
                 <span className="start-tile-label">{item.label}</span>
                 <span className="start-tile-sub">{hostOf(item.url)}</span>
                 <span className="start-tile-actions">
+                  <button
+                    className="start-tile-action"
+                    title="查看详情"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDetail(item);
+                    }}
+                  >
+                    <Info size={11} />
+                  </button>
                   <button
                     className="start-tile-action"
                     title="编辑名称/网址/分组"
