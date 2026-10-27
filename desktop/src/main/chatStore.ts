@@ -69,6 +69,12 @@ function db(): DatabaseSync | null {
     if (!conversationColumns.some((column) => column.name === 'profile_id')) {
       database.exec("ALTER TABLE conversations ADD COLUMN profile_id TEXT NOT NULL DEFAULT ''");
     }
+    if (!conversationColumns.some((column) => column.name === 'platform_id')) {
+      database.exec("ALTER TABLE conversations ADD COLUMN platform_id TEXT NOT NULL DEFAULT ''");
+    }
+    if (!conversationColumns.some((column) => column.name === 'model')) {
+      database.exec("ALTER TABLE conversations ADD COLUMN model TEXT NOT NULL DEFAULT ''");
+    }
     return database;
   } catch (error) {
     console.warn('[chat] 打开对话库失败:', (error as Error).message);
@@ -105,6 +111,8 @@ interface ConversationRow {
   video_key: string;
   video_title: string;
   profile_id?: string;
+  platform_id?: string;
+  model?: string;
   created_at: number;
   updated_at: number;
   message_count?: number;
@@ -117,6 +125,8 @@ function mapConversation(row: ConversationRow): ChatConversation {
     videoKey: String(row.video_key || ''),
     videoTitle: String(row.video_title || ''),
     profileId: String(row.profile_id || ''),
+    platformId: String(row.platform_id || ''),
+    model: String(row.model || ''),
     createdAt: Number(row.created_at) || 0,
     updatedAt: Number(row.updated_at) || 0,
     messageCount: Number(row.message_count) || 0
@@ -128,12 +138,14 @@ export function createConversation(input: {
   videoKey?: string;
   videoTitle?: string;
   profileId?: string;
+  platformId?: string;
+  model?: string;
 }): ChatConversation {
   const now = Date.now();
   const title = String(input.title || '新对话').trim().slice(0, 80) || '新对话';
   const statement = db()?.prepare(
-    `INSERT INTO conversations (title, video_key, video_title, profile_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO conversations (title, video_key, video_title, profile_id, platform_id, model, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -141,6 +153,8 @@ export function createConversation(input: {
     String(input.videoKey || ''),
     String(input.videoTitle || '').slice(0, 200),
     String(input.profileId || '').slice(0, 60),
+    String(input.platformId || '').slice(0, 60),
+    String(input.model || '').slice(0, 120),
     now,
     now
   );
@@ -150,10 +164,33 @@ export function createConversation(input: {
     videoKey: String(input.videoKey || ''),
     videoTitle: String(input.videoTitle || '').slice(0, 200),
     profileId: String(input.profileId || '').slice(0, 60),
+    platformId: String(input.platformId || '').slice(0, 60),
+    model: String(input.model || '').slice(0, 120),
     createdAt: now,
     updatedAt: now,
     messageCount: 0
   };
+}
+
+export function setConversationModel(
+  id: number,
+  platformId: string,
+  model: string
+): boolean {
+  try {
+    const statement = db()?.prepare(
+      'UPDATE conversations SET platform_id = ?, model = ? WHERE id = ?'
+    );
+    if (!statement) return false;
+    statement.run(
+      String(platformId || '').slice(0, 60),
+      String(model || '').slice(0, 120),
+      Number(id)
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function listConversations(limit = 50): ChatConversation[] {

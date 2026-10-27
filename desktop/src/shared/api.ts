@@ -542,11 +542,14 @@ export interface BsubApi {
   cancelChat(requestId: string): Promise<void>;
   chatHistoryList(limit?: number): Promise<Result<ChatConversation[]>>;
   chatHistoryLatest(videoKey: string): Promise<Result<ChatConversation | null>>;
+  chatHistorySetModel(id: number, platformId: string, model: string): Promise<Result<boolean>>;
   chatHistoryCreate(input: {
     title?: string;
     videoKey?: string;
     videoTitle?: string;
     profileId?: string;
+    platformId?: string;
+    model?: string;
   }): Promise<Result<ChatConversation>>;
   chatHistoryMessages(id: number): Promise<Result<StoredChatMessage[]>>;
   chatHistoryAppend(

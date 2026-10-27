@@ -725,7 +725,13 @@ const api: BsubApi = {
     videoKey?: string;
     videoTitle?: string;
     profileId?: string;
+    platformId?: string;
+    model?: string;
   }) => ipcRenderer.invoke('chat:history-create', input) as Promise<Result<ChatConversation>>,
+  chatHistorySetModel: (id: number, platformId: string, model: string) =>
+    ipcRenderer.invoke('chat:history-set-model', { id, platformId, model }) as Promise<
+      Result<boolean>
+    >,
   chatHistoryMessages: (id: number) =>
     ipcRenderer.invoke('chat:history-messages', id) as Promise<Result<StoredChatMessage[]>>,
   chatHistoryAppend: (

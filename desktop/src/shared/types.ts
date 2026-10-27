@@ -739,6 +739,9 @@ export interface ChatConversation {
   videoKey: string;
   videoTitle: string;
   profileId: string;
+  /** 会话级模型覆盖；空 = 跟随默认 */
+  platformId?: string;
+  model?: string;
   createdAt: number;
   updatedAt: number;
   messageCount: number;

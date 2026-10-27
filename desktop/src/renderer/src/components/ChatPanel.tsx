@@ -307,7 +307,9 @@ export function ChatPanel({
       title: title.trim().slice(0, 40) || '新对话',
       videoKey,
       videoTitle: activeTab?.title || '',
-      profileId: profileId || undefined
+      profileId: profileId || undefined,
+      platformId: modelOverride?.platformId,
+      model: modelOverride?.model
     });
     if (!created.ok) return null;
     conversationRef.current = created.data.id;
@@ -322,6 +324,11 @@ export function ChatPanel({
     if (!rows.ok) return;
     conversationRef.current = conversation.id;
     setConversationId(conversation.id);
+    setModelOverride(
+      conversation.platformId && conversation.model
+        ? { platformId: conversation.platformId, model: conversation.model }
+        : null
+    );
     setMessages(rows.data.map(fromStoredMessage));
     if (conversation.profileId) {
       setProfileId(conversation.profileId);
@@ -568,6 +575,7 @@ export function ChatPanel({
     contextRef.current = null;
     conversationRef.current = null;
     setConversationId(null);
+    setModelOverride(null);
     setMessages([]);
     setInput('');
     setStreamText('');
@@ -1038,7 +1046,17 @@ export function ChatPanel({
 
   const useModel = (platformId: string, model: string) => {
     setModelOverride({ platformId, model });
+    if (conversationRef.current) {
+      void window.bsub.chatHistorySetModel?.(conversationRef.current, platformId, model);
+    }
     setModelMenuOpen(false);
+  };
+
+  const clearModelOverride = () => {
+    setModelOverride(null);
+    if (conversationRef.current) {
+      void window.bsub.chatHistorySetModel?.(conversationRef.current, '', '');
+    }
   };
 
   const saveCurrentAsDefault = async () => {
@@ -1060,6 +1078,9 @@ export function ChatPanel({
           : platform
       )
     );
+    if (conversationRef.current) {
+      void window.bsub.chatHistorySetModel?.(conversationRef.current, '', '');
+    }
     setModelOverride(null);
     setModelMenuOpen(false);
   };
@@ -1210,6 +1231,7 @@ export function ChatPanel({
     }
     conversationRef.current = null;
     setConversationId(null);
+    setModelOverride(null);
     setMessages([]);
     setImages([]);
     setStreamText('');
@@ -2102,7 +2124,7 @@ export function ChatPanel({
                     })}
                   <div className="chat-model-footer">
                     {modelOverride && (
-                      <button type="button" onClick={() => setModelOverride(null)}>
+                      <button type="button" onClick={clearModelOverride}>
                         跟随默认
                       </button>
                     )}

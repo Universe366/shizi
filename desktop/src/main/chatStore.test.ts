@@ -20,6 +20,7 @@ import {
   listConversations,
   listMessages,
   renameConversation,
+  setConversationModel,
   setConversationProfile,
   truncateMessages
 } from './chatStore';
@@ -117,6 +118,26 @@ describe('对话持久化', () => {
     expect(listConversations(10).find((item) => item.id === conversation.id)?.profileId).toBe(
       'p2'
     );
+  });
+
+  it('会话级模型覆盖可保存与清除', () => {
+    const conversation = createConversation({
+      title: '带模型',
+      platformId: 'deepseek',
+      model: 'deepseek-reasoner'
+    });
+    let saved = listConversations(10).find((item) => item.id === conversation.id);
+    expect(saved?.platformId).toBe('deepseek');
+    expect(saved?.model).toBe('deepseek-reasoner');
+
+    expect(setConversationModel(conversation.id, 'ollama', 'qwen2.5:7b')).toBe(true);
+    saved = listConversations(10).find((item) => item.id === conversation.id);
+    expect(saved?.platformId).toBe('ollama');
+    expect(saved?.model).toBe('qwen2.5:7b');
+
+    setConversationModel(conversation.id, '', '');
+    saved = listConversations(10).find((item) => item.id === conversation.id);
+    expect(saved?.platformId).toBe('');
   });
 
   it('从第 N 条分叉：复制前 N 条，原会话不变', () => {

@@ -48,6 +48,7 @@
   "chat:history-messages",
   "chat:history-profile",
   "chat:history-rename",
+  "chat:history-set-model",
   "chat:history-truncate",
   "chat:send",
   "clipboard:read",

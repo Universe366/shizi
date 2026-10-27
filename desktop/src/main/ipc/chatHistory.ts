@@ -19,6 +19,7 @@ import {
   listConversations,
   listMessages,
   renameConversation,
+  setConversationModel,
   setConversationProfile,
   truncateMessages
 } from '../chatStore';
@@ -50,11 +51,37 @@ export function registerChatHistoryIpc(): void {
 
   ipcMain.handle(
     'chat:history-create',
-    (_event, input: { title?: string; videoKey?: string; videoTitle?: string; profileId?: string }) => {
+    (
+      _event,
+      input: {
+        title?: string;
+        videoKey?: string;
+        videoTitle?: string;
+        profileId?: string;
+        platformId?: string;
+        model?: string;
+      }
+    ) => {
       try {
         return ok<ChatConversation>(createConversation(input || {}));
       } catch (error) {
         return failure<ChatConversation>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'chat:history-set-model',
+    (_event, payload: { id?: number; platformId?: string; model?: string }) => {
+      try {
+        const changed = setConversationModel(
+          Number(payload?.id) || 0,
+          String(payload?.platformId || ''),
+          String(payload?.model || '')
+        );
+        return ok<boolean>(changed);
+      } catch (error) {
+        return failure<boolean>(error);
       }
     }
   );
