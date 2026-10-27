@@ -179,64 +179,83 @@ export function SkillsSection({
             <span className="skill-source">{skill.source}</span>
           </summary>
 
-          <div className="settings-inline">
-            <input
-              className="settings-input"
-              value={skill.name}
-              onChange={(event) => onUpdate(skill.id, { name: event.target.value })}
-            />
-            <label className="settings-check">
-              <input
-                type="checkbox"
-                checked={skill.enabled}
-                onChange={(event) => onUpdate(skill.id, { enabled: event.target.checked })}
-              />
-              启用
-            </label>
-            <button className="mini-btn" title="删除技能" onClick={() => onRemove(skill.id)}>
-              <Trash2 size={12} />
-            </button>
-          </div>
-          <div className="settings-inline">
-            <input
-              className="settings-input"
-              style={{ maxWidth: 72, textAlign: 'center' }}
-              maxLength={4}
-              placeholder="图标"
-              value={skill.icon || ''}
-              onChange={(event) => onUpdate(skill.id, { icon: event.target.value })}
-            />
-            <span className="settings-hint" style={{ flex: 1 }}>
-              emoji 图标，例如 ✨ 📚 🧭
-            </span>
-          </div>
-          <input
-            className="settings-input"
-            placeholder="触发条件 / 描述"
-            value={skill.description}
-            onChange={(event) => onUpdate(skill.id, { description: event.target.value })}
-          />
-          <textarea
-            className="settings-textarea"
-            rows={6}
-            value={skill.body}
-            onChange={(event) => onUpdate(skill.id, { body: event.target.value })}
-          />
-          <div className="settings-hint">来源：{skill.source}</div>
-          {skill.sourceUrl && (
-            <div className="settings-inline">
-              <span className="settings-hint" style={{ flex: 1, wordBreak: 'break-all' }}>
-                {skill.sourceUrl}
-              </span>
+          <div className="skill-editor">
+            <div className="skill-editor-toolbar">
+              <label className="skill-enabled">
+                <input
+                  type="checkbox"
+                  checked={skill.enabled}
+                  onChange={(event) => onUpdate(skill.id, { enabled: event.target.checked })}
+                />
+                启用
+              </label>
+              <span className="settings-hint">改动即时保存</span>
               <button
-                className="mini-btn"
-                onClick={() => onRefresh?.(skill.id, skill.sourceUrl!)}
+                className="mini-btn skill-delete"
+                title="删除技能"
+                onClick={() => onRemove(skill.id)}
               >
-                检查更新
+                <Trash2 size={12} /> 删除
               </button>
             </div>
-          )}
-          <div className="settings-hint">展开后直接编辑正文；改动即时保存。</div>
+
+            <div className="skill-field-row">
+              <div className="skill-field skill-field-icon">
+                <div className="settings-label">图标</div>
+                <input
+                  className="settings-input"
+                  maxLength={4}
+                  value={skill.icon || ''}
+                  onChange={(event) => onUpdate(skill.id, { icon: event.target.value })}
+                />
+              </div>
+              <div className="skill-field">
+                <div className="settings-label">名称</div>
+                <input
+                  className="settings-input"
+                  value={skill.name}
+                  onChange={(event) => onUpdate(skill.id, { name: event.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="skill-field">
+              <div className="settings-label">描述（什么时候用它）</div>
+              <input
+                className="settings-input"
+                placeholder="触发条件 / 描述"
+                value={skill.description}
+                onChange={(event) => onUpdate(skill.id, { description: event.target.value })}
+              />
+            </div>
+
+            <div className="skill-field">
+              <div className="settings-label">正文（SKILL.md 内容）</div>
+              <textarea
+                className="settings-textarea skill-body"
+                rows={8}
+                value={skill.body}
+                onChange={(event) => onUpdate(skill.id, { body: event.target.value })}
+              />
+            </div>
+
+            <div className="skill-editor-foot">
+              <span>来源：{skill.source}</span>
+              {skill.sourceUrl && (
+                <>
+                  <span className="skill-url" title={skill.sourceUrl}>
+                    {skill.sourceUrl}
+                  </span>
+                  <button
+                    className="mini-btn"
+                    onClick={() => onRefresh?.(skill.id, skill.sourceUrl!)}
+                  >
+                    检查更新
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </details>
       ))}
 

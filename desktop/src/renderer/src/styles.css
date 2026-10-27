@@ -13196,3 +13196,68 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: 10px;
 }
+
+/* ---------- Skill 编辑器 ---------- */
+.skill-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.skill-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.skill-enabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.skill-delete {
+  margin-left: auto;
+}
+
+.skill-field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-field {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.skill-field-icon {
+  flex: 0 0 72px;
+}
+
+.skill-body {
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.skill-editor-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.skill-url {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
