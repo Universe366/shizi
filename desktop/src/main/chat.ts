@@ -13,6 +13,7 @@ import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
 import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
 import { retrieveEvidence } from './web/retrieve';
+import { fetchWebPage } from './web/fetch';
 import type { WebSearchMeta } from './web';
 import { listMcpTools, callMcpTool } from './mcp';
 import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
@@ -40,6 +41,19 @@ const WEB_SEARCH_TOOL: AiToolDef = {
       }
     },
     required: ['query']
+  }
+};
+
+const WEB_FETCH_TOOL: AiToolDef = {
+  name: 'app__web_fetch',
+  description:
+    '打开一篇公开网页并读取正文。用于核对搜索结果里的具体链接；本机/内网地址会被拒绝。',
+  parameters: {
+    type: 'object',
+    properties: {
+      url: { type: 'string', description: 'http/https 网页地址' }
+    },
+    required: ['url']
   }
 };
 
@@ -359,7 +373,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         ]),
     pageBlock,
     useWebTool
-      ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
+      ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 3 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
       : '',
     webBlock
       ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
@@ -431,10 +445,12 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
 
   const localTools = [
     ...(appToolsEnabled ? APP_TOOL_DEFS : []),
-    ...(useWebTool ? [WEB_SEARCH_TOOL] : [])
+    ...(useWebTool ? [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] : [])
   ];
   let webSearchCalls = 0;
+  let webFetchCalls = 0;
   const webSearchCache = new Map<string, string>();
+  const webFetchCache = new Map<string, string>();
 
   const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
     try {
@@ -483,6 +499,32 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           emitTool({ phase: 'done', name, detail: content.slice(0, 280), ok });
           return content;
         };
+        if (call.name === WEB_FETCH_TOOL.name) {
+          const url = String(args.url || '').trim();
+          if (!url) return finish('url 不能为空', false);
+          const cachedPage = webFetchCache.get(url);
+          if (cachedPage) return finish(cachedPage + '\n（这篇网页已经读过，不要重复读取）', true);
+          if (webFetchCalls >= 3) {
+            return finish('本次网页读取已达到 3 次上限，请基于已有内容回答。', true);
+          }
+          webFetchCalls += 1;
+          options.onStatus?.(`读取网页：${url.slice(0, 80)}`);
+          try {
+            // 工具结果在协议层会截到 4000 字符，正文留 3200 保证 JSON 完整。
+            const page = await fetchWebPage(url, 3200, options.signal);
+            if (!page.text.trim()) return finish('网页没有可用正文', false);
+            const payload = JSON.stringify({
+              url: page.url,
+              title: page.title,
+              chars: page.text.length,
+              content: page.text
+            });
+            webFetchCache.set(url, payload);
+            return finish(payload, true);
+          } catch (error) {
+            return finish(`网页读取失败：${(error as Error).message}`, false);
+          }
+        }
         if (call.name === WEB_SEARCH_TOOL.name) {
           const query = String(args.query || '').trim();
           if (!query) return finish('query 不能为空', false);
