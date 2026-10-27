@@ -309,10 +309,25 @@ start-footnote   操作提示、导入导出设置
 - 分段阈值 18k 字符，分段结果超过 48k 字符走分层合并；单段失败不会中断整篇。
 - 改这段逻辑时至少跑 `src/shared/summarizeMerge.test.ts`，并用 2 小时以上字幕手动验证一次。
 
-## 11. 验证清单
+## 11. 下载与知识库
+
+### 下载（`DownloadVideoDialog`）
+
+- 两条入口：粘贴链接（先「解析」再下载）与资料库多选；解析走 `video:download-probe`（yt-dlp `-J --flat-playlist`）。
+- 列表（分P / 合集 / 番剧）会展开成可勾选条目，提交时只带 `playlistItems`，由主进程一次调用 yt-dlp 下载。
+- 进度通过 `download:progress` 回传（百分比 / 速度 / ETA），队列在弹窗内串行执行，关闭后仍保留；失败可重试，可全部取消。
+- 命名模板与「列表建子文件夹」在设置 → 视频下载；下载完成会写入导出记录（`kind: online-download`），弹窗底部「最近下载」可再打开。
+
+### 知识库（`KnowledgePanel`）
+
+- 布局：左侧文档清单（搜索 / 全部·已索引·有总结），右侧问答；选中文档后提问只在该视频内检索（`kbAsk(question, videoId)`）。
+- 顶部「构建索引」调用 `kb:index`，进度走 `kb:progress`；文档清单来自 `kb:documents`（每篇的字幕/总结/笔记块数与向量数）。
+- 引用片段可按字幕/总结/笔记筛选；点片段调用 `openLibrarySource` 回到视频。
+
+## 12. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 138 文件 / 793 用例）
+- `npm test`（当前 142 文件 / 812 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

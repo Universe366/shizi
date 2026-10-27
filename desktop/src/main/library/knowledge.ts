@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { session } from 'electron';
 import type {
   AiPlatform,
+  KbDocument,
   KbHit,
   KbProgress,
   KbStatus
@@ -9,7 +10,13 @@ import type {
 import { aiBaseUrl, aiHeaders, chatOnce, isAnthropicPlatform, isGeminiPlatform } from '../aiClient';
 import { activePlatform, loadSettings } from '../settings';
 import { requireDb } from './db';
-import { buildKbContext, chunkText, cosineSimilarity } from '../../shared/kb';
+import {
+  buildKbContext,
+  chunkText,
+  cosineSimilarity,
+  hybridScore,
+  keywordScore
+} from '../../shared/kb';
 
 /**
  * 跨视频知识库：
@@ -193,6 +200,43 @@ export function kbStatus(): KbStatus {
   }
 }
 
+/** 知识库文档列表：每个视频贡献了多少块、是否已经有当前模型的向量。 */
+export function kbDocuments(): KbDocument[] {
+  try {
+    const db = requireDb();
+    const model = loadSettings().knowledge.model;
+    const rows = db
+      .prepare(
+        `SELECT c.video_id AS videoId, v.title AS title, v.owner AS owner,
+           COUNT(*) AS chunks,
+           SUM(CASE WHEN c.kind = 'subtitle' THEN 1 ELSE 0 END) AS subtitle,
+           SUM(CASE WHEN c.kind = 'summary' THEN 1 ELSE 0 END) AS summary,
+           SUM(CASE WHEN c.kind = 'note' THEN 1 ELSE 0 END) AS note,
+           SUM(CASE WHEN vec.chunk_id IS NOT NULL THEN 1 ELSE 0 END) AS indexed,
+           MAX(c.created_at) AS updatedAt
+         FROM kb_chunks c
+         JOIN videos v ON v.id = c.video_id
+         LEFT JOIN kb_vectors vec ON vec.chunk_id = c.id AND vec.model = ?
+         GROUP BY c.video_id
+         ORDER BY updatedAt DESC`
+      )
+      .all(model) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      videoId: Number(row.videoId) || 0,
+      title: String(row.title || '未命名'),
+      owner: String(row.owner || ''),
+      chunks: Number(row.chunks) || 0,
+      subtitle: Number(row.subtitle) || 0,
+      summary: Number(row.summary) || 0,
+      note: Number(row.note) || 0,
+      indexed: Number(row.indexed) || 0,
+      updatedAt: Number(row.updatedAt) || 0
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function indexKnowledge(
   onProgress: (progress: KbProgress) => void
 ): Promise<KbStatus> {
@@ -263,7 +307,11 @@ export async function indexKnowledge(
   return status;
 }
 
-export async function searchKnowledge(question: string, limit = 8): Promise<KbHit[]> {
+export async function searchKnowledge(
+  question: string,
+  limit = 8,
+  videoId?: number
+): Promise<KbHit[]> {
   const settings = loadSettings();
   const platform = resolveEmbeddingPlatform();
   const model = settings.knowledge.model;
@@ -276,9 +324,9 @@ export async function searchKnowledge(question: string, limit = 8): Promise<KbHi
               c.text AS text, v.title AS title, v.vector AS vector
        FROM kb_vectors v JOIN kb_chunks c ON c.id = v.chunk_id
        JOIN videos vi ON vi.id = c.video_id
-       WHERE v.model = ?`
+       WHERE v.model = ?${videoId ? ' AND c.video_id = ?' : ''}`
     )
-    .all(model) as unknown as Array<{
+    .all(...(videoId ? [model, videoId] : [model])) as unknown as Array<{
     videoId: number;
     kind: string;
     startMs: number;
@@ -301,17 +349,23 @@ export async function searchKnowledge(question: string, limit = 8): Promise<KbHi
       startMs: Number(row.startMs) || 0,
       endMs: Number(row.endMs) || 0,
       text: String(row.text || ''),
-      score: cosineSimilarity(vector, stored)
+      score: hybridScore(
+        cosineSimilarity(vector, stored),
+        keywordScore(question, String(row.text || ''))
+      )
     });
   }
   hits.sort((a, b) => b.score - a.score);
   return hits.slice(0, Math.max(1, Math.min(20, limit)));
 }
 
-export async function askKnowledge(question: string): Promise<{ text: string; hits: KbHit[] }> {
+export async function askKnowledge(
+  question: string,
+  videoId?: number
+): Promise<{ text: string; hits: KbHit[] }> {
   const clean = String(question || '').trim();
   if (!clean) throw new Error('请输入问题');
-  const hits = await searchKnowledge(clean, 8);
+  const hits = await searchKnowledge(clean, 8, videoId);
   if (!hits.length) throw new Error('知识库里没有可用的资料，请先在设置里构建索引');
   const settings = loadSettings();
   const platform = settings.ai.platforms.find(

@@ -78,6 +78,7 @@ import type {
   ChatApprovalEvent,
   ChatAttachment,
   ChatCompareResult,
+  KbDocument,
   KbStatus,
   KbHit,
   KbProgress,
@@ -106,6 +107,8 @@ import type {
   HistoryEntry,
   Bookmark,
   DownloadRecord,
+  DownloadProgressEvent,
+  DownloadProbeResult,
   OnlineDownloadOptions,
   PageContextSummary,
   PodcastFeed,
@@ -498,10 +501,13 @@ const api: BsubApi = {
     ipcRenderer.invoke('ocr:status') as Promise<Result<{ available: boolean }>>,
   kbStatus: () => ipcRenderer.invoke('kb:status') as Promise<Result<KbStatus>>,
   kbIndex: () => ipcRenderer.invoke('kb:index') as Promise<Result<KbStatus>>,
-  kbSearch: (question: string) =>
-    ipcRenderer.invoke('kb:search', question) as Promise<Result<KbHit[]>>,
-  kbAsk: (question: string) =>
-    ipcRenderer.invoke('kb:ask', question) as Promise<Result<{ text: string; hits: KbHit[] }>>,
+  kbDocuments: () => ipcRenderer.invoke('kb:documents') as Promise<Result<KbDocument[]>>,
+  kbSearch: (question: string, videoId?: number) =>
+    ipcRenderer.invoke('kb:search', { question, videoId }) as Promise<Result<KbHit[]>>,
+  kbAsk: (question: string, videoId?: number) =>
+    ipcRenderer.invoke('kb:ask', { question, videoId }) as Promise<
+      Result<{ text: string; hits: KbHit[] }>
+    >,
   onKbProgress: (cb: (progress: KbProgress) => void) => on<KbProgress>('kb:progress', cb),
   pickConvertFiles: () =>
     ipcRenderer.invoke('convert:pick') as Promise<Result<string[]>>,
@@ -885,12 +891,16 @@ const api: BsubApi = {
     ipcRenderer.invoke('video:batch-synthesize', payload) as Promise<
       Result<{ requestId: string; dir: string; total: number } | { canceled: true }>
     >,
+  probeOnlineVideo: (url: string) =>
+    ipcRenderer.invoke('video:download-probe', { url }) as Promise<Result<DownloadProbeResult>>,
   downloadOnlineVideo: (
-    payload: string | { url: string; options?: OnlineDownloadOptions }
+    payload: string | { url: string; options?: OnlineDownloadOptions; title?: string }
   ) =>
     ipcRenderer.invoke('video:download', payload) as Promise<Result<{ requestId: string }>>,
   cancelOnlineDownload: (requestId: string) =>
     ipcRenderer.send('video:download-cancel', requestId),
+  onDownloadProgress: (cb: (event: DownloadProgressEvent) => void) =>
+    on<DownloadProgressEvent>('download:progress', cb),
   onDownloadDone: (cb: (event: { requestId: string; path: string }) => void) =>
     on<{ requestId: string; path: string }>('download:done', cb),
   onDownloadError: (cb: (event: { requestId: string; error: string }) => void) =>

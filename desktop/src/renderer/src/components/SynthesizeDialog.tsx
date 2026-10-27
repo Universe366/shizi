@@ -9,6 +9,8 @@ interface SynthesizeDialogProps {
   title: string;
   lines: SubtitleLine[];
   translated?: SubtitleLine[] | null;
+  /** 从预设快捷入口打开时直接套用的样式 */
+  initialStyle?: SubtitleStyle | null;
   onClose: () => void;
 }
 
@@ -67,6 +69,7 @@ export function SynthesizeDialog({
   title,
   lines,
   translated,
+  initialStyle = null,
   onClose
 }: SynthesizeDialogProps) {
   const [mode, setMode] = useState<'hard' | 'soft'>('hard');
@@ -88,14 +91,17 @@ export function SynthesizeDialog({
     setMessage('');
     setBusy(false);
     setShowPresetName(false);
+    if (initialStyle) setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...initialStyle });
     void window.bsub.getSettings?.().then((response) => {
       if (!response?.ok) return;
       const general = response.data.settings.general;
-      const saved = general.subtitleStyle || DEFAULT_SUBTITLE_STYLE;
-      setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...saved });
+      if (!initialStyle) {
+        const saved = general.subtitleStyle || DEFAULT_SUBTITLE_STYLE;
+        setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...saved });
+      }
       setPresets(general.subtitlePresets || []);
     });
-  }, [open]);
+  }, [open, initialStyle]);
 
   useEffect(() => {
     if (!open) return;

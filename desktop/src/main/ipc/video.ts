@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { app, dialog, ipcMain } from 'electron';
 import { pathToFileURL } from 'node:url';
 import type {
+  DownloadProbeResult,
   OnlineDownloadOptions,
   PageInfo,
   Result,
@@ -18,7 +19,7 @@ import { probeDuration } from '../media';
 import { loadSettings } from '../settings';
 import { addExportRecord } from '../library/exports';
 import { synthesizeVideo } from '../synthesize';
-import { downloadOnlineVideo } from '../onlineVideo';
+import { downloadOnlineVideo, probeOnlineVideo } from '../onlineVideo';
 import { dubVideo, listTtsVoices } from '../dub';
 import type { IpcContext } from './shared';
 import { abortControllers, failure, trackJob } from './shared';
@@ -502,15 +503,30 @@ export function registerVideoIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle(
+    'video:download-probe',
+    async (_event, payload: { url?: string }): Promise<Result<DownloadProbeResult>> => {
+      try {
+        const url = String(payload?.url || '').trim();
+        if (!/^https?:\/\//i.test(url)) return { ok: false, error: '请填写 http/https 链接' };
+        return { ok: true, data: await probeOnlineVideo(url) };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
     'video:download',
     async (
       _event,
-      payload: string | { url: string; options?: OnlineDownloadOptions }
+      payload: string | { url: string; options?: OnlineDownloadOptions; title?: string }
     ): Promise<Result<{ requestId: string }>> => {
       try {
         const url = String(typeof payload === 'string' ? payload : payload?.url || '').trim();
         const options =
           typeof payload === 'string' ? {} : (payload?.options || {}) as OnlineDownloadOptions;
+        const recordTitle =
+          typeof payload === 'string' ? url : String(payload?.title || payload?.url || '');
         if (!/^https?:\/\//i.test(url)) return { ok: false, error: '请填写 http/https 链接' };
         const requestId = randomUUID();
         const controller = new AbortController();
@@ -526,13 +542,23 @@ export function registerVideoIpc(ctx: IpcContext): void {
           try {
             const result = await downloadOnlineVideo(
               url,
-              (progress, message) => {
+              (info) => {
                 trackJob(() =>
-                  updateJob(requestId, { progress, message })
+                  updateJob(requestId, { progress: info.percent, message: info.message })
                 );
+                ctx.send('download:progress', {
+                  requestId,
+                  percent: info.percent,
+                  speed: info.speed || '',
+                  eta: info.eta || '',
+                  message: info.message
+                });
               },
               controller.signal,
               options
+            );
+            trackJob(() =>
+              addExportRecord(result.path, 'online-download', recordTitle || '在线视频')
             );
             trackJob(() => finishJob(requestId, 'done', null, '下载完成'));
             ctx.send('download:done', { requestId, path: result.path });

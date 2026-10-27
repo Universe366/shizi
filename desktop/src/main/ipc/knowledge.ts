@@ -1,6 +1,12 @@
 import { ipcMain } from 'electron';
-import type { KbHit, KbProgress, KbStatus, Result } from '../../shared/types';
-import { askKnowledge, indexKnowledge, kbStatus, searchKnowledge } from '../library/knowledge';
+import type { KbDocument, KbHit, KbProgress, KbStatus, Result } from '../../shared/types';
+import {
+  askKnowledge,
+  indexKnowledge,
+  kbDocuments,
+  kbStatus,
+  searchKnowledge
+} from '../library/knowledge';
 
 function ok<T>(data: T): Result<T> {
   return { ok: true, data };
@@ -19,6 +25,14 @@ export function registerKnowledgeIpc(): void {
     }
   });
 
+  ipcMain.handle('kb:documents', (): Result<KbDocument[]> => {
+    try {
+      return ok(kbDocuments());
+    } catch (error) {
+      return failure<KbDocument[]>(error);
+    }
+  });
+
   ipcMain.handle('kb:index', async (event): Promise<Result<KbStatus>> => {
     try {
       const sender = event.sender;
@@ -33,9 +47,15 @@ export function registerKnowledgeIpc(): void {
 
   ipcMain.handle(
     'kb:search',
-    async (_event, question: string): Promise<Result<KbHit[]>> => {
+    async (
+      _event,
+      payload: string | { question?: string; videoId?: number }
+    ): Promise<Result<KbHit[]>> => {
       try {
-        return ok(await searchKnowledge(String(question || '')));
+        const question = String(typeof payload === 'string' ? payload : payload?.question || '');
+        const videoId =
+          typeof payload === 'string' ? undefined : Number(payload?.videoId) || undefined;
+        return ok(await searchKnowledge(question, 8, videoId));
       } catch (error) {
         return failure<KbHit[]>(error);
       }
@@ -46,10 +66,13 @@ export function registerKnowledgeIpc(): void {
     'kb:ask',
     async (
       _event,
-      question: string
+      payload: string | { question?: string; videoId?: number }
     ): Promise<Result<{ text: string; hits: KbHit[] }>> => {
       try {
-        return ok(await askKnowledge(String(question || '')));
+        const question = String(typeof payload === 'string' ? payload : payload?.question || '');
+        const videoId =
+          typeof payload === 'string' ? undefined : Number(payload?.videoId) || undefined;
+        return ok(await askKnowledge(question, videoId));
       } catch (error) {
         return failure<{ text: string; hits: KbHit[] }>(error);
       }

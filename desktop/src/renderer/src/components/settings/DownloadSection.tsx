@@ -33,6 +33,20 @@ export function DownloadSection({
           </select>
         </div>
         <div className="settings-field">
+          <div className="settings-label">文件名</div>
+          <select
+            className="settings-input"
+            value={value.template}
+            onChange={(event) =>
+              onChange({ ...value, template: event.target.value as DownloadSettings['template'] })
+            }
+          >
+            <option value="title-id">标题 + ID</option>
+            <option value="title">仅标题</option>
+            <option value="uploader-title">UP + 标题</option>
+          </select>
+        </div>
+        <div className="settings-field">
           <div className="settings-label">音频格式</div>
           <select
             className="settings-input"
@@ -81,6 +95,14 @@ export function DownloadSection({
           onChange={(event) => onChange({ ...value, metadata: event.target.checked })}
         />
         同时保存元数据 / 简介
+      </label>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.folderPerList}
+          onChange={(event) => onChange({ ...value, folderPerList: event.target.checked })}
+        />
+        分P / 合集下载时按列表名建子文件夹
       </label>
     </SettingsSection>
   );

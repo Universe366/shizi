@@ -44,6 +44,48 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/**
+ * 关键词评分（BM25 的轻量替代）：中文按 2 字滑窗、英文按词切分，
+ * 返回 0–1 的覆盖率，用于和向量分数混合检索（参考 ReadAny 的 hybrid search）。
+ */
+export function keywordScore(query: string, text: string): number {
+  const terms = tokenize(query);
+  if (!terms.length) return 0;
+  const haystack = String(text || '').toLowerCase();
+  if (!haystack) return 0;
+  let matched = 0;
+  for (const term of terms) {
+    if (haystack.includes(term)) matched += 1;
+  }
+  return matched / terms.length;
+}
+
+export function tokenize(input: string): string[] {
+  const text = String(input || '').toLowerCase().trim();
+  if (!text) return [];
+  const terms = new Set<string>();
+  for (const word of text.split(/[^\p{L}\p{N}]+/u)) {
+    if (!word) continue;
+    if (/[\u4e00-\u9fff]/.test(word)) {
+      // 中文：单字 + 相邻二字组合，兼顾「断句」这类短语
+      for (let index = 0; index < word.length; index += 1) {
+        terms.add(word[index]);
+        if (index + 1 < word.length) terms.add(word.slice(index, index + 2));
+      }
+    } else if (word.length > 1) {
+      terms.add(word);
+    }
+  }
+  return [...terms].slice(0, 60);
+}
+
+/** 混合分数：向量相似度为主，关键词命中做加成。 */
+export function hybridScore(cosine: number, keyword: number, weight = 0.28): number {
+  const vector = Math.max(0, Number(cosine) || 0);
+  const lexical = Math.max(0, Math.min(1, Number(keyword) || 0));
+  return (1 - weight) * vector + weight * lexical;
+}
+
 export function clock(ms: number): string {
   const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
   const hours = Math.floor(total / 3600);

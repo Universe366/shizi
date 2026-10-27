@@ -28,6 +28,10 @@ export interface DownloadSettings {
   cover: boolean;
   subtitles: boolean;
   metadata: boolean;
+  /** 文件名模板：标题 / 标题+ID / UP+标题 */
+  template: 'title' | 'title-id' | 'uploader-title';
+  /** 合集、分P、播放列表下载时按列表名建子文件夹 */
+  folderPerList: boolean;
 }
 
 export interface OnlineDownloadOptions {
@@ -37,6 +41,41 @@ export interface OnlineDownloadOptions {
   cover?: boolean;
   subtitles?: boolean;
   metadata?: boolean;
+  template?: DownloadSettings['template'];
+  folderPerList?: boolean;
+  /** 只下载列表里的这些序号（从 1 开始）；为空表示单个视频 */
+  playlistItems?: number[];
+  /** 列表标题：用于子文件夹与提示 */
+  listTitle?: string;
+}
+
+/** 解析结果：单个视频或列表（分P / 合集 / 番剧）。 */
+export interface DownloadProbeEntry {
+  index: number;
+  id: string;
+  title: string;
+  duration: number;
+  url: string;
+  thumbnail?: string;
+}
+
+export interface DownloadProbeResult {
+  kind: 'single' | 'playlist';
+  id: string;
+  title: string;
+  uploader: string;
+  duration: number;
+  thumbnail: string;
+  webpageUrl: string;
+  entries: DownloadProbeEntry[];
+}
+
+export interface DownloadProgressEvent {
+  requestId: string;
+  percent: number;
+  speed: string;
+  eta: string;
+  message: string;
 }
 
 export interface TabInfo {
@@ -1414,6 +1453,18 @@ export interface KbStatus {
   videos: number;
   model: string;
   ready: boolean;
+}
+
+export interface KbDocument {
+  videoId: number;
+  title: string;
+  owner: string;
+  chunks: number;
+  subtitle: number;
+  summary: number;
+  note: number;
+  indexed: number;
+  updatedAt: number;
 }
 
 export interface KbHit {

@@ -10,7 +10,13 @@ import {
   Scissors,
   Sparkles
 } from 'lucide-react';
-import type { PageInfo, SubtitleLine, SubtitleTrack } from '../../../shared/types';
+import type {
+  PageInfo,
+  SubtitleLine,
+  SubtitleStyle,
+  SubtitleTrack
+} from '../../../shared/types';
+import { DEFAULT_SUBTITLE_STYLE } from '../../../shared/ass';
 import { parseSubtitleText } from '../../../shared/subtitles';
 import { formatDuration } from '../lib/format';
 import { ExportMenu } from './ExportMenu';
@@ -54,6 +60,9 @@ export function LocalWorkbench() {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const translateId = useRef('');
   const [translating, setTranslating] = useState(false);
+  const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_SUBTITLE_STYLE);
+  const [presets, setPresets] = useState<Array<{ name: string; style: SubtitleStyle }>>([]);
+  const [synthStyle, setSynthStyle] = useState<SubtitleStyle | null>(null);
   const [render, setRender] = useState<{ requestId: string; percent: number; message: string } | null>(
     null
   );
@@ -91,6 +100,16 @@ export function LocalWorkbench() {
       offDone?.();
       offError?.();
     };
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await window.bsub.getSettings?.();
+      if (!response?.ok) return;
+      const general = response.data.settings.general;
+      setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...(general.subtitleStyle || {}) });
+      setPresets(general.subtitlePresets || []);
+    })();
   }, []);
 
   useEffect(() => {
@@ -485,37 +504,144 @@ export function LocalWorkbench() {
               </button>
             </div>
           ) : (
-            <>
-              <div className="workbench-cards">
-                <button className="workbench-card" onClick={() => setSynthOpen(true)}>
-                  <Clapperboard size={20} />
-                  <b>字幕视频合成</b>
-                  <span>硬字幕 MP4 / 软字幕 MKV</span>
-                </button>
-                <button className="workbench-card" onClick={() => setDubOpen(true)}>
-                  <Sparkles size={20} />
-                  <b>本地配音</b>
-                  <span>配音音轨或替换视频音轨</span>
-                </button>
+            <div className="render-layout">
+              <div className="render-actions">
+                {render && (
+                  <div className="workbench-progress">
+                    <div className="workbench-progress-head">
+                      <span>{render.message || '合成中…'}</span>
+                      <span>{Math.round(render.percent)}%</span>
+                    </div>
+                    <div className="workbench-progress-bar">
+                      <span style={{ width: `${Math.max(2, Math.round(render.percent))}%` }} />
+                    </div>
+                    <button
+                      className="mini-btn"
+                      onClick={() => window.bsub.cancelSynthesize?.(render.requestId)}
+                    >
+                      取消
+                    </button>
+                  </div>
+                )}
+
+                <div className="workbench-cards">
+                  <button
+                    className="workbench-card"
+                    onClick={() => {
+                      setSynthStyle(null);
+                      setSynthOpen(true);
+                    }}
+                  >
+                    <Clapperboard size={20} />
+                    <b>字幕视频合成</b>
+                    <span>硬字幕 MP4 / 软字幕 MKV</span>
+                  </button>
+                  <button className="workbench-card" onClick={() => setDubOpen(true)}>
+                    <Sparkles size={20} />
+                    <b>本地配音</b>
+                    <span>配音音轨或替换视频音轨</span>
+                  </button>
+                </div>
+
+                <div className="render-style-card">
+                  <div className="synth-preview render-style-preview">
+                    <div className="synth-preview-video" />
+                    <div
+                      className="synth-preview-caption"
+                      style={{
+                        alignItems:
+                          style.alignment === 8
+                            ? 'flex-start'
+                            : style.alignment === 5
+                              ? 'center'
+                              : 'flex-end',
+                        paddingBottom: style.alignment === 2 ? 14 : 8
+                      }}
+                    >
+                      <div
+                        className="synth-preview-text"
+                        style={{
+                          fontFamily: `${style.fontName}, "Microsoft YaHei", sans-serif`,
+                          fontSize: `${Math.max(10, style.fontSize * 0.3)}px`,
+                          color: style.primaryColor,
+                          textShadow: style.outline
+                            ? `0 2px 3px ${style.outlineColor}, 1px 1px 0 ${style.outlineColor}`
+                            : 'none'
+                        }}
+                      >
+                        {(lines[0]?.text || '示例字幕').slice(0, 24)}
+                      </div>
+                    </div>
+                    <div className="synth-preview-meta">预览（放大）</div>
+                  </div>
+                  <div className="render-style-meta">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="render-style-name">当前字幕样式</div>
+                      <div className="settings-hint">
+                        {style.fontName} · {style.fontSize}px ·{' '}
+                        {style.alignment === 8 ? '顶部' : style.alignment === 5 ? '居中' : '底部'} ·{' '}
+                        {style.bilingual ? '双语' : '单语'}
+                      </div>
+                    </div>
+                    <button
+                      className="mini-btn"
+                      onClick={() => {
+                        setSynthStyle(null);
+                        setSynthOpen(true);
+                      }}
+                    >
+                      调整
+                    </button>
+                  </div>
+                </div>
+
+                {presets.length > 0 && (
+                  <div className="render-presets">
+                    <span className="settings-hint">快速套用</span>
+                    {presets.slice(0, 5).map((preset) => (
+                      <button
+                        key={preset.name}
+                        className="render-preset"
+                        title={`用「${preset.name}」样式出片`}
+                        onClick={() => {
+                          setSynthStyle(preset.style);
+                          setSynthOpen(true);
+                        }}
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="workbench-toolbar">
+                  <span className="settings-hint">
+                    {file?.name || importedName || '未选择视频'} · {lines.length} 行
+                  </span>
+                  <ExportMenu
+                    info={info}
+                    track={track}
+                    lines={lines}
+                    translated={translated}
+                    onSynthesize={() => {
+                      setSynthStyle(null);
+                      setSynthOpen(true);
+                    }}
+                    onDub={() => setDubOpen(true)}
+                  />
+                </div>
               </div>
-              <div className="workbench-toolbar">
-                <span className="settings-hint">
-                  {file?.name || importedName || '未选择视频'} · {lines.length} 行
-                </span>
-                <ExportMenu
-                  info={info}
-                  track={track}
-                  lines={lines}
-                  translated={translated}
-                  onSynthesize={() => setSynthOpen(true)}
-                  onDub={() => setDubOpen(true)}
-                />
+
+              <div className="pipeline-renders">
+                <RendersPanel />
               </div>
-            </>
+            </div>
           )}
-          <div className="pipeline-renders">
-            <RendersPanel />
-          </div>
+          {!lines.length && (
+            <div className="pipeline-renders">
+              <RendersPanel />
+            </div>
+          )}
         </div>
       </section>
 
@@ -534,7 +660,11 @@ export function LocalWorkbench() {
         title={file?.name || importedName || '字幕视频'}
         lines={lines}
         translated={translated}
-        onClose={() => setSynthOpen(false)}
+        initialStyle={synthStyle}
+        onClose={() => {
+          setSynthOpen(false);
+          setSynthStyle(null);
+        }}
       />
       <DubDialog
         open={dubOpen}

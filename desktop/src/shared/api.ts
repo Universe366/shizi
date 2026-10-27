@@ -88,6 +88,8 @@ import type {
   HistoryEntry,
   Bookmark,
   DownloadRecord,
+  DownloadProbeResult,
+  DownloadProgressEvent,
   OnlineDownloadOptions,
   PageContextSummary,
   UsageEvent,
@@ -103,6 +105,7 @@ import type {
   ChatApprovalEvent,
   ChatAttachment,
   ChatCompareResult,
+  KbDocument,
   KbStatus,
   KbHit,
   KbProgress,
@@ -330,9 +333,10 @@ export interface BsubApi {
   }): Promise<Result<{ text: string; ms: number; engine?: 'system' | 'paddle' }>>;
   ocrStatus(): Promise<Result<{ available: boolean }>>;
   kbStatus(): Promise<Result<KbStatus>>;
+  kbDocuments(): Promise<Result<KbDocument[]>>;
   kbIndex(): Promise<Result<KbStatus>>;
-  kbSearch(question: string): Promise<Result<KbHit[]>>;
-  kbAsk(question: string): Promise<Result<{ text: string; hits: KbHit[] }>>;
+  kbSearch(question: string, videoId?: number): Promise<Result<KbHit[]>>;
+  kbAsk(question: string, videoId?: number): Promise<Result<{ text: string; hits: KbHit[] }>>;
   onKbProgress(cb: (progress: KbProgress) => void): () => void;
   pickConvertFiles(): Promise<Result<string[]>>;
   runConvert(paths: string[], target: string): Promise<Result<{ requestId: string }>>;
@@ -645,10 +649,12 @@ export interface BsubApi {
     mode?: 'hard' | 'soft';
     style?: SubtitleStyle;
   }): Promise<Result<{ requestId: string; dir: string; total: number } | { canceled: true }>>;
+  probeOnlineVideo?(url: string): Promise<Result<DownloadProbeResult>>;
   downloadOnlineVideo?(
-    payload: string | { url: string; options?: OnlineDownloadOptions }
+    payload: string | { url: string; options?: OnlineDownloadOptions; title?: string }
   ): Promise<Result<{ requestId: string }>>;
   cancelOnlineDownload?(requestId: string): void;
+  onDownloadProgress?(cb: (event: DownloadProgressEvent) => void): () => void;
   onDownloadDone?(cb: (event: { requestId: string; path: string }) => void): () => void;
   onDownloadError?(cb: (event: { requestId: string; error: string }) => void): () => void;
   listTtsVoices?(): Promise<Result<{ voices: string[] }>>;

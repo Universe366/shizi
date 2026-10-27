@@ -221,7 +221,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
       audioFormat: 'm4a',
       cover: false,
       subtitles: false,
-      metadata: false
+      metadata: false,
+      template: 'title-id',
+      folderPerList: true
     },
     radial: {
       enabled: false,
@@ -660,7 +662,13 @@ function normalize(input: unknown): AppSettings {
           audioFormat: download.audioFormat === 'mp3' ? 'mp3' : 'm4a',
           cover: download.cover === true,
           subtitles: download.subtitles === true,
-          metadata: download.metadata === true
+          metadata: download.metadata === true,
+          template: (['title', 'title-id', 'uploader-title'] as string[]).includes(
+            String(download.template)
+          )
+            ? (download.template as 'title' | 'title-id' | 'uploader-title')
+            : 'title-id',
+          folderPerList: download.folderPerList !== false
         };
       }
       if (raw.general.radial && typeof raw.general.radial === 'object') {

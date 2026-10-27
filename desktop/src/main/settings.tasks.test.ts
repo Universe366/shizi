@@ -229,7 +229,9 @@ describe('任务槽位 / 用量设置', () => {
       audioFormat: 'mp3',
       cover: true,
       subtitles: true,
-      metadata: true
+      metadata: true,
+      template: 'uploader-title',
+      folderPerList: false
     };
     saveSettings(settings);
     expect(loadSettings().general.download).toEqual({
@@ -238,7 +240,9 @@ describe('任务槽位 / 用量设置', () => {
       audioFormat: 'mp3',
       cover: true,
       subtitles: true,
-      metadata: true
+      metadata: true,
+      template: 'uploader-title',
+      folderPerList: false
     });
     settings.general.download = {
       quality: 'best',
@@ -246,7 +250,9 @@ describe('任务槽位 / 用量设置', () => {
       audioFormat: 'm4a',
       cover: false,
       subtitles: false,
-      metadata: false
+      metadata: false,
+      template: 'title-id',
+      folderPerList: true
     };
     saveSettings(settings);
   });
