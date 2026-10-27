@@ -24,6 +24,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onCreate: vi.fn(),
     onUpdate: vi.fn(),
     onRemove: vi.fn(),
+    onRefresh: vi.fn(),
     ...overrides
   };
 }
@@ -57,6 +58,19 @@ describe('SkillsSection', () => {
       target: { value: '新描述' }
     });
     expect(p.onUpdate).toHaveBeenCalledWith('skill-1', { description: '新描述' });
+  });
+
+  it('链接导入的技能可以检查更新', () => {
+    const p = props({
+      value: {
+        enabled: true,
+        items: [{ ...skill, sourceUrl: 'https://example.com/SKILL.md' }]
+      } as AppSettings['skills'],
+      onRefresh: vi.fn()
+    });
+    render(<SkillsSection {...p} />);
+    fireEvent.click(screen.getByText('检查更新'));
+    expect(p.onRefresh).toHaveBeenCalledWith('skill-1', 'https://example.com/SKILL.md');
   });
 
   it('导入 / 新建 / 删除回调', () => {

@@ -14,6 +14,7 @@ interface SkillsSectionProps {
   onCreate: () => void;
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
   onRemove: (id: string) => void;
+  onRefresh?: (id: string, url: string) => void;
 }
 
 /** Skills：技能提示词开关、导入 SKILL.md（文件/链接/文件夹）、新建/编辑/删除技能。 */
@@ -25,7 +26,8 @@ export function SkillsSection({
   onImportFolder,
   onCreate,
   onUpdate,
-  onRemove
+  onRemove,
+  onRefresh
 }: SkillsSectionProps) {
   const [url, setUrl] = useState('');
   const [query, setQuery] = useState('');
@@ -123,6 +125,19 @@ export function SkillsSection({
               <Trash2 size={12} />
             </button>
           </div>
+          <div className="settings-inline">
+            <input
+              className="settings-input"
+              style={{ maxWidth: 72, textAlign: 'center' }}
+              maxLength={4}
+              placeholder="图标"
+              value={skill.icon || ''}
+              onChange={(event) => onUpdate(skill.id, { icon: event.target.value })}
+            />
+            <span className="settings-hint" style={{ flex: 1 }}>
+              emoji 图标，例如 ✨ 📚 🧭
+            </span>
+          </div>
           <input
             className="settings-input"
             placeholder="触发条件 / 描述"
@@ -136,6 +151,19 @@ export function SkillsSection({
             onChange={(event) => onUpdate(skill.id, { body: event.target.value })}
           />
           <div className="settings-hint">来源：{skill.source}</div>
+          {skill.sourceUrl && (
+            <div className="settings-inline">
+              <span className="settings-hint" style={{ flex: 1, wordBreak: 'break-all' }}>
+                {skill.sourceUrl}
+              </span>
+              <button
+                className="mini-btn"
+                onClick={() => onRefresh?.(skill.id, skill.sourceUrl!)}
+              >
+                检查更新
+              </button>
+            </div>
+          )}
           <div className="settings-hint">展开后直接编辑正文；改动即时保存。</div>
         </details>
       ))}

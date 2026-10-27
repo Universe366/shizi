@@ -55,7 +55,7 @@ export async function fetchSkillFromUrl(input: string): Promise<SkillItem> {
   const text = await response.text();
   if (text.length > 200_000) throw new Error('SKILL.md 太大（超过 200KB）');
   const fallback = url.split('/').pop()?.replace(/\.md$/i, '') || '导入技能';
-  return parseSkillMarkdown(text, decodeURIComponent(fallback));
+  return { ...parseSkillMarkdown(text, decodeURIComponent(fallback)), sourceUrl: url };
 }
 
 /** 从文件夹里批量读取 SKILL.md（只扫一层，避免误读整盘）。 */

@@ -843,6 +843,8 @@ export interface SkillItem {
   body: string;
   enabled: boolean;
   source: 'builtin' | 'manual' | 'file';
+  /** 从链接导入时的原始地址，用于检查更新 */
+  sourceUrl?: string;
 }
 
 export interface AsrPlatform {

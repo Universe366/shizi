@@ -386,6 +386,22 @@ export function SettingsPanel({
     setMessage(`已导入技能：${response.data.name}`);
   };
 
+  const refreshSkillUrl = async (id: string, url: string) => {
+    const response = await window.bsub.importSkillUrl(url);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    updateSkill(id, {
+      name: response.data.name,
+      description: response.data.description,
+      body: response.data.body,
+      icon: response.data.icon,
+      sourceUrl: url
+    });
+    setMessage(`已更新技能：${response.data.name}`);
+  };
+
   const importSkillFolder = async () => {
     if (!draft) return;
     const response = await window.bsub.importSkillFolder();
@@ -1419,6 +1435,7 @@ export function SettingsPanel({
         onCreate={addSkill}
         onUpdate={(id, patch) => updateSkill(id, patch)}
         onRemove={removeSkill}
+        onRefresh={(id, url) => void refreshSkillUrl(id, url)}
       />
       )}
 
