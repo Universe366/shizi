@@ -14,6 +14,19 @@ export function TaskModelSection({ value, updateAi }: Props) {
   const enabledPlatforms = value.platforms.filter(
     (platform) => platform.enabled !== false || platform.id === value.activeId
   );
+  const defaultPlatform =
+    enabledPlatforms.find((platform) => platform.id === value.defaultModel?.platformId) ||
+    current;
+  const defaultModelName =
+    value.defaultModel?.model || defaultPlatform?.model || '';
+  const setDefault = (platformId: string, model: string) =>
+    updateAi({
+      activeId: platformId,
+      defaultModel: { platformId, model },
+      platforms: value.platforms.map((platform) =>
+        platform.id === platformId ? { ...platform, model } : platform
+      )
+    });
 
   const patchTask = (task: AiTask, platformId: string, model: string) => {
     const next = { ...(value.taskModels || {}) };
@@ -27,8 +40,45 @@ export function TaskModelSection({ value, updateAi }: Props) {
 
   return (
     <SettingsSection title="默认模型" defaultOpen={false}>
+      <div className="settings-inline">
+        <div className="settings-field">
+          <div className="settings-label">默认平台</div>
+          <select
+            className="settings-input"
+            value={defaultPlatform?.id || ''}
+            onChange={(event) => {
+              const platform = enabledPlatforms.find((item) => item.id === event.target.value);
+              if (platform) setDefault(platform.id, platform.model);
+            }}
+          >
+            {enabledPlatforms.map((platform) => (
+              <option key={platform.id} value={platform.id}>
+                {platform.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="settings-field">
+          <div className="settings-label">默认模型</div>
+          <select
+            className="settings-input"
+            value={defaultModelName}
+            onChange={(event) => {
+              if (defaultPlatform) setDefault(defaultPlatform.id, event.target.value);
+            }}
+          >
+            {[...new Set([...(defaultPlatform?.models || []), defaultModelName])]
+              .filter(Boolean)
+              .map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+          </select>
+        </div>
+      </div>
       <div className="settings-hint">
-        对话、总结默认使用「当前平台」的模型（{current?.name || '未选择'} / {current?.model || '未填模型'}）。
+        对话、总结默认使用上面的模型（{defaultPlatform?.name || '未选择'} / {defaultModelName || '未填模型'}）。
         需要总结用强模型、翻译用便宜模型时，在下面按任务单独指定；留空就跟随当前平台。
       </div>
       <table className="usage-table task-model-table">

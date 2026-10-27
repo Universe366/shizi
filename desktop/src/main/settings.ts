@@ -234,6 +234,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   ai: {
     activeId: 'deepseek',
+    defaultModel: { platformId: 'deepseek', model: 'deepseek-chat' },
     temperature: 0.3,
     maxTokens: 64000,
     stream: true,
@@ -824,6 +825,23 @@ function normalize(input: unknown): AppSettings {
       : base.ai.platforms[0].id;
     const activePlatform = base.ai.platforms.find((platform) => platform.id === base.ai.activeId);
     if (activePlatform) activePlatform.enabled = true;
+
+    const rawDefault = raw.ai?.defaultModel as { platformId?: unknown; model?: unknown } | undefined;
+    const defaultTarget =
+      (rawDefault?.platformId
+        ? base.ai.platforms.find(
+            (platform) =>
+              platform.id === String(rawDefault.platformId) &&
+              (platform.enabled !== false || platform.id === base.ai.activeId)
+          )
+        : undefined) || activePlatform;
+    base.ai.defaultModel = {
+      platformId: defaultTarget?.id || base.ai.platforms[0].id,
+      model:
+        String(rawDefault?.model || '').trim() ||
+        defaultTarget?.model ||
+        base.ai.platforms[0].model
+    };
 
     const presetVersion = Number(raw.ai?.presetVersion) || 0;
     if (presetVersion < AI_PRESET_VERSION) {
@@ -1657,7 +1675,16 @@ export function activePlatform(settings: AppSettings = loadSettings()): AiPlatfo
 
 /** 按任务取平台：任务槽位 > 当前平台；只覆盖模型名时沿用当前平台的地址与 Key。 */
 export function platformForTask(task: AiTask, settings: AppSettings = loadSettings()): AiPlatform {
-  const base = activePlatform(settings);
+  const active = activePlatform(settings);
+  const fallback = settings.ai.defaultModel;
+  const preferred = fallback?.platformId
+    ? settings.ai.platforms.find(
+        (platform) => platform.id === fallback.platformId && platform.enabled !== false
+      )
+    : undefined;
+  const base = preferred
+    ? { ...preferred, model: fallback?.model || preferred.model }
+    : active;
   const override = settings.ai.taskModels?.[task];
   if (!override) return base;
   const platform = override.platformId

@@ -143,6 +143,31 @@ export function registerSettingsIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle(
+    'ai:set-default-model',
+    async (
+      _event,
+      payload: { platformId?: string; model?: string }
+    ): Promise<Result<{ platformId: string; model: string }>> => {
+      try {
+        const next = loadSettings();
+        const platform = next.ai.platforms.find(
+          (item) => item.id === String(payload?.platformId || '') && item.enabled !== false
+        );
+        if (!platform) return { ok: false, error: '服务商不存在或已停用' };
+        const model = String(payload?.model || '').trim() || platform.model;
+        if (!model) return { ok: false, error: '请选择一个模型' };
+        next.ai.defaultModel = { platformId: platform.id, model };
+        next.ai.activeId = platform.id;
+        platform.model = model;
+        saveSettings(next);
+        return { ok: true, data: { platformId: platform.id, model } };
+      } catch (error) {
+        return failure<{ platformId: string; model: string }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
     'search:test-fetch',
     async (
       _event,

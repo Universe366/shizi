@@ -280,6 +280,26 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('默认模型可跨服务商保存并用于对话', () => {
+    const settings = loadSettings();
+    const platform = settings.ai.platforms[0];
+    settings.ai.activeId = platform.id;
+    settings.ai.defaultModel = { platformId: platform.id, model: 'my-default-model' };
+    platform.model = 'my-default-model';
+    saveSettings(settings);
+
+    const loaded = loadSettings();
+    expect(loaded.ai.defaultModel).toEqual({
+      platformId: platform.id,
+      model: 'my-default-model'
+    });
+    expect(platformForTask('chat', loaded).model).toBe('my-default-model');
+
+    platform.model = settings.ai.platforms[0].model;
+    loaded.ai.defaultModel = { platformId: platform.id, model: platform.model };
+    saveSettings(loaded);
+  });
+
   it('快捷方式缺协议时自动补 https，不再被过滤', () => {
     const settings = loadSettings();
     settings.general.startShortcuts = [

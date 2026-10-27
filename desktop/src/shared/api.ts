@@ -449,6 +449,11 @@ export interface BsubApi {
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
+  /** 设置跨服务商的默认模型（同时切换当前平台） */
+  setDefaultModel(
+    platformId: string,
+    model: string
+  ): Promise<Result<{ platformId: string; model: string }>>;
   /** 测试 URL 获取服务商：抓取一页并返回标题/字数/预览 */
   testFetchPage(payload: {
     url: string;

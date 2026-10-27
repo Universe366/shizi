@@ -227,6 +227,11 @@ export function ChatPanel({
   const [approvals, setApprovals] = useState<ChatApprovalEvent[]>([]);
   const [platforms, setPlatforms] = useState<AiPlatform[]>([]);
   const [activeAiId, setActiveAiId] = useState('');
+  const [defaultModel, setDefaultModelState] = useState<{
+    platformId: string;
+    model: string;
+  } | null>(null);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [capabilityOverrides, setCapabilityOverrides] = useState<
     Record<string, { vision?: boolean; audio?: boolean }>
   >({});
@@ -260,10 +265,18 @@ export function ChatPanel({
   const videoKey = videoKeyOf(activeTab?.url);
   const isVideoPage = isVideoKey(videoKey);
   const currentProfile = profiles.find((profile) => profile.id === profileId);
+  const defaultPlatform = platforms.find(
+    (platform) => platform.id === defaultModel?.platformId && platform.enabled !== false
+  );
   const currentPlatform =
     platforms.find((platform) => platform.id === (currentProfile?.platformId || activeAiId)) ||
+    defaultPlatform ||
     platforms.find((platform) => platform.id === activeAiId);
-  const currentModel = currentProfile?.model || currentPlatform?.model || '';
+  const currentModel =
+    currentProfile?.model ||
+    (defaultPlatform ? defaultModel?.model || defaultPlatform.model : '') ||
+    currentPlatform?.model ||
+    '';
   const currentCapabilities = effectiveModelCapabilities(
     currentPlatform?.kind,
     currentModel,
@@ -487,6 +500,7 @@ export function ChatPanel({
       setProfiles(response.data.settings.ai.profiles || []);
       setPlatforms(response.data.settings.ai.platforms || []);
       setActiveAiId(response.data.settings.ai.activeId || '');
+      setDefaultModelState(response.data.settings.ai.defaultModel || null);
       setCapabilityOverrides(response.data.settings.ai.capabilities || {});
       setProfileId((current) =>
         (response.data.settings.ai.profiles || []).some((profile) => profile.id === current)
@@ -513,6 +527,7 @@ export function ChatPanel({
       setProfiles(snapshot.settings.ai.profiles || []);
       setPlatforms(snapshot.settings.ai.platforms || []);
       setActiveAiId(snapshot.settings.ai.activeId || '');
+      setDefaultModelState(snapshot.settings.ai.defaultModel || null);
       setCapabilityOverrides(snapshot.settings.ai.capabilities || {});
       setProfileId((current) =>
         (snapshot.settings.ai.profiles || []).some((profile) => profile.id === current)
@@ -1006,6 +1021,24 @@ export function ChatPanel({
   const stop = () => {
     setApprovals([]);
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
+  };
+
+  const chooseModel = async (platformId: string, model: string) => {
+    const response = await window.bsub.setDefaultModel?.(platformId, model);
+    if (!response?.ok) {
+      setError(response?.error || '切换模型失败');
+      return;
+    }
+    setDefaultModelState(response.data);
+    setActiveAiId(response.data.platformId);
+    setPlatforms((current) =>
+      current.map((platform) =>
+        platform.id === response.data.platformId
+          ? { ...platform, model: response.data.model }
+          : platform
+      )
+    );
+    setModelMenuOpen(false);
   };
 
   // 网页右键/选中文字触发的操作：直接带入对话并生成。
@@ -1996,6 +2029,53 @@ export function ChatPanel({
             >
               <Plus size={14} />
             </button>
+            <div className="chat-model-picker">
+              <button
+                type="button"
+                className="chat-chip chat-model-chip"
+                disabled={Boolean(currentProfile)}
+                title={
+                  currentProfile
+                    ? '当前使用助手档案，模型由档案决定'
+                    : '选择对话模型（可跨服务商）'
+                }
+                onClick={() => setModelMenuOpen((value) => !value)}
+              >
+                {currentPlatform?.name || '模型'} · {currentModel || '未选'}
+              </button>
+              {modelMenuOpen && (
+                <div className="chat-model-menu">
+                  {platforms
+                    .filter((platform) => platform.enabled !== false)
+                    .map((platform) => {
+                      const models = (platform.models?.length
+                        ? platform.models
+                        : [platform.model]
+                      ).filter(Boolean);
+                      return (
+                        <div key={platform.id} className="chat-model-group">
+                          <div className="chat-model-group-title">{platform.name}</div>
+                          {models.map((model) => (
+                            <button
+                              key={model}
+                              type="button"
+                              className={`chat-model-option${
+                                platform.id === defaultModel?.platformId &&
+                                model === defaultModel?.model
+                                  ? ' is-active'
+                                  : ''
+                              }`}
+                              onClick={() => void chooseModel(platform.id, model)}
+                            >
+                              {model}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
             <button
               className={`chat-chip${includePage ? ' is-on' : ''}`}
               title={includePage ? '本次会带上当前网页正文' : '不带当前网页正文'}

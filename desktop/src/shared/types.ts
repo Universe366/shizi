@@ -1265,6 +1265,8 @@ export interface AppSettings {
   };
   ai: {
     activeId: string;
+    /** 对话/总结默认模型；可来自任意已启用服务商 */
+    defaultModel?: AiTaskModel;
     platforms: AiPlatform[];
     temperature: number;
     maxTokens: number;
