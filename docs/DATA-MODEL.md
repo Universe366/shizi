@@ -36,15 +36,17 @@
 | `exports` | 导出记录 |
 | `jobs` / `job_items` | 任务中心（转写/合成/批处理） |
 
-### 知识库（migration 6）
+### 知识库（migration 6 / 7）
 
 | 表 | 说明 |
 |---|---|
 | `kb_chunks` | 切块：`video_id/kind(start 字幕/summary/note/meta)/start_ms/end_ms/text/hash` |
 | `kb_vectors` | 向量：`chunk_id/model/dim/vector`（Float32 BLOB），按模型区分 |
+| `kb_states`（v7） | 学习状态：`video_id/status(new·learning·review·mastered)/updated_at` |
 
 索引流程：`collectChunks()` 重建 `kb_chunks` → 调 `/embeddings` → 写 `kb_vectors`。
-检索用余弦相似度，模型名必须与建索引时一致。
+检索用「向量余弦 + 关键词覆盖率」混合打分，模型名必须与建索引时一致。
+范围过滤：单篇按 `video_id`，合集按 `collection_items` 的视频集合生成 `IN (...)`。
 
 ### 迁移
 
