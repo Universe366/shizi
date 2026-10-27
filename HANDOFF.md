@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.45.1` tag 触发（发布后回填） |
+| 发布 CI | `v0.45.1` 通过（一次通过） |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | 由 v0.45.1 Release 的 `latest.yml` 提供 |
+| 自动更新 | `latest.yml` 指向 0.45.1，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1.7GB（含 `node_modules`、`release/win-unpacked`）。
 
