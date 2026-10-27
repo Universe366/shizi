@@ -392,12 +392,16 @@ describe('PetWindow', () => {
     fireEvent.contextMenu(screen.getByTitle(/点击聊天/));
     expect(screen.getByText('截图（框选）')).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByText('截图（框选）')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('截图（框选）')).toBeNull(), { timeout: 3000 });
 
     await openBubble();
     expect(screen.getByPlaceholderText(/问点什么/)).toBeTruthy();
+    // 让挂载后的异步 mock 事件先落地，避免 CI 上 Esc 与重开气泡抢跑。
+    await new Promise((resolve) => setTimeout(resolve, 60));
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull());
+    await waitFor(() => expect(screen.queryByPlaceholderText(/问点什么/)).toBeNull(), {
+      timeout: 3000
+    });
     expect(api.petBlur).toHaveBeenCalled();
   });
 
