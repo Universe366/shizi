@@ -167,7 +167,8 @@ export function AiSection({
               <span className="ai-provider-main">
                 <span className="ai-provider-name">{item.name}</span>
                 <span className="ai-provider-meta">
-                  {item.model || '未填模型'} · {item.kind || 'OpenAI 兼容'}
+                  {item.model || '未填模型'} · {item.models?.length || 0} 个模型 ·{' '}
+                  {item.kind || 'OpenAI 兼容'}
                 </span>
               </span>
               <span
@@ -416,6 +417,19 @@ export function AiSection({
         {(active.models || []).map((modelName) => (
           <span className="ai-model-chip" key={modelName}>
             {modelName}
+            {(() => {
+              const capability = effectiveModelCapabilities(
+                active.kind,
+                modelName,
+                draft.ai.capabilities?.[capabilityKey(active.id, modelName)]
+              );
+              return (
+                <>
+                  {capability.vision && <span className="ai-model-tag">图片</span>}
+                  {capability.audio && <span className="ai-model-tag">音频</span>}
+                </>
+              );
+            })()}
             <button
               type="button"
               title="从列表移除（不影响平台默认模型）"

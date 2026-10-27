@@ -232,6 +232,7 @@ export function ChatPanel({
     model: string;
   } | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState('');
   const [modelOverride, setModelOverride] = useState<{
     platformId: string;
     model: string;
@@ -2097,13 +2098,26 @@ export function ChatPanel({
               </button>
               {modelMenuOpen && (
                 <div className="chat-model-menu">
+                  <input
+                    className="settings-input chat-model-search"
+                    value={modelQuery}
+                    placeholder="搜索模型…"
+                    spellCheck={false}
+                    onChange={(event) => setModelQuery(event.target.value)}
+                  />
                   {platforms
                     .filter((platform) => platform.enabled !== false)
                     .map((platform) => {
                       const models = (platform.models?.length
                         ? platform.models
                         : [platform.model]
-                      ).filter(Boolean);
+                      )
+                        .filter(Boolean)
+                        .filter((model) =>
+                          modelQuery.trim()
+                            ? model.toLowerCase().includes(modelQuery.trim().toLowerCase())
+                            : true
+                        );
                       return (
                         <div key={platform.id} className="chat-model-group">
                           <div className="chat-model-group-title">{platform.name}</div>
@@ -2123,6 +2137,23 @@ export function ChatPanel({
                               onClick={() => useModel(platform.id, model)}
                             >
                               {model}
+                              {(() => {
+                                const capability = effectiveModelCapabilities(
+                                  platform.kind,
+                                  model,
+                                  capabilityOverrides[capabilityKey(platform.id, model)]
+                                );
+                                return (
+                                  <>
+                                    {capability.vision && (
+                                      <span className="chat-model-tag">图片</span>
+                                    )}
+                                    {capability.audio && (
+                                      <span className="chat-model-tag">音频</span>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </button>
                           ))}
                         </div>

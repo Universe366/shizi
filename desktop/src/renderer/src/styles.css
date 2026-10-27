@@ -12952,3 +12952,26 @@ sup:has(> .cite-ref) {
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+.ai-model-tag,
+.chat-model-tag {
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.chat-model-search {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.chat-model-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
