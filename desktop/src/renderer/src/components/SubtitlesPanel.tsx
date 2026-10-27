@@ -733,11 +733,17 @@ export function SubtitlesPanel({
             aiStatus: null,
             source: cachedAsr?.source || 'asr'
           };
-          const savedResponse = infoData
-            ? await window.bsub.savedSubtitles(infoData)
+          const savedInfo = infoData || info;
+          const savedResponse = savedInfo
+            ? await window.bsub.savedSubtitles(savedInfo)
             : null;
           const savedTracks = savedResponse?.ok ? savedResponse.data : [];
-          const localTracks = cachedAsr ? [localTrack] : savedTracks;
+          const localTracks = [
+            ...savedTracks.filter(
+              (item) => !cachedAsr || (item.source !== 'asr' && item.source !== 'import')
+            ),
+            ...(cachedAsr ? [localTrack] : [])
+          ];
           const displayTracks = [
             ...tracks.filter((item) => item.source !== 'asr' && item.source !== 'import'),
             ...localTracks

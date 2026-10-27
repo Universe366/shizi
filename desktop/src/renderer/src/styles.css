@@ -12617,3 +12617,19 @@ sup:has(> .cite-ref) {
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
+
+.chat-msg-actions {
+  opacity: 1;
+}
+
+.chat-action {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.chat-action:hover {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}

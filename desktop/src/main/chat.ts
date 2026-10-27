@@ -26,6 +26,11 @@ import { toolNeedsApproval } from '../shared/mcpApproval';
 import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
 
 const MAX_HISTORY = 16;
+
+const UNBOUND_CHAT_PROMPT = `你是一个严谨、直接的中文助手。本轮没有视频字幕或页面正文可供依据：
+- 按用户的问题和联网结果回答；需要外部事实时使用联网参考并标注 [n]。
+- 不要声称看过视频或字幕，也不要主动总结视频。
+- 回答用 Markdown，先给结论，再给依据。`;
 const REQUEST_TIMEOUT_MS = 300000;
 
 export interface ChatOptions {
@@ -271,7 +276,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     .join('\n\n');
 
   const mainSystem = [
-    settings.prompt.chat,
+    unbound ? UNBOUND_CHAT_PROMPT : settings.prompt.chat,
     profile?.prompt ? `【助手档案：${profile.name}】\n${profile.prompt}` : '',
     glossaryBlock,
     skillPrompt(settings, [

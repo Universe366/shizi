@@ -730,7 +730,11 @@ export function SummaryPanel({
             <div className="status-line summary-status">
               <Loader2 size={13} className="spin" />
               <span className="summary-status-text">{status}</span>
-              {elapsedMs > 0 && <span className="summary-elapsed">{formatDuration(elapsedMs)}</span>}
+              {elapsedMs > 0 && (
+                <span className="summary-elapsed">
+                  {formatDuration(Math.round(elapsedMs / 1000))}
+                </span>
+              )}
             </div>
           )}
           <div
@@ -747,7 +751,7 @@ export function SummaryPanel({
 
       {!streaming && totalMs > 0 && (
         <div className="summary-elapsed-line">
-          本次耗时 {formatDuration(totalMs)}
+          本次耗时 {formatDuration(Math.round(totalMs / 1000))}
           {searchEnabled && verifyThisRun ? '（含联网核对）' : ''}
         </div>
       )}

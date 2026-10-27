@@ -306,7 +306,8 @@ export async function downloadOnlineVideo(
     : quality === 'best'
       ? 'bv*+ba/b'
       : `bv*[height<=${quality}]+ba/b[height<=${quality}]`;
-  const args = ['--newline', '--no-warnings'];
+  // DASH 分片并发下载；比默认串行快很多，同时不至于打满带宽/被站点限流。
+  const args = ['--newline', '--no-warnings', '--concurrent-fragments', '4'];
   if (isList) {
     args.push('--yes-playlist', '--playlist-items', options.playlistItems!.join(','));
   } else {
