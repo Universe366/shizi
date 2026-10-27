@@ -23,9 +23,10 @@ export function TaskModelSection({ value, updateAi }: Props) {
   };
 
   return (
-    <SettingsSection title="按任务选模型" defaultOpen={false}>
+    <SettingsSection title="默认模型" defaultOpen={false}>
       <div className="settings-hint">
-        不配置就跟随「当前平台」（{current?.name || '未选择'}）；只有需要省钱或需要更强模型时才单独指定。
+        对话、总结默认使用「当前平台」的模型（{current?.name || '未选择'} / {current?.model || '未填模型'}）。
+        需要总结用强模型、翻译用便宜模型时，在下面按任务单独指定；留空就跟随当前平台。
       </div>
       <table className="usage-table task-model-table">
         <thead>

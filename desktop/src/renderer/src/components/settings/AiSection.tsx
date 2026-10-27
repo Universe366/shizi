@@ -1,4 +1,5 @@
 import { Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { AiPlatform, AppSettings } from '../../../../shared/types';
 import { ModelChips, SettingsSection } from './SettingsSection';
@@ -42,7 +43,33 @@ export function AiSection({
   setEditingAiId,
   platformStatus
 }: AiSectionProps) {
+  const [newModel, setNewModel] = useState('');
   if (!active) return null;
+  const useLocal = (preset: { id: string; name: string; baseUrl: string; model: string }) => {
+    const existing = draft.ai.platforms.find(
+      (item) => item.id === preset.id || item.baseUrl === preset.baseUrl
+    );
+    if (existing) {
+      setEditingAiId(existing.id);
+      if (existing.id !== draft.ai.activeId) updateAi({ activeId: existing.id });
+      return;
+    }
+    updateAi({
+      platforms: [
+        ...draft.ai.platforms,
+        {
+          id: preset.id,
+          name: preset.name,
+          baseUrl: preset.baseUrl,
+          apiKey: '',
+          model: preset.model,
+          models: [preset.model]
+        }
+      ],
+      activeId: preset.id
+    });
+    setEditingAiId(preset.id);
+  };
 
   return (
 <SettingsSection title="AI 平台" defaultOpen={true}>
@@ -52,6 +79,24 @@ export function AiSection({
 
   <div className="settings-group">
     <div className="settings-group-title">使用哪个平台</div>
+    <div className="ai-provider-grid">
+      {draft.ai.platforms.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={`ai-provider-card${active.id === item.id ? ' is-active' : ''}${
+            item.id === draft.ai.activeId ? ' is-current' : ''
+          }`}
+          onClick={() => setEditingAiId(item.id)}
+        >
+          <span className="ai-provider-name">{item.name}</span>
+          <span className="ai-provider-meta">{item.model || '未填模型'}</span>
+          <span className="ai-provider-badge">
+            {item.id === draft.ai.activeId ? '使用中' : item.apiKey ? '已配 Key' : '未配 Key'}
+          </span>
+        </button>
+      ))}
+    </div>
     <div className="settings-inline">
       <select
         className="settings-input"
@@ -91,6 +136,57 @@ export function AiSection({
         正在编辑「{active.name}」；点「设为使用中」后，总结和对话才会用它。
       </div>
     )}
+  </div>
+
+  <div className="settings-group">
+    <div className="settings-group-title">本地模型</div>
+    <div className="settings-group-desc">
+      Ollama / LM Studio / llama.cpp 都是 OpenAI 兼容接口；先启动本地服务，再点「获取模型列表」。
+    </div>
+    <div className="settings-inline">
+      <button
+        className="mini-btn"
+        type="button"
+        onClick={() =>
+          useLocal({
+            id: 'ollama',
+            name: 'Ollama（本地）',
+            baseUrl: 'http://127.0.0.1:11434/v1',
+            model: 'qwen2.5:7b'
+          })
+        }
+      >
+        Ollama
+      </button>
+      <button
+        className="mini-btn"
+        type="button"
+        onClick={() =>
+          useLocal({
+            id: 'lmstudio',
+            name: 'LM Studio（本地）',
+            baseUrl: 'http://127.0.0.1:1234/v1',
+            model: 'local-model'
+          })
+        }
+      >
+        LM Studio
+      </button>
+      <button
+        className="mini-btn"
+        type="button"
+        onClick={() =>
+          useLocal({
+            id: 'llamacpp',
+            name: 'llama.cpp（本地）',
+            baseUrl: 'http://127.0.0.1:8080/v1',
+            model: 'local-model'
+          })
+        }
+      >
+        llama.cpp
+      </button>
+    </div>
   </div>
 
   <div className="settings-group">
@@ -155,6 +251,30 @@ export function AiSection({
         <option key={model} value={model} />
       ))}
     </datalist>
+    <div className="settings-inline">
+      <input
+        className="settings-input"
+        value={newModel}
+        placeholder="添加自定义模型名"
+        spellCheck={false}
+        onChange={(event) => setNewModel(event.target.value)}
+      />
+      <button
+        className="mini-btn"
+        type="button"
+        onClick={() => {
+          const value = newModel.trim();
+          if (!value) return;
+          updatePlatform({
+            models: [...new Set([...(active.models || []), value])],
+            model: value
+          });
+          setNewModel('');
+        }}
+      >
+        添加
+      </button>
+    </div>
 
     {(() => {
       const key = capabilityKey(active.id, active.model);

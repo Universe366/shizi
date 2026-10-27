@@ -132,6 +132,9 @@ ChatPanel
 - 能力推断：`shared/modelCapabilities.ts`（文本始终可用，图片/音频按模型名与平台类型推断）。
 - 用户覆盖：`settings.ai.capabilities[capabilityKey(platformId, model)] = { vision, audio }`。
 - 设置 UI：`AiSection.tsx` 的「模型能力」三个 chip；文本只读，图片/音频可勾选。
+- 平台总览：卡片列出所有平台（当前编辑/使用中/Key 状态），点卡片切换编辑；「本地模型」一键加入 Ollama / LM Studio / llama.cpp。
+- 模型管理：「添加自定义模型名」把模型写进 `platform.models` 并设为当前模型；「获取模型列表」从平台接口拉取。
+- 默认模型：`TaskModelSection` 的「默认模型」以当前平台为默认，可按任务覆盖平台/模型；留空即跟随当前平台。
 - 对话拦截：`ChatPanel` 根据当前档案/平台/模型计算 `visionEnabled`；关闭时不给选图片、发送前报错。主进程 `chat.ts` 也会二次校验，避免绕过 UI。
 - 新增能力（如视频输入）：先扩 `ModelCapability` 与推断规则，再接 UI/请求；不要只在 renderer 判断。
 
@@ -355,7 +358,7 @@ start-footnote   操作提示、导入导出设置
 ## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 157 文件 / 892 用例）
+- `npm test`（当前 157 文件 / 894 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

@@ -75,6 +75,29 @@ describe('AiSection', () => {
     expect(p.testConnection).toHaveBeenCalledWith('ai');
   });
 
+  it('本地模型按钮新增并切换到 Ollama', () => {
+    const p = props();
+    render(<AiSection {...p} />);
+    fireEvent.click(button('Ollama'));
+    expect(p.updateAi).toHaveBeenCalledWith(
+      expect.objectContaining({ activeId: 'ollama' })
+    );
+    expect(p.setEditingAiId).toHaveBeenCalledWith('ollama');
+  });
+
+  it('可以添加自定义模型名', () => {
+    const p = props();
+    render(<AiSection {...p} />);
+    fireEvent.change(screen.getByPlaceholderText('添加自定义模型名'), {
+      target: { value: 'my-model' }
+    });
+    fireEvent.click(button('添加'));
+    expect(p.updatePlatform).toHaveBeenCalledWith({
+      models: ['deepseek-chat', 'my-model'],
+      model: 'my-model'
+    });
+  });
+
   it('本地库权限开关回传 appTools', () => {
     const p = props();
     render(<AiSection {...p} />);
