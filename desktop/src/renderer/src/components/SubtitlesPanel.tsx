@@ -775,10 +775,22 @@ export function SubtitlesPanel({
             ...localTracks
           ];
           setBundle({ ...subtitlesResult.data, tracks: displayTracks });
+          // 没有官方轨时，优先用数据库里的转写（有正文），再退到内存里的 asr://local。
           const initialTrack =
-            cachedAsr && tracks.length === 0
-              ? localTrack
-              : pickTrack(tracks, infoData) || savedTracks[0] || null;
+            tracks.length === 0 && savedTracks.length
+              ? savedTracks[0]
+              : cachedAsr && tracks.length === 0
+                ? localTrack
+                : pickTrack(tracks, infoData) || savedTracks[0] || null;
+          console.log(
+            '[subtitle] select',
+            JSON.stringify({
+              official: tracks.length,
+              saved: savedTracks.length,
+              cached: Boolean(cachedAsr),
+              initial: initialTrack?.url || ''
+            })
+          );
           setTrack(initialTrack);
           if (
             (initialTrack?.source === 'asr' || initialTrack?.source === 'import') &&
@@ -827,7 +839,7 @@ export function SubtitlesPanel({
       setLoadingLines(false);
       return;
     }
-    if (track.source === 'asr') {
+    if (track.source === 'asr' || track.source === 'import') {
       const cached = getAsrResult(videoKeyRef.current);
       if (cached) {
         setLines(cached.lines);
@@ -838,9 +850,14 @@ export function SubtitlesPanel({
           setTranslatedLang(cachedTranslation.language);
           setViewMode((current) => (current === 'original' ? 'bilingual' : current));
         }
+        setLoadingLines(false);
+        return;
       }
-      setLoadingLines(false);
-      return;
+      // 内存缓存只在本次会话有效；重启后必须从 library://track/<id> 读 segments。
+      if (!track.url.startsWith('library://')) {
+        setLoadingLines(false);
+        return;
+      }
     }
     let cancelled = false;
     setLoadingLines(true);
@@ -858,13 +875,11 @@ export function SubtitlesPanel({
           // 单轨/手动选轨也要校验：末句明显超过视频时长的轨不是当前视频。
           if (duration > 0 && lastEnd > duration * 1.08 + 8) {
             failedTrackUrlsRef.current.add(track.url);
-            const alternatives = (bundleRef.current?.tracks || []).filter(
-              (item) =>
-                item.url &&
-                item.source !== 'asr' &&
-                !failedTrackUrlsRef.current.has(item.url)
+            const alternatives = preferLocal(
+              bundleRef.current?.tracks || [],
+              failedTrackUrlsRef.current
             );
-            if (failedTrackUrlsRef.current.size < 3 && alternatives.length) {
+            if (alternatives.length) {
               setTrack(alternatives[0]);
               return;
             }
