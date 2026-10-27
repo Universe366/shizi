@@ -414,6 +414,35 @@ export function SettingsPanel({
     }
   };
 
+  const installSkillTemplate = (template: {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    body: string;
+  }) => {
+    if (!draft) return;
+    if (draft.skills.items.some((item) => item.name === template.name)) {
+      setMessage(`技能「${template.name}」已经在列表里`);
+      return;
+    }
+    updateSkills({
+      items: [
+        ...draft.skills.items,
+        {
+          id: `skill-${Date.now()}-${template.id}`,
+          name: template.name,
+          description: template.description,
+          icon: template.icon,
+          body: template.body,
+          enabled: true,
+          source: 'manual'
+        }
+      ]
+    });
+    setMessage(`已安装技能：${template.name}`);
+  };
+
   const importSkillFolder = async () => {
     if (!draft) return;
     const response = await window.bsub.importSkillFolder();
@@ -1450,6 +1479,7 @@ export function SettingsPanel({
         onRemove={removeSkill}
         onRefresh={(id, url) => void refreshSkillUrl(id, url)}
         onRefreshAll={() => void refreshAllSkills()}
+        onInstall={(template) => installSkillTemplate(template)}
       />
       )}
 

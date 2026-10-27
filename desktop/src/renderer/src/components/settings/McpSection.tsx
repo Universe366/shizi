@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import type { AppSettings, McpPrompt, McpResource, McpServer, McpTool } from '../../../../shared/types';
+import { MCP_TEMPLATES } from '../../../../shared/mcpTemplates';
 import { SettingsSection } from './SettingsSection';
 
 type McpSettings = AppSettings['mcp'];
@@ -47,6 +48,7 @@ export function McpSection({
 }: McpSectionProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [importNotice, setImportNotice] = useState('');
 
   const importServers = async (file: File) => {
@@ -129,6 +131,9 @@ export function McpSection({
         <button className="mini-btn" onClick={onAddServer}>
           <Plus size={12} /> 服务
         </button>
+        <button className="mini-btn" onClick={() => setTemplatesOpen((value) => !value)}>
+          模板
+        </button>
         <button className="mini-btn" onClick={() => fileRef.current?.click()}>
           导入 JSON
         </button>
@@ -170,6 +175,44 @@ export function McpSection({
         />
       </div>
       {importNotice && <div className="settings-hint">{importNotice}</div>}
+      {templatesOpen && (
+        <div className="mcp-template-grid">
+          {MCP_TEMPLATES.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="mcp-template-card"
+              onClick={() => {
+                const now = Date.now();
+                onChange({
+                  ...value,
+                  servers: [
+                    ...value.servers,
+                    {
+                      id: `mcp-${now}-${template.id}`,
+                      name: template.name,
+                      url: template.url || '',
+                      token: '',
+                      headers: {},
+                      enabled: false,
+                      transport: template.transport,
+                      command: template.command,
+                      args: template.args ? [...template.args] : [],
+                      env: template.env ? { ...template.env } : {}
+                    }
+                  ]
+                });
+                setImportNotice(`已添加模板：${template.name}（默认停用，确认参数后再启用）`);
+                setTemplatesOpen(false);
+              }}
+            >
+              <span className="mcp-template-name">{template.name}</span>
+              <span className="mcp-template-desc">{template.description}</span>
+              {template.note && <span className="mcp-template-note">{template.note}</span>}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="settings-inline">
         <input
           className="settings-input"

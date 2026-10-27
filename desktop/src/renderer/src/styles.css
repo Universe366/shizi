@@ -13137,3 +13137,62 @@ sup:has(> .cite-ref) {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* ---------- MCP 模板 / Skill 技能库 ---------- */
+.mcp-template-grid,
+.skill-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.mcp-template-card,
+.skill-catalog-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcp-template-card:hover,
+.skill-catalog-card:hover {
+  border-color: var(--accent);
+}
+
+.mcp-template-name,
+.skill-catalog-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.mcp-template-desc,
+.skill-catalog-desc {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.mcp-template-note {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+.skill-catalog-icon {
+  font-size: 16px;
+}
+
+.skill-catalog-tag {
+  margin-top: 2px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--faint);
+  font-size: 10px;
+}

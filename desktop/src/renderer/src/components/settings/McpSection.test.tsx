@@ -66,6 +66,16 @@ describe('McpSection', () => {
     expect(p.onCall).toHaveBeenCalledWith(server, tool);
   });
 
+  it('模板可以一键添加为停用服务', () => {
+    const p = props();
+    render(<McpSection {...p} />);
+    fireEvent.click(screen.getByText('模板'));
+    fireEvent.click(screen.getByText('Fetch'));
+    expect(p.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ servers: expect.arrayContaining([expect.objectContaining({ name: 'Fetch', enabled: false })]) })
+    );
+  });
+
   it('超时与轮数按秒/轮换算', () => {
     const p = props();
     render(<McpSection {...p} />);

@@ -25,6 +25,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onUpdate: vi.fn(),
     onRemove: vi.fn(),
     onRefresh: vi.fn(),
+    onInstall: vi.fn(),
     ...overrides
   };
 }
@@ -58,6 +59,14 @@ describe('SkillsSection', () => {
       target: { value: '新描述' }
     });
     expect(p.onUpdate).toHaveBeenCalledWith('skill-1', { description: '新描述' });
+  });
+
+  it('技能库可以一键安装', () => {
+    const p = props();
+    render(<SkillsSection {...p} />);
+    fireEvent.click(screen.getByText('技能库'));
+    fireEvent.click(screen.getByText('会议纪要'));
+    expect(p.onInstall).toHaveBeenCalledWith(expect.objectContaining({ name: '会议纪要' }));
   });
 
   it('链接导入的技能可以检查更新', () => {

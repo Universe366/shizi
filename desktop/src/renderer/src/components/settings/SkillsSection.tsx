@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import type { AppSettings, SkillItem } from '../../../../shared/types';
+import { SKILL_CATALOG } from '../../../../shared/skillCatalog';
 import { SettingsSection } from './SettingsSection';
 
 type SkillSettings = AppSettings['skills'];
@@ -16,6 +17,7 @@ interface SkillsSectionProps {
   onRemove: (id: string) => void;
   onRefresh?: (id: string, url: string) => void;
   onRefreshAll?: () => void;
+  onInstall?: (template: (typeof SKILL_CATALOG)[number]) => void;
 }
 
 /** Skills：技能提示词开关、导入 SKILL.md（文件/链接/文件夹）、新建/编辑/删除技能。 */
@@ -29,10 +31,12 @@ export function SkillsSection({
   onUpdate,
   onRemove,
   onRefresh,
-  onRefreshAll
+  onRefreshAll,
+  onInstall
 }: SkillsSectionProps) {
   const [url, setUrl] = useState('');
   const [query, setQuery] = useState('');
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const enabledCount = value.items.filter((item) => item.enabled).length;
   const visible = value.items.filter((skill) => {
     const text = `${skill.name} ${skill.description} ${skill.body}`.toLowerCase();
@@ -54,6 +58,9 @@ export function SkillsSection({
       </div>
 
       <div className="settings-inline">
+        <button className="mini-btn" onClick={() => setCatalogOpen((value) => !value)}>
+          技能库
+        </button>
         <button
           className="mini-btn"
           disabled={!value.items.some((item) => item.sourceUrl)}
@@ -106,6 +113,24 @@ export function SkillsSection({
           从链接导入
         </button>
       </div>
+
+      {catalogOpen && (
+        <div className="skill-catalog-grid">
+          {SKILL_CATALOG.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="skill-catalog-card"
+              onClick={() => onInstall?.(template)}
+            >
+              <span className="skill-catalog-icon">{template.icon}</span>
+              <span className="skill-catalog-name">{template.name}</span>
+              <span className="skill-catalog-desc">{template.description}</span>
+              <span className="skill-catalog-tag">{template.category}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {value.items.length > 0 && (
         <div className="settings-inline">

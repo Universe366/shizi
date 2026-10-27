@@ -1,3 +1,11 @@
+## 0.78.0（2026-10-28）
+
+### Skills / MCP · 模板库
+
+- MCP 新增「模板」：Filesystem / Fetch / Memory / Sequential Thinking / Git / Time / GitHub / Brave Search，一键添加（默认停用，确认路径/Key 后启用）。
+- Skills 新增「技能库」：会议纪要、论文速读、代码审查、学习计划、事实核查、周报，一键安装为可编辑技能。
+- 测试：157 文件 / 903 用例。
+
 ## 0.77.0（2026-10-28）
 
 ### Skills / MCP · 批量操作
