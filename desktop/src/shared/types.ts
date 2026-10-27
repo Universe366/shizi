@@ -897,6 +897,8 @@ export interface SearchSettings {
   snippetChars: number;
   /** 域名黑名单：每行一个，支持 * 通配与 /正则/ */
   blacklist: string[];
+  /** 对话联网的检索计划条数（1-4，默认 3） */
+  planQueries: number;
 }
 
 export type AsrTransport = 'auto' | 'multipart' | 'base64-json' | 'chat-audio';
@@ -931,6 +933,22 @@ export interface WebReference {
   title: string;
   url: string;
   snippet: string;
+  /** 可注册域（如 example.com），由检索层补全 */
+  site?: string;
+  /** 发布时间（ISO 字符串或原始文本） */
+  date?: string | null;
+  /** 搜索接口给出的站点权威性（0-4，有就带） */
+  authority?: number;
+  /** 搜索接口给出的排序分（0-3，有就带） */
+  rerank?: number;
+  /** 给模型读的长摘要，优先于 snippet */
+  summary?: string;
+  /** 抓取到的网页正文 */
+  content?: string;
+  /** 由域名推导的来源类型 */
+  sourceType?: 'official' | 'paper' | 'repo' | 'news' | 'forum' | 'blog' | 'other';
+  /** 本轮引用 id（[n] 映射用） */
+  citeId?: string;
 }
 
 export type VerifyVerdict = 'support' | 'refute' | 'irrelevant';

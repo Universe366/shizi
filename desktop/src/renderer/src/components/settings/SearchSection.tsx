@@ -421,6 +421,17 @@ export function SearchSection({
         />
       </div>
       <div className="settings-field">
+        <div className="settings-label">检索计划条数</div>
+        <input
+          className="settings-input"
+          type="number"
+          min={1}
+          max={4}
+          value={draft.search.planQueries ?? 3}
+          onChange={(event) => updateSearch({ planQueries: Number(event.target.value) || 3 })}
+        />
+      </div>
+      <div className="settings-field">
         <div className="settings-label">时间范围</div>
         <select
           className="settings-input"

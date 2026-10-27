@@ -303,13 +303,21 @@ start-footnote   操作提示、导入导出设置
 - 预设存在 `general.subtitlePresets`（最多 12 个），提交时会记住当前样式到 `general.subtitleStyle`。
 - 合成进度通过 `synthesize:progress` 事件回到工作台（`.workbench-progress`），任务中心仍保留一份。
 
-## 10. 长视频总结的 UI
+## 10. 联网检索与外部资料
+
+- 入口：对话输入区的联网 chip / 助手档案的 web 开关 / 总结前的联网检索。核心在 `main/web/`。
+- `plan.ts`：规则式检索计划，最多 4 条（基础 / 时效 / 对照 / 一手），不额外调用模型；设置项 `search.planQueries`。
+- `service.ts`：并发执行 → 合并 → 去重（URL + 内容指纹）→ 每域名最多 2 条 → 相关度/来源类型/时效排序 → 抓前 2 篇正文 → 分配 cite id。
+- 结果元数据：`site / date / authority / rerank / summary / content / sourceType`；对话资料块要求用 `[n]` 标注来源。
+- 原则：外部资料只做补充与提示差异，不改写视频/字幕事实；总结里的「外部资料」与正文分开呈现。
+
+## 11. 长视频总结的 UI
 
 - 状态文案来自 `main/ai.ts` 的 `onStatus`：分段进度、失败段数、中间层合并、最终合并。
 - 分段阈值 18k 字符，分段结果超过 48k 字符走分层合并；单段失败不会中断整篇。
 - 改这段逻辑时至少跑 `src/shared/summarizeMerge.test.ts`，并用 2 小时以上字幕手动验证一次。
 
-## 11. 下载与知识库
+## 12. 下载与知识库
 
 ### 下载（`DownloadVideoDialog`）
 
@@ -328,10 +336,10 @@ start-footnote   操作提示、导入导出设置
 - 沉淀与导出：`saveNote` 追加问答到笔记；`kb:export` 输出 Markdown / JSON。
 - 记忆：提问/检索写入 `kb_qa` 并记录 `kb_mentions`（文档页签「相关问题」）；复习页签用 `kb_cards` 的简化间隔重复（纯调度在 `shared/kbReview.ts`，可直接单测）。
 
-## 12. 验证清单
+## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 144 文件 / 826 用例）
+- `npm test`（当前 146 文件 / 839 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。

@@ -977,11 +977,12 @@ export function buildVerifyBlock(result: VerifyResult): string {
     return [
       '',
       '【外部补充（可选参考）】',
-      '只在确实能补充或纠正视频内容时自然融入；不要单独列来源，不要写「检索到 / 根据资料 / 待核实」，不要输出网址或编号。',
+      '只在确实能补充视频内容时自然融入；不要改写字幕里的事实性陈述。',
+      '不要单独列出来源，不要写「检索到 / 根据资料 / 待核实」，不要输出网址或编号。',
       ...result.supplements.map((item) => `- ${item}`),
       '',
       '写作要求：',
-      '- 字幕与补充冲突时，以补充纠正具体数字/时间/术语；无法确认的不要改。',
+      '- 字幕与补充冲突时，保留字幕原说法，另用「外部资料称…」提示差异；不要直接改字幕里的数字/时间/术语。',
       '- 与视频无关就忽略，不要为了“用上检索”而硬加内容。'
     ].join('\n');
   }
@@ -989,9 +990,12 @@ export function buildVerifyBlock(result: VerifyResult): string {
   const rows: string[] = [];
 
   for (const item of result.items) {
-    if (!item.references.length) continue;
+    const usable = item.references.filter(
+      (reference) => reference.verdict === 'support' || reference.verdict === 'refute'
+    );
+    if (!usable.length) continue;
     const label = item.label || item.query;
-    const evidence = item.references
+    const evidence = usable
       .slice(0, 3)
       .map((reference) => {
         let site = '';
@@ -1000,12 +1004,7 @@ export function buildVerifyBlock(result: VerifyResult): string {
         } catch {
           site = '';
         }
-        const verdict =
-          reference.verdict === 'support'
-            ? '支持'
-            : reference.verdict === 'refute'
-              ? '反驳'
-              : '未判定';
+        const verdict = reference.verdict === 'support' ? '支持' : '反驳';
         const consistency =
           reference.consistency === 'multi'
             ? '；多源一致'
@@ -1032,12 +1031,12 @@ export function buildVerifyBlock(result: VerifyResult): string {
           ''
         ]
       : []),
-    '【待核实项与证据（仅用于纠正/补充，不要照抄，不要列来源）】',
+    '【待核实项与证据（只用于补充或提示差异，不要照抄，不要列来源）】',
     ...rows,
     '',
     '写作要求：',
-    '- 字幕与证据冲突时，以证据纠正具体数字/时间/术语；无法确认的不要改。',
-    '- 只在确实补充或纠正了视频内容时自然融入；不要输出网址、编号或「根据检索」之类的话。',
+    '- 不要改写字幕里的事实性陈述；证据与字幕冲突时，保留字幕原说法，另用「外部资料称…」提示差异。',
+    '- 只在确实补充了视频内容时自然融入；不要输出网址、编号或「根据检索」之类的话。',
     '- 证据与视频无关时忽略，不要为了“用上检索”而硬加内容。'
   ].join('\n');
 }

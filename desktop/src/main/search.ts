@@ -156,6 +156,7 @@ function normalize(rows: WebReference[], max: number): WebReference[] {
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
     seen.add(url);
     out.push({
+      ...row,
       title: plain(row.title) || url,
       url,
       snippet: plain(row.snippet)
@@ -267,7 +268,24 @@ function parseRows(
   }
   if (Array.isArray(data?.items)) candidates.push(...data.items);
   return candidates
-    .map((item) => pick((item || {}) as SearchRow))
+    .map((item) => {
+      const row = (item || {}) as SearchRow;
+      const picked = pick(row) as WebReference;
+      // 各家的元数据字段名不一致，统一在这里兜一层；provider 不返回就保持 undefined。
+      const date =
+        row.date ?? row.published_date ?? row.publish_time ?? row.datePublished ?? row.publishDate;
+      const summary = row.summary;
+      const content = row.content ?? row.raw_content;
+      const authority = Number(row.authority);
+      const rerank = Number(row.rerank_score ?? row.rerankScore);
+      const extra: Partial<WebReference> = {};
+      if (typeof date === 'string' && date.trim()) extra.date = date.trim();
+      if (typeof summary === 'string' && summary.trim()) extra.summary = summary.trim();
+      if (typeof content === 'string' && content.trim()) extra.content = content.trim();
+      if (Number.isFinite(authority)) extra.authority = authority;
+      if (Number.isFinite(rerank)) extra.rerank = rerank;
+      return { ...picked, ...extra };
+    })
     .filter((item): item is WebReference => Boolean(item && item.url)) as WebReference[];
 }
 
@@ -744,7 +762,7 @@ async function searchCustom(
   }));
 }
 
-function freePlatform(id: 'anysearch' | 'searxng'): SearchPlatform {
+export function freePlatform(id: 'anysearch' | 'searxng'): SearchPlatform {
   if (id === 'anysearch') {
     return {
       id: 'keyless-anysearch',
@@ -826,7 +844,7 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-async function fetchPageText(url: string, maxChars: number): Promise<string> {
+export async function fetchPageText(url: string, maxChars: number): Promise<string> {
   if (!/^https?:/i.test(url)) return '';
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -871,7 +889,7 @@ async function enrichWithPages(
 }
 
 /** 统一做黑名单过滤、截断与正文抓取（主引擎和免费兜底共用）。 */
-async function prepareResults(
+export async function prepareResults(
   rows: WebReference[],
   settings: AppSettings,
   max: number
@@ -888,6 +906,28 @@ async function prepareResults(
     normalized = await enrichWithPages(normalized, maxChars, 3);
   }
   return normalized;
+}
+
+/** 按 platform.kind 调度到具体 provider：检索层唯一入口。 */
+export async function runProviderSearch(
+  settings: AppSettings,
+  platform: SearchPlatform,
+  query: string
+): Promise<WebReference[]> {
+  const kind = platform.kind || 'custom';
+  if (kind === 'deepseek-search') return searchDeepSeek(settings, platform, query);
+  if (kind === 'tavily') return searchTavily(settings, platform, query);
+  if (kind === 'bocha') return searchBocha(settings, platform, query);
+  if (kind === 'serper') return searchSerper(settings, platform, query);
+  if (kind === 'zhipu') return searchZhipu(settings, platform, query);
+  if (kind === 'metaso') return searchMetaso(settings, platform, query);
+  if (kind === 'baidu') return searchBaidu(settings, platform, query);
+  if (kind === 'brave') return searchBrave(settings, platform, query);
+  if (kind === 'exa') return searchExa(query, settings);
+  if (kind === 'anysearch') return searchAnySearch(settings, platform, query);
+  if (kind === 'jina') return searchJina(settings, platform, query);
+  if (kind === 'searxng') return searchSearxng(settings, platform, query);
+  return searchCustom(settings, platform, query);
 }
 
 export async function searchWeb(
@@ -915,21 +955,7 @@ export async function searchWeb(
   }
 
   try {
-    let rows: WebReference[] = [];
-    if (kind === 'deepseek-search') rows = await searchDeepSeek(settings, platform, query);
-    else if (kind === 'tavily') rows = await searchTavily(settings, platform, query);
-    else if (kind === 'bocha') rows = await searchBocha(settings, platform, query);
-    else if (kind === 'serper') rows = await searchSerper(settings, platform, query);
-    else if (kind === 'zhipu') rows = await searchZhipu(settings, platform, query);
-    else if (kind === 'metaso') rows = await searchMetaso(settings, platform, query);
-    else if (kind === 'baidu') rows = await searchBaidu(settings, platform, query);
-    else if (kind === 'brave') rows = await searchBrave(settings, platform, query);
-    else if (kind === 'exa') rows = await searchExa(query, settings);
-    else if (kind === 'anysearch') rows = await searchAnySearch(settings, platform, query);
-    else if (kind === 'jina') rows = await searchJina(settings, platform, query);
-    else if (kind === 'searxng') rows = await searchSearxng(settings, platform, query);
-    else rows = await searchCustom(settings, platform, query);
-
+    const rows = await runProviderSearch(settings, platform, query);
     const normalized = await prepareResults(rows, settings, max);
     if (normalized.length) {
       const meta: SearchMeta = {

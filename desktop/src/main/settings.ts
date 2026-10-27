@@ -388,7 +388,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     extraVerifyQueries: '',
     fetchPages: false,
     snippetChars: 2000,
-    blacklist: []
+    blacklist: [],
+    planQueries: 3
   },
   correction: {
     enabled: true,
@@ -1242,6 +1243,7 @@ function normalize(input: unknown): AppSettings {
       base.search.timeRange = ranges.includes(raw.search.timeRange) ? raw.search.timeRange : 'any';
       base.search.verify = raw.search.verify === true;
       base.search.verifySummary = raw.search.verifySummary !== false;
+      base.search.planQueries = Math.max(1, Math.min(4, Number(raw.search.planQueries) || 3));
       base.search.verifyItemCount = Math.max(
         1,
         Math.min(20, Number(raw.search.verifyItemCount) || 12)

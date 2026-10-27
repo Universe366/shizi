@@ -2,7 +2,7 @@ import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '..
 import { activePrompt, loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream } from './aiClient';
-import { buildSearchQuery, rankReferences, searchWeb, withSearchSignal } from './search';
+import { buildSearchPlan, searchWebPlan } from './web';
 import { buildVerifyBlock, verifySummary } from './verify';
 import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
@@ -604,26 +604,35 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     } else {
       options.onStatus?.('正在联网检索参考资料…');
       try {
-        const searchQuery = buildSearchQuery(info.title, info.owner);
-        const references = rankReferences(
-          searchQuery,
-          await withSearchSignal(options.signal, () => searchWeb(settings, searchQuery))
-        );
+        const plan = buildSearchPlan(info.title || '', {
+          scope: 'summary',
+          title: info.title,
+          owner: info.owner,
+          timeRange: settings.search.timeRange,
+          maxQueries: settings.search.planQueries ?? 3
+        });
+        const result = await searchWebPlan(settings, plan, { signal: options.signal, read: 2 });
+        const references = result.evidence;
         if (references.length) {
           let budget = 6000;
           const rows: string[] = [];
           references.forEach((ref, index) => {
             if (budget <= 0) return;
-            const snippet = ref.snippet.slice(0, Math.min(900, budget));
+            const snippet = (ref.summary || ref.snippet || '').slice(0, Math.min(900, budget));
             budget -= snippet.length;
-            rows.push(`[${index + 1}] ${ref.title}\n${ref.url}\n${snippet}`);
+            const meta = [ref.site, ref.date ? String(ref.date).slice(0, 10) : ''].filter(Boolean).join(' · ');
+            rows.push(`[${index + 1}] ${ref.title}${meta ? `（${meta}）` : ''}\n${ref.url}\n${snippet}`);
           });
           referencesBlock = [
             '',
-            '联网参考资料（仅用于核对和补充，不要照抄；与字幕冲突时以字幕为准；使用到的地方用 [n] 标注来源）：',
+            '联网参考资料（外部资料，仅用于补充或提示差异；与字幕冲突时以字幕为准，不要改写字幕事实；使用到的地方用 [n] 标注来源）：',
             rows.join('\n\n')
           ].join('\n');
-          options.onStatus?.(`已检索到 ${references.length} 条参考资料`);
+          options.onStatus?.(
+            `已检索到 ${references.length} 条参考资料（${result.meta.queries.length} 条查询${
+              result.meta.fetched ? ` · 读取 ${result.meta.fetched} 篇` : ''
+            }）`
+          );
         } else {
           options.onStatus?.('没有检索到参考资料，仅根据字幕总结');
         }
