@@ -913,6 +913,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:prompt', { server, name, args }) as Promise<Result<string>>,
   importSkill: () =>
     ipcRenderer.invoke('skills:import') as Promise<Result<SkillItem | null>>,
+  importSkillRepo: (url: string) =>
+    ipcRenderer.invoke('skills:import-repo', url) as Promise<Result<SkillItem[]>>,
   importSkillUrl: (url: string) =>
     ipcRenderer.invoke('skills:import-url', url) as Promise<Result<SkillItem>>,
   importSkillFolder: () =>

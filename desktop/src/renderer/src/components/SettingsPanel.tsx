@@ -443,6 +443,19 @@ export function SettingsPanel({
     setMessage(`已安装技能：${template.name}`);
   };
 
+  const importSkillRepo = async (url: string) => {
+    if (!draft) return;
+    const response = await window.bsub.importSkillRepo(url);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    const existing = new Set(draft.skills.items.map((item) => item.sourceUrl || item.name));
+    const fresh = response.data.filter((item) => !existing.has(item.sourceUrl || item.name));
+    updateSkills({ items: [...draft.skills.items, ...fresh] });
+    setMessage(`从仓库导入 ${fresh.length} 个技能`);
+  };
+
   const importSkillFolder = async () => {
     if (!draft) return;
     const response = await window.bsub.importSkillFolder();
@@ -1473,6 +1486,7 @@ export function SettingsPanel({
         onToggle={(enabled) => updateSkills({ enabled })}
         onImport={() => void importSkill()}
         onImportUrl={(url) => void importSkillUrl(url)}
+        onImportRepo={(url) => void importSkillRepo(url)}
         onImportFolder={() => void importSkillFolder()}
         onCreate={addSkill}
         onUpdate={(id, patch) => updateSkill(id, patch)}

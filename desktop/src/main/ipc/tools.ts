@@ -26,7 +26,12 @@ import {
   listMcpTools,
   readMcpResource
 } from '../mcp';
-import { fetchSkillFromUrl, readSkillFile, readSkillFolder } from '../skills';
+import {
+  fetchSkillsFromRepo,
+  fetchSkillFromUrl,
+  readSkillFile,
+  readSkillFolder
+} from '../skills';
 import { checkSubtitles } from '../quality';
 import { generateChapters } from '../chapters';
 import { testSearch } from '../search';
@@ -138,6 +143,14 @@ export function registerToolsIpc(ctx: IpcContext): void {
       }
     }
   );
+
+  ipcMain.handle('skills:import-repo', async (_event, url: string): Promise<Result<SkillItem[]>> => {
+    try {
+      return { ok: true, data: await fetchSkillsFromRepo(String(url || '')) };
+    } catch (error) {
+      return failure<SkillItem[]>(error);
+    }
+  });
 
   ipcMain.handle('skills:import-url', async (_event, url: string): Promise<Result<SkillItem>> => {
     try {

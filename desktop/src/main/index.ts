@@ -248,6 +248,9 @@ function createWindow(): void {
     });
   });
 
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    if (level >= 3) console.warn('[renderer]', message);
+  });
   if (!app.isPackaged) {
     mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
       console.log('[renderer]', `[${level}]`, message, `${sourceId}:${line}`);

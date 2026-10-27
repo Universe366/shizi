@@ -680,6 +680,7 @@ export interface BsubApi {
     args: Record<string, string>
   ): Promise<Result<string>>;
   importSkill(): Promise<Result<SkillItem | null>>;
+  importSkillRepo(url: string): Promise<Result<SkillItem[]>>;
   importSkillUrl(url: string): Promise<Result<SkillItem>>;
   importSkillFolder(): Promise<Result<SkillItem[]>>;
 

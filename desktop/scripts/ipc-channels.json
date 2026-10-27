@@ -214,6 +214,7 @@
   "shot:init",
   "skills:import",
   "skills:import-folder",
+  "skills:import-repo",
   "skills:import-url",
   "source:resolve-collection",
   "start:bing-wallpaper",

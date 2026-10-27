@@ -573,7 +573,11 @@ try {
         ws,
         `(async () => {
           document.querySelector('.settings-entry')?.click();
-          await new Promise((r) => setTimeout(r, 450));
+          // 机器忙时设置页正文会晚于 450ms 挂载，轮询到搜索框出现。
+          for (let index = 0; index < 25; index += 1) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (document.querySelector('.settings-search-input')) break;
+          }
           const host = document.querySelector('.page-host');
           const strip = document.querySelector('.tab-strip');
           return JSON.stringify({
@@ -597,6 +601,18 @@ try {
         ws,
         `(async () => {
           const input = document.querySelector('.settings-search-input');
+          if (!(input instanceof HTMLInputElement)) {
+            throw new Error(
+              'settings-search-input 不是 input: ' +
+                JSON.stringify({
+                  found: Boolean(input),
+                  tag: input?.tagName,
+                  cls: input?.className,
+                  sections: document.querySelectorAll('.settings-section').length,
+                  text: (document.body.innerText || '').slice(0, 160)
+                })
+            );
+          }
           const setValue = (el, value) => {
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
             setter.call(el, value);

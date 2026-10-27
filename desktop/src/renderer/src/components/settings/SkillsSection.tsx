@@ -11,6 +11,7 @@ interface SkillsSectionProps {
   onToggle: (enabled: boolean) => void;
   onImport: () => void;
   onImportUrl: (url: string) => void;
+  onImportRepo?: (url: string) => void;
   onImportFolder: () => void;
   onCreate: () => void;
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
@@ -26,6 +27,7 @@ export function SkillsSection({
   onToggle,
   onImport,
   onImportUrl,
+  onImportRepo,
   onImportFolder,
   onCreate,
   onUpdate,
@@ -35,6 +37,7 @@ export function SkillsSection({
   onInstall
 }: SkillsSectionProps) {
   const [url, setUrl] = useState('');
+  const [repo, setRepo] = useState('');
   const [query, setQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const enabledCount = value.items.filter((item) => item.enabled).length;
@@ -131,6 +134,26 @@ export function SkillsSection({
           ))}
         </div>
       )}
+
+      <div className="settings-inline">
+        <input
+          className="settings-input"
+          placeholder="https://github.com/owner/repo（批量导入 SKILL.md）"
+          spellCheck={false}
+          value={repo}
+          onChange={(event) => setRepo(event.target.value)}
+        />
+        <button
+          className="mini-btn"
+          disabled={!repo.trim()}
+          onClick={() => {
+            onImportRepo?.(repo.trim());
+            setRepo('');
+          }}
+        >
+          从仓库导入
+        </button>
+      </div>
 
       {value.items.length > 0 && (
         <div className="settings-inline">

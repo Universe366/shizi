@@ -58,6 +58,70 @@ export async function fetchSkillFromUrl(input: string): Promise<SkillItem> {
   return { ...parseSkillMarkdown(text, decodeURIComponent(fallback)), sourceUrl: url };
 }
 
+
+/** 从 GitHub 仓库批量导入所有 SKILL.md（公开仓库，最多 40 个）。 */
+export async function fetchSkillsFromRepo(input: string): Promise<SkillItem[]> {
+  const match = /^https?:\/\/github\.com\/([^/]+)\/([^/?#]+)/i.exec(String(input || '').trim());
+  if (!match) throw new Error('请填写 GitHub 仓库地址，例如 https://github.com/owner/repo');
+  const owner = match[1];
+  const repo = match[2].replace(/\.git$/i, '');
+  const headers = { accept: 'application/vnd.github+json', 'user-agent': 'Shizi/1.0' };
+  const infoResponse = await session.defaultSession.fetch(
+    `https://api.github.com/repos/${owner}/${repo}`,
+    { headers, signal: AbortSignal.timeout(20000) }
+  );
+  if (!infoResponse.ok) {
+    if (infoResponse.status === 403 || infoResponse.status === 429) {
+      throw new Error('GitHub API 限流，请稍后再试');
+    }
+    throw new Error(`仓库不存在或无法访问（HTTP ${infoResponse.status}）`);
+  }
+  const info = (await infoResponse.json()) as { default_branch?: string };
+  const branch = info.default_branch || 'main';
+  const treeResponse = await session.defaultSession.fetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    { headers, signal: AbortSignal.timeout(20000) }
+  );
+  if (!treeResponse.ok) throw new Error(`读取仓库目录失败（HTTP ${treeResponse.status}）`);
+  const tree = (await treeResponse.json()) as {
+    tree?: Array<{ path?: string; type?: string }>;
+  };
+  const paths = (tree.tree || [])
+    .filter((item) => item.type === 'blob' && /(^|\/)SKILL\.md$/i.test(String(item.path || '')))
+    .map((item) => String(item.path))
+    .slice(0, 40);
+  if (!paths.length) throw new Error('仓库里没有找到 SKILL.md');
+
+  const items: SkillItem[] = [];
+  for (let index = 0; index < paths.length; index += 4) {
+    const batch = paths.slice(index, index + 4);
+    const results = await Promise.all(
+      batch.map(async (path) => {
+        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${path
+          .split('/')
+          .map(encodeURIComponent)
+          .join('/')}`;
+        try {
+          const response = await session.defaultSession.fetch(url, {
+            headers: { accept: 'text/plain, text/markdown, */*' },
+            signal: AbortSignal.timeout(15000)
+          });
+          if (!response.ok) return null;
+          const text = await response.text();
+          if (text.length > 200_000) return null;
+          const name = path.split('/').slice(-2, -1)[0] || path;
+          return { ...parseSkillMarkdown(text, name), sourceUrl: url };
+        } catch {
+          return null;
+        }
+      })
+    );
+    for (const item of results) if (item) items.push(item);
+  }
+  if (!items.length) throw new Error('找到了 SKILL.md，但没有一个能解析');
+  return items;
+}
+
 /** 从文件夹里批量读取 SKILL.md（只扫一层，避免误读整盘）。 */
 export function readSkillFolder(folder: string): SkillItem[] {
   const items: SkillItem[] = [];

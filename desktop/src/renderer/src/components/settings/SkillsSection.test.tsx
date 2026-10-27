@@ -26,6 +26,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onRemove: vi.fn(),
     onRefresh: vi.fn(),
     onInstall: vi.fn(),
+    onImportRepo: vi.fn(),
     ...overrides
   };
 }
@@ -59,6 +60,17 @@ describe('SkillsSection', () => {
       target: { value: '新描述' }
     });
     expect(p.onUpdate).toHaveBeenCalledWith('skill-1', { description: '新描述' });
+  });
+
+  it('可以从 GitHub 仓库批量导入', () => {
+    const p = props();
+    render(<SkillsSection {...p} />);
+    fireEvent.change(
+      screen.getByPlaceholderText('https://github.com/owner/repo（批量导入 SKILL.md）'),
+      { target: { value: 'https://github.com/owner/skills' } }
+    );
+    fireEvent.click(screen.getByText('从仓库导入'));
+    expect(p.onImportRepo).toHaveBeenCalledWith('https://github.com/owner/skills');
   });
 
   it('技能库可以一键安装', () => {
