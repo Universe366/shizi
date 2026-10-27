@@ -19,10 +19,12 @@ export function SearchDiagnostics() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
+  const api = (window as unknown as { bsub?: Window['bsub'] }).bsub;
+
   const load = async () => {
     setBusy(true);
     try {
-      const response = await window.bsub.webMetrics?.();
+      const response = await api?.webMetrics?.();
       if (response?.ok) setData(response.data);
     } finally {
       setBusy(false);
@@ -34,7 +36,7 @@ export function SearchDiagnostics() {
   }, []);
 
   const clearMetrics = async () => {
-    const response = await window.bsub.webMetricsClear?.();
+    const response = await api?.webMetricsClear?.();
     if (response?.ok) {
       setMessage(`已清空 ${response.data} 条记录`);
       await load();
@@ -42,7 +44,7 @@ export function SearchDiagnostics() {
   };
 
   const clearCache = async () => {
-    const response = await window.bsub.webCacheClear?.();
+    const response = await api?.webCacheClear?.();
     if (response?.ok) {
       setMessage(`已清空 ${response.data} 篇抓取缓存`);
       await load();
