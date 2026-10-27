@@ -24,7 +24,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { chatOnce, chatStream } from './aiClient';
+import { chatOnce, chatStream, chatToolLoopStream } from './aiClient';
 import { closeUsage, usageEvents } from './usage';
 
 function platform(patch: Partial<AiPlatform>): AiPlatform {
@@ -166,5 +166,91 @@ describe('AI 协议适配与用量', () => {
     const second = state.calls[1].init.headers as Record<string, string>;
     expect(first.authorization).toBe('Bearer k1');
     expect(second.authorization).toBe('Bearer k2');
+  });
+});
+
+describe('流式工具循环', () => {
+  beforeEach(() => {
+    state.queue = [];
+    state.calls = [];
+  });
+
+  const sse = (chunks: string[]): Response => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      }
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' }
+    });
+  };
+
+  it('先流式解析 tool_calls，执行后再流式输出答案', async () => {
+    const callChunk = (args: string, name?: string) =>
+      'data: ' +
+      JSON.stringify({
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_1',
+                  function: name ? { name, arguments: args } : { arguments: args }
+                }
+              ]
+            }
+          }
+        ]
+      }) +
+      '\n\n';
+    state.queue.push(
+      sse([
+        callChunk('{"query":', 'app__web_search'),
+        callChunk('"测试"}'),
+        'data: [DONE]\n\n'
+      ])
+    );
+    state.queue.push(
+      sse([
+        'data: {"choices":[{"delta":{"content":"答案"}}]}\n\n',
+        'data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":5,"completion_tokens":2}}\n\n',
+        'data: [DONE]\n\n'
+      ])
+    );
+    const runTool = vi.fn(async () => '{"results":[]}');
+    let streamed = '';
+    const result = await chatToolLoopStream(
+      platform({ kind: 'openai' }),
+      [{ role: 'user', content: '搜一下' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: { query: { type: 'string' } } }
+        }
+      ],
+      { task: 'chat', maxRounds: 3, onDelta: (delta) => (streamed += delta) },
+      runTool
+    );
+
+    expect(runTool).toHaveBeenCalledWith({
+      id: 'call_1',
+      name: 'app__web_search',
+      arguments: '{"query":"测试"}'
+    });
+    expect(result.text).toBe('答案');
+    expect(streamed).toBe('答案');
+    expect(result.usage).toEqual({ inputTokens: 5, outputTokens: 2 });
+
+    const secondBody = JSON.parse(String(state.calls[1].init.body));
+    expect(secondBody.tools[0].function.name).toBe('app__web_search');
+    expect(secondBody.messages.some((item: Record<string, unknown>) => item.role === 'tool')).toBe(
+      true
+    );
   });
 });

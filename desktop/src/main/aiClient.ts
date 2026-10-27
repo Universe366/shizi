@@ -803,6 +803,186 @@ export interface AiToolResult {
   content: string;
 }
 
+/** OpenAI 兼容平台的流式工具循环：工具轮与最终回答都在同一个流里推进。 */
+export async function chatToolLoopStream(
+  platform: AiPlatform,
+  messages: AiMessage[],
+  tools: AiToolDef[],
+  options: AiChatOptions & {
+    maxRounds?: number;
+    onDelta?: (delta: string) => void;
+    onReasoning?: (delta: string) => void;
+  },
+  runTool: (call: AiToolCall) => Promise<string>
+): Promise<AiChatResult> {
+  if (isGeminiPlatform(platform) || isAnthropicPlatform(platform)) {
+    const result = await chatToolLoop(platform, messages, tools, options, runTool);
+    // 非流式回退：把完整结果补发一次，调用方不需要再区分路径。
+    if (result.text) options.onDelta?.(result.text);
+    if (result.reasoning) options.onReasoning?.(result.reasoning);
+    return result;
+  }
+  const maxRounds = Math.max(1, options.maxRounds || 6);
+  const convo = toOpenAiMessages(messages) as unknown as Array<Record<string, unknown>>;
+  let text = '';
+  let reasoning = '';
+  let usage: AiUsage | undefined;
+
+  const finish = (): AiChatResult => {
+    if (!text.trim()) throw new Error('AI 返回为空');
+    trackUsage(platform, options.task, usage);
+    return { text, reasoning, usage };
+  };
+
+  for (let round = 0; round < maxRounds; round += 1) {
+    if (options.signal?.aborted) throw new Error('已终止');
+    const body: Record<string, unknown> = {
+      model: platform.model.trim(),
+      max_tokens: Math.max(1, options.maxTokens || 8192),
+      temperature: options.temperature,
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: convo,
+      tools: toOpenAiTools(tools),
+      tool_choice: 'auto'
+    };
+    const response = await postJson(platform, body, options);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(errorForStatus(response.status, detail));
+    }
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.body || !contentType.includes('text/event-stream')) {
+      // 少数兼容服务会忽略 stream，退回一次性 JSON 解析。
+      const json = (await response.json()) as AiPayload;
+      usage = mergeUsage(usage, usageFromPayload(json?.usage));
+      const message = json?.choices?.[0]?.message;
+      const calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+      const roundText = String(message?.content || '');
+      if (roundText) {
+        text += roundText;
+        options.onDelta?.(roundText);
+      }
+      if (!calls.length) return finish();
+      convo.push({
+        role: 'assistant',
+        content: roundText || null,
+        tool_calls: calls.map((call: Record<string, unknown>, index: number) => ({
+          id: String(call.id || 'call_' + index),
+          type: 'function',
+          function: {
+            name: String((call.function as Record<string, unknown>)?.name || ''),
+            arguments: String((call.function as Record<string, unknown>)?.arguments || '{}')
+          }
+        }))
+      });
+      for (const call of calls) {
+        const fnPart = (call.function || {}) as Record<string, unknown>;
+        let output = '';
+        try {
+          output = await runTool({
+            id: String(call.id || ''),
+            name: String(fnPart.name || ''),
+            arguments: String(fnPart.arguments || '{}')
+          });
+        } catch (error) {
+          output = '工具调用失败：' + (error as Error).message;
+        }
+        convo.push({
+          role: 'tool',
+          tool_call_id: String(call.id || ''),
+          content: String(output || '').slice(0, 4000)
+        });
+      }
+      continue;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let roundText = '';
+    const calls = new Map<number, { id: string; name: string; args: string }>();
+    let done = false;
+    while (!done) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data) continue;
+        if (data === '[DONE]') {
+          done = true;
+          break;
+        }
+        let json: Record<string, unknown>;
+        try {
+          json = JSON.parse(data) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+        usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
+        const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
+        const delta = (choice?.delta || {}) as Record<string, unknown>;
+        const content = String(delta.content || '');
+        if (content) {
+          roundText += content;
+          text += content;
+          options.onDelta?.(content);
+        }
+        const think = String(delta.reasoning_content || '');
+        if (think) {
+          reasoning += think;
+          options.onReasoning?.(think);
+        }
+        const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
+        for (const raw of toolCalls) {
+          const item = raw as Record<string, unknown>;
+          const index = Number(item.index ?? 0) || 0;
+          const current = calls.get(index) || { id: '', name: '', args: '' };
+          if (item.id) current.id = String(item.id);
+          const fnPart = (item.function || {}) as Record<string, unknown>;
+          if (fnPart.name) current.name += String(fnPart.name);
+          if (fnPart.arguments) current.args += String(fnPart.arguments);
+          calls.set(index, current);
+        }
+      }
+    }
+
+    if (!calls.size) return finish();
+    const ordered = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, call], index) => ({
+      id: call.id || 'call_' + index,
+      name: call.name,
+      arguments: call.args || '{}'
+    }));
+    convo.push({
+      role: 'assistant',
+      content: roundText || null,
+      tool_calls: ordered.map((call) => ({
+        id: call.id,
+        type: 'function',
+        function: { name: call.name, arguments: call.arguments }
+      }))
+    });
+    for (const call of ordered) {
+      let output = '';
+      try {
+        output = await runTool(call);
+      } catch (error) {
+        output = '工具调用失败：' + (error as Error).message;
+      }
+      convo.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        content: String(output || '').slice(0, 4000)
+      });
+    }
+  }
+  throw new Error('工具调用轮次过多');
+}
+
 export async function chatToolLoop(
   platform: AiPlatform,
   messages: AiMessage[],

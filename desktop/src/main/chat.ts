@@ -7,8 +7,8 @@ import type {
 } from '../shared/types';
 import { loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
-import { chatOnce, chatStream, chatToolLoop } from './aiClient';
-import type { AiMessage, AiPart } from './aiClient';
+import { chatOnce, chatStream, chatToolLoopStream } from './aiClient';
+import type { AiMessage, AiPart, AiToolDef } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
 import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
@@ -26,6 +26,22 @@ import { toolNeedsApproval } from '../shared/mcpApproval';
 import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
 
 const MAX_HISTORY = 16;
+
+const WEB_SEARCH_TOOL: AiToolDef = {
+  name: 'app__web_search',
+  description:
+    '搜索公开网页获取最新或外部事实。可以多次调用、换关键词；结果里的 index 可用于引用 [n]。',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: '自包含的搜索词，不要用代词；需要时换语言或换关键词再搜一次'
+      }
+    },
+    required: ['query']
+  }
+};
 
 const UNBOUND_CHAT_PROMPT = `你是一个严谨、直接的中文助手。本轮没有视频字幕或页面正文可供依据：
 - 按用户的问题和联网结果回答；需要外部事实时使用联网参考并标注 [n]。
@@ -210,7 +226,9 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     webError = '联网检索没有启用，请到设置 → 检索与核对开启';
     options.onStatus?.(webError);
   }
-  if (wantsSearch) {
+  // 显式点「联网」：走流式工具搜索，由模型决定搜什么、搜几次。
+  const useWebTool = options.web === true && settings.search.enabled;
+  if (wantsSearch && !useWebTool) {
     const userMessages = options.messages.filter(
       (message) => message.role === 'user' && String(message.content || '').trim()
     );
@@ -336,6 +354,9 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               ])
         ]),
     pageBlock,
+    useWebTool
+      ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
+      : '',
     webBlock
       ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
       : '',
@@ -406,6 +427,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
 
   const localTools = [
     ...(appToolsEnabled ? APP_TOOL_DEFS : []),
+    ...(useWebTool ? [WEB_SEARCH_TOOL] : [])
   ];
 
   const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
@@ -418,7 +440,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   const displayName = (name: string) => name.replace(/^[^_]+__/, '');
 
   if (activeBindings.length || localTools.length) {
-    const result = await chatToolLoop(
+    const result = await chatToolLoopStream(
       platform,
       messages,
       [
@@ -434,7 +456,9 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         maxTokens: maxTokens || undefined,
         maxRounds: settings.mcp.maxToolRounds || 6,
         signal: options.signal,
-        task: 'chat'
+        task: 'chat',
+        onDelta: options.onDelta,
+        onReasoning: options.onReasoning
       },
       async (call) => {
         let args: Record<string, unknown> = {};
@@ -453,6 +477,44 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           emitTool({ phase: 'done', name, detail: content.slice(0, 280), ok });
           return content;
         };
+        if (call.name === WEB_SEARCH_TOOL.name) {
+          const query = String(args.query || '').trim();
+          if (!query) return finish('query 不能为空', false);
+          options.onStatus?.(`联网检索：${query}`);
+          try {
+            const result = await searchWebPlan(settings, [{ query, angle: 'base' }], {
+              signal: options.signal,
+              maxResults: 6,
+              read: 2
+            });
+            const rows: Array<Record<string, unknown>> = [];
+            for (const item of result.evidence.slice(0, 6)) {
+              let index = references.findIndex((ref) => ref.url === item.url);
+              if (index < 0) {
+                references.push(item);
+                index = references.length - 1;
+              }
+              rows.push({
+                index: index + 1,
+                title: item.title,
+                url: item.url,
+                site: item.site,
+                date: item.date || null,
+                excerpt: String(item.content || item.summary || item.snippet || '')
+                  .replace(/\s+/g, ' ')
+                  .slice(0, 800)
+              });
+            }
+            webEngine = result.meta.engine || webEngine;
+            options.onStatus?.(`已找到 ${rows.length} 条网页结果`);
+            return finish(JSON.stringify({ query, results: rows }), true);
+          } catch (error) {
+            const message = (error as Error)?.message || String(error);
+            webError = message;
+            options.onStatus?.(`联网检索失败：${message}`);
+            return finish(`联网检索失败：${message}`, false);
+          }
+        }
         if (call.name.startsWith(APP_TOOL_PREFIX)) {
           try {
             return finish(await callAppTool(call.name, args));
@@ -490,8 +552,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         }
       }
     );
-    options.onDelta?.(result.text);
-    if (result.reasoning) options.onReasoning?.(result.reasoning);
+    // 工具循环已经按增量推过；这里不要再整段重发，否则界面会重复。
     return {
       text: result.text,
       model: platform.model,
