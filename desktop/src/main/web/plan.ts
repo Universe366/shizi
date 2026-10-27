@@ -52,11 +52,11 @@ export function buildSearchPlan(question: string, options: SearchPlanOptions = {
   if (items.length < maxQueries && (FRESH_HINT.test(text) || hasTimeRange || scope === 'summary')) {
     items.push({ query: normalizeQuery(`${clean} 最新进展`), angle: 'fresh' });
   }
-  if (items.length < maxQueries) {
-    const suffix = COMPARE_HINT.test(text) ? '对比 评测' : '争议 缺点 替代';
-    items.push({ query: normalizeQuery(`${clean} ${suffix}`), angle: 'compare' });
+  // 对话场景不做“争议/官方文档”这类泛化扩展：它们最容易带进 SEO 垃圾。
+  if (items.length < maxQueries && COMPARE_HINT.test(text)) {
+    items.push({ query: normalizeQuery(`${clean} 对比 评测`), angle: 'compare' });
   }
-  if (items.length < maxQueries && !/价格|多少钱|售价/.test(text)) {
+  if (items.length < maxQueries && scope === 'summary' && !/价格|多少钱|售价/.test(text)) {
     items.push({ query: normalizeQuery(`${clean} 官方文档 说明`), angle: 'primary' });
   }
 

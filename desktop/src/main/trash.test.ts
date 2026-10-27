@@ -183,3 +183,26 @@ describe('转写字幕的 cid 回退', () => {
     if (entry) deleteTrash(entry.id);
   });
 });
+
+describe('旧转写 URL 兼容', () => {
+  it('pending URL 会映射成真实 track 地址', () => {
+    const savedInfo = { ...info, bvid: 'BV1test00011', cid: 7, title: 'pending 兼容测试' };
+    const result = ingestVideo({
+      info: savedInfo,
+      track: {
+        lan: 'asr',
+        lanDoc: '语音转录',
+        url: 'library://pending-legacy',
+        isAi: false,
+        aiStatus: null,
+        source: 'asr'
+      },
+      lines: [{ start: 0, end: 2, text: '旧转写第一句' }]
+    });
+    const tracks = listSavedTracks(savedInfo);
+    expect(tracks[0].url).toBe('library://track/' + result.trackId);
+    removeVideos([result.videoId]);
+    const entry = listTrash().find((item) => item.title === 'pending 兼容测试');
+    if (entry) deleteTrash(entry.id);
+  });
+});

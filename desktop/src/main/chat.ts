@@ -199,14 +199,14 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     let searchMeta: WebSearchMeta | undefined;
     try {
       const result = await withDeadline(
-        searchWebPlan(settings, plan, { signal: searchAbort.signal, read: 2 }),
+        searchWebPlan(settings, plan, { signal: searchAbort.signal, read: 3 }),
         18000,
         options.signal,
         '联网检索超时',
         () => searchAbort.abort(new Error('联网检索超时'))
       );
       searchMeta = result.meta;
-      references = result.evidence.slice(0, 6);
+      references = result.evidence.slice(0, 8);
       if (references.length) {
         webEngine = searchMeta.engine || '';
         const engine = searchMeta

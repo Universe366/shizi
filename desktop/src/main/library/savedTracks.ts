@@ -21,7 +21,8 @@ function tracksOf(videoId: number): SubtitleTrack[] {
     .map((row) => ({
       lan: String(row.lan || ''),
       lanDoc: String(row.lan_doc || row.lan || ''),
-      url: String(row.url || 'library://track/' + row.id),
+      // 统一指向真实 track id：旧版本可能把 url 写成 library://pending-…，直接用它取正文会失败。
+      url: 'library://track/' + row.id,
       isAi: Boolean(row.is_ai),
       aiStatus: null,
       source: String(row.source || 'library')

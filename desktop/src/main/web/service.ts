@@ -159,8 +159,13 @@ export function rankEvidence(refs: WebReference[], queries: string[]): WebRefere
       else if (type === 'news') score += 1;
       if (ref.content) score += 2;
       if (ref.summary) score += 1;
-      if (Number.isFinite(ref.authority)) score += Math.max(0, Math.min(4, ref.authority as number));
-      if (Number.isFinite(ref.rerank)) score += Math.max(0, Math.min(3, ref.rerank as number));
+      // 相关度优先：权威/排序分只做加权，不再单独压过词面匹配。
+      if (Number.isFinite(ref.authority)) {
+        score += Math.max(0, Math.min(4, ref.authority as number)) * 0.5;
+      }
+      if (Number.isFinite(ref.rerank)) {
+        score += Math.max(0, Math.min(3, ref.rerank as number)) * 0.5;
+      }
       return { ref, score };
     })
     .sort((a, b) => b.score - a.score)

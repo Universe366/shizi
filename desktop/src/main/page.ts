@@ -8,6 +8,7 @@ import type {
 } from '../shared/types';
 import { loadSettings } from './settings';
 import { fetchViewPoints } from './biliExtra';
+import { requireDb } from './library/db';
 import { savedTrackLines } from './library/savedTracks';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
@@ -333,7 +334,16 @@ export async function getTrackBody(url: string): Promise<TrackBody> {
   if (url.startsWith('library://track/')) {
     const trackId = Number(url.slice('library://track/'.length));
     const lines = Number.isFinite(trackId) ? savedTrackLines(trackId) : [];
-    if (!lines.length) throw new Error('已保存的字幕为空');
+    if (!lines.length) throw new Error('已保存的字幕为空（可能是旧版本没有写入正文，请重新转录一次）');
+    return { lines };
+  }
+  // 旧数据里可能残留 library://pending-…：按 URL 找真实 track，再读 segments。
+  if (url.startsWith('library://pending')) {
+    const row = requireDb()
+      .prepare('SELECT id FROM tracks WHERE url = ? ORDER BY id DESC LIMIT 1')
+      .get(url) as { id?: number } | undefined;
+    const lines = row?.id ? savedTrackLines(row.id) : [];
+    if (!lines.length) throw new Error('已保存的字幕为空（请重新转录一次）');
     return { lines };
   }
   const parsed = new URL(url);

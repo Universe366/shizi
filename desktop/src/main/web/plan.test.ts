@@ -21,12 +21,15 @@ describe('buildSearchPlan', () => {
     expect(plan[1].query).toContain('对比');
   });
 
-  it('普通问题补充一手资料角度', () => {
-    const plan = buildSearchPlan('React 19 的并发渲染', { maxQueries: 2 });
-    expect(plan[1].angle).toBe('compare');
-    const three = buildSearchPlan('React 19 的并发渲染', { maxQueries: 3 });
-    expect(three[2].angle).toBe('primary');
-    expect(three[2].query).toContain('官方文档');
+  it('普通问题不强行扩展泛化查询', () => {
+    const plan = buildSearchPlan('React 19 的并发渲染', { maxQueries: 3 });
+    expect(plan).toHaveLength(1);
+    const summary = buildSearchPlan('', {
+      scope: 'summary',
+      title: 'React 19 并发渲染',
+      maxQueries: 3
+    });
+    expect(summary.some((item) => item.angle === 'primary')).toBe(true);
   });
 
   it('总结场景用标题作为主查询', () => {

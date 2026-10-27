@@ -952,11 +952,9 @@ export function SubtitlesPanel({
           return;
         }
         failedTrackUrlsRef.current.add(track.url);
+        // 官方轨为空/失败时也要回退到已保存的转写，而不是直接报“没有正文”。
         const alternatives = (bundleRef.current?.tracks || []).filter(
-          (item) =>
-            item.url &&
-            item.source !== 'asr' &&
-            !failedTrackUrlsRef.current.has(item.url)
+          (item) => item.url && !failedTrackUrlsRef.current.has(item.url)
         );
         if (failedTrackUrlsRef.current.size < 3 && alternatives.length) {
           setTrack(alternatives[0]);
