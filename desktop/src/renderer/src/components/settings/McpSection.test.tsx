@@ -66,6 +66,20 @@ describe('McpSection', () => {
     expect(p.onCall).toHaveBeenCalledWith(server, tool);
   });
 
+  it('带参数的提示词会先收集参数再运行', () => {
+    const prompt = {
+      name: 'brief',
+      description: '生成简报',
+      arguments: [{ name: 'topic', description: '主题', required: true }]
+    };
+    const p = props({ prompts: { s1: [prompt] } });
+    render(<McpSection {...p} />);
+    fireEvent.click(screen.getByText(/提示词 · brief/));
+    fireEvent.change(screen.getByPlaceholderText('topic'), { target: { value: 'AI' } });
+    fireEvent.click(screen.getByText('运行提示词'));
+    expect(p.onGetPrompt).toHaveBeenCalledWith(server, 'brief', { topic: 'AI' });
+  });
+
   it('模板可以一键添加为停用服务', () => {
     const p = props();
     render(<McpSection {...p} />);

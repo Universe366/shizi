@@ -22,7 +22,7 @@ interface McpSectionProps {
   onTest: (server: McpServer) => void;
   onCall: (server: McpServer, tool: McpTool) => void;
   onReadResource: (server: McpServer, uri: string) => void;
-  onGetPrompt: (server: McpServer, name: string) => void;
+  onGetPrompt: (server: McpServer, name: string, args: Record<string, string>) => void;
   onTestAll?: () => void;
 }
 
@@ -49,6 +49,11 @@ export function McpSection({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [promptForm, setPromptForm] = useState<{
+    server: McpServer;
+    name: string;
+    args: Record<string, string>;
+  } | null>(null);
   const [importNotice, setImportNotice] = useState('');
 
   const importServers = async (file: File) => {
@@ -426,6 +431,43 @@ export function McpSection({
               ))}
             </div>
           ) : null}
+          {promptForm?.server.id === server.id && (
+            <div className="mcp-prompt-form">
+              <div className="settings-label">提示词参数 · {promptForm.name}</div>
+              {Object.entries(promptForm.args).map(([name, value]) => (
+                <input
+                  key={name}
+                  className="settings-input"
+                  placeholder={name}
+                  value={value}
+                  onChange={(event) =>
+                    setPromptForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            args: { ...current.args, [name]: event.target.value }
+                          }
+                        : current
+                    )
+                  }
+                />
+              ))}
+              <div className="settings-inline">
+                <button
+                  className="mini-btn primary"
+                  onClick={() => {
+                    onGetPrompt(promptForm.server, promptForm.name, promptForm.args);
+                    setPromptForm(null);
+                  }}
+                >
+                  运行提示词
+                </button>
+                <button className="mini-btn" onClick={() => setPromptForm(null)}>
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
           {prompts[server.id]?.length ? (
             <div className="mcp-tools">
               {prompts[server.id].map((prompt) => (
@@ -433,7 +475,19 @@ export function McpSection({
                   key={prompt.name}
                   className="mcp-tool"
                   title={prompt.description}
-                  onClick={() => onGetPrompt(server, prompt.name)}
+                  onClick={() => {
+                    if (!prompt.arguments.length) {
+                      onGetPrompt(server, prompt.name, {});
+                      return;
+                    }
+                    setPromptForm({
+                      server,
+                      name: prompt.name,
+                      args: Object.fromEntries(
+                        prompt.arguments.map((argument) => [argument.name, ''])
+                      )
+                    });
+                  }}
                 >
                   提示词 · {prompt.name}
                 </button>

@@ -845,6 +845,8 @@ export interface SkillItem {
   source: 'builtin' | 'manual' | 'file';
   /** 从链接导入时的原始地址，用于检查更新 */
   sourceUrl?: string;
+  /** 分类（内置技能库/手动） */
+  category?: string;
 }
 
 export interface AsrPlatform {

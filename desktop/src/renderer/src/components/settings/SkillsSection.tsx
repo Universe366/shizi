@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import type { AppSettings, SkillItem } from '../../../../shared/types';
 import { SKILL_CATALOG } from '../../../../shared/skillCatalog';
@@ -12,6 +12,7 @@ interface SkillsSectionProps {
   onImport: () => void;
   onImportUrl: (url: string) => void;
   onImportRepo?: (url: string) => void;
+  onImportJson?: (items: SkillItem[]) => void;
   onImportFolder: () => void;
   onCreate: () => void;
   onUpdate: (id: string, patch: Partial<SkillItem>) => void;
@@ -28,6 +29,7 @@ export function SkillsSection({
   onImport,
   onImportUrl,
   onImportRepo,
+  onImportJson,
   onImportFolder,
   onCreate,
   onUpdate,
@@ -40,6 +42,7 @@ export function SkillsSection({
   const [repo, setRepo] = useState('');
   const [query, setQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const enabledCount = value.items.filter((item) => item.enabled).length;
   const visible = value.items.filter((skill) => {
     const text = `${skill.name} ${skill.description} ${skill.body}`.toLowerCase();
@@ -64,6 +67,69 @@ export function SkillsSection({
         <button className="mini-btn" onClick={() => setCatalogOpen((value) => !value)}>
           技能库
         </button>
+        <button className="mini-btn" onClick={() => fileRef.current?.click()}>
+          导入 JSON
+        </button>
+        <button
+          className="mini-btn"
+          onClick={() =>
+            void window.bsub.writeClipboard(
+              JSON.stringify(
+                {
+                  skills: value.items.map((item) => ({
+                    name: item.name,
+                    description: item.description,
+                    icon: item.icon,
+                    body: item.body,
+                    enabled: item.enabled,
+                    category: item.category,
+                    sourceUrl: item.sourceUrl
+                  }))
+                },
+                null,
+                2
+              )
+            )
+          }
+        >
+          导出 JSON
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+            try {
+              const raw = JSON.parse(await file.text()) as unknown;
+              const rows = Array.isArray(raw)
+                ? raw
+                : ((raw as Record<string, unknown>)?.skills as unknown);
+              if (!Array.isArray(rows)) throw new Error('没有找到 skills 数组');
+              const items = rows
+                .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+                .map((row, index) => ({
+                  id: `skill-${Date.now()}-${index}`,
+                  name: String(row.name || '导入技能').slice(0, 80),
+                  description: String(row.description || '').slice(0, 200),
+                  icon: String(row.icon || '✨').slice(0, 8),
+                  body: String(row.body || ''),
+                  enabled: row.enabled !== false,
+                  category: row.category ? String(row.category) : undefined,
+                  sourceUrl: row.sourceUrl ? String(row.sourceUrl) : undefined,
+                  source: 'file' as const
+                }))
+                .filter((item) => item.body.trim());
+              if (!items.length) throw new Error('没有可导入的技能正文');
+              onImportJson?.(items);
+            } catch (error) {
+              window.alert(`导入失败：${(error as Error).message}`);
+            }
+          }}
+        />
         <button
           className="mini-btn"
           disabled={!value.items.some((item) => item.sourceUrl)}
@@ -176,6 +242,7 @@ export function SkillsSection({
             <span className={`skill-badge${skill.enabled ? ' is-on' : ''}`}>
               {skill.enabled ? '已启用' : '已停用'}
             </span>
+            {skill.category && <span className="skill-source">{skill.category}</span>}
             <span className="skill-source">{skill.source}</span>
           </summary>
 

@@ -13261,3 +13261,14 @@ sup:has(> .cite-ref) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.mcp-prompt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}

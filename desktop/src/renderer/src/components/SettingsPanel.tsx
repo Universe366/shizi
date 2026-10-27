@@ -314,9 +314,13 @@ export function SettingsPanel({
     setMcpResult(response.ok ? response.data : `读取失败：${response.error}`);
   };
 
-  const getMcpPrompt = async (server: McpServer, name: string) => {
+  const getMcpPrompt = async (
+    server: McpServer,
+    name: string,
+    args: Record<string, string>
+  ) => {
     setMcpResult(`读取提示词 ${name}…`);
-    const response = await window.bsub.mcpPrompt(server, name, {});
+    const response = await window.bsub.mcpPrompt(server, name, args);
     setMcpResult(response.ok ? response.data : `读取失败：${response.error}`);
   };
 
@@ -420,6 +424,7 @@ export function SettingsPanel({
     description: string;
     icon: string;
     body: string;
+    category?: string;
   }) => {
     if (!draft) return;
     if (draft.skills.items.some((item) => item.name === template.name)) {
@@ -436,6 +441,7 @@ export function SettingsPanel({
           icon: template.icon,
           body: template.body,
           enabled: true,
+          category: template.category,
           source: 'manual'
         }
       ]
@@ -454,6 +460,15 @@ export function SettingsPanel({
     const fresh = response.data.filter((item) => !existing.has(item.sourceUrl || item.name));
     updateSkills({ items: [...draft.skills.items, ...fresh] });
     setMessage(`从仓库导入 ${fresh.length} 个技能`);
+  };
+
+  const importSkillsJson = (items: AppSettings['skills']['items']) => {
+    if (!draft) return;
+    const fresh = items.filter(
+      (item) => !draft.skills.items.some((existing) => existing.name === item.name)
+    );
+    updateSkills({ items: [...draft.skills.items, ...fresh] });
+    setMessage(`导入 ${fresh.length} 个技能`);
   };
 
   const importSkillFolder = async () => {
@@ -1474,7 +1489,7 @@ export function SettingsPanel({
         onTest={(server) => void testMcp(server)}
         onCall={(server, tool) => void callMcp(server, tool)}
         onReadResource={(server, uri) => void readMcpResource(server, uri)}
-        onGetPrompt={(server, name) => void getMcpPrompt(server, name)}
+        onGetPrompt={(server, name, args) => void getMcpPrompt(server, name, args)}
         onTestAll={() => void testAllMcp()}
       />
       )}
@@ -1487,6 +1502,7 @@ export function SettingsPanel({
         onImport={() => void importSkill()}
         onImportUrl={(url) => void importSkillUrl(url)}
         onImportRepo={(url) => void importSkillRepo(url)}
+        onImportJson={(items) => importSkillsJson(items)}
         onImportFolder={() => void importSkillFolder()}
         onCreate={addSkill}
         onUpdate={(id, patch) => updateSkill(id, patch)}
