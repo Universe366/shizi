@@ -131,7 +131,7 @@ export function ResegmentDialog({ open, lines, onClose, onApply }: ResegmentDial
         </div>
 
         {note && <div className="settings-hint">{note}</div>}
-        {error && <div className="settings-hint" style={{ color: '#c0392b' }}>{error}</div>}
+        {error && <div className="settings-hint" style={{ color: 'var(--danger)' }}>{error}</div>}
 
         <div className="resegment-actions">
           <button className="mini-btn" onClick={onClose} disabled={loading}>

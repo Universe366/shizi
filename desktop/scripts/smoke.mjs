@@ -654,11 +654,11 @@ try {
       await evaluate(
         ws,
         `JSON.stringify({
-          page: Boolean(document.querySelector('.start-page-v2')),
+          page: Boolean(document.querySelector('.start-page-v3')),
           vertical: Boolean(document.querySelector('.tab-strip.is-vertical')),
-          shortcuts: document.querySelectorAll('.start-shortcut').length,
-          widgets: document.querySelectorAll('.start-widget-card').length,
-          custom: document.querySelectorAll('.start-shortcut-custom').length
+          shortcuts: document.querySelectorAll('.start-app-btn, .start-tile[title]').length,
+          widgets: document.querySelectorAll('.start-widget').length,
+          custom: document.querySelectorAll('.start-tile[title]').length
         })`
       )
     );
@@ -673,9 +673,9 @@ try {
       await evaluate(
         ws,
         `(async () => {
-          [...document.querySelectorAll('.start-edit-btn')][0]?.click();
+          [...document.querySelectorAll('.start-pill')].find((el) => el.textContent.includes('编辑'))?.click();
           await new Promise((r) => setTimeout(r, 150));
-          document.querySelector('.start-shortcut-add')?.click();
+          document.querySelector('.start-tab-add')?.click();
           await new Promise((r) => setTimeout(r, 120));
           const inputs = document.querySelectorAll('.start-modal-field input');
           const setValue = (el, value) => {
@@ -694,7 +694,7 @@ try {
           const snapshot = await window.bsub.getSettings();
           return JSON.stringify({
             saved: snapshot.data.settings.general.startShortcuts,
-            tiles: document.querySelectorAll('.start-shortcut-custom').length
+            tiles: document.querySelectorAll('.start-tile[title]').length
           });
         })()`
       )
@@ -706,12 +706,12 @@ try {
       await evaluate(
         ws,
         `(async () => {
-          const tile = [...document.querySelectorAll('.start-shortcut-custom')].find((el) =>
+          const tile = [...document.querySelectorAll('.start-tile[title]')].find((el) =>
             el.title.includes('example.com/smoke')
           );
           tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
           await new Promise((r) => setTimeout(r, 120));
-          const button = [...document.querySelectorAll('.start-shortcut-menu button')].find((item) =>
+          const button = [...document.querySelectorAll('.start-menu button')].find((item) =>
             item.textContent.includes('删除')
           );
           button?.click();
@@ -727,7 +727,7 @@ try {
     await evaluate(
       ws,
       `(() => {
-        const input = document.querySelector('.start-search-v2 input');
+        const input = document.querySelector('.start-search input');
         input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         return 'ok';
       })()`
@@ -1077,10 +1077,10 @@ try {
           document.querySelector('button[title="起始页"]')?.click();
           await new Promise((r) => setTimeout(r, 450));
           const info = {
-            start: Boolean(document.querySelector('.start-page-v2')),
+            start: Boolean(document.querySelector('.start-page-v3')),
             settings: Boolean(document.querySelector('.settings-page'))
           };
-          const input = document.querySelector('.start-search-v2 input');
+          const input = document.querySelector('.start-search input');
           input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
           return JSON.stringify(info);
         })()`

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Cloud, Download, FolderOpen, RefreshCw, Upload } from 'lucide-react';
 import { SettingsSection } from './SettingsSection';
+import { askConfirm } from '../ui/confirm';
 
 interface DataBackupSectionProps {
   dataDir: string;
@@ -78,7 +79,15 @@ export function DataBackupSection({
 
   const pullSync = async () => {
     if (!syncFolder.trim()) return;
-    if (!window.confirm('从同步文件夹恢复设置？会覆盖本机设置（API Key 保留本机）。')) return;
+    if (
+      !(await askConfirm({
+        title: '从同步文件夹恢复设置？',
+        description: '会覆盖本机设置（API Key 保留本机）。',
+        confirmText: '恢复'
+      }))
+    ) {
+      return;
+    }
     setSyncBusy(true);
     const result = await window.bsub.syncPull(syncFolder.trim());
     setSyncBusy(false);

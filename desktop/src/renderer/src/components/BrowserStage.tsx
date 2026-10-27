@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { MonitorPlay } from 'lucide-react';
+import { EmptyState } from './ui/EmptyState';
 
 /** 与 CSS 里的卡片边框对齐：页面让出 1px，圆角由主进程设置为 13px。 */
 const PAGE_INSET = 1;
@@ -63,21 +64,20 @@ export function BrowserStage({
     <section ref={ref} className="browser-stage">
       {snapshot && <img className="stage-snapshot" src={snapshot} alt="" />}
       {!hasTab && (
-        <div className="stage-empty">
-          <div className="stage-empty-icon">
-            <MonitorPlay size={26} />
-          </div>
-          <div className="stage-empty-title">还没有打开的页面</div>
-          <div className="stage-empty-desc">
-            在地址栏输入 BV 号、链接或搜索词，或者点上面的 + 新建标签页。
-          </div>
-          <button
-            className="primary-btn"
-            onClick={() => void window.bsub.newTab('https://www.bilibili.com/')}
-          >
-            打开 B 站
-          </button>
-        </div>
+        <EmptyState
+          fill
+          icon={<MonitorPlay size={26} />}
+          title="还没有打开的页面"
+          desc="在地址栏输入 BV 号、链接或搜索词，或者点上面的 + 新建标签页。"
+          action={
+            <button
+              className="primary-btn"
+              onClick={() => void window.bsub.newTab('https://www.bilibili.com/')}
+            >
+              打开 B 站
+            </button>
+          }
+        />
       )}
     </section>
   );

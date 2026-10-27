@@ -1,6 +1,6 @@
 {
   "name": "shizi",
-  "version": "0.39.3",
+  "version": "0.39.4",
   "private": true,
   "description": "B站字幕助手桌面端",
   "author": "bsub",
@@ -34,7 +34,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.9.0",
@@ -52,7 +51,6 @@
     "prettier": "^3.9.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.5",

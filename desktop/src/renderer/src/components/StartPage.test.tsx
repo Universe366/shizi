@@ -13,7 +13,7 @@ function installBsub() {
           general: {
             searchEngine: 'bing',
             petTodos: [],
-            startShortcuts: [],
+            startShortcuts: [] as Array<{ id: string; label: string; url: string; group?: string }>,
             startWallpaper: 'aurora',
             startWeather: true,
             startCity: '上海',
@@ -134,7 +134,7 @@ describe('StartPage', () => {
           general: {
             searchEngine: 'bing',
             petTodos: [{ id: 1, text: '测试待办', done: false }] as never[],
-            startShortcuts: [],
+            startShortcuts: [] as Array<{ id: string; label: string; url: string; group?: string }>,
             startWallpaper: 'aurora',
             startWeather: true,
             startCity: '上海',
@@ -175,7 +175,7 @@ describe('StartPage', () => {
           general: {
             searchEngine: 'bing',
             petTodos: [],
-            startShortcuts: [],
+            startShortcuts: [] as Array<{ id: string; label: string; url: string; group?: string }>,
             startWallpaper: 'bing',
             startWeather: false,
             startCity: '上海',
@@ -301,5 +301,117 @@ describe('StartPage 编辑模式', () => {
     expect(screen.getByTitle('添加快捷方式')).toBeTruthy();
     fireEvent.click(screen.getByText('编辑'));
     expect(screen.getByTitle('添加快捷方式')).toBeTruthy();
+  });
+});
+describe('StartPage 搜索直达与右键菜单', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  function withShortcuts() {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [],
+            startShortcuts: [
+              { id: 's1', label: '知乎', url: 'https://www.zhihu.com', group: '常用' },
+              { id: 's2', label: 'MDN', url: 'https://developer.mozilla.org', group: '学习' }
+            ],
+            startWallpaper: 'aurora',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.39.3'
+      }
+    }));
+    return api;
+  }
+
+  it('输入收藏站点名称时，第一条建议是直接打开', async () => {
+    withShortcuts();
+    const p = props();
+    render(<StartPage {...p} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const input = screen.getByPlaceholderText(/在 必应 搜索/);
+    fireEvent.change(input, { target: { value: '知乎' } });
+    const first = document.querySelector('.start-suggest-item') as HTMLElement;
+    expect(first.textContent).toContain('知乎');
+    fireEvent.click(first);
+    expect(p.onNavigate).toHaveBeenCalledWith('https://www.zhihu.com');
+  });
+
+  it('回车时完全匹配的名称直接打开站点', async () => {
+    withShortcuts();
+    const p = props();
+    render(<StartPage {...p} />);
+    await waitFor(() => expect(screen.getByText('MDN')).toBeTruthy());
+    const input = screen.getByPlaceholderText(/在 必应 搜索/);
+    fireEvent.change(input, { target: { value: 'MDN' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(p.onNavigate).toHaveBeenCalledWith('https://developer.mozilla.org');
+  });
+
+  it('右键卡片可以删除快捷方式', async () => {
+    const api = withShortcuts();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const tile = document.querySelector('.start-tile[title="https://www.zhihu.com"]') as HTMLElement;
+    fireEvent.contextMenu(tile, { clientX: 300, clientY: 300 });
+    fireEvent.click(screen.getByText('删除'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: [expect.objectContaining({ label: 'MDN' })]
+          })
+        })
+      )
+    );
+  });
+
+  it('分组标签只显示该组站点', async () => {
+    withShortcuts();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /学习/ }));
+    expect(screen.queryByText('知乎')).toBeNull();
+    expect(screen.getByText('MDN')).toBeTruthy();
+  });
+});
+
+describe('StartPage 壁纸抽屉与极简模式', () => {
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
+
+  it('抽屉里的模糊与遮罩会保存到本地', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    const ranges = document.querySelectorAll('.start-range input');
+    expect(ranges.length).toBe(2);
+    fireEvent.change(ranges[0], { target: { value: '12' } });
+    const saved = JSON.parse(localStorage.getItem('start-wallpaper-effect') || '{}');
+    expect(saved.blur).toBe(12);
+  });
+
+  it('极简模式隐藏小组件，再点恢复', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    expect(document.querySelectorAll('.start-widget').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByTitle('极简模式'));
+    await waitFor(() => expect(document.querySelectorAll('.start-widget').length).toBe(0));
+    fireEvent.click(screen.getByTitle('极简模式'));
+    await waitFor(() =>
+      expect(document.querySelectorAll('.start-widget').length).toBeGreaterThan(0)
+    );
   });
 });

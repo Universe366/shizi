@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { askConfirm } from './ui/confirm';
 import type { DiagnosticsInfo } from '../../../shared/types';
 import { AssistantSection } from './settings/AssistantSection';
 import { BridgeSection } from './settings/BridgeSection';
@@ -939,9 +940,12 @@ export function SettingsPanel({
 
   const restoreAll = async () => {
     if (
-      !window.confirm(
-        '恢复备份会覆盖当前设置与字幕库，并自动重启程序。当前数据会先留一份 pre-restore 备份。继续？'
-      )
+      !(await askConfirm({
+        title: '恢复备份？',
+        description:
+          '会覆盖当前设置与字幕库，并自动重启程序。当前数据会先留一份 pre-restore 备份。',
+        confirmText: '恢复并重启'
+      }))
     ) {
       return;
     }
@@ -972,9 +976,13 @@ export function SettingsPanel({
 
   const compactDatabase = async () => {
     if (
-      !window.confirm(
-        '压缩数据库会重建 library.db 并回收磁盘空间；库里条目很多时可能需要几十秒，期间不要关闭程序。继续？'
-      )
+      !(await askConfirm({
+        title: '压缩数据库？',
+        description:
+          '会重建 library.db 并回收磁盘空间；库里条目很多时可能需要几十秒，期间不要关闭程序。',
+        confirmText: '开始压缩',
+        danger: false
+      }))
     ) {
       return;
     }
@@ -995,7 +1003,14 @@ export function SettingsPanel({
   };
 
   const clearPermissions = async () => {
-    if (!window.confirm('清除所有已记住的站点权限？下次访问这些站点时会重新询问。')) return;
+    if (
+      !(await askConfirm({
+        title: '清除所有已记住的站点权限？',
+        description: '下次访问这些站点时会重新询问。'
+      }))
+    ) {
+      return;
+    }
     const response = await window.bsub.clearSitePermissions();
     if (!response.ok) {
       setError(response.error);
@@ -1021,9 +1036,11 @@ export function SettingsPanel({
 
   const clearBrowsingData = async () => {
     if (
-      !window.confirm(
-        '将清除所有网站的 Cookie、缓存、站点数据和登录状态，所有网站都需要重新登录。确认继续？'
-      )
+      !(await askConfirm({
+        title: '清除浏览数据？',
+        description: '将清除所有网站的 Cookie、缓存、站点数据和登录状态，所有网站都需要重新登录。',
+        confirmText: '清除'
+      }))
     ) {
       return;
     }
@@ -1036,7 +1053,15 @@ export function SettingsPanel({
   };
 
   const importSettings = async () => {
-    if (!window.confirm('导入会覆盖当前设置（含 API Key 和插件桥 Token），继续？')) return;
+    if (
+      !(await askConfirm({
+        title: '导入设置？',
+        description: '会覆盖当前设置（含 API Key 和插件桥 Token）。',
+        confirmText: '导入'
+      }))
+    ) {
+      return;
+    }
     setMessage('');
     setError('');
     const response = await window.bsub.importSettings();

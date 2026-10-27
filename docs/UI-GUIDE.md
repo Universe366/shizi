@@ -145,14 +145,25 @@ ChatPanel
 
 ## 4. 样式约定
 
-- 全部在 `renderer/src/styles.css`，按组件分块，不要新增 CSS-in-JS。
-- 颜色/间距优先用变量：`--text`、`--muted`、`--faint`、`--border`、`--surface`、`--surface-2`、`--accent`、`--accent-soft`。
+- 变量在 `renderer/src/styles/tokens.css`（唯一来源），组件样式在 `renderer/src/styles.css` 按组件分块，起始页单独在 `renderer/src/styles/start.css`。不要新增 CSS-in-JS。
+- **组件里不要写十六进制色值**，一律用语义变量：
+
+  | 用途 | 变量 |
+  |---|---|
+  | 底色 / 卡片 / 次级底 | `--bg`、`--surface`、`--surface-2`、`--surface-3` |
+  | 文字三级 | `--text`、`--muted`、`--faint`（保证 ≥ 4.5:1，不要自己配灰色） |
+  | 描边 | `--border`、`--border-strong` |
+  | 品牌 | `--accent`、`--accent-soft`、`--accent-ink`（强调色上的文字，运行时按对比度自动选白/深） |
+  | 语义 | `--ok`、`--warn`、`--danger` 及各自的 `-soft` |
+
+- 字号/圆角/阴影/动效只在 token 里取：`--fs-xs…--fs-xl`、`--radius-sm…--radius-xl`、`--shadow-sm…--shadow-lg`、`--dur-fast/base`。
 - 新增类名用 `组件-元素`：`.chat-menu-card-title`、`.settings-nav-desc`。
 - 按钮优先级：
   - 主操作：`.mini-btn.primary` 或 `.chat-send`
-  - 次操作：`.mini-btn`
+  - 次操作：`.mini-btn`（高度 24px）
   - 图标：`.icon-btn`
 - 新手说明统一用 `.settings-hint`（灰色小字），不要写成段落正文。
+- 二次确认一律用 `askConfirm()`（`components/ui/confirm.tsx`，App 里挂了 `ConfirmHost`），不要再写 `window.confirm`；弹窗文案用 `{ title, description, confirmText }`。
 
 ## 5. 截图与视觉检查
 
@@ -170,28 +181,54 @@ node tools/ui-shots.mjs        # artifacts/ui/{start-page,settings-page,vertical
 - 目录是否可见、点击后是否跳到正确分区（`toc check`）；
 - 垂直标签栏操作菜单是否完整。
 
+起始页与主题另有两个专门的探针：
+
+```bash
+node tools/start-page-check.mjs   # 起始页布局尺寸 / 溢出 / 搜索直达 / 右键菜单 / 抽屉 / 极简
+node tools/theme-check.mjs        # 明暗两套主题下主按钮与说明文字的对比度
+```
+
 截图确认后，把需要的图复制到 `docs/screenshots/`，并更新 README 引用。
 
 ## 6. 起始页
 
-文件：`renderer/src/components/StartPage.tsx`（单文件，含搜索、快捷方式、小组件、壁纸）。
+编排：`renderer/src/components/StartPage.tsx`；子模块在 `components/start/`：
+
+```
+StartPage.tsx          状态、IPC、设置读写（唯一持有 shortcut/widget 状态的地方）
+start/SearchBar.tsx    引擎切换 + 站内直达 + 历史 + 搜索建议
+start/ShortcutBoard.tsx 分组标签、站点卡片、拖拽、右键菜单、添加入口
+start/ShortcutDialog.tsx 新增/编辑弹窗
+start/WidgetPanel.tsx  天气 / 待办 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
+start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
+start/model.ts         类型、壁纸清单、favicon 与配色工具
+styles/start.css       起始页全部样式（只作用于 .start-page 子树）
+```
 
 ### 配色
 
 - 预设：`shared/colorSchemes.ts`（9 套，浅色/深色各有 accent + soft）。
 - 设置：`general.colorScheme`；`custom` 时使用 `general.accentColor`。
-- 应用：`lib/appearance.ts` 的 `applyAppearance()` 监听系统深浅色变化，切换 CSS 变量 `--accent` / `--accent-soft`。
+- 应用：`lib/appearance.ts` 的 `applyAppearance()` 监听系统深浅色变化，切换 `--accent` / `--accent-soft`，并按强调色亮度自动设置 `--accent-ink`（深色主题下浅色强调色会自动配深字）。
 - 新增配色：只改 `COLOR_SCHEMES`，不要在每个组件里写死颜色。
+- 站点图标优先站点自己的 `/favicon.ico`，失败回退到域名生成的字母色块（`tileColor()`），不经过第三方图标服务。
 
 ### 布局
 
 ```
-start-hero-v2        时钟 / 问候 / 壁纸 / 搜索 / 常用站
-start-widget-manager 编辑模式的组件开关与排序（只在 editMode 出现）
-start-widget-grid    天气 / 待办 / 热搜 / 最近入库 / 最近访问
-start-shortcut-area  内置入口 + 自定义快捷方式（可分组、拖拽）
-start-footnote       编辑提示、导入/导出设置
+start-topbar     品牌 + 极简模式 / 编辑 / 壁纸
+start-hero       时钟 / 问候 / 搜索 / 常去站点
+start-board      分组标签 + 内置入口（start-app-row）+ 站点卡片网格
+start-widget-area 天气 / 待办 / 热搜 / 最近入库 / 最近访问（可开关、可排序）
+start-footnote   操作提示、导入导出设置
 ```
+
+### 交互约定
+
+- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；`Ctrl/⌘ + K` 聚焦，`Esc` 先清空再关闭。
+- 卡片：左键打开，右键菜单「打开 / 编辑 / 删除」，编辑模式下可拖拽排序与换组。
+- 壁纸：右侧抽屉，含 6 套壁纸、本地上传、模糊与遮罩滑杆。
+- 极简模式：隐藏小组件与分组标签，只留时钟、搜索和站点。
 
 ### 状态与持久化
 
@@ -203,12 +240,14 @@ start-footnote       编辑提示、导入/导出设置
 | 天气/热搜开关 | `general.startWeather`、`general.startHotSearch`（兼容旧配置） |
 | 壁纸 | `general.startWallpaper` / `startWallpaperImage` |
 | 搜索历史 | `localStorage: start-search-history`（最多 8 条） |
+| 极简模式 | `localStorage: start-minimal`（`1`/`0`） |
+| 壁纸模糊/遮罩 | `localStorage: start-wallpaper-effect`（`{ blur, dim }`） |
 
 **加组件**：
 
 1. 在 `WIDGET_LABELS` 与 `ALL_WIDGETS` 加 id；
 2. 在 `settings.ts` 的 `startWidgets` 默认值里加 id；
-3. 渲染一个 `.start-widget-card`，条件用 `widgetVisible(id)`；
+3. 渲染一个 `.start-widget`，条件用 `widgetVisible(id)`；
 4. 需要后端数据时加 IPC，并处理失败空态。
 
 **注意**：组件顺序用 `orderOf(id)` 设置 CSS `order`；隐藏的组件不渲染，不要只靠 CSS 隐藏。
@@ -263,7 +302,7 @@ start-footnote       编辑提示、导入/导出设置
 ## 11. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 136 文件 / 775 用例）
+- `npm test`（当前 136 文件 / 781 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
 - 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步。

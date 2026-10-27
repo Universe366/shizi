@@ -352,7 +352,7 @@ export function AsrSection({
           {localStatus?.note ? `（${localStatus.note}）` : ''}
         </div>
         {localStatus && !localStatus.binary && (
-          <div className="settings-hint" style={{ color: '#c0392b' }}>
+          <div className="settings-hint" style={{ color: 'var(--danger)' }}>
             还没有 whisper.cpp 可执行文件：请在上面选择构建并点「下载 whisper.cpp」，否则转写会提示找不到可执行文件。
           </div>
         )}

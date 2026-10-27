@@ -27,6 +27,7 @@ import { useDropImport } from './lib/dropImport';
 import { overlayVisible, useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
+import { ConfirmHost } from './components/ui/confirm';
 import { DictationListener } from './components/DictationListener';
 import { applyAppearance } from './lib/appearance';
 import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../../shared/shortcuts';
@@ -892,6 +893,7 @@ export default function App() {
           window.bsub.closeDecision(choice, remember);
         }}
       />
+      <ConfirmHost />
     </div>
   );
 }

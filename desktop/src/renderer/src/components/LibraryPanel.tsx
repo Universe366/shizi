@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { askConfirm } from './ui/confirm';
 import type {
   CollectionResolveResult,
   CollectionSummary,
@@ -521,7 +522,15 @@ export function LibraryPanel() {
   };
 
   const purgeTrashItem = async (item: TrashItem) => {
-    if (!window.confirm(`彻底删除「${item.title || '未命名视频'}」？此操作不可恢复。`)) return;
+    if (
+      !(await askConfirm({
+        title: `彻底删除「${item.title || '未命名视频'}」？`,
+        description: '此操作不可恢复。',
+        confirmText: '删除'
+      }))
+    ) {
+      return;
+    }
     setTrashBusy(item.id);
     const response = await window.bsub.deleteTrash(item.id);
     setTrashBusy(0);
@@ -534,7 +543,15 @@ export function LibraryPanel() {
 
   const clearAllTrash = async () => {
     if (!trashItems.length) return;
-    if (!window.confirm(`清空回收站里的 ${trashItems.length} 个条目？此操作不可恢复。`)) return;
+    if (
+      !(await askConfirm({
+        title: `清空回收站里的 ${trashItems.length} 个条目？`,
+        description: '此操作不可恢复。',
+        confirmText: '清空'
+      }))
+    ) {
+      return;
+    }
     const response = await window.bsub.clearTrash();
     if (!response.ok) {
       setError(response.error);

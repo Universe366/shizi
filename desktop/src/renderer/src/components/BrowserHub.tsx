@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Bookmark as BookmarkItem, DownloadRecord, HistoryEntry, TabInfo } from '../../../shared/types';
 import { formatDateTime } from '../lib/format';
+import { askConfirm } from './ui/confirm';
 
 export type HubSection = 'history' | 'bookmarks' | 'downloads' | 'tabs';
 
@@ -114,7 +115,7 @@ export function BrowserHub({
   if (!open) return null;
 
   const clearHistory = async () => {
-    if (!window.confirm('清空全部浏览历史？')) return;
+    if (!(await askConfirm('清空全部浏览历史？'))) return;
     const response = await window.bsub.clearBrowseHistory();
     if (response.ok) setHistory([]);
   };
@@ -125,7 +126,7 @@ export function BrowserHub({
   };
 
   const clearDownloads = async () => {
-    if (!window.confirm('清空下载记录？不会删除已经下载的文件。')) return;
+    if (!(await askConfirm({ title: '清空下载记录？', description: '不会删除已经下载的文件。' }))) return;
     const response = await window.bsub.clearDownloads();
     if (response.ok) setDownloads([]);
   };

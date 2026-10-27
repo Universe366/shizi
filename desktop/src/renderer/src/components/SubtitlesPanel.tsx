@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { askConfirm } from './ui/confirm';
 import { AlertTriangle, Copy, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import type {
   OptimizeSuggestion,
@@ -1088,9 +1089,17 @@ export function SubtitlesPanel({
     window.setTimeout(() => setSaveMessage(''), 2000);
   };
 
-  const clearSubtitles = () => {
+  const clearSubtitles = async () => {
     if (!lines.length) return;
-    if (!window.confirm('清空当前字幕显示？不会删除本地库、缓存或视频。')) return;
+    if (
+      !(await askConfirm({
+        title: '清空当前字幕显示？',
+        description: '不会删除本地库、缓存或视频。',
+        confirmText: '清空'
+      }))
+    ) {
+      return;
+    }
     setLines([]);
     if (track) clearTranslationResult(videoKeyRef.current, track.url);
     setTrack(null);
@@ -1426,7 +1435,7 @@ export function SubtitlesPanel({
             className="icon-btn"
             title="清空字幕显示（不删除本地库与缓存）"
             disabled={!lines.length}
-            onClick={clearSubtitles}
+            onClick={() => void clearSubtitles()}
           >
             <Trash2 size={13} />
           </button>

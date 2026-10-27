@@ -9,6 +9,7 @@ import type {
   VerificationSummary
 } from '../../../shared/types';
 import { Markdown } from './Markdown';
+import { EmptyState } from './ui/EmptyState';
 import { VerifyCard } from './VerifyCard';
 import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
@@ -701,16 +702,17 @@ export function SummaryPanel({
       )}
 
       {!streaming && !summary && !error && isVideoPage && !loading && (
-        <div className="summary-empty">
-          <div className="summary-empty-icon">
-            <Sparkles size={22} />
-          </div>
-          <div className="summary-empty-title">还没有总结</div>
-          <div className="summary-empty-desc">会先抓取当前视频字幕，再调用设置里的 AI 平台生成。</div>
-          <button className="primary-btn" onClick={() => void generate()}>
-            生成总结
-          </button>
-        </div>
+        <EmptyState
+          fill
+          icon={<Sparkles size={22} />}
+          title="还没有总结"
+          desc="会先抓取当前视频字幕，再调用设置里的 AI 平台生成。"
+          action={
+            <button className="primary-btn" onClick={() => void generate()}>
+              生成总结
+            </button>
+          }
+        />
       )}
 
       {summary && (

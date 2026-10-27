@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SETTINGS_GROUPS } from './components/settings/registry';
+import { askConfirm } from './components/ui/confirm';
 
 /** 设置页：左侧分类导航 + 右侧分组内容。 */
 export function SettingsPage({ onClose }: { onClose: () => void }) {
@@ -16,8 +17,16 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const active = SETTINGS_GROUPS.find((item) => item.id === group) || SETTINGS_GROUPS[0];
   const Icon = active.icon;
 
-  const close = () => {
-    if (dirty && !window.confirm('有未保存的设置，确定关闭？')) return;
+  const close = async () => {
+    if (dirty) {
+      const ok = await askConfirm({
+        title: '有未保存的设置',
+        description: '关闭后这次的修改会丢失。',
+        confirmText: '仍然关闭',
+        danger: false
+      });
+      if (!ok) return;
+    }
     onClose();
   };
 
@@ -90,8 +99,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      if (dirty && !window.confirm('有未保存的设置，确定关闭？')) return;
-      onClose();
+      void close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -109,7 +117,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
         </div>
         <div className="settings-page-head-actions">
           {dirty && <span className="settings-dirty">未保存</span>}
-          <button className="mini-btn" onClick={close}>
+          <button className="mini-btn" onClick={() => void close()}>
             关闭
           </button>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { EmptyState } from './ui/EmptyState';
 import { AlertTriangle, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
@@ -1352,13 +1353,15 @@ export function ChatPanel({
       {activeTab && (
         <div className="chat-body" ref={scrollRef}>
           {!messages.length && !streaming && (
-            <div className="chat-empty">
-              <div className="chat-empty-title">{isVideoPage ? '基于本片字幕提问' : '就当前页面提问'}</div>
-              <div className="chat-empty-desc">
-                {isVideoPage
+            <EmptyState
+              plain
+              title={isVideoPage ? '基于本片字幕提问' : '就当前页面提问'}
+              desc={
+                isVideoPage
                   ? '会先读取当前视频字幕，再让设置里的 AI 平台回答。'
-                  : '会读取当前网页正文和你选中的内容，再让设置里的 AI 平台回答。'}
-              </div>
+                  : '会读取当前网页正文和你选中的内容，再让设置里的 AI 平台回答。'
+              }
+            >
               <div className="chat-suggestions">
                 {(isVideoPage ? SUGGESTIONS : PAGE_SUGGESTIONS).map((suggestion) => (
                   <button
@@ -1370,7 +1373,7 @@ export function ChatPanel({
                   </button>
                 ))}
               </div>
-            </div>
+            </EmptyState>
           )}
 
           {messages.map((message, index) => (

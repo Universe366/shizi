@@ -112,7 +112,7 @@ export function ShortcutsSection({ value, onChange }: ShortcutsSectionProps) {
       </div>
 
       {conflicts.length > 0 && (
-        <div className="settings-hint" style={{ color: 'var(--danger, #c0392b)' }}>
+        <div className="settings-hint" style={{ color: 'var(--danger)' }}>
           有重复绑定：
           {conflicts
             .map((ids) =>
@@ -168,7 +168,7 @@ export function ShortcutsSection({ value, onChange }: ShortcutsSectionProps) {
         </div>
       )}
       {error && (
-        <div className="settings-hint" style={{ color: '#c0392b' }}>
+        <div className="settings-hint" style={{ color: 'var(--danger)' }}>
           {error}
         </div>
       )}

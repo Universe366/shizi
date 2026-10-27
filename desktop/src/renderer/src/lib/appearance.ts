@@ -21,6 +21,23 @@ function isDark(): boolean {
   }
 }
 
+function luminance(hex: string): number {
+  const clean = hex.replace('#', '');
+  const channels = [0, 2, 4].map((index) => parseInt(clean.slice(index, index + 2), 16) / 255);
+  const linear = channels.map((value) =>
+    value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
+  );
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
+/** 强调色上的文字：按对比度自动选白字或深字，深浅主题都不至于看不清。 */
+function inkFor(accent: string): string {
+  const ratio = luminance(accent);
+  const onWhite = 1.05 / (ratio + 0.05);
+  const onInk = (ratio + 0.05) / (luminance('#0b0f15') + 0.05);
+  return onWhite >= onInk ? '#ffffff' : '#0b0f15';
+}
+
 function applyColors(): void {
   const root = document.documentElement;
   const scheme = colorSchemeById(current.colorScheme);
@@ -39,6 +56,7 @@ function applyColors(): void {
   const soft = custom ? `${accent}24` : isDark() ? scheme.dark.soft : scheme.light.soft;
   root.style.setProperty('--accent', accent);
   root.style.setProperty('--accent-soft', soft);
+  root.style.setProperty('--accent-ink', inkFor(accent));
   root.dataset.colorScheme = scheme.id || 'custom';
 }
 

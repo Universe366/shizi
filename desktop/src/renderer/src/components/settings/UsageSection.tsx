@@ -9,6 +9,7 @@ import type {
 } from '../../../../shared/types';
 import { AI_TASK_LABELS, estimateCost, priceFor } from '../../../../shared/aiTasks';
 import { SettingsSection } from './SettingsSection';
+import { askConfirm } from '../ui/confirm';
 
 const RANGES = [
   { days: 7, label: '近 7 天' },
@@ -159,7 +160,7 @@ export function UsageSection({ value, onChange }: Props) {
           <button
             className="mini-btn"
             onClick={async () => {
-              if (!window.confirm('清空所有用量记录？此操作不可恢复。')) return;
+              if (!(await askConfirm({ title: '清空所有用量记录？', description: '此操作不可恢复。' }))) return;
               const response = await window.bsub.clearUsage();
               if (response.ok) {
                 setNotice(`已清空 ${response.data.removed} 条记录`);
