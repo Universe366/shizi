@@ -192,6 +192,14 @@ async function evaluateTracks(
   return { best, checks };
 }
 
+const isLocalTrack = (track: SubtitleTrack): boolean =>
+  track.source === 'asr' || track.source === 'import' || track.url.startsWith('library://');
+
+export const preferLocal = (tracks: SubtitleTrack[], failed: Set<string>): SubtitleTrack[] =>
+  tracks
+    .filter((track) => track.url && !failed.has(track.url))
+    .sort((a, b) => Number(isLocalTrack(b)) - Number(isLocalTrack(a)));
+
 export function SubtitlesPanel({
   activeTab,
   active = true,
@@ -875,13 +883,11 @@ export function SubtitlesPanel({
                 })
               );
               failedTrackUrlsRef.current.add(track.url);
-              const alternatives = (bundleRef.current?.tracks || []).filter(
-                (item) =>
-                  item.url &&
-                  item.source !== 'asr' &&
-                  !failedTrackUrlsRef.current.has(item.url)
+              const alternatives = preferLocal(
+                bundleRef.current?.tracks || [],
+                failedTrackUrlsRef.current
               );
-              if (failedTrackUrlsRef.current.size < 3 && alternatives.length) {
+              if (alternatives.length) {
                 setTrack(alternatives[0]);
                 return;
               }
@@ -915,13 +921,11 @@ export function SubtitlesPanel({
                 })
               );
               failedTrackUrlsRef.current.add(track.url);
-              const alternatives = (bundleRef.current?.tracks || []).filter(
-                (item) =>
-                  item.url &&
-                  item.source !== 'asr' &&
-                  !failedTrackUrlsRef.current.has(item.url)
+              const alternatives = preferLocal(
+                bundleRef.current?.tracks || [],
+                failedTrackUrlsRef.current
               );
-              if (failedTrackUrlsRef.current.size < 3 && alternatives.length) {
+              if (alternatives.length) {
                 setTrack(alternatives[0]);
                 return;
               }
@@ -953,10 +957,11 @@ export function SubtitlesPanel({
         }
         failedTrackUrlsRef.current.add(track.url);
         // 官方轨为空/失败时也要回退到已保存的转写，而不是直接报“没有正文”。
-        const alternatives = (bundleRef.current?.tracks || []).filter(
-          (item) => item.url && !failedTrackUrlsRef.current.has(item.url)
+        const alternatives = preferLocal(
+          bundleRef.current?.tracks || [],
+          failedTrackUrlsRef.current
         );
-        if (failedTrackUrlsRef.current.size < 3 && alternatives.length) {
+        if (alternatives.length) {
           setTrack(alternatives[0]);
           return;
         }

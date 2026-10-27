@@ -254,3 +254,115 @@ describe('流式工具循环', () => {
     );
   });
 });
+
+describe('Anthropic / Gemini 流式工具循环', () => {
+  const sse = (chunks: string[]): Response => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      }
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' }
+    });
+  };
+
+  beforeEach(() => {
+    state.queue = [];
+    state.calls = [];
+  });
+
+  it('Anthropic：input_json_delta 拼出工具参数，执行后继续流式输出', async () => {
+    state.queue.push(
+      sse([
+        'data: {"type":"message_start","message":{"usage":{"input_tokens":5}}}\n\n',
+        'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"app__web_search","input":{}}}\n\n',
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"query\\":\\"测试\\"}"}}\n\n',
+        'data: {"type":"content_block_stop","index":0}\n\n',
+        'data: {"type":"message_delta","usage":{"output_tokens":3}}\n\n',
+        'data: {"type":"message_stop"}\n\n'
+      ])
+    );
+    state.queue.push(
+      sse([
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"答案"}}\n\n',
+        'data: {"type":"message_stop"}\n\n'
+      ])
+    );
+    const runTool = vi.fn(async () => '{"results":[]}');
+    let streamed = '';
+    const result = await chatToolLoopStream(
+      platform({ kind: 'anthropic', baseUrl: 'https://api.anthropic.com/v1' }),
+      [{ role: 'user', content: '查一下' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: { query: { type: 'string' } } }
+        }
+      ],
+      { task: 'chat', maxRounds: 3, onDelta: (delta) => (streamed += delta) },
+      runTool
+    );
+    expect(runTool).toHaveBeenCalledWith({
+      id: 'toolu_1',
+      name: 'app__web_search',
+      arguments: '{"query":"测试"}'
+    });
+    expect(result.text).toBe('答案');
+    expect(streamed).toBe('答案');
+    const secondBody = JSON.parse(String(state.calls[1].init.body));
+    expect(secondBody.messages.some((item: Record<string, unknown>) => item.role === 'user' && Array.isArray(item.content))).toBe(true);
+  });
+
+  it('Gemini：functionCall 后追加 functionResponse 并继续流式输出', async () => {
+    state.queue.push(
+      sse([
+        'data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"app__web_search","args":{"query":"测试"}}}]}}]}\n\n'
+      ])
+    );
+    state.queue.push(
+      sse([
+        'data: {"candidates":[{"content":{"parts":[{"text":"答案"}]}}],"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":2}}\n\n'
+      ])
+    );
+    const runTool = vi.fn(async () => '{"results":[]}');
+    let streamed = '';
+    const result = await chatToolLoopStream(
+      platform({
+        kind: 'gemini',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+        model: 'gemini-2.5-flash'
+      }),
+      [{ role: 'user', content: '查一下' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: { query: { type: 'string' } } }
+        }
+      ],
+      { task: 'chat', maxRounds: 3, onDelta: (delta) => (streamed += delta) },
+      runTool
+    );
+    expect(runTool).toHaveBeenCalledWith({
+      id: '',
+      name: 'app__web_search',
+      arguments: '{"query":"测试"}'
+    });
+    expect(result.text).toBe('答案');
+    expect(streamed).toBe('答案');
+    const secondBody = JSON.parse(String(state.calls[1].init.body));
+    expect(
+      secondBody.contents.some(
+        (item: Record<string, unknown>) =>
+          item.role === 'user' &&
+          Array.isArray(item.parts) &&
+          (item.parts as Array<Record<string, unknown>>).some((part) => part.functionResponse)
+      )
+    ).toBe(true);
+  });
+});

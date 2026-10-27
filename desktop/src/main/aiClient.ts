@@ -803,6 +803,227 @@ export interface AiToolResult {
   content: string;
 }
 
+async function readSseEvents(
+  response: Response,
+  onEvent: (json: Record<string, unknown>) => void
+): Promise<boolean> {
+  const contentType = response.headers.get('content-type') || '';
+  if (!response.body || !contentType.includes('text/event-stream')) return false;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finished = false;
+  while (!finished) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    buffer += decoder.decode(chunk.value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data) continue;
+      if (data === '[DONE]') {
+        finished = true;
+        break;
+      }
+      try {
+        onEvent(JSON.parse(data) as Record<string, unknown>);
+      } catch {
+        // 忽略非 JSON 事件
+      }
+    }
+  }
+  return true;
+}
+
+function safeJson(text: string): Record<string, unknown> {
+  try {
+    const value = JSON.parse(text || '{}');
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Anthropic Messages 的流式工具循环。 */
+async function chatAnthropicToolLoopStream(
+  platform: AiPlatform,
+  messages: AiMessage[],
+  tools: AiToolDef[],
+  options: AiChatOptions & {
+    maxRounds?: number;
+    onDelta?: (delta: string) => void;
+    onReasoning?: (delta: string) => void;
+  },
+  runTool: (call: AiToolCall) => Promise<string>
+): Promise<AiChatResult> {
+  const maxRounds = Math.max(1, options.maxRounds || 6);
+  const payload = toAnthropicPayload(messages);
+  const convo = payload.messages as unknown as Array<Record<string, unknown>>;
+  let text = '';
+  let reasoning = '';
+  let usage: AiUsage | undefined;
+  const finish = (): AiChatResult => {
+    if (!text.trim()) throw new Error('AI 返回为空');
+    trackUsage(platform, options.task, usage);
+    return { text, reasoning, usage };
+  };
+  for (let round = 0; round < maxRounds; round += 1) {
+    if (options.signal?.aborted) throw new Error('已终止');
+    const body: Record<string, unknown> = {
+      model: platform.model.trim(),
+      max_tokens: Math.max(1, options.maxTokens || 8192),
+      temperature: options.temperature,
+      stream: true,
+      messages: convo,
+      tools: toAnthropicTools(tools),
+      tool_choice: { type: 'auto' },
+      ...(payload.system ? { system: payload.system } : {})
+    };
+    const response = await postJson(platform, body, options);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(errorForStatus(response.status, detail));
+    }
+    let roundText = '';
+    const calls = new Map<number, { id: string; name: string; json: string }>();
+    const ok = await readSseEvents(response, (json) => {
+      const type = String(json.type || '');
+      if (type === 'message_start') {
+        usage = mergeUsage(usage, usageFromPayload((json.message as Record<string, unknown>)?.usage as Record<string, unknown>));
+      } else if (type === 'message_delta') {
+        usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
+      } else if (type === 'content_block_start') {
+        const block = (json.content_block || {}) as Record<string, unknown>;
+        const index = Number(json.index ?? 0) || 0;
+        if (block.type === 'tool_use') {
+          calls.set(index, { id: String(block.id || ''), name: String(block.name || ''), json: '' });
+        } else if (block.type === 'text' && block.text) {
+          roundText += String(block.text);
+          text += String(block.text);
+          options.onDelta?.(String(block.text));
+        }
+      } else if (type === 'content_block_delta') {
+        const delta = (json.delta || {}) as Record<string, unknown>;
+        const index = Number(json.index ?? 0) || 0;
+        if (delta.type === 'text_delta') {
+          roundText += String(delta.text || '');
+          text += String(delta.text || '');
+          options.onDelta?.(String(delta.text || ''));
+        } else if (delta.type === 'thinking_delta') {
+          reasoning += String(delta.thinking || '');
+          options.onReasoning?.(String(delta.thinking || ''));
+        } else if (delta.type === 'input_json_delta') {
+          const call = calls.get(index);
+          if (call) call.json += String(delta.partial_json || '');
+        }
+      }
+    });
+    if (!ok) return chatToolLoop(platform, messages, tools, options, runTool);
+    if (!calls.size) return finish();
+    const ordered = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, call]) => call);
+    const content: Array<Record<string, unknown>> = [];
+    if (roundText) content.push({ type: 'text', text: roundText });
+    for (const call of ordered) {
+      content.push({ type: 'tool_use', id: call.id, name: call.name, input: safeJson(call.json) });
+    }
+    convo.push({ role: 'assistant', content });
+    const results: Array<Record<string, unknown>> = [];
+    for (const call of ordered) {
+      let output = '';
+      try {
+        output = await runTool({ id: call.id, name: call.name, arguments: call.json || '{}' });
+      } catch (error) {
+        output = '工具调用失败：' + (error as Error).message;
+      }
+      results.push({ type: 'tool_result', tool_use_id: call.id, content: String(output || '').slice(0, 4000) });
+    }
+    convo.push({ role: 'user', content: results });
+  }
+  throw new Error('工具调用轮次过多');
+}
+
+/** Gemini 的流式工具循环。 */
+async function chatGeminiToolLoopStream(
+  platform: AiPlatform,
+  messages: AiMessage[],
+  tools: AiToolDef[],
+  options: AiChatOptions & {
+    maxRounds?: number;
+    onDelta?: (delta: string) => void;
+    onReasoning?: (delta: string) => void;
+  },
+  runTool: (call: AiToolCall) => Promise<string>
+): Promise<AiChatResult> {
+  const maxRounds = Math.max(1, options.maxRounds || 6);
+  const payload = toGeminiPayload(messages);
+  const contents: Array<Record<string, unknown>> = payload.contents.map((row) => ({
+    role: row.role,
+    parts: row.parts
+  }));
+  let text = '';
+  let usage: AiUsage | undefined;
+  const finish = (): AiChatResult => {
+    if (!text.trim()) throw new Error('AI 返回为空');
+    trackUsage(platform, options.task, usage);
+    return { text, reasoning: '', usage };
+  };
+  for (let round = 0; round < maxRounds; round += 1) {
+    if (options.signal?.aborted) throw new Error('已终止');
+    const body: Record<string, unknown> = {
+      contents,
+      ...(payload.system ? { systemInstruction: { parts: [{ text: payload.system }] } } : {}),
+      generationConfig: {
+        temperature: options.temperature,
+        maxOutputTokens: Math.max(1, options.maxTokens || 8192)
+      },
+      tools: [{ functionDeclarations: toGeminiTools(tools) }]
+    };
+    const response = await postJson(platform, body, options);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(errorForStatus(response.status, detail));
+    }
+    let roundText = '';
+    const calls: Array<Record<string, unknown>> = [];
+    const ok = await readSseEvents(response, (json) => {
+      usage = mergeUsage(usage, usageFromGemini(json.usageMetadata as Record<string, unknown>));
+      const parts = ((json.candidates as Array<Record<string, unknown>> | undefined)?.[0]?.content as Record<string, unknown> | undefined)?.parts as Array<Record<string, unknown>> | undefined;
+      for (const part of Array.isArray(parts) ? parts : []) {
+        if (part.text) {
+          roundText += String(part.text);
+          text += String(part.text);
+          options.onDelta?.(String(part.text));
+        }
+        if (part.functionCall) calls.push(part);
+      }
+    });
+    if (!ok) return chatToolLoop(platform, messages, tools, options, runTool);
+    if (!calls.length) return finish();
+    const modelParts: Array<Record<string, unknown>> = [];
+    if (roundText) modelParts.push({ text: roundText });
+    modelParts.push(...calls);
+    contents.push({ role: 'model', parts: modelParts });
+    const responses: Array<Record<string, unknown>> = [];
+    for (const part of calls) {
+      const fn = (part.functionCall || {}) as Record<string, unknown>;
+      const name = String(fn.name || '');
+      let output = '';
+      try {
+        output = await runTool({ id: '', name, arguments: JSON.stringify(fn.args ?? {}) });
+      } catch (error) {
+        output = '工具调用失败：' + (error as Error).message;
+      }
+      responses.push({
+        functionResponse: { name, response: { result: String(output || '').slice(0, 4000) } }
+      });
+    }
+    contents.push({ role: 'user', parts: responses });
+  }
+  throw new Error('工具调用轮次过多');
+}
+
 /** OpenAI 兼容平台的流式工具循环：工具轮与最终回答都在同一个流里推进。 */
 export async function chatToolLoopStream(
   platform: AiPlatform,
@@ -815,12 +1036,11 @@ export async function chatToolLoopStream(
   },
   runTool: (call: AiToolCall) => Promise<string>
 ): Promise<AiChatResult> {
-  if (isGeminiPlatform(platform) || isAnthropicPlatform(platform)) {
-    const result = await chatToolLoop(platform, messages, tools, options, runTool);
-    // 非流式回退：把完整结果补发一次，调用方不需要再区分路径。
-    if (result.text) options.onDelta?.(result.text);
-    if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return result;
+  if (isGeminiPlatform(platform)) {
+    return chatGeminiToolLoopStream(platform, messages, tools, options, runTool);
+  }
+  if (isAnthropicPlatform(platform)) {
+    return chatAnthropicToolLoopStream(platform, messages, tools, options, runTool);
   }
   const maxRounds = Math.max(1, options.maxRounds || 6);
   const convo = toOpenAiMessages(messages) as unknown as Array<Record<string, unknown>>;
