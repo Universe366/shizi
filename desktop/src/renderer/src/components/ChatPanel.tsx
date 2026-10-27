@@ -427,12 +427,14 @@ export function ChatPanel({
     await window.bsub.chatApprove(approval.approvalId, allow);
   };
 
-  const toggleComparePlatform = (id: string): void => {
-    const next = compareSelection.includes(id)
-      ? compareSelection.filter((item) => item !== id)
+  const compareKey = (platformId: string, model: string) => `${platformId}::${model}`;
+
+  const toggleCompareTarget = (key: string): void => {
+    const next = compareSelection.includes(key)
+      ? compareSelection.filter((item) => item !== key)
       : compareSelection.length >= 3
         ? compareSelection
-        : [...compareSelection, id];
+        : [...compareSelection, key];
     setCompareSelection(next);
     try {
       localStorage.setItem('chat-compare', JSON.stringify(next));
@@ -441,10 +443,24 @@ export function ChatPanel({
     }
   };
 
+  const compareTargets = compareSelection
+    .map((key) => {
+      const index = key.indexOf('::');
+      if (index < 0) {
+        const platform = platforms.find((item) => item.id === key);
+        return platform ? { platformId: key, model: platform.model } : null;
+      }
+      return {
+        platformId: key.slice(0, index),
+        model: key.slice(index + 2)
+      };
+    })
+    .filter((item): item is { platformId: string; model: string } => Boolean(item));
+
   const runCompare = async (): Promise<void> => {
     if (comparing) return;
-    if (compareSelection.length < 2) {
-      setError('至少选择 2 个平台做对比');
+    if (compareTargets.length < 2) {
+      setError('至少选择 2 个模型做对比');
       return;
     }
     const typing = input.trim();
@@ -468,7 +484,7 @@ export function ChatPanel({
           role: message.role,
           content: message.content
         })),
-        platformIds: compareSelection,
+        targets: compareTargets,
         includePage
       });
       if (!response.ok) throw new Error(response.error);
@@ -1952,26 +1968,41 @@ export function ChatPanel({
                 选 2–3 个平台，用同一个问题并排回答；对比模式不启用 MCP 工具与联网。
               </div>
               <div className="chat-compare-options">
-                {platforms.map((platform) => {
-                  const checked = compareSelection.includes(platform.id);
-                  return (
-                    <label key={platform.id} className="chat-tool-option" title={platform.model}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={!checked && compareSelection.length >= 3}
-                        onChange={() => toggleComparePlatform(platform.id)}
-                      />
-                      <span>
-                        {platform.name} · {platform.model}
-                      </span>
-                    </label>
-                  );
-                })}
+                {platforms
+                  .filter((platform) => platform.enabled !== false)
+                  .map((platform) => {
+                    const models = (platform.models?.length
+                      ? platform.models
+                      : [platform.model]
+                    ).filter(Boolean);
+                    if (!models.length) return null;
+                    return (
+                      <div key={platform.id} className="chat-compare-group">
+                        <div className="chat-compare-group-title">{platform.name}</div>
+                        {models.map((model) => {
+                          const key = compareKey(platform.id, model);
+                          const legacy =
+                            compareSelection.includes(platform.id) && model === platform.model;
+                          const checked = compareSelection.includes(key) || legacy;
+                          return (
+                            <label key={key} className="chat-tool-option" title={model}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={!checked && compareSelection.length >= 3}
+                                onChange={() => toggleCompareTarget(key)}
+                              />
+                              <span>{model}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
               </div>
               <button
                 className="mini-btn primary"
-                disabled={compareSelection.length < 2 || comparing}
+                disabled={compareTargets.length < 2 || comparing}
                 onClick={() => void runCompare()}
               >
                 {comparing ? <Loader2 size={12} className="spin" /> : null}
@@ -2285,7 +2316,7 @@ export function ChatPanel({
             </div>
             <div className="compare-grid">
               {comparison.results.map((result) => (
-                <div key={result.platformId} className="compare-col">
+                <div key={`${result.platformId}:${result.model}`} className="compare-col">
                   <div className="compare-title">
                     {result.platformName}
                     <span>{result.model}</span>

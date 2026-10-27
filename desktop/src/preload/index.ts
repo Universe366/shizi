@@ -701,7 +701,8 @@ const api: BsubApi = {
     info: PageInfo;
     lines: SubtitleLine[];
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    platformIds: string[];
+    platformIds?: string[];
+    targets?: Array<{ platformId: string; model?: string }>;
     includePage?: boolean;
   }) =>
     ipcRenderer.invoke('chat:compare', payload) as Promise<Result<ChatCompareResult[]>>,

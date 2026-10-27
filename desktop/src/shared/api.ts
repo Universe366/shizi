@@ -536,7 +536,8 @@ export interface BsubApi {
     info: PageInfo;
     lines: SubtitleLine[];
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    platformIds: string[];
+    platformIds?: string[];
+    targets?: Array<{ platformId: string; model?: string }>;
     includePage?: boolean;
   }): Promise<Result<ChatCompareResult[]>>;
   cancelChat(requestId: string): Promise<void>;

@@ -417,17 +417,32 @@ export function registerMediaIpc(ctx: IpcContext): void {
         info: PageInfo;
         lines: SubtitleLine[];
         messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-        platformIds: string[];
+        platformIds?: string[];
+        targets?: Array<{ platformId: string; model?: string }>;
         includePage?: boolean;
       }
     ): Promise<{ ok: true; data: ChatCompareResult[] } | { ok: false; error: string }> => {
       try {
         const settings = loadSettings();
-        const ids = (payload.platformIds || []).slice(0, 3);
-        const platforms = ids
-          .map((id) => settings.ai.platforms.find((item) => item.id === id))
+        const targets: Array<{ platformId: string; model?: string }> =
+          Array.isArray(payload.targets) && payload.targets.length
+            ? payload.targets.slice(0, 3)
+            : (payload.platformIds || [])
+                .slice(0, 3)
+                .map((platformId) => ({ platformId }));
+        const platforms = targets
+          .map((target) => {
+            const platform = settings.ai.platforms.find(
+              (item) => item.id === target.platformId && item.enabled !== false
+            );
+            if (!platform) return null;
+            return {
+              ...platform,
+              model: String(target.model || '').trim() || platform.model
+            };
+          })
           .filter((item): item is NonNullable<typeof item> => Boolean(item));
-        if (!platforms.length) return { ok: false, error: '请选择至少一个模型平台' };
+        if (!platforms.length) return { ok: false, error: '请选择至少一个模型' };
         const page =
           payload.includePage === false
             ? null

@@ -12975,3 +12975,15 @@ sup:has(> .cite-ref) {
   justify-content: space-between;
   gap: 6px;
 }
+
+.chat-compare-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-compare-group-title {
+  padding: 4px 2px 2px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
