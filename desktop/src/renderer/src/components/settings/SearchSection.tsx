@@ -517,65 +517,25 @@ export function SearchSection({
           热门评论（仅作观众观点参考）
         </label>
         <div className="settings-field">
-          <div className="settings-label">长字幕分段策略</div>
-          <select
+          <div className="settings-label">总结分段数量（0=自动，1=不分段）</div>
+          <input
             className="settings-input"
-            value={search.summarySplitMode || 'auto'}
+            type="number"
+            min={0}
+            max={20}
+            value={search.summarySegments ?? 0}
             onChange={(event) =>
               updateSearch({
-                summarySplitMode: event.target.value as 'auto' | 'fixed' | 'never'
+                summarySegments: Math.min(
+                  20,
+                  Math.max(0, Math.floor(Number(event.target.value) || 0))
+                )
               })
             }
-          >
-            <option value="auto">自动（按模型上下文）</option>
-            <option value="fixed">固定 18000 字符</option>
-            <option value="never">尽量一次总结</option>
-          </select>
+          />
           <div className="settings-hint">
-            自动模式会按模型上下文决定是否分段；尽量一次可能超出小模型上下文。
+            0 会按字幕长度自动估算；固定 2–20 段会均分字幕，分段提取后再联网合并。
           </div>
-        </div>
-        <div className="settings-inline">
-          <div className="settings-field">
-            <div className="settings-label">总结读取正文篇数（1–10）</div>
-            <input
-              className="settings-input"
-              type="number"
-              min={1}
-              max={10}
-              value={search.summaryReadPages || 2}
-              onChange={(event) =>
-                updateSearch({
-                  summaryReadPages: Math.min(
-                    10,
-                    Math.max(1, Number(event.target.value) || 2)
-                  )
-                })
-              }
-            />
-          </div>
-          <div className="settings-field">
-            <div className="settings-label">参考资料字符预算</div>
-            <input
-              className="settings-input"
-              type="number"
-              min={2000}
-              max={20000}
-              step={1000}
-              value={search.summaryReferenceChars || 6000}
-              onChange={(event) =>
-                updateSearch({
-                  summaryReferenceChars: Math.min(
-                    20000,
-                    Math.max(2000, Number(event.target.value) || 6000)
-                  )
-                })
-              }
-            />
-          </div>
-        </div>
-        <div className="settings-hint">
-          只影响视频 / 字幕总结；读取篇数越多、预算越大，总结越慢也越费 token。
         </div>
       </details>
 
