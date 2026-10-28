@@ -744,16 +744,19 @@ export function AiSection({
           />
         </div>
         <div className="settings-field">
-          <div className="settings-label">最大 token</div>
+          <div className="settings-label">最大输出 token</div>
           <input
             className="settings-input"
             type="number"
             min={256}
-            max={64000}
+            max={128000}
             step={256}
             value={draft.ai.maxTokens}
             onChange={(event) => updateAi({ maxTokens: Number(event.target.value) })}
           />
+          <div className="settings-hint">
+            控制单次回答长度；上下文窗口按模型自动识别，可在「模型能力」里覆盖。
+          </div>
         </div>
       </div>
     </details>

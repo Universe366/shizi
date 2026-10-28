@@ -702,7 +702,7 @@ async function postJson(
     return send({ ...body, generationConfig });
   }
 
-  // Anthropic 的 max_tokens 是硬上限：桌面端默认 64000，某些 Claude 型号
+  // Anthropic 的 max_tokens 是硬上限：桌面端默认 128000，某些 Claude 型号
   // （如 3.5 Haiku）只接受 8192。这里按服务端报错回退一次，而不是让用户手改。
   const maxTokens = Number(body.max_tokens) || 0;
   if (/max_tokens/i.test(probe) && maxTokens > 8192) {

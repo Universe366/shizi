@@ -236,7 +236,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     activeId: 'deepseek',
     defaultModel: { platformId: 'deepseek', model: 'deepseek-chat' },
     temperature: 0.3,
-    maxTokens: 64000,
+    maxTokens: 128000,
+    maxTokensVersion: 1,
     contextAutoCompress: true,
     contextKeepRecent: 10,
     contextCompressTokens: 24000,
@@ -890,10 +891,16 @@ function normalize(input: unknown): AppSettings {
     if (Number.isFinite(temperature)) {
       base.ai.temperature = Math.min(2, Math.max(0, Math.round(temperature * 100) / 100));
     }
+    const maxTokensVersion = Number(raw.ai?.maxTokensVersion) || 0;
     const maxTokens = Number(raw.ai?.maxTokens);
     if (Number.isFinite(maxTokens)) {
-      base.ai.maxTokens = Math.min(64000, Math.max(256, Math.round(maxTokens)));
+      base.ai.maxTokens = Math.min(128000, Math.max(256, Math.round(maxTokens)));
+      // 旧版本默认 64000：没带版本号的老配置迁移到 128000；用户后来手动设 64000 会保留。
+      if (maxTokensVersion < 1 && base.ai.maxTokens === 64000) {
+        base.ai.maxTokens = 128000;
+      }
     }
+    base.ai.maxTokensVersion = 1;
     base.ai.contextAutoCompress = raw.ai?.contextAutoCompress !== false;
     const keepRecent = Number(raw.ai?.contextKeepRecent);
     if (Number.isFinite(keepRecent)) {
@@ -995,7 +1002,7 @@ function normalize(input: unknown): AppSettings {
               ? Math.min(2, Math.max(0, Math.round(temperature * 100) / 100))
               : null,
             maxTokens: Number.isFinite(maxTokens)
-              ? Math.min(64000, Math.max(256, Math.round(maxTokens)))
+              ? Math.min(128000, Math.max(256, Math.round(maxTokens)))
               : null
           };
         });

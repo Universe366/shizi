@@ -1349,6 +1349,8 @@ export interface AppSettings {
     platforms: AiPlatform[];
     temperature: number;
     maxTokens: number;
+    /** 输出上限默认值的迁移版本（内部字段） */
+    maxTokensVersion?: number;
     /** 对话过长时自动把较早消息压缩成摘要 */
     contextAutoCompress: boolean;
     /** 压缩时保留最近多少条消息 */

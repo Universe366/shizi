@@ -53,6 +53,10 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
+  it('默认输出上限为 128000', () => {
+    expect(loadSettings().ai.maxTokens).toBe(128000);
+  });
+
   it('对话快捷指令有默认值并可持久化', () => {
     const settings = loadSettings();
     expect(settings.ai.chatPrompts.length).toBeGreaterThan(0);

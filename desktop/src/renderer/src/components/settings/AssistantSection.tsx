@@ -170,12 +170,12 @@ export function AssistantSection({ value, skills, platforms, updateAi }: Props) 
               />
             </div>
             <div className="settings-field">
-              <div className="settings-label">最大 token（留空用全局）</div>
+              <div className="settings-label">最大输出 token（留空用全局）</div>
               <input
                 className="settings-input"
                 type="number"
                 min={256}
-                max={64000}
+                max={128000}
                 step={256}
                 value={profile.maxTokens ?? ''}
                 onChange={(event) =>
