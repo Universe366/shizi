@@ -1318,6 +1318,12 @@ export interface AppSettings {
     platforms: AiPlatform[];
     temperature: number;
     maxTokens: number;
+    /** 对话过长时自动把较早消息压缩成摘要 */
+    contextAutoCompress: boolean;
+    /** 压缩时保留最近多少条消息 */
+    contextKeepRecent: number;
+    /** 超过多少估算 token 触发压缩 */
+    contextCompressTokens: number;
     stream: boolean;
     preProofread: boolean;
     sendOnEnter: boolean;
@@ -1543,6 +1549,8 @@ export interface ChatRequest {
   context?: string;
   /** 调用来源：main = 主窗口对话；pet = 桌面即时助手（用独立系统提示词） */
   surface?: 'main' | 'pet';
+  /** 当前对话 id：自动压缩按会话缓存摘要 */
+  conversationId?: number;
 }
 
 export interface ChatToolEvent {

@@ -237,6 +237,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultModel: { platformId: 'deepseek', model: 'deepseek-chat' },
     temperature: 0.3,
     maxTokens: 64000,
+    contextAutoCompress: true,
+    contextKeepRecent: 10,
+    contextCompressTokens: 24000,
     stream: true,
     preProofread: false,
     sendOnEnter: true,
@@ -868,6 +871,18 @@ function normalize(input: unknown): AppSettings {
     const maxTokens = Number(raw.ai?.maxTokens);
     if (Number.isFinite(maxTokens)) {
       base.ai.maxTokens = Math.min(64000, Math.max(256, Math.round(maxTokens)));
+    }
+    base.ai.contextAutoCompress = raw.ai?.contextAutoCompress !== false;
+    const keepRecent = Number(raw.ai?.contextKeepRecent);
+    if (Number.isFinite(keepRecent)) {
+      base.ai.contextKeepRecent = Math.min(50, Math.max(2, Math.round(keepRecent)));
+    }
+    const compressTokens = Number(raw.ai?.contextCompressTokens);
+    if (Number.isFinite(compressTokens)) {
+      base.ai.contextCompressTokens = Math.min(
+        200000,
+        Math.max(2000, Math.round(compressTokens))
+      );
     }
     base.ai.stream = raw.ai?.stream !== false;
     base.ai.preProofread = raw.ai?.preProofread === true;

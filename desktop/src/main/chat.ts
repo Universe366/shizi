@@ -32,6 +32,7 @@ import { withDeadline } from './async';
 import { selectByAllowed } from '../shared/toolSelection';
 import { toolNeedsApproval } from '../shared/mcpApproval';
 import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
+import { compressHistory } from './chatCompression';
 import { readToolOutputChunk, truncateToolOutput } from '../shared/toolOutput';
 
 const MAX_HISTORY = 16;
@@ -110,6 +111,8 @@ export interface ChatOptions {
   onStatus?: (status: string) => void;
   /** 本轮允许的 MCP 工具；undefined = 全部，[] = 不用 MCP */
   mcpToolIds?: string[];
+  /** 当前对话 id：自动压缩按会话缓存摘要 */
+  conversationId?: number;
   /** 工具调用进度（开始/结束），用于对话里的工具卡片 */
   onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
   /** 危险工具执行前确认；返回 false 表示用户拒绝。 */
@@ -430,7 +433,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
 
   const system = options.surface === 'pet' ? petSystem : mainSystem;
 
-  const history: AiMessage[] = options.messages.slice(-MAX_HISTORY).map((message) => {
+  const historyLimit = settings.ai.contextAutoCompress === false ? MAX_HISTORY : 200;
+  const history: AiMessage[] = options.messages.slice(-historyLimit).map((message) => {
     const text = String(message.content || '').slice(0, 4000);
     if (message.role === 'user' && Array.isArray(message.images) && message.images.length) {
       const parts: AiPart[] = [{ type: 'text', text }];
@@ -441,6 +445,14 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       return { role: 'user', content: parts };
     }
     return { role: message.role, content: text };
+  });
+  const compressedHistory = await compressHistory({
+    platform,
+    messages: history,
+    settings,
+    conversationId: options.conversationId,
+    signal: options.signal,
+    onStatus: options.onStatus
   });
 
   const messages: AiMessage[] = [
@@ -453,7 +465,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           }
         ]
       : []),
-    ...history
+    ...compressedHistory.messages
   ];
 
   const appToolsEnabled = settings.ai.appTools !== false;

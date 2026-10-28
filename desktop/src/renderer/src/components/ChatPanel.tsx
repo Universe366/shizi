@@ -10,6 +10,7 @@ import {
 } from '../../../shared/modelCapabilities';
 import { describeMcpParameters } from '../../../shared/mcpSchema';
 import { contextMessages, formatConversationReference } from '../../../shared/chatContext';
+import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -1296,6 +1297,7 @@ export function ChatPanel({
         profileId: profileId || undefined,
         // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
         mcpToolIds: profileId ? undefined : toolSelection ?? undefined,
+        conversationId: conversationRef.current || undefined,
         includePage: forcePage ? true : includePage,
         includeTranscript,
         web: webSearch
@@ -3151,10 +3153,15 @@ export function ChatPanel({
             )}
           </div>
           <div className="chat-bar-right">
-            <span className="chat-token-hint" title="输入与页面正文的粗略估算">
+            <span
+              className="chat-token-hint"
+              title="输入 + 对话历史 + 页面正文的粗略估算"
+            >
               ≈{' '}
-              {Math.ceil(
-                ((input.length || 0) + (includePage ? pageContext?.chars || 0 : 0)) / 1.6
+              {(
+                estimateMessagesTokens(messages) +
+                estimateTextTokens(input) +
+                (includePage ? Math.ceil((pageContext?.chars || 0) / 1.6) : 0)
               ).toLocaleString('zh-CN')}
             </span>
             <button
