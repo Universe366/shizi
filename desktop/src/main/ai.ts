@@ -521,6 +521,37 @@ async function summarizeInChunks(options: {
   }
 }
 
+/** 实验：把原总结提示词/格式规则交给对话式联网，尽量保留总结格式。 */
+export function buildSummaryChatPrompt(info: PageInfo): { system: string; user: string } {
+  const settings = loadSettings();
+  const template = activePrompt(settings);
+  const glossary = glossaryTerms(settings);
+  const glossaryBlock = glossary.length
+    ? `\n\n术语表（输出时统一使用以下写法）：\n${glossary
+        .slice(0, 80)
+        .map((term) => `- ${term.from} → ${term.to}${term.note ? `（${term.note}）` : ''}`)
+        .join('\n')}`
+    : '';
+  const system = [template.text, glossaryBlock, '', SUMMARY_FORMAT_RULES].filter(Boolean).join('\n');
+  const meta = [
+    `视频标题：${info.title || '未知'}`,
+    `UP 主：${info.owner || '未知'}`,
+    `视频时长：${clock(info.duration)}`,
+    `链接：${info.url || ''}`,
+    ...(settings.search.useVideoMeta !== false && info.desc
+      ? [`视频简介：${info.desc.slice(0, 2000)}`]
+      : []),
+    ...(officialSegmentsBlock(info) ? [officialSegmentsBlock(info)] : [])
+  ].join('\n');
+  const user = [
+    meta,
+    '',
+    '请基于上面的字幕写一份完整总结，严格按系统提示里的格式规则输出；不要写开场白或“根据字幕”这类过程说明。',
+    '需要外部事实时，可以调用联网搜索/读取网页；用到外部资料时用 [n] 标注来源。'
+  ].join('\n');
+  return { system, user };
+}
+
 export async function summarize(options: SummarizeOptions): Promise<{
   text: string;
   model: string;

@@ -17,7 +17,7 @@ import {
 } from '../library';
 import { batchSummarize } from '../batch';
 import { batchUrls, parseVideoUrls } from '../urlbatch';
-import { summarize } from '../ai';
+import { buildSummaryChatPrompt, summarize } from '../ai';
 import { readPageContext } from '../pageContext';
 import { chat } from '../chat';
 import { clearCompressionCache, getCompressionSummary } from '../chatCompression';
@@ -526,16 +526,12 @@ export function registerMediaIpc(ctx: IpcContext): void {
       void (async () => {
         try {
           if (payload.experimentalChatWeb) {
+            const summaryPrompt = buildSummaryChatPrompt(payload.info);
             const chatResult = await chat({
               info: payload.info,
               lines: payload.lines,
-              messages: [
-                {
-                  role: 'user',
-                  content:
-                    '请为这个视频写一份完整总结，而不是回答单个问题。要求：先给一句话结论；按主题分节覆盖全片；保留具体数字、时间、步骤、例子；需要外部事实时可以联网搜索或读取网页，引用时标明来源；不要输出“根据字幕/检索到”这类过程说明。'
-                }
-              ],
+              systemPrompt: summaryPrompt.system,
+              messages: [{ role: 'user', content: summaryPrompt.user }],
               page: null,
               includeTranscript: true,
               web: true,

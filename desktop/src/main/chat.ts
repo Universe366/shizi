@@ -97,6 +97,8 @@ export interface ChatOptions {
   includeTranscript?: boolean;
   surface?: 'main' | 'pet';
   context?: string;
+  /** 覆盖对话主系统提示词（总结实验用）；联网工具说明仍会追加 */
+  systemPrompt?: string;
   page?: PageContext | null;
   /** 指定平台（多模型对比用），不传则按任务槽位/当前平台解析 */
   platform?: AiPlatform;
@@ -412,6 +414,12 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     .filter(Boolean)
     .join('\n\n');
 
+  const webToolSystem = useWebTool
+    ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 3 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
+    : '';
+  const citationSystem = webBlock
+    ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
+    : '';
   const mainSystem = [
     unbound ? UNBOUND_CHAT_PROMPT : settings.prompt.chat,
     profile?.prompt ? `【助手档案：${profile.name}】\n${profile.prompt}` : '',
@@ -436,18 +444,19 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               ])
         ]),
     pageBlock,
-    useWebTool
-      ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 3 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
-      : '',
-    webBlock
-      ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
-      : '',
+    webToolSystem,
+    citationSystem,
     webBlock
   ]
     .filter(Boolean)
     .join('\n\n');
 
-  const system = options.surface === 'pet' ? petSystem : mainSystem;
+  const system =
+    options.surface === 'pet'
+      ? petSystem
+      : options.systemPrompt?.trim()
+        ? [options.systemPrompt.trim(), webToolSystem, citationSystem].filter(Boolean).join('\n\n')
+        : mainSystem;
 
   const historyLimit = settings.ai.contextAutoCompress === false ? MAX_HISTORY : 200;
   const history: AiMessage[] = options.messages.slice(-historyLimit).map((message) => {
