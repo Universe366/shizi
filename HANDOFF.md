@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.112.2` 构建中（本机 check + smoke 通过） |
+| 发布 CI | `v0.112.2` 通过（一次通过） |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 将指向 0.112.2，发布完成后确认 `/releases/latest` |
+| 自动更新 | `latest.yml` 指向 0.112.2，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
