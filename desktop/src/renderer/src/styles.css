@@ -3868,7 +3868,7 @@ button:disabled {
 
 .usage-card-label {
   font-size: var(--fs-xs);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .usage-card-value {
@@ -3912,7 +3912,7 @@ button:disabled {
   justify-content: space-between;
   gap: 8px;
   font-size: var(--fs-xs);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .usage-bars {
@@ -3960,7 +3960,7 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   font-size: var(--fs-xs);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .usage-model {
@@ -3972,6 +3972,322 @@ button:disabled {
 
 .usage-price {
   width: 88px;
+}
+
+.usage-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.usage-insight {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.usage-insight-value {
+  margin-top: 2px;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-insight-helper {
+  margin-top: 1px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-chip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.usage-select {
+  width: auto;
+  min-width: 78px;
+  padding: 2px 4px;
+  font-size: var(--fs-xs);
+}
+
+.usage-heatmap {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.usage-heat-weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  gap: 3px;
+  font-size: 9px;
+  line-height: 11px;
+  color: var(--faint);
+  flex: none;
+}
+
+.usage-heat-weekdays span {
+  height: 11px;
+}
+
+.usage-heatmap-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 11px);
+  gap: 3px;
+  flex: none;
+}
+
+.usage-heat-cell {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.usage-heat-cell.is-outside {
+  opacity: 0.35;
+}
+
+.usage-heat-cell.is-future {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.usage-heat-cell.is-active,
+.usage-heat-cell:hover {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.usage-heat-cell.level-1,
+.usage-heat-swatch.level-1 {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  border-color: transparent;
+}
+
+.usage-heat-cell.level-2,
+.usage-heat-swatch.level-2 {
+  background: color-mix(in srgb, var(--accent) 44%, var(--surface));
+  border-color: transparent;
+}
+
+.usage-heat-cell.level-3,
+.usage-heat-swatch.level-3 {
+  background: color-mix(in srgb, var(--accent) 68%, var(--surface));
+  border-color: transparent;
+}
+
+.usage-heat-cell.level-4,
+.usage-heat-swatch.level-4 {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.usage-heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.usage-heat-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.usage-heat-hint {
+  margin-left: 4px;
+}
+
+.usage-explore {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage-explore-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1.1fr) minmax(80px, 2.2fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+}
+
+.usage-explore-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.usage-explore-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.usage-explore-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.65;
+}
+
+.usage-explore-value {
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-daybar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+/* 本地模型：清单行 + 状态徽章，和用量卡片共用一档密度。 */
+.local-model-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.local-model-metric {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+
+.local-model-unit {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.local-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-group-title svg {
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
+.local-model-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.local-model-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.local-model-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.local-model-meta {
+  margin-top: 1px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.local-model-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.local-model-badge {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  line-height: 16px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+
+.local-model-badge.is-ready {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+  background: var(--ok-soft);
+}
+
+.local-model-badge.is-warn {
+  color: var(--text);
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+
+.local-model-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.settings-group-sub {
+  margin-top: -3px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .usage-cards,
+  .usage-insights,
+  .local-model-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .task-model-table td:first-child {

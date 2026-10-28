@@ -75,11 +75,27 @@ describe('用量统计', () => {
       'summary',
       'translate'
     ]);
+    expect(summary.byPlatform.map((row) => row.platformName).sort()).toEqual([
+      'DeepSeek',
+      'Kimi'
+    ]);
     expect(summary.byDay.length).toBe(1);
 
     const events = usageEvents(10);
     expect(events.length).toBe(3);
     expect(events[0].createdAt).toBeGreaterThan(0);
+  });
+
+  it('按本地日期筛选明细', () => {
+    clearUsage();
+    recordUsage({ task: 'chat', model: 'm', inputTokens: 10, outputTokens: 5 });
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate()
+    ).padStart(2, '0')}`;
+    expect(usageEvents(10, today).length).toBe(1);
+    expect(usageEvents(10, '2000-01-01')).toEqual([]);
+    expect(usageEvents(10, 'not-a-day').length).toBe(1);
   });
 
   it('空用量与 0 token 不写库', () => {

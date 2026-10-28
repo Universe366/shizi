@@ -19,6 +19,7 @@ import { GeneralGroup } from './settings/GeneralGroup';
 import { DownloadSection } from './settings/DownloadSection';
 import { RadialSection } from './settings/RadialSection';
 import { KnowledgeSection } from './settings/KnowledgeSection';
+import { LocalModelsSection } from './settings/LocalModelsSection';
 import { OcrSection } from './settings/OcrSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
@@ -1424,6 +1425,14 @@ export function SettingsPanel({
         setEditingAsrId={setEditingAsrId}
         platformStatus={platformStatusNode}
       />
+      )}
+
+      {show('ai') && (
+        <LocalModelsSection
+          draft={draft}
+          activeAsr={activeAsr}
+          updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
+        />
       )}
 
       {show('ai') && (

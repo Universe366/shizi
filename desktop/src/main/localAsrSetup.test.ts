@@ -54,4 +54,24 @@ describe('本地 ASR 下载配置', () => {
     expect(deleteLocalModel('tiny')).toBe(true);
     expect(localAsrStatus().models.tiny).toBeUndefined();
   });
+
+  it('清单包含未下载项、体积与占用，标签不带体积后缀', () => {
+    const status = localAsrStatus();
+    expect(status.modelCatalog.map((row) => row.id)).toEqual([
+      'tiny',
+      'base',
+      'small',
+      'medium',
+      'large-v3-turbo'
+    ]);
+    expect(status.modelCatalog.every((row) => row.size > 0)).toBe(true);
+    expect(status.modelCatalog[0].label).not.toContain('约');
+    expect(status.binaryCatalog.map((row) => row.variant)).toEqual([
+      'cpu',
+      'vulkan',
+      'cuda118',
+      'cuda124'
+    ]);
+    expect(status.totalBytes).toBeGreaterThanOrEqual(0);
+  });
 });

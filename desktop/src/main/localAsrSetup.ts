@@ -450,6 +450,38 @@ export async function downloadWhisperBinary(
   return exe;
 }
 
+function cleanLabel(value: string): string {
+  return String(value || '').replace(/（约[^）]*）/g, '').trim();
+}
+
+/** 目录实际占用；模型是单文件，运行组件是多文件目录。 */
+function dirSize(dir: string): number {
+  let total = 0;
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop() as string;
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      try {
+        total += fs.statSync(full).size;
+      } catch {
+        // 文件被占用/删除时忽略
+      }
+    }
+  }
+  return total;
+}
+
 /** 供设置页显示「已下载」状态：不触发任何网络请求。 */
 export function localAsrStatus(): {
   dir: string;
@@ -457,6 +489,20 @@ export function localAsrStatus(): {
   binaries: Partial<Record<LocalBinaryVariant, string>>;
   binary: string | null;
   note: string;
+  modelCatalog: Array<{
+    id: LocalModelId;
+    label: string;
+    size: number;
+    downloaded: boolean;
+  }>;
+  binaryCatalog: Array<{
+    variant: LocalBinaryVariant;
+    label: string;
+    note: string;
+    size: number;
+    downloaded: boolean;
+  }>;
+  totalBytes: number;
 } {
   const dir = localAsrDir();
   const models: Partial<Record<LocalModelId, string>> = {};
@@ -477,12 +523,45 @@ export function localAsrStatus(): {
   const preferred: LocalBinaryVariant[] = ['cuda124', 'cuda118', 'vulkan', 'cpu'];
   const found = preferred.find((variant) => binaries[variant]);
   const note = '模型保存在用户数据目录，软件更新不会丢';
+
+  const modelCatalog = (Object.keys(LOCAL_MODELS) as LocalModelId[]).map((id) => ({
+    id,
+    label: cleanLabel(LOCAL_MODELS[id].label),
+    size: LOCAL_MODELS[id].size,
+    downloaded: Boolean(models[id])
+  }));
+  const binaryCatalog = (Object.keys(LOCAL_BINARIES) as LocalBinaryVariant[]).map((variant) => ({
+    variant,
+    label: cleanLabel(LOCAL_BINARIES[variant].label),
+    note: LOCAL_BINARIES[variant].note,
+    size: LOCAL_BINARIES[variant].size,
+    downloaded: Boolean(binaries[variant])
+  }));
+
+  let totalBytes = 0;
+  for (const file of Object.values(models)) {
+    if (!file) continue;
+    try {
+      totalBytes += fs.statSync(file).size;
+    } catch {
+      // ignore
+    }
+  }
+  for (const variant of Object.keys(LOCAL_BINARIES) as LocalBinaryVariant[]) {
+    totalBytes += dirSize(path.join(dir, LOCAL_BINARIES[variant].dir));
+  }
+  // 旧目录的 whisper.cpp 也计入，避免「占用」比实际少。
+  totalBytes += dirSize(path.join(dir, 'whisper.cpp'));
+
   return {
     dir,
     models,
     binaries,
     binary: found ? binaries[found] || null : null,
-    note
+    note,
+    modelCatalog,
+    binaryCatalog,
+    totalBytes
   };
 }
 

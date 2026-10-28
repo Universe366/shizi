@@ -722,8 +722,17 @@ export interface UsageAggregate {
 export interface UsageSummary {
   totals: UsageAggregate;
   byModel: Array<UsageAggregate & { model: string }>;
+  byPlatform: Array<UsageAggregate & { platformId: string; platformName: string }>;
   byTask: Array<UsageAggregate & { task: AiTask }>;
   byDay: Array<UsageAggregate & { day: string }>;
+  /** 平台 × 模型：渲染层按价格表算平台成本用。 */
+  byPlatformModel: Array<
+    UsageAggregate & { platformId: string; platformName: string; model: string }
+  >;
+  /** 任务 × 模型：渲染层按价格表算任务成本用。 */
+  byTaskModel: Array<UsageAggregate & { task: AiTask; model: string }>;
+  /** 日期 × 模型：渲染层按价格表算每日成本（热力图）用。 */
+  byDayModel: Array<UsageAggregate & { day: string; model: string }>;
 }
 
 export interface ModelPrice {
@@ -1706,6 +1715,23 @@ export interface AsrDownloadProgress {
   message: string;
 }
 
+export interface LocalWhisperModelEntry {
+  id: 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo';
+  label: string;
+  /** 下载体积（字节），用于未下载时的占用预估。 */
+  size: number;
+  downloaded: boolean;
+}
+
+export interface LocalWhisperBinaryEntry {
+  variant: 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
+  label: string;
+  note: string;
+  /** 压缩包体积（字节）。 */
+  size: number;
+  downloaded: boolean;
+}
+
 export interface AsrLocalStatus {
   dir: string;
   models: Partial<
@@ -1714,6 +1740,11 @@ export interface AsrLocalStatus {
   binaries: Partial<Record<'cpu' | 'vulkan' | 'cuda118' | 'cuda124', string>>;
   binary: string | null;
   note: string;
+  /** 目录里的完整清单（含未下载项），设置页「本地模型」直接用。 */
+  modelCatalog: LocalWhisperModelEntry[];
+  binaryCatalog: LocalWhisperBinaryEntry[];
+  /** 已下载模型 + 运行组件的实际占用（字节）。 */
+  totalBytes: number;
 }
 
 export interface AsrDoneEvent {

@@ -22,9 +22,11 @@ export function registerUsageIpc(): void {
     }
   });
 
-  ipcMain.handle('usage:events', (_event, limit: unknown) => {
+  ipcMain.handle('usage:events', (_event, limit: unknown, day: unknown, days: unknown) => {
     try {
-      return ok<UsageEvent[]>(usageEvents(Number(limit) || 200));
+      return ok<UsageEvent[]>(
+        usageEvents(Number(limit) || 200, String(day || ''), Number(days) || 0)
+      );
     } catch (error) {
       return failure<UsageEvent[]>(error);
     }

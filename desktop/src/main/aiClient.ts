@@ -503,10 +503,14 @@ function parseAnthropicText(json: AnthropicResponsePayload): AiChatResult {
 
 function usageFromPayload(usage: OpenAiUsagePayload | undefined): AiUsage | undefined {
   if (!usage || typeof usage !== 'object') return undefined;
-  const input = Number(usage.input_tokens ?? usage.prompt_tokens) || 0;
+  const anthropicStyle = usage.input_tokens !== undefined;
+  const rawInput = Number(usage.input_tokens ?? usage.prompt_tokens) || 0;
   const output = Number(usage.output_tokens ?? usage.completion_tokens) || 0;
   const cached =
     Number(usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens) || 0;
+  // Anthropic 的 input_tokens 不含缓存命中，OpenAI 的 prompt_tokens 含；
+  // 统一成「输入含缓存」，用量统计的总量与成本估算才对得上。
+  const input = anthropicStyle ? rawInput + cached : rawInput;
   if (!input && !output) return undefined;
   return {
     inputTokens: Math.max(0, Math.round(input)),

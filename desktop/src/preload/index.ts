@@ -497,8 +497,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('settings:set', next) as Promise<Result<SettingsSnapshot>>,
   usageSummary: (days?: number) =>
     ipcRenderer.invoke('usage:summary', days) as Promise<Result<UsageSummary>>,
-  usageEvents: (limit?: number) =>
-    ipcRenderer.invoke('usage:events', limit) as Promise<Result<UsageEvent[]>>,
+  usageEvents: (limit?: number, day?: string, days?: number) =>
+    ipcRenderer.invoke('usage:events', limit, day, days) as Promise<Result<UsageEvent[]>>,
   clearUsage: () => ipcRenderer.invoke('usage:clear') as Promise<Result<{ removed: number }>>,
   exportUsage: () =>
     ipcRenderer.invoke('usage:export') as Promise<Result<{ canceled: boolean; path?: string }>>,

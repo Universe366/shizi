@@ -160,8 +160,12 @@ export function usageSummary(days = 30): UsageSummary {
   const empty: UsageSummary = {
     totals: { requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 },
     byModel: [],
+    byPlatform: [],
     byTask: [],
-    byDay: []
+    byDay: [],
+    byPlatformModel: [],
+    byTaskModel: [],
+    byDayModel: []
   };
   const store = db();
   if (!store) return empty;
@@ -174,6 +178,14 @@ export function usageSummary(days = 30): UsageSummary {
       .prepare(
         `SELECT model, ${AGG_SELECT} FROM usage_events WHERE created_at >= ?
          GROUP BY model ORDER BY (SUM(input_tokens) + SUM(output_tokens)) DESC LIMIT 40`
+      )
+      .all(since) as Array<Record<string, unknown>>;
+    const byPlatform = store
+      .prepare(
+        `SELECT platform_id, MAX(platform_name) AS platform_name, ${AGG_SELECT}
+         FROM usage_events WHERE created_at >= ?
+         GROUP BY platform_id
+         ORDER BY (SUM(input_tokens) + SUM(output_tokens)) DESC LIMIT 40`
       )
       .all(since) as Array<Record<string, unknown>>;
     const byTask = store
@@ -190,11 +202,56 @@ export function usageSummary(days = 30): UsageSummary {
          GROUP BY day ORDER BY day ASC`
       )
       .all(since) as Array<Record<string, unknown>>;
+    const byPlatformModel = store
+      .prepare(
+        `SELECT platform_id, MAX(platform_name) AS platform_name, model, ${AGG_SELECT}
+         FROM usage_events WHERE created_at >= ?
+         GROUP BY platform_id, model
+         ORDER BY (SUM(input_tokens) + SUM(output_tokens)) DESC`
+      )
+      .all(since) as Array<Record<string, unknown>>;
+    const byTaskModel = store
+      .prepare(
+        `SELECT task, model, ${AGG_SELECT} FROM usage_events
+         WHERE created_at >= ?
+         GROUP BY task, model
+         ORDER BY (SUM(input_tokens) + SUM(output_tokens)) DESC`
+      )
+      .all(since) as Array<Record<string, unknown>>;
+    const byDayModel = store
+      .prepare(
+        `SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime') AS day,
+                model, ${AGG_SELECT}
+         FROM usage_events WHERE created_at >= ?
+         GROUP BY day, model ORDER BY day ASC`
+      )
+      .all(since) as Array<Record<string, unknown>>;
     return {
       totals: totalsRow ? aggregateRow(totalsRow) : empty.totals,
       byModel: byModel.map((row) => ({ ...aggregateRow(row), model: String(row.model || '') })),
+      byPlatform: byPlatform.map((row) => ({
+        ...aggregateRow(row),
+        platformId: String(row.platform_id || ''),
+        platformName: String(row.platform_name || '') || '未知平台'
+      })),
       byTask: byTask.map((row) => ({ ...aggregateRow(row), task: String(row.task || 'chat') as AiTask })),
-      byDay: byDay.map((row) => ({ ...aggregateRow(row), day: String(row.day || '') }))
+      byDay: byDay.map((row) => ({ ...aggregateRow(row), day: String(row.day || '') })),
+      byPlatformModel: byPlatformModel.map((row) => ({
+        ...aggregateRow(row),
+        platformId: String(row.platform_id || ''),
+        platformName: String(row.platform_name || '') || '未知平台',
+        model: String(row.model || '')
+      })),
+      byTaskModel: byTaskModel.map((row) => ({
+        ...aggregateRow(row),
+        task: String(row.task || 'chat') as AiTask,
+        model: String(row.model || '')
+      })),
+      byDayModel: byDayModel.map((row) => ({
+        ...aggregateRow(row),
+        day: String(row.day || ''),
+        model: String(row.model || '')
+      }))
     };
   } catch (error) {
     console.warn('[usage] 汇总失败:', (error as Error).message);
@@ -202,15 +259,50 @@ export function usageSummary(days = 30): UsageSummary {
   }
 }
 
-export function usageEvents(limit = 200): UsageEvent[] {
+/** 'YYYY-MM-DD' → 本地时区当天的 [start, end) 毫秒。 */
+export function dayBounds(day: string): { start: number; end: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || '').trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const date = Number(match[3]);
+  const start = new Date(year, month - 1, date);
+  if (
+    Number.isNaN(start.getTime()) ||
+    start.getFullYear() !== year ||
+    start.getMonth() !== month - 1 ||
+    start.getDate() !== date
+  ) {
+    return null;
+  }
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start: start.getTime(), end: end.getTime() };
+}
+
+export function usageEvents(limit = 200, day = '', days = 0): UsageEvent[] {
   const store = db();
   if (!store) return [];
+  const bounded = Math.max(1, Math.min(2000, Math.round(limit)));
   try {
+    const params: number[] = [];
+    const bounds = dayBounds(day);
+    if (bounds) {
+      params.push(bounds.start, bounds.end);
+    } else if (days > 0) {
+      params.push(Date.now() - Math.max(1, Math.min(3650, days)) * 86400000);
+    }
+    const where = bounds
+      ? 'WHERE created_at >= ? AND created_at < ?'
+      : params.length
+        ? 'WHERE created_at >= ?'
+        : '';
     const rows = store
       .prepare(
-        `SELECT ${ROW_COLUMNS} FROM usage_events ORDER BY created_at DESC, id DESC LIMIT ?`
+        `SELECT ${ROW_COLUMNS} FROM usage_events ${where}
+         ORDER BY created_at DESC, id DESC LIMIT ?`
       )
-      .all(Math.max(1, Math.min(2000, Math.round(limit)))) as unknown as UsageRow[];
+      .all(...params, bounded) as unknown as UsageRow[];
     return rows.map(mapRow);
   } catch {
     return [];
