@@ -46,7 +46,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | Windows 桌面端 | `desktop/` | Electron 45 + React 19 + TypeScript + SQLite |
 | 浏览器插件 | `shizi-extension/` | Chrome / Edge MV3 + 原生 JS |
 
-当前版本：**桌面 0.90.1 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
+当前版本：**桌面 0.91.0 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
 
 ## 功能
 
@@ -136,7 +136,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 
 ### 桌面端（推荐）
 
-1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.90.1.exe`（安装版）或 `shizi-0.90.1-win-x64-green.zip`（绿色版）。
+1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.91.0.exe`（安装版）或 `shizi-0.91.0-win-x64-green.zip`（绿色版）。
 2. 打开「设置 → AI 与语音」：选平台、填 Base URL、模型和 API Key，点「测试连接」。
 3. 打开任意 B 站视频，左侧即可抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -211,7 +211,7 @@ desktop/
 
 ## 版本
 
-- 桌面端：**0.90.1**（2026-10-28）
+- 桌面端：**0.91.0**（2026-10-28）
 - 插件：**2.18.8**
 - 变更记录：[`desktop/CHANGELOG.md`](desktop/CHANGELOG.md)、[`shizi-extension/CHANGELOG.md`](shizi-extension/CHANGELOG.md)
 

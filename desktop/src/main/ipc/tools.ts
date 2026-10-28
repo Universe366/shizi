@@ -4,6 +4,7 @@ import type {
   AppSettings,
   Chapter,
   CorrectionRuleGroup,
+  McpElicitationAction,
   McpOAuth,
   McpServer,
   McpTool,
@@ -31,7 +32,9 @@ import {
   listMcpResources,
   listMcpTools,
   readMcpResource,
-  setMcpNotificationSink
+  replyMcpElicitation,
+  setMcpNotificationSink,
+  setMcpServerRequestSink
 } from '../mcp';
 import { authorizeMcpServer } from '../mcpOAuth';
 import {
@@ -80,6 +83,39 @@ export function registerToolsIpc(ctx: IpcContext): void {
         .catch(() => undefined);
     }
   });
+
+  setMcpServerRequestSink((request) => {
+    ctx.send('mcp:elicitation', request);
+  });
+
+  ipcMain.handle(
+    'mcp:elicitation-reply',
+    (
+      _event,
+      payload: {
+        requestId?: string;
+        action?: McpElicitationAction;
+        content?: Record<string, unknown>;
+      }
+    ): Result<boolean> => {
+      try {
+        const action =
+          payload?.action === 'accept' || payload?.action === 'decline'
+            ? payload.action
+            : 'cancel';
+        return {
+          ok: true,
+          data: replyMcpElicitation(
+            String(payload?.requestId || ''),
+            action,
+            payload?.content || {}
+          )
+        };
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
 
   ipcMain.handle('mcp:test', async (_event, server: McpServer): Promise<Result<McpTool[]>> => {
     try {

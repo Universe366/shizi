@@ -560,7 +560,12 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           name,
           detail: String(call.arguments || '').slice(0, 200)
         });
-        const finish = (content: string, ok = true, images?: string[]): string => {
+        const finish = (
+          content: string,
+          ok = true,
+          images?: string[],
+          structured?: unknown
+        ): string => {
           const inlineLimit = Math.max(4000, MAX_TOOL_RESULT_CHARS - 4000);
           const clipped = truncateToolOutput(content, '', READ_TOOL_OUTPUT, inlineLimit);
           let output = clipped.text;
@@ -573,7 +578,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
             name,
             detail: output.slice(0, 280),
             ok,
-            ...(images?.length ? { images } : {})
+            ...(images?.length ? { images } : {}),
+            ...(structured !== undefined ? { structured } : {})
           });
           return output;
         };
@@ -721,7 +727,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
                 toolImagesEnabled ? '，已交给模型' : '，当前模型未开启图片能力，仅在界面显示'
               }）`
             : result.text;
-          const output = finish(text, true, images);
+          const output = finish(text, true, images, result.structured);
           const modelImages: AiImagePart[] = toolImagesEnabled
             ? result.images
                 .slice(0, 2)

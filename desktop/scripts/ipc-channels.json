@@ -157,6 +157,7 @@
   "mcp:all-resources",
   "mcp:all-tools",
   "mcp:call",
+  "mcp:elicitation-reply",
   "mcp:oauth",
   "mcp:prompt",
   "mcp:prompts",

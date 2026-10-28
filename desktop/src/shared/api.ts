@@ -105,6 +105,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpElicitationAction,
+  McpElicitationRequest,
   McpPromptOption,
   McpResourceOption,
   McpServerChangedEvent,
@@ -704,6 +706,12 @@ export interface BsubApi {
   mcpUnwatchResource(server: McpServer, uri: string): Promise<Result<boolean>>;
   onMcpResourceUpdated(cb: (event: McpResourceUpdate) => void): () => void;
   onMcpServerChanged(cb: (event: McpServerChangedEvent) => void): () => void;
+  onMcpElicitation(cb: (event: McpElicitationRequest) => void): () => void;
+  replyMcpElicitation(
+    requestId: string,
+    action: McpElicitationAction,
+    content?: Record<string, unknown>
+  ): Promise<Result<boolean>>;
   mcpOAuth(server: McpServer): Promise<Result<McpOAuth>>;
   testMcp(server: McpServer): Promise<Result<McpTool[]>>;
   callMcp(server: McpServer, name: string, args: Record<string, unknown>): Promise<Result<string>>;

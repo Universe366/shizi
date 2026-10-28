@@ -62,6 +62,7 @@ import {
   listMcpResources,
   parseMcpToolResult,
   readMcpResource,
+  replyMcpElicitation,
   setMcpNotificationSink
 } from './mcp';
 
@@ -118,6 +119,16 @@ describe('MCP 资源与提示词', () => {
     });
     expect(onlyImage.text).toBe('（工具返回 1 张图片）');
     expect(onlyImage.images[0].mimeType).toBe('image/jpeg');
+
+    const structured = parseMcpToolResult({
+      content: [{ type: 'text', text: 'ok' }],
+      structuredContent: { count: 2, items: ['a'] }
+    });
+    expect(structured.structured).toEqual({ count: 2, items: ['a'] });
+  });
+
+  it('未登录的 elicitation 回复直接返回 false', () => {
+    expect(replyMcpElicitation('missing', 'cancel')).toBe(false);
   });
 
   it('POST 返回 SSE 时先派发通知，再解析本次响应', async () => {

@@ -2,6 +2,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { session } from 'electron';
 import { refreshMcpOAuth } from './mcpOAuth';
 import type {
+  McpElicitationAction,
+  McpElicitationRequest,
   McpPrompt,
   McpPromptOption,
   McpResource,
@@ -31,7 +33,26 @@ type McpNotificationSink = (
 ) => void;
 
 let notificationSink: McpNotificationSink | null = null;
+let serverRequestSink: ((request: McpElicitationRequest) => void) | null = null;
 const progressHandlers = new Map<string, (progress: McpProgress) => void>();
+const sseEndpoints = new Map<string, string>();
+let serverRequestSeq = 0;
+let httpDisabled = false;
+
+interface PendingElicitation {
+  server: McpServer;
+  jsonrpcId: number | string;
+  timer: NodeJS.Timeout;
+  resolve: (result: Record<string, unknown>) => void;
+}
+
+const pendingElicitations = new Map<string, PendingElicitation>();
+
+export function setMcpServerRequestSink(
+  sink: ((request: McpElicitationRequest) => void) | null
+): void {
+  serverRequestSink = sink;
+}
 
 /** 主进程注册一次：把服务端主动通知转发给渲染层。 */
 export function setMcpNotificationSink(sink: McpNotificationSink | null): void {
@@ -41,6 +62,10 @@ export function setMcpNotificationSink(sink: McpNotificationSink | null): void {
 function handleIncomingMessage(server: McpServer, message: JsonRpcResponse): void {
   const method = typeof message.method === 'string' ? message.method : '';
   if (!method) return;
+  if (typeof message.id === 'number' || typeof message.id === 'string') {
+    void handleServerRequest(server, message);
+    return;
+  }
   const params =
     message.params && typeof message.params === 'object'
       ? (message.params as Record<string, unknown>)
@@ -60,6 +85,120 @@ function handleIncomingMessage(server: McpServer, message: JsonRpcResponse): voi
         message: String(params.message || '')
       });
     }
+  }
+}
+
+/** 把 JSON-RPC 响应写回服务端（stdio / HTTP / 老式 SSE 端点）。 */
+async function sendServerResponse(
+  server: McpServer,
+  id: number | string,
+  result?: unknown,
+  error?: { code: number; message: string }
+): Promise<void> {
+  const body: Record<string, unknown> = { jsonrpc: '2.0', id };
+  if (error) body.error = error;
+  else body.result = result ?? {};
+  try {
+    if (server.transport === 'stdio') {
+      const client = startStdio(server);
+      client.child.stdin.write(`${JSON.stringify(body)}\n`);
+      return;
+    }
+    if (server.transport === 'sse') {
+      const endpoint = sseEndpoints.get(serverKey(server));
+      if (!endpoint) return;
+      await session.defaultSession.fetch(endpoint, {
+        method: 'POST',
+        headers: headersFor(server),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000)
+      });
+      return;
+    }
+    await postHttp(server, body, 15000);
+  } catch {
+    // 服务端已断开时忽略
+  }
+}
+
+async function handleServerRequest(server: McpServer, message: JsonRpcResponse): Promise<void> {
+  const id = message.id;
+  if (typeof id !== 'number' && typeof id !== 'string') return;
+  const method = String(message.method || '');
+  const params =
+    message.params && typeof message.params === 'object'
+      ? (message.params as Record<string, unknown>)
+      : {};
+
+  if (method === 'ping') {
+    await sendServerResponse(server, id, {});
+    return;
+  }
+  if (method === 'roots/list') {
+    await sendServerResponse(server, id, { roots: [] });
+    return;
+  }
+  if (method === 'elicitation/create') {
+    if (!serverRequestSink) {
+      await sendServerResponse(server, id, { action: 'decline' });
+      return;
+    }
+    const requestId = `elicitation-${server.id}-${++serverRequestSeq}`;
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        pendingElicitations.delete(requestId);
+        void sendServerResponse(server, id, { action: 'cancel' });
+        resolve();
+      }, 300_000);
+      pendingElicitations.set(requestId, {
+        server,
+        jsonrpcId: id,
+        timer,
+        resolve: (result) => {
+          clearTimeout(timer);
+          pendingElicitations.delete(requestId);
+          void sendServerResponse(server, id, result).finally(resolve);
+        }
+      });
+      serverRequestSink?.({
+        requestId,
+        serverId: server.id,
+        serverName: server.name,
+        message: String(params.message || '服务端请求补充信息'),
+        requestedSchema: params.requestedSchema ?? {}
+      });
+    });
+    return;
+  }
+  if (method === 'sampling/createMessage') {
+    await sendServerResponse(server, id, undefined, {
+      code: -32601,
+      message: '客户端未启用 sampling'
+    });
+    return;
+  }
+  await sendServerResponse(server, id, undefined, {
+    code: -32601,
+    message: `不支持的方法：${method}`
+  });
+}
+
+export function replyMcpElicitation(
+  requestId: string,
+  action: McpElicitationAction,
+  content?: Record<string, unknown>
+): boolean {
+  const pending = pendingElicitations.get(requestId);
+  if (!pending) return false;
+  pending.resolve(action === 'accept' ? { action, content: content || {} } : { action });
+  return true;
+}
+
+function cancelElicitations(server?: McpServer): void {
+  for (const [requestId, pending] of pendingElicitations) {
+    if (server && pending.server.id !== server.id) continue;
+    pending.resolve({ action: 'cancel' });
+    pendingElicitations.delete(requestId);
   }
 }
 
@@ -339,6 +478,7 @@ async function rpcSse(
     if (!endpoint) throw new Error('MCP SSE 没有返回 endpoint');
 
     const target = new URL(endpoint, server.url.trim()).toString();
+    sseEndpoints.set(serverKey(server), target);
     const posted = await session.defaultSession.fetch(target, {
       method: 'POST',
       headers: headersFor(server),
@@ -558,6 +698,9 @@ function stdioNotify(server: McpServer, method: string, params?: unknown): void 
 
 /** 退出应用/禁用服务时回收所有 stdio 子进程，避免留下孤儿进程。 */
 export function disposeMcpClients(): void {
+  httpDisabled = true;
+  cancelElicitations();
+  sseEndpoints.clear();
   for (const controller of httpStreams.values()) {
     try {
       controller.abort();
@@ -641,6 +784,7 @@ async function ensureSession(server: McpServer): Promise<void> {
 
 /** HTTP 服务的常驻通知流：尽力打开 GET SSE，不支持时静默放弃。 */
 const httpStreams = new Map<string, AbortController>();
+const httpAttempts = new Map<string, number>();
 
 function startHttpNotificationStream(server: McpServer): void {
   if (server.transport !== 'http' || !server.url.trim()) return;
@@ -648,6 +792,7 @@ function startHttpNotificationStream(server: McpServer): void {
   if (httpStreams.has(key)) return;
   const controller = new AbortController();
   httpStreams.set(key, controller);
+  let established = false;
   void (async () => {
     try {
       const streamHeaders: Record<string, string> = {
@@ -664,6 +809,8 @@ function startHttpNotificationStream(server: McpServer): void {
       if (!response.ok || !response.body || !contentType.includes('text/event-stream')) {
         return;
       }
+      established = true;
+      httpAttempts.set(key, 0);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -695,6 +842,16 @@ function startHttpNotificationStream(server: McpServer): void {
       // 服务端不支持 GET 通知流或连接中断：不影响正常请求
     } finally {
       if (httpStreams.get(key) === controller) httpStreams.delete(key);
+      if (established && !controller.signal.aborted && !httpDisabled) {
+        const attempt = (httpAttempts.get(key) || 0) + 1;
+        httpAttempts.set(key, attempt);
+        if (attempt <= 6) {
+          const delay = Math.min(30_000, 3000 * attempt);
+          setTimeout(() => {
+            if (!httpDisabled) startHttpNotificationStream(server);
+          }, delay);
+        }
+      }
     }
   })();
 }
@@ -905,6 +1062,7 @@ export interface McpToolImage {
 export interface McpToolResult {
   text: string;
   images: McpToolImage[];
+  structured?: unknown;
 }
 
 /** 把 tools/call 的 content 归一成文本 + 图片；二进制资源给占位说明。 */
@@ -944,12 +1102,17 @@ export function parseMcpToolResult(result: unknown): McpToolResult {
   if (payload?.structuredContent !== undefined) {
     texts.push(JSON.stringify(payload.structuredContent));
   }
+  const structured = payload?.structuredContent;
   const text =
     texts.filter(Boolean).join('\n') ||
     (images.length
       ? `（工具返回 ${images.length} 张图片）`
       : JSON.stringify(result, null, 2));
-  return { text, images: images.slice(0, 4) };
+  return {
+    text,
+    images: images.slice(0, 4),
+    ...(structured !== undefined ? { structured } : {})
+  };
 }
 
 export async function callMcpToolDetailed(
@@ -998,8 +1161,10 @@ export async function callMcpTool(
 export function resetMcpSession(server: McpServer): void {
   sessionIds.delete(serverKey(server));
   protocolVersions.delete(serverKey(server));
+  sseEndpoints.delete(serverKey(server));
   httpStreams.get(serverKey(server))?.abort();
   httpStreams.delete(serverKey(server));
+  cancelElicitations(server);
   const client = stdioClients.get(stdioKey(server));
   if (client) {
     settleAll(client, new Error('MCP 会话已重置'));

@@ -2165,6 +2165,18 @@ button:disabled {
   object-fit: contain;
 }
 
+.chat-tool-structured {
+  margin: 4px 0 0 10px;
+  padding: 5px 6px;
+  max-height: 160px;
+  overflow: auto;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .chat-mcp-meta {
   flex: none;
   color: var(--faint);
@@ -2325,6 +2337,29 @@ button:disabled {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.chat-elicit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 5px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.chat-elicit-field span {
+  color: var(--text);
+}
+
+.chat-elicit-field em {
+  font-style: normal;
+  color: var(--faint);
+}
+
+.chat-elicit-field small {
+  color: var(--faint);
+  line-height: 1.4;
 }
 
 .chat-compare-panel {

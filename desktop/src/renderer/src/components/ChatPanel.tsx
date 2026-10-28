@@ -19,6 +19,8 @@ import type {
   ChatMessage,
   ChatToolEvent,
   ChatToolRecord,
+  McpElicitationAction,
+  McpElicitationRequest,
   McpPromptOption,
   McpResourceOption,
   McpToolOption,
@@ -243,6 +245,10 @@ export function ChatPanel({
   });
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
   const [approvals, setApprovals] = useState<ChatApprovalEvent[]>([]);
+  const [elicitations, setElicitations] = useState<McpElicitationRequest[]>([]);
+  const [elicitValues, setElicitValues] = useState<
+    Record<string, Record<string, string | boolean>>
+  >({});
   const [platforms, setPlatforms] = useState<AiPlatform[]>([]);
   const [activeAiId, setActiveAiId] = useState('');
   const [defaultModel, setDefaultModelState] = useState<{
@@ -471,6 +477,31 @@ export function ChatPanel({
     } finally {
       setMcpPanelBusy(false);
     }
+  };
+
+  const replyElicitation = async (
+    request: McpElicitationRequest,
+    action: McpElicitationAction
+  ): Promise<void> => {
+    const params = describeMcpParameters(request.requestedSchema);
+    const values = elicitValues[request.requestId] || {};
+    const content: Record<string, unknown> = {};
+    for (const param of params) {
+      const raw = values[param.name];
+      if (raw === undefined || raw === '') continue;
+      if (param.type.includes('number')) content[param.name] = Number(raw);
+      else if (param.type === 'boolean') content[param.name] = Boolean(raw);
+      else content[param.name] = raw;
+    }
+    await window.bsub.replyMcpElicitation?.(request.requestId, action, content);
+    setElicitations((previous) =>
+      previous.filter((item) => item.requestId !== request.requestId)
+    );
+    setElicitValues((previous) => {
+      const next = { ...previous };
+      delete next[request.requestId];
+      return next;
+    });
   };
 
   const toggleTool = (id: string): void => {
@@ -804,6 +835,16 @@ export function ChatPanel({
       alive = false;
     };
   }, [activeTab?.id, activeTab?.url]);
+
+  useEffect(() => {
+    return window.bsub.onMcpElicitation?.((request) => {
+      setElicitations((previous) => [
+        ...previous.filter((item) => item.requestId !== request.requestId),
+        request
+      ]);
+      setElicitValues((previous) => ({ ...previous, [request.requestId]: {} }));
+    });
+  }, []);
 
   useEffect(() => {
     return window.bsub.onMcpServerChanged?.(() => {
@@ -1840,6 +1881,14 @@ export function ChatPanel({
                       ))}
                     </div>
                   ) : null}
+                  {tool.structured !== undefined && (
+                    <details className="chat-tool-schema">
+                      <summary>结构化结果</summary>
+                      <pre className="chat-tool-structured">
+                        {JSON.stringify(tool.structured, null, 2)}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
@@ -1920,6 +1969,112 @@ export function ChatPanel({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {elicitations.length > 0 && (
+        <div className="chat-approval-list">
+          {elicitations.map((request) => {
+            const params = describeMcpParameters(request.requestedSchema);
+            const values = elicitValues[request.requestId] || {};
+            const missing = params.some(
+              (param) =>
+                param.required && (values[param.name] === undefined || values[param.name] === '')
+            );
+            return (
+              <div key={request.requestId} className="chat-approval-card">
+                <div className="chat-approval-title">
+                  MCP「{request.serverName}」请求补充信息
+                </div>
+                <div className="chat-tool-detail">{request.message}</div>
+                {params.length ? (
+                  params.map((param) => (
+                    <label key={param.name} className="chat-elicit-field">
+                      <span>
+                        {param.name}
+                        {param.required ? ' *' : ''} <em>{param.type}</em>
+                      </span>
+                      {param.enumValues.length ? (
+                        <select
+                          className="settings-input"
+                          value={String(values[param.name] ?? '')}
+                          onChange={(event) =>
+                            setElicitValues((previous) => ({
+                              ...previous,
+                              [request.requestId]: {
+                                ...previous[request.requestId],
+                                [param.name]: event.target.value
+                              }
+                            }))
+                          }
+                        >
+                          <option value="">请选择</option>
+                          {param.enumValues.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      ) : param.type === 'boolean' ? (
+                        <input
+                          type="checkbox"
+                          checked={Boolean(values[param.name])}
+                          onChange={(event) =>
+                            setElicitValues((previous) => ({
+                              ...previous,
+                              [request.requestId]: {
+                                ...previous[request.requestId],
+                                [param.name]: event.target.checked
+                              }
+                            }))
+                          }
+                        />
+                      ) : (
+                        <input
+                          className="settings-input"
+                          type={param.type.includes('number') ? 'number' : 'text'}
+                          value={String(values[param.name] ?? '')}
+                          onChange={(event) =>
+                            setElicitValues((previous) => ({
+                              ...previous,
+                              [request.requestId]: {
+                                ...previous[request.requestId],
+                                [param.name]: event.target.value
+                              }
+                            }))
+                          }
+                        />
+                      )}
+                      {param.description && <small>{param.description}</small>}
+                    </label>
+                  ))
+                ) : (
+                  <div className="settings-hint">这个请求没有额外字段，确认后提交即可。</div>
+                )}
+                <div className="chat-approval-actions">
+                  <button
+                    className="mini-btn primary"
+                    disabled={missing}
+                    onClick={() => void replyElicitation(request, 'accept')}
+                  >
+                    提交
+                  </button>
+                  <button
+                    className="mini-btn"
+                    onClick={() => void replyElicitation(request, 'decline')}
+                  >
+                    拒绝
+                  </button>
+                  <button
+                    className="mini-btn"
+                    onClick={() => void replyElicitation(request, 'cancel')}
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

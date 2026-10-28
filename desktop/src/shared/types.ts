@@ -1555,6 +1555,8 @@ export interface ChatToolEvent {
   ok?: boolean;
   /** MCP 工具返回的图片（data URL），只在当前轮展示，不写入历史。 */
   images?: string[];
+  /** MCP 工具的结构化结果（structuredContent），只在当前轮展示。 */
+  structured?: unknown;
 }
 
 /** 主窗口里可勾选的 MCP 工具（已按服务器展开）。 */
@@ -1575,6 +1577,17 @@ export interface McpServerChangedEvent {
   serverId: string;
   kind: 'tools' | 'prompts' | 'resources';
 }
+
+/** MCP 服务端发起的 elicitation 请求（向用户收集结构化输入）。 */
+export interface McpElicitationRequest {
+  requestId: string;
+  serverId: string;
+  serverName: string;
+  message: string;
+  requestedSchema: unknown;
+}
+
+export type McpElicitationAction = 'accept' | 'decline' | 'cancel';
 
 export interface McpPromptOption {
   id: string;

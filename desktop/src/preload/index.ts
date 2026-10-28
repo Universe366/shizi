@@ -78,6 +78,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpElicitationAction,
+  McpElicitationRequest,
   McpPromptOption,
   McpResourceOption,
   McpServerChangedEvent,
@@ -940,6 +942,16 @@ const api: BsubApi = {
     on<McpResourceUpdate>('mcp:resource-updated', cb),
   onMcpServerChanged: (cb: (event: McpServerChangedEvent) => void) =>
     on<McpServerChangedEvent>('mcp:server-changed', cb),
+  onMcpElicitation: (cb: (event: McpElicitationRequest) => void) =>
+    on<McpElicitationRequest>('mcp:elicitation', cb),
+  replyMcpElicitation: (
+    requestId: string,
+    action: McpElicitationAction,
+    content?: Record<string, unknown>
+  ) =>
+    ipcRenderer.invoke('mcp:elicitation-reply', { requestId, action, content }) as Promise<
+      Result<boolean>
+    >,
   mcpOAuth: (server: McpServer) =>
     ipcRenderer.invoke('mcp:oauth', server) as Promise<Result<McpOAuth>>,
   testMcp: (server: McpServer) =>
