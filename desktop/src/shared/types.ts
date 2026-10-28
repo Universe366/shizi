@@ -1116,6 +1116,14 @@ export interface VerificationSummary {
   note?: string;
   /** 本次使用的检索平台名 */
   engine?: string;
+  /** 总结里估算的可核实点总数 */
+  claimCount?: number;
+  /** 单来源/多来源/冲突条数 */
+  singleSource?: number;
+  multiSource?: number;
+  conflict?: number;
+  /** pre = 生成前核对；post = 生成后核对总结 */
+  mode?: 'pre' | 'post';
 }
 
 export interface CorrectionRule {
@@ -2009,6 +2017,8 @@ export interface SummarizeRequest {
   skipProofread?: boolean;
   /** 跳过联网核对/参考资料（快速总结） */
   skipVerify?: boolean;
+  /** 总结模式：纯字幕 / 标准 / 深度核对 */
+  quality?: 'transcript' | 'standard' | 'deep';
 }
 
 export interface AiDoneEvent {

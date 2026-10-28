@@ -87,7 +87,7 @@ describe('VerifyCard', () => {
 
   it('旧数据缺字段时只显示空状态，不崩溃', () => {
     render(<VerifyCard verification={{ } as never} />);
-    expect(screen.getByText(/没有从字幕里抽到可核实项|本次没有取得可用证据/)).toBeTruthy();
+    expect(screen.getByText(/没有抽到可核实说法|本次没有取得可用证据/)).toBeTruthy();
   });
 });
 
@@ -135,6 +135,6 @@ describe('VerifyCard 空状态诊断', () => {
 
   it('没有抽到可核实项时给出提示', () => {
     render(<VerifyCard verification={summary({ items: [], references: [], attempted: 0 })} />);
-    expect(screen.getByText(/没有从字幕里抽到可核实项/)).toBeTruthy();
+    expect(screen.getByText(/没有抽到可核实说法/)).toBeTruthy();
   });
 });

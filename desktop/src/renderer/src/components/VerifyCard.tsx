@@ -14,7 +14,7 @@ function emptyReason(
   judged: boolean
 ): string {
   if (attempted === 0 && items.length === 0) {
-    return '没有从字幕里抽到可核实项（纯观点或口语内容通常不会被核对）。';
+    return '没有抽到可核实说法（纯观点或口语内容通常不会被核对）。';
   }
   if (failed > 0 && failed >= attempted) {
     return `检索全部失败（${failed}/${attempted}）：检查设置里的检索平台、Key 或网络后重新生成。`;
@@ -43,14 +43,23 @@ export function VerifyCard({ verification }: VerifyCardProps) {
   const note = typeof data.note === 'string' ? data.note : '';
   const engine = typeof data.engine === 'string' ? data.engine : '';
   const reason = emptyReason(attempted, failed, dropped, references.length, items, judged);
+  const claimCount = Number(data.claimCount) || 0;
+  const singleSource = Number(data.singleSource) || 0;
+  const multiSource = Number(data.multiSource) || 0;
+  const conflict = Number(data.conflict) || 0;
+  const isPost = data.mode === 'post';
   const hasProblem = Boolean(error) || failed > 0 || references.length === 0;
 
   return (
-    <details className="verify-card" open={hasProblem}>
+    <details className="verify-card" open={hasProblem || isPost}>
       <summary className="verify-head">
-        <span>本次联网核对</span>
+        <span>{isPost ? '总结事实核对' : '本次联网核对'}</span>
         <span className="verify-stats">
-          {attempted} 项 · {references.length} 条证据
+          {claimCount ? `覆盖 ${attempted}/${claimCount} 项` : `${attempted} 项`} ·{' '}
+          {references.length} 条证据
+          {multiSource ? ` · 多源 ${multiSource}` : ''}
+          {singleSource ? ` · 单源 ${singleSource}` : ''}
+          {conflict ? ` · 冲突 ${conflict}` : ''}
           {failed > 0 ? ` · 失败 ${failed}` : ''}
           {judged ? ` · 丢弃 ${dropped}` : ' · 未判定'}
         </span>

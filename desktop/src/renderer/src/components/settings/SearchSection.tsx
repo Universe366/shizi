@@ -499,70 +499,44 @@ export function SearchSection({
       </div>
 
       <div className="settings-group">
-        <div className="settings-group-title">5. 总结前核对</div>
+        <div className="settings-group-title">5. 总结事实核对（深度模式）</div>
         <div className="settings-group-desc">
-          从字幕里挑数字、时间、版本等硬信息逐条找证据；故事/观点类视频会自动跳过。
+          在总结面板选择「深度核对」后生效：从生成的总结里挑数字、时间、版本、价格等硬事实，检索后给出支持/反驳/未找到报告。
         </div>
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={search.verifySummary !== false}
-            onChange={(event) => updateSearch({ verifySummary: event.target.checked })}
-          />
-          总结前联网核对字幕（推荐）
-        </label>
-        {search.verifySummary !== false && (
-          <details className="settings-advanced">
-            <summary>核对细节</summary>
-            <label className="settings-check">
-              <input
-                type="checkbox"
-                checked={search.aiQueryGeneration !== false}
-                onChange={(event) => updateSearch({ aiQueryGeneration: event.target.checked })}
-              />
-              让 AI 挑选待核实项（关闭则只按数字/术语抽取）
-            </label>
-            <div className="settings-field">
-              <div className="settings-label">每次核对条数</div>
-              <input
-                className="settings-input"
-                type="number"
-                min={1}
-                max={20}
-                value={search.verifyItemCount || 8}
-                onChange={(event) =>
-                  updateSearch({ verifyItemCount: Number(event.target.value) || 8 })
-                }
-              />
-            </div>
-            <div className="settings-field">
-              <div className="settings-label">每项读取正文篇数（1–5）</div>
-              <input
-                className="settings-input"
-                type="number"
-                min={1}
-                max={5}
-                value={search.verifyReadPages || 1}
-                onChange={(event) =>
-                  updateSearch({
-                    verifyReadPages: Math.min(
-                      5,
-                      Math.max(1, Number(event.target.value) || 1)
-                    )
-                  })
-                }
-              />
-            </div>
-            <div className="settings-label">额外核实查询（每行一条，可留空）</div>
-            <textarea
+        <details className="settings-advanced" open>
+          <summary>核对细节</summary>
+          <div className="settings-field">
+            <div className="settings-label">每次最多核对条数（1–20）</div>
+            <input
               className="settings-input"
-              rows={3}
-              placeholder='例如：DeepSeek V4 发布时间'
-              value={search.extraVerifyQueries || ''}
-              onChange={(event) => updateSearch({ extraVerifyQueries: event.target.value })}
+              type="number"
+              min={1}
+              max={20}
+              value={search.verifyItemCount || 8}
+              onChange={(event) =>
+                updateSearch({ verifyItemCount: Number(event.target.value) || 8 })
+              }
             />
-          </details>
-        )}
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">每项读取正文篇数（1–5）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={5}
+              value={search.verifyReadPages || 1}
+              onChange={(event) =>
+                updateSearch({
+                  verifyReadPages: Math.min(
+                    5,
+                    Math.max(1, Number(event.target.value) || 1)
+                  )
+                })
+              }
+            />
+          </div>
+        </details>
       </div>
 
       <details className="settings-advanced">
@@ -602,11 +576,6 @@ export function SearchSection({
             自动模式会按模型上下文决定是否分段；尽量一次可能超出小模型上下文。
           </div>
         </div>
-        {search.verifySummary !== false && (
-          <div className="settings-hint">
-            当前已开启「总结前联网核对」：下面的读取篇数与字符预算只在关闭核对后生效；核对读取请在「核对细节」里调。
-          </div>
-        )}
         <div className="settings-inline">
           <div className="settings-field">
             <div className="settings-label">总结读取正文篇数（1–10）</div>

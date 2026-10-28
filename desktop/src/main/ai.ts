@@ -11,6 +11,7 @@ import { chatOnce, chatStream, type AiChatResult } from './aiClient';
 import { buildSearchPlan } from './web';
 import { retrieveEvidence } from './web/retrieve';
 import { buildVerifyBlock, verifySummary } from './verify';
+import { verifySummaryText } from './summaryVerify';
 import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
 import { optimizeLines } from './optimize';
@@ -81,6 +82,8 @@ export interface SummarizeOptions {
   skipProofread?: boolean;
   /** 跳过联网核对/检索参考资料（与插件的「快速总结」一致） */
   skipVerify?: boolean;
+  /** 总结模式：纯字幕 / 标准（参考资料）/ 深度核对（生成后核事实） */
+  quality?: 'transcript' | 'standard' | 'deep' | 'pre';
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
   onStatus?: (status: string) => void;
@@ -548,6 +551,10 @@ export async function summarize(options: SummarizeOptions): Promise<{
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
 
   const info = options.info;
+  const quality: 'transcript' | 'standard' | 'deep' | 'pre' =
+    options.quality || (options.skipVerify ? 'transcript' : 'standard');
+  const wantsWeb =
+    quality !== 'transcript' && settings.search.enabled && options.skipVerify !== true;
   const summaryVideoKey = [info.bvid, info.epId, info.cid, info.url, info.title]
     .filter(Boolean)
     .join('|');
@@ -617,10 +624,10 @@ export async function summarize(options: SummarizeOptions): Promise<{
 
   let referencesBlock = '';
   let verification: VerificationSummary | undefined;
-  if (settings.search.enabled && options.skipVerify) {
-    options.onStatus?.('快速总结：跳过联网核对');
-  } else if (settings.search.enabled) {
-    if (settings.search.verifySummary !== false) {
+  if (!wantsWeb) {
+    if (quality === 'transcript') options.onStatus?.('纯字幕总结：跳过联网');
+  } else {
+    if (quality === 'pre') {
       options.onStatus?.('正在从字幕抽取待核实项…');
       try {
         const verifyKey = summaryCacheKey([
@@ -803,8 +810,8 @@ export async function summarize(options: SummarizeOptions): Promise<{
       : 1;
   options.onStatus?.(
     `预计 ${estimatedChunks > 1 ? `${estimatedChunks} 段分段 + 1 次合并` : '1 次直接总结'}` +
-      (settings.search.enabled && settings.search.verifySummary !== false && !options.skipVerify
-        ? `，核对最多 ${settings.search.verifyItemCount || 8} 项`
+      (quality === 'deep' && settings.search.enabled
+        ? `，生成后核对最多 ${settings.search.verifyItemCount || 8} 项`
         : '')
   );
   if (transcript.length > dynamicDirectChars) {
@@ -812,6 +819,28 @@ export async function summarize(options: SummarizeOptions): Promise<{
       `字幕约 ${transcript.length.toLocaleString('zh-CN')} 字符，超过本次直接总结上限 ${dynamicDirectChars.toLocaleString('zh-CN')}，改走分段`
     );
   }
+
+  const finishSummary = async (text: string, usage?: AiUsage) => {
+    if (quality === 'deep' && settings.search.enabled) {
+      options.onStatus?.('总结已生成，正在核对关键事实…');
+      try {
+        const report = await verifySummaryText({
+          settings,
+          info,
+          summary: text,
+          signal: options.signal,
+          onStatus: options.onStatus
+        });
+        if (report) verification = report;
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        options.onStatus?.(
+          `事实核对失败：${(error as Error).message}（总结已生成，可稍后重试）`
+        );
+      }
+    }
+    return { text, model: platform.model, verification, usage };
+  };
 
   // 长视频：分段提取 → 合并，避免只喂前 6 万字符导致“总结到一半就没了”。
   if (transcript.length > dynamicDirectChars) {
@@ -832,7 +861,7 @@ export async function summarize(options: SummarizeOptions): Promise<{
       onReasoning: options.onReasoning
     });
     options.onStatus?.(`长视频总结完成（${long.chunks} 段合并）`);
-    return { text: long.text, model: platform.model, verification, usage: long.usage };
+    return finishSummary(long.text, long.usage);
   }
 
   options.onStatus?.('正在生成总结…');
@@ -858,7 +887,7 @@ export async function summarize(options: SummarizeOptions): Promise<{
     if (!text) throw new Error('AI 返回为空');
     options.onDelta?.(text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return { text, model: platform.model, verification, usage: result.usage };
+    return finishSummary(text, result.usage);
   }
 
   const result = await chatStream(platform, messages, {
@@ -868,5 +897,5 @@ export async function summarize(options: SummarizeOptions): Promise<{
   });
   const text = (result.text || result.reasoning || '').trim();
   if (!text) throw new Error('AI 返回为空');
-  return { text, model: platform.model, verification, usage: result.usage };
+  return finishSummary(text, result.usage);
 }
