@@ -583,6 +583,25 @@ export function SearchSection({
           />
           热门评论（仅作观众观点参考）
         </label>
+        <div className="settings-field">
+          <div className="settings-label">长字幕分段策略</div>
+          <select
+            className="settings-input"
+            value={search.summarySplitMode || 'auto'}
+            onChange={(event) =>
+              updateSearch({
+                summarySplitMode: event.target.value as 'auto' | 'fixed' | 'never'
+              })
+            }
+          >
+            <option value="auto">自动（按模型上下文）</option>
+            <option value="fixed">固定 18000 字符</option>
+            <option value="never">尽量一次总结</option>
+          </select>
+          <div className="settings-hint">
+            自动模式会按模型上下文决定是否分段；尽量一次可能超出小模型上下文。
+          </div>
+        </div>
         <div className="settings-inline">
           <div className="settings-field">
             <div className="settings-label">总结读取正文篇数（1–10）</div>

@@ -993,6 +993,8 @@ export interface SearchSettings {
   planQueries: number;
   /** 对话联网时读取几篇正文（1-10，默认 2） */
   chatReadPages?: number;
+  /** 总结分段策略：auto 按模型上下文，fixed 固定 18000 字符，never 尽量一次 */
+  summarySplitMode?: 'auto' | 'fixed' | 'never';
   /** 总结时读取几篇正文（1-10，默认 2） */
   summaryReadPages?: number;
   /** 总结参考资料总字符预算（2000-20000，默认 6000） */

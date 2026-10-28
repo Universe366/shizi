@@ -428,6 +428,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     blacklist: [],
     planQueries: 3,
     chatReadPages: 2,
+    summarySplitMode: 'auto',
     summaryReadPages: 2,
     summaryReferenceChars: 6000,
     verifyReadPages: 1
@@ -1464,6 +1465,10 @@ function normalize(input: unknown): AppSettings {
         1,
         Math.min(10, Number(raw.search.chatReadPages) || 2)
       );
+      base.search.summarySplitMode =
+        raw.search.summarySplitMode === 'fixed' || raw.search.summarySplitMode === 'never'
+          ? raw.search.summarySplitMode
+          : 'auto';
       base.search.summaryReadPages = Math.max(
         1,
         Math.min(10, Number(raw.search.summaryReadPages) || 2)

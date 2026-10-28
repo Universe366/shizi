@@ -1,7 +1,7 @@
 import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
 import { activePrompt, loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
-import { chatOnce, chatStream } from './aiClient';
+import { chatOnce, chatStream, type AiChatResult } from './aiClient';
 import { buildSearchPlan } from './web';
 import { retrieveEvidence } from './web/retrieve';
 import { buildVerifyBlock, verifySummary } from './verify';
@@ -9,6 +9,8 @@ import { fetchHotComments } from './comments';
 import { glossaryTerms } from './correction';
 import { optimizeLines } from './optimize';
 import { packMergeGroups } from '../shared/summarizeMerge';
+import { capabilityKey, effectiveContextWindow } from '../shared/modelCapabilities';
+import { getSummaryCache, setSummaryCache, summaryCacheKey } from './summaryCache';
 
 const MAX_TRANSCRIPT_CHARS = 200000;
 const REQUEST_TIMEOUT_MS = 300000;
@@ -209,7 +211,6 @@ function mergePrompt(options: {
     options.spanText,
     options.extraContext,
     options.official || '',
-    options.official || '',
     options.referencesBlock,
     `下面是这部视频**分成 ${options.chunkCount} 段**分别提取的内容，请把它们**合并成一篇完整、连贯的总结**。`,
     '要求：',
@@ -265,6 +266,7 @@ async function summarizeInChunks(options: {
   platform: AiPlatform;
   settings: ReturnType<typeof loadSettings>;
   info: PageInfo;
+  videoKey?: string;
   lines: SubtitleLine[];
   prompt: string;
   glossaryBlock: string;
@@ -291,6 +293,19 @@ async function summarizeInChunks(options: {
   const summarizeChunk = async (index: number): Promise<void> => {
     if (options.signal?.aborted) throw new Error('已终止');
     const chunk = chunks[index];
+    const chunkCacheKey = summaryCacheKey([
+      'chunk',
+      options.videoKey || '',
+      platform.id,
+      platform.model,
+      chunk.text
+    ]);
+    const cachedChunk = getSummaryCache(chunkCacheKey);
+    if (cachedChunk) {
+      summaries[index] = cachedChunk;
+      options.onStatus?.(`第 ${index + 1}/${total} 段命中缓存`);
+      return;
+    }
     options.onStatus?.(
       `长视频分段总结 ${index + 1}/${total}（约 ${clock(chunk.start)} 起）…`
     );
@@ -324,22 +339,31 @@ async function summarizeInChunks(options: {
     ];
     // 分段也必须走流式：部分推理模型在非流式下只返回 reasoning、content 为空；
     // 旧实现用 chatOnce，长视频第 1 段直接报“总结为空”。
-    const result =
+    const callChunk = (): Promise<AiChatResult> =>
       settings.ai.stream === false
-        ? await chatOnce(platform, chunkMessages, {
+        ? chatOnce(platform, chunkMessages, {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
             timeoutMs: 420000,
             signal: options.signal,
             task: 'summary'
           })
-        : await chatStream(platform, chunkMessages, {
+        : chatStream(platform, chunkMessages, {
             temperature: settings.ai.temperature,
             maxTokens: chunkMaxTokens,
             timeoutMs: 420000,
             signal: options.signal,
             task: 'summary'
           });
+    let result: AiChatResult;
+    try {
+      result = await callChunk();
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      options.onStatus?.(`第 ${index + 1}/${total} 段失败，重试一次…`);
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      result = await callChunk();
+    }
     const chunkText = (result.text || result.reasoning || '').trim();
     if (!chunkText) {
       console.warn('[m4] chunk empty', index + 1, '/', total);
@@ -347,6 +371,7 @@ async function summarizeInChunks(options: {
       return;
     }
     summaries[index] = `【第 ${index + 1}/${total} 段 · 起于 ${clock(chunk.start)}】\n${chunkText}`;
+    setSummaryCache(chunkCacheKey, summaries[index]);
   };
 
   // 两路并发：长视频（尤其 40 分钟以上）串行分段会把总时长翻倍；两路足够快，
@@ -496,6 +521,9 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
   if (needsApiKey(platform) && !platform.apiKey.trim()) throw new Error('请先在设置里填写 API Key');
 
   const info = options.info;
+  const summaryVideoKey = [info.bvid, info.epId, info.cid, info.url, info.title]
+    .filter(Boolean)
+    .join('|');
   let workingLines = options.lines;
   if (settings.ai.preProofread && !options.skipProofread) {
     options.onStatus?.('先校对字幕…');
@@ -568,14 +596,36 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     if (settings.search.verifySummary !== false) {
       options.onStatus?.('正在从字幕抽取待核实项…');
       try {
-        const verified = await verifySummary(
-          settings,
-          info,
-          workingLines,
-          options.signal,
-          (done, total, query) =>
-            options.onStatus?.(`联网核对 ${done}/${total}：${query.slice(0, 28)}`)
-        );
+        const verifyKey = summaryCacheKey([
+          'verify',
+          summaryVideoKey,
+          platform.id,
+          platform.model,
+          String(settings.search.verifyItemCount || 8),
+          String(settings.search.verifyReadPages || 1),
+          workingLines.map((line) => `${line.start}:${line.text}`).join('\n')
+        ]);
+        const cachedVerify = getSummaryCache(verifyKey);
+        let verified: Awaited<ReturnType<typeof verifySummary>> | null = null;
+        if (cachedVerify) {
+          try {
+            verified = JSON.parse(cachedVerify) as Awaited<ReturnType<typeof verifySummary>>;
+            options.onStatus?.('核对结果命中缓存');
+          } catch {
+            verified = null;
+          }
+        }
+        if (!verified) {
+          verified = await verifySummary(
+            settings,
+            info,
+            workingLines,
+            options.signal,
+            (done, total, query) =>
+              options.onStatus?.(`联网核对 ${done}/${total}：${query.slice(0, 28)}`)
+          );
+          setSummaryCache(verifyKey, JSON.stringify(verified));
+        }
         const searchPlatform =
           settings.search.platforms.find((item) => item.id === settings.search.activeId) ||
           settings.search.platforms[0];
@@ -700,12 +750,49 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     }
   }
 
+  // 分段阈值：默认按模型上下文动态估算；也可固定 18000 或尽量一次。
+  const splitMode = settings.search.summarySplitMode || 'auto';
+  const modelContext = effectiveContextWindow(
+    platform.model,
+    settings.ai.capabilities[capabilityKey(platform.id, platform.model)]?.contextWindow
+  );
+  const dynamicDirectChars =
+    splitMode === 'never'
+      ? 100000
+      : splitMode === 'fixed'
+        ? DIRECT_SUMMARY_CHARS
+        : Math.min(
+            100000,
+            Math.floor(
+              Math.max(
+                4000,
+                ((modelContext || 32000) * 0.55 - 8192) / 1.1
+              )
+            )
+          );
+  const estimatedChunks =
+    transcript.length > dynamicDirectChars
+      ? Math.ceil(transcript.length / SUMMARY_CHUNK_CHARS)
+      : 1;
+  options.onStatus?.(
+    `预计 ${estimatedChunks > 1 ? `${estimatedChunks} 段分段 + 1 次合并` : '1 次直接总结'}` +
+      (settings.search.enabled && settings.search.verifySummary !== false && !options.skipVerify
+        ? `，核对最多 ${settings.search.verifyItemCount || 8} 项`
+        : '')
+  );
+  if (transcript.length > dynamicDirectChars) {
+    options.onStatus?.(
+      `字幕约 ${transcript.length.toLocaleString('zh-CN')} 字符，超过本次直接总结上限 ${dynamicDirectChars.toLocaleString('zh-CN')}，改走分段`
+    );
+  }
+
   // 长视频：分段提取 → 合并，避免只喂前 6 万字符导致“总结到一半就没了”。
-  if (transcript.length > DIRECT_SUMMARY_CHARS) {
+  if (transcript.length > dynamicDirectChars) {
     const long = await summarizeInChunks({
       platform,
       settings,
       info,
+      videoKey: summaryVideoKey,
       lines: workingLines,
       prompt,
       glossaryBlock,

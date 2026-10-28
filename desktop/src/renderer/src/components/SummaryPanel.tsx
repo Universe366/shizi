@@ -16,6 +16,7 @@ import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
+import { invalidCitationNumbers } from '../../../shared/chatCitations';
 import { speakText } from '../lib/speech';
 import {
   consumeSummaryPanelRequest,
@@ -210,6 +211,16 @@ export function SummaryPanel({
       setStreaming(false);
       setStreamText('');
       setStatus('');
+      if (event.verification) {
+        const referenceCount = (event.verification.sources || event.verification.references || [])
+          .length;
+        const bad = invalidCitationNumbers(event.text, referenceCount);
+        if (bad.length) {
+          setStatus(
+            `引用编号越界：${bad.map((item) => `[${item}]`).join('、')}（仅提示，未修改正文）`
+          );
+        }
+      }
       setTotalMs(startedAtRef.current ? Date.now() - startedAtRef.current : 0);
       if (autoReadSummaryRef.current && event.text.trim()) {
         void speakText(event.text);
