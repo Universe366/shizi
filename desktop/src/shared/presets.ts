@@ -633,6 +633,16 @@ export const SEARCH_PRESETS: SearchPlatform[] = [
     "reuseAiKey": ""
   },
   {
+    "id": "querit",
+    "name": "Querit 搜索（需 Key）",
+    "kind": "querit",
+    "baseUrl": "https://api.querit.ai/v1/search",
+    "apiKey": "",
+    "homepage": "https://www.querit.ai/",
+    "keyUrl": "https://www.querit.ai/",
+    "reuseAiKey": ""
+  },
+  {
     "id": "jina-search",
     "name": "Jina 搜索 + 正文提取",
     "kind": "jina",

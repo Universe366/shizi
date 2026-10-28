@@ -15,6 +15,7 @@ import {
   moveQueueItem
 } from '../../../shared/chatContext';
 import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
+import { invalidCitationNumbers } from '../../../shared/chatCitations';
 import { formatTokens } from '../lib/usageStats';
 import type {
   AiPlatform,
@@ -27,6 +28,7 @@ import type {
   ChatMessageSearchHit,
   FavoriteChatMessage,
   PromptTemplate,
+  SearchPlatform,
   ChatToolEvent,
   ChatToolRecord,
   McpElicitationAction,
@@ -226,6 +228,8 @@ export function ChatPanel({
   });
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [searchProviderName, setSearchProviderName] = useState('');
+  const [searchPlatforms, setSearchPlatforms] = useState<SearchPlatform[]>([]);
+  const [searchPlatformId, setSearchPlatformId] = useState('');
   const [savedNotice, setSavedNotice] = useState('');
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -384,6 +388,13 @@ export function ChatPanel({
     if (!created.ok) return null;
     conversationRef.current = created.data.id;
     setConversationId(created.data.id);
+    if (searchPlatformId) {
+      try {
+        localStorage.setItem(`chat-search-${created.data.id}`, searchPlatformId);
+      } catch {
+        // ignore
+      }
+    }
     void refreshConversations();
     return created.data.id;
   };
@@ -410,6 +421,21 @@ export function ChatPanel({
     }
   };
 
+  const loadSearchPlatformOverride = (id: number | null): void => {
+    if (!id) {
+      setSearchPlatformId('');
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(`chat-search-${id}`) || '';
+      setSearchPlatformId(
+        searchPlatforms.some((platform) => platform.id === saved) ? saved : ''
+      );
+    } catch {
+      setSearchPlatformId('');
+    }
+  };
+
   const openConversation = async (conversation: ChatConversation): Promise<void> => {
     if (streaming) return;
     const rows = await window.bsub.chatHistoryMessages(conversation.id);
@@ -424,6 +450,7 @@ export function ChatPanel({
     const restored = rows.data.map(fromStoredMessage);
     setMessages(restored);
     applyLocalConversationState(conversation.id, restored.length);
+    loadSearchPlatformOverride(conversation.id);
     if (conversation.profileId) {
       setProfileId(conversation.profileId);
       try {
@@ -449,6 +476,7 @@ export function ChatPanel({
     try {
       localStorage.removeItem(`chat-context-${id}`);
       localStorage.removeItem(`chat-draft-${id}`);
+      localStorage.removeItem(`chat-search-${id}`);
     } catch {
       // ignore
     }
@@ -772,6 +800,14 @@ export function ChatPanel({
           (platform) => platform.id === response.data.settings.search.activeId
         )?.name || ''
       );
+      setSearchPlatforms(response.data.settings.search.platforms || []);
+      setSearchPlatformId((current) =>
+        (response.data.settings.search.platforms || []).some(
+          (platform) => platform.id === current
+        )
+          ? current
+          : ''
+      );
       if (!searchOn) {
         setWebSearch(false);
         try {
@@ -788,6 +824,14 @@ export function ChatPanel({
         snapshot.settings.search.platforms.find(
           (platform) => platform.id === snapshot.settings.search.activeId
         )?.name || ''
+      );
+      setSearchPlatforms(snapshot.settings.search.platforms || []);
+      setSearchPlatformId((current) =>
+        (snapshot.settings.search.platforms || []).some(
+          (platform) => platform.id === current
+        )
+          ? current
+          : ''
       );
       setProfiles(snapshot.settings.ai.profiles || []);
       setChatPrompts(snapshot.settings.ai.chatPrompts || []);
@@ -863,6 +907,7 @@ export function ChatPanel({
           const restored = rows.data.map(fromStoredMessage);
           setMessages(restored);
           applyLocalConversationState(latest.data.id, restored.length);
+          loadSearchPlatformOverride(latest.data.id);
         }
         const legacyKey = chatStorageKey(videoKey);
         if (legacyKey) {
@@ -1027,6 +1072,12 @@ export function ChatPanel({
       setStreamText('');
       setStatus('');
       requestRef.current = '';
+      const badCitations = invalidCitationNumbers(event.text, sources.length);
+      if (badCitations.length) {
+        setSavedNotice(
+          `回答引用了不存在的参考编号：${badCitations.map((item) => `[${item}]`).join('、')}`
+        );
+      }
 
       const pending = autoSaveRef.current;
       autoSaveRef.current = null;
@@ -1351,6 +1402,7 @@ export function ChatPanel({
         // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
         mcpToolIds: profileId ? undefined : toolSelection ?? undefined,
         conversationId: conversationRef.current || undefined,
+        searchPlatformId: searchPlatformId || undefined,
         includePage: forcePage ? true : includePage,
         includeTranscript,
         web: webSearch
@@ -1381,6 +1433,18 @@ export function ChatPanel({
       // ignore
     }
   }, [input, conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    try {
+      const saved = localStorage.getItem(`chat-search-${conversationId}`) || '';
+      setSearchPlatformId(
+        searchPlatforms.some((platform) => platform.id === saved) ? saved : ''
+      );
+    } catch {
+      setSearchPlatformId('');
+    }
+  }, [conversationId, searchPlatforms]);
 
   const clearContext = (): void => {
     if (!messages.length) return;
@@ -1497,6 +1561,7 @@ export function ChatPanel({
     const restored = rows.data.map(fromStoredMessage);
     setMessages(restored);
     applyLocalConversationState(id, restored.length);
+    loadSearchPlatformOverride(id);
     setHistoryOpen(false);
     setFavoritesOpen(false);
     setMessageSearchOpen(false);
@@ -1724,6 +1789,7 @@ export function ChatPanel({
       try {
         localStorage.removeItem(`chat-context-${oldId}`);
         localStorage.removeItem(`chat-draft-${oldId}`);
+        localStorage.removeItem(`chat-search-${oldId}`);
       } catch {
         // ignore
       }
@@ -1744,6 +1810,7 @@ export function ChatPanel({
     setContextStart(null);
     setQueue([]);
     setQueuePaused(false);
+    setSearchPlatformId('');
     setInput('');
     setStreamText('');
     setStatus('');
@@ -2740,6 +2807,37 @@ export function ChatPanel({
               <X size={13} />
             </button>
           </div>
+          {searchEnabled && searchPlatforms.length > 0 && (
+            <div className="chat-menu-search">
+              <span className="chat-menu-desc">本轮搜索服务</span>
+              <select
+                className="settings-input"
+                value={searchPlatformId}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setSearchPlatformId(next);
+                  if (conversationRef.current) {
+                    try {
+                      if (next) {
+                        localStorage.setItem(`chat-search-${conversationRef.current}`, next);
+                      } else {
+                        localStorage.removeItem(`chat-search-${conversationRef.current}`);
+                      }
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }}
+              >
+                <option value="">跟随默认（{searchProviderName || '未选择'}）</option>
+                {searchPlatforms.map((platform) => (
+                  <option key={platform.id} value={platform.id}>
+                    {platform.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="chat-menu-grid">
             <button className="chat-menu-card" onClick={() => void openToolPanel('tools')}>
               <Wrench size={15} />

@@ -640,6 +640,7 @@ export function registerMediaIpc(ctx: IpcContext): void {
             page,
             mcpToolIds: payload.mcpToolIds,
             conversationId: payload.conversationId,
+            searchPlatformId: payload.searchPlatformId,
             signal: controller.signal,
             onDelta: (delta) =>
               sendToSender('chat:delta', { requestId, delta } satisfies ChatDeltaEvent),

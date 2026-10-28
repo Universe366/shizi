@@ -1606,6 +1606,8 @@ export interface ChatRequest {
   surface?: 'main' | 'pet';
   /** 当前对话 id：自动压缩按会话缓存摘要 */
   conversationId?: number;
+  /** 本轮临时指定搜索服务商（仅对话，不改全局） */
+  searchPlatformId?: string;
 }
 
 export interface ChatToolEvent {

@@ -9,6 +9,7 @@ vi.mock('electron', () => ({
 
 import { searchExaApi } from './exaApi';
 import { searchFirecrawl } from './firecrawl';
+import { searchQuerit } from './querit';
 
 const settings = {
   search: { maxResults: 5, snippetChars: 2000 },
@@ -65,6 +66,33 @@ describe('Firecrawl / Exa API 搜索', () => {
     expect(rows[0]).toMatchObject({ title: 'B', url: 'https://b.com', snippet: '正文 B' });
     const init = state.fetch.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>)['x-api-key']).toBe('key');
+  });
+
+  it('解析 Querit 的 results.result 与 highlights', async () => {
+    state.fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: {
+            result: [
+              {
+                title: 'C',
+                url: 'https://c.com',
+                snippet: '摘要',
+                highlights: ['高亮一', '高亮二']
+              }
+            ]
+          }
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    );
+    const rows = await searchQuerit(settings, platform('querit', 'https://api.querit.ai/v1/search'), '测试');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      title: 'C',
+      url: 'https://c.com',
+      snippet: '高亮一 高亮二'
+    });
   });
 
   it('缺少 Key 时直接报错', async () => {

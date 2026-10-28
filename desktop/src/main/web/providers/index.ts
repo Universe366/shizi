@@ -9,6 +9,7 @@ import { searchExaApi } from './exaApi';
 import { searchFirecrawl } from './firecrawl';
 import { searchJina } from './jina';
 import { searchMetaso } from './metaso';
+import { searchQuerit } from './querit';
 import { searchSearxng } from './searxng';
 import { searchSerper } from './serper';
 import { searchTavily } from './tavily';
@@ -27,6 +28,7 @@ export type ProviderKind =
   | 'exa'
   | 'exa-api'
   | 'firecrawl'
+  | 'querit'
   | 'anysearch'
   | 'jina'
   | 'searxng'
@@ -51,6 +53,7 @@ const SPECS: Record<ProviderKind, ProviderSpec> = {
   exa: { kind: 'exa', label: 'Exa MCP', search: (_settings, _platform, query) => searchExa(query, _settings) },
   'exa-api': { kind: 'exa-api', label: 'Exa API', search: searchExaApi },
   firecrawl: { kind: 'firecrawl', label: 'Firecrawl', search: searchFirecrawl },
+  querit: { kind: 'querit', label: 'Querit', search: searchQuerit },
   anysearch: { kind: 'anysearch', label: 'AnySearch', search: searchAnySearch },
   jina: { kind: 'jina', label: 'Jina', search: searchJina },
   searxng: { kind: 'searxng', label: 'SearXNG', search: searchSearxng },

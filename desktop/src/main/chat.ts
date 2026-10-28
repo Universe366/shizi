@@ -112,6 +112,8 @@ export interface ChatOptions {
   mcpToolIds?: string[];
   /** 当前对话 id：自动压缩按会话缓存摘要 */
   conversationId?: number;
+  /** 本轮临时指定搜索服务商 */
+  searchPlatformId?: string;
   /** 工具调用进度（开始/结束），用于对话里的工具卡片 */
   onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
   /** 危险工具执行前确认；返回 false 表示用户拒绝。 */
@@ -221,6 +223,14 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       };
     }
   }
+  const searchSettings =
+    options.searchPlatformId &&
+    settings.search.platforms.some((platform) => platform.id === options.searchPlatformId)
+      ? {
+          ...settings,
+          search: { ...settings.search, activeId: options.searchPlatformId }
+        }
+      : settings;
   const temperature = profile?.temperature ?? settings.ai.temperature;
   const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;
   const modelCapability = effectiveModelCapabilities(
@@ -318,7 +328,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     let searchMeta: WebSearchMeta | undefined;
     try {
       const result = await withDeadline(
-        retrieveEvidence(settings, {
+        retrieveEvidence(searchSettings, {
           purpose: 'chat',
           queries: plan.map((item) => item.query),
           read: Math.max(1, Math.min(10, settings.search.chatReadPages || 2)),
@@ -666,7 +676,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           options.onStatus?.(`联网检索：${query}`);
           const toolLimit = Math.max(1, Math.min(20, settings.search.maxResults || 6));
           try {
-            const result = await retrieveEvidence(settings, {
+            const result = await retrieveEvidence(searchSettings, {
               purpose: 'chat',
               queries: [query],
               maxResults: toolLimit,
