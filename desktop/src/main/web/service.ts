@@ -319,7 +319,12 @@ export async function searchWebPlan(
       const cached = cachedDocument(ref.url);
       if (cached) return { url: ref.url, text: cached, cached: true };
       const text = await withSearchSignal(options.signal, () =>
-        fetchPageText(ref.url, Math.max(600, settings.search.snippetChars || 2000))
+        fetchPageText(
+          ref.url,
+          settings.search.snippetMode === 'none'
+            ? 20000
+            : Math.max(600, settings.search.snippetChars || 2000)
+        )
       );
       if (text) rememberDocument(ref.url, text);
       return { url: ref.url, text, cached: false };

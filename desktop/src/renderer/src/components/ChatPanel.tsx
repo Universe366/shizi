@@ -225,6 +225,7 @@ export function ChatPanel({
     }
   });
   const [searchEnabled, setSearchEnabled] = useState(true);
+  const [searchProviderName, setSearchProviderName] = useState('');
   const [savedNotice, setSavedNotice] = useState('');
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -766,6 +767,11 @@ export function ChatPanel({
       autoReadChatRef.current = response.data.settings.tts?.autoRead?.chat === true;
       const searchOn = response.data.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
+      setSearchProviderName(
+        response.data.settings.search.platforms.find(
+          (platform) => platform.id === response.data.settings.search.activeId
+        )?.name || ''
+      );
       if (!searchOn) {
         setWebSearch(false);
         try {
@@ -778,6 +784,11 @@ export function ChatPanel({
     return window.bsub.onSettingsChanged((snapshot) => {
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
+      setSearchProviderName(
+        snapshot.settings.search.platforms.find(
+          (platform) => platform.id === snapshot.settings.search.activeId
+        )?.name || ''
+      );
       setProfiles(snapshot.settings.ai.profiles || []);
       setChatPrompts(snapshot.settings.ai.chatPrompts || []);
       setPlatforms(snapshot.settings.ai.platforms || []);
@@ -3490,6 +3501,16 @@ export function ChatPanel({
                                     {capability.audio && (
                                       <span className="chat-model-tag">音频</span>
                                     )}
+                                    {(platform.kind === 'gemini' ||
+                                      platform.kind === 'anthropic' ||
+                                      /anthropic\.com/i.test(platform.baseUrl || '')) && (
+                                      <span
+                                        className="chat-model-tag"
+                                        title="支持模型内置联网"
+                                      >
+                                        联网
+                                      </span>
+                                    )}
                                   </>
                                 );
                               })()}
@@ -3545,9 +3566,9 @@ export function ChatPanel({
               className={`chat-chip${webSearch ? ' is-on' : ''}`}
               title={
                 searchEnabled
-                  ? webSearch
-                    ? '本次会联网检索并列出参考'
-                    : '本次不联网'
+                  ? `搜索服务：${searchProviderName || '未选择'}；${
+                      webSearch ? '本次会联网检索并列出参考' : '本次不联网'
+                    }`
                   : '联网检索未启用，去设置开启'
               }
               disabled={!searchEnabled}

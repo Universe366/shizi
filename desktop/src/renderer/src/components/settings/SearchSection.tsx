@@ -520,7 +520,7 @@ export function SearchSection({
               className="settings-input"
               type="number"
               min={1}
-              max={10}
+              max={20}
               value={search.maxResults}
               onChange={(event) => updateSearch({ maxResults: Number(event.target.value) || 5 })}
             />
@@ -570,17 +570,36 @@ export function SearchSection({
           包含网页正文（平台支持时）
         </label>
         <div className="settings-field">
-          <div className="settings-label">每条结果保留字符数（{search.snippetChars || 2000}）</div>
-          <input
+          <div className="settings-label">搜索结果压缩</div>
+          <select
             className="settings-input"
-            type="number"
-            min={200}
-            max={20000}
-            step={100}
-            value={search.snippetChars || 2000}
-            onChange={(event) => updateSearch({ snippetChars: Number(event.target.value) || 2000 })}
-          />
+            value={search.snippetMode === 'none' ? 'none' : 'truncate'}
+            onChange={(event) =>
+              updateSearch({
+                snippetMode: event.target.value === 'none' ? 'none' : 'truncate'
+              })
+            }
+          >
+            <option value="truncate">截断（省 token）</option>
+            <option value="none">不压缩（保留完整摘要，更费 token）</option>
+          </select>
         </div>
+        {search.snippetMode !== 'none' && (
+          <div className="settings-field">
+            <div className="settings-label">每条结果保留字符数（{search.snippetChars || 2000}）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={200}
+              max={20000}
+              step={100}
+              value={search.snippetChars || 2000}
+              onChange={(event) =>
+                updateSearch({ snippetChars: Number(event.target.value) || 2000 })
+              }
+            />
+          </div>
+        )}
         <label className="settings-check">
           <input
             type="checkbox"

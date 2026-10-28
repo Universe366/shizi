@@ -9,6 +9,7 @@ vi.mock('electron', () => ({
 import {
   buildChatQuery,
   parseAutoSearchIntent,
+  prepareResults,
   searchWeb,
   shouldAutoSearch,
   testSearch,
@@ -50,6 +51,21 @@ function searchSettings(): AppSettings {
     }
   } as unknown as AppSettings;
 }
+
+describe('搜索结果压缩', () => {
+  it('截断模式限制字符数，不压缩模式保留完整摘要', async () => {
+    const settings = searchSettings();
+    settings.search.snippetChars = 200;
+    settings.search.snippetMode = 'truncate';
+    const rows = [{ title: '标题', url: 'https://example.com/a', snippet: 'x'.repeat(400) }];
+    const truncated = await prepareResults(rows, settings, 3);
+    expect(truncated[0].snippet).toHaveLength(200);
+
+    settings.search.snippetMode = 'none';
+    const full = await prepareResults(rows, settings, 3);
+    expect(full[0].snippet).toHaveLength(400);
+  });
+});
 
 describe('parseAutoSearchIntent', () => {
   it('解析 YES/NO 与中文', () => {

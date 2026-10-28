@@ -294,13 +294,18 @@ export async function prepareResults(
   settings: AppSettings,
   max: number
 ): Promise<WebReference[]> {
-  const maxChars = Math.max(200, settings.search.snippetChars || 2000);
+  const noCompress = settings.search.snippetMode === 'none';
+  const maxChars = noCompress
+    ? 20000
+    : Math.max(200, settings.search.snippetChars || 2000);
   let normalized = normalize(rows, max).filter(
     (ref) => !isBlockedUrl(ref.url, settings.search.blacklist || [])
   );
   normalized = normalized.map((ref) => ({
     ...ref,
-    snippet: String(ref.snippet || '').slice(0, maxChars)
+    snippet: noCompress
+      ? String(ref.snippet || '')
+      : String(ref.snippet || '').slice(0, maxChars)
   }));
   if (settings.search.fetchPages && normalized.length) {
     normalized = await enrichWithPages(normalized, maxChars, 3);
@@ -323,7 +328,7 @@ export async function searchWeb(
   if (!platform.baseUrl.trim() && (kind === 'deepseek-search' || kind === 'custom')) {
     throw new Error(`${platform.name || '检索平台'} 还没有填写接口地址`);
   }
-  const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}|${settings.search.fetchPages ? 1 : 0}|${settings.search.snippetChars || 2000}|${(settings.search.blacklist || []).join(',')}`;
+  const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}|${settings.search.fetchPages ? 1 : 0}|${settings.search.snippetMode || 'truncate'}|${settings.search.snippetChars || 2000}|${(settings.search.blacklist || []).join(',')}`;
   const ttl = Math.max(0, settings.search.cacheMinutes || 0) * 60000;
   if (ttl > 0) {
     const cached = searchCache.get(cacheKey);

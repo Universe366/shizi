@@ -985,6 +985,8 @@ export interface SearchSettings {
   fetchPages: boolean;
   /** 每条结果保留的字符数（截断，避免撑爆 token） */
   snippetChars: number;
+  /** 搜索结果压缩方式：truncate = 截断；none = 不压缩、保留完整摘要 */
+  snippetMode?: 'truncate' | 'none';
   /** 域名黑名单：每行一个，支持 * 通配与 /正则/ */
   blacklist: string[];
   /** 对话联网的检索计划条数（1-4，默认 3） */

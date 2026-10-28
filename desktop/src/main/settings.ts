@@ -423,6 +423,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     extraVerifyQueries: '',
     fetchPages: false,
     snippetChars: 2000,
+    snippetMode: 'truncate',
     blacklist: [],
     planQueries: 3
   },
@@ -1443,6 +1444,7 @@ function normalize(input: unknown): AppSettings {
       if (Number.isFinite(snippetChars)) {
         base.search.snippetChars = Math.min(20000, Math.max(200, Math.round(snippetChars)));
       }
+      base.search.snippetMode = raw.search.snippetMode === 'none' ? 'none' : 'truncate';
       if (Array.isArray(raw.search.blacklist)) {
         base.search.blacklist = raw.search.blacklist
           .map((item) => String(item || '').trim())
