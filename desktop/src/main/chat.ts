@@ -220,6 +220,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   }
   const temperature = profile?.temperature ?? settings.ai.temperature;
   const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;
+  const toolImagesEnabled = effectiveModelCapabilities(
+    platform.kind,
+    platform.model,
+    settings.ai.capabilities[capabilityKey(platform.id, platform.model)]
+  ).vision;
 
   if (options.messages.some((message) => message.images?.length)) {
     const capability = effectiveModelCapabilities(
@@ -712,12 +717,16 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
             (image) => `data:${image.mimeType};base64,${image.data}`
           );
           const text = result.images.length
-            ? `${result.text}\n（工具返回 ${result.images.length} 张图片，已在界面显示）`
+            ? `${result.text}\n（工具返回 ${result.images.length} 张图片${
+                toolImagesEnabled ? '，已交给模型' : '，当前模型未开启图片能力，仅在界面显示'
+              }）`
             : result.text;
           const output = finish(text, true, images);
-          const modelImages: AiImagePart[] = result.images
-            .slice(0, 2)
-            .map((image) => ({ type: 'image', mime: image.mimeType, data: image.data }));
+          const modelImages: AiImagePart[] = toolImagesEnabled
+            ? result.images
+                .slice(0, 2)
+                .map((image) => ({ type: 'image', mime: image.mimeType, data: image.data }))
+            : [];
           return modelImages.length ? { text: output, images: modelImages } : output;
         } catch (error) {
           return finish(`工具调用失败：${(error as Error).message}`, false);
