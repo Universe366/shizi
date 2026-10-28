@@ -15,6 +15,8 @@ import type {
   AsrDownloadProgress,
   AsrLocalStatus,
   AsrPlatform,
+  KbProgress,
+  KbStatus,
   OllamaPullProgress
 } from '../../../../shared/types';
 import { OLLAMA_EMBEDDING_CATALOG } from '../../../../shared/localModels';
@@ -73,6 +75,9 @@ export function LocalModelsSection({
   const [pullModel, setPullModel] = useState<string>(OLLAMA_EMBEDDING_CATALOG[0].model);
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<OllamaPullProgress | null>(null);
+  const [kbStatus, setKbStatus] = useState<KbStatus | null>(null);
+  const [kbProgress, setKbProgress] = useState<KbProgress | null>(null);
+  const [buildingIndex, setBuildingIndex] = useState(false);
 
   const refresh = useCallback(() => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -87,6 +92,16 @@ export function LocalModelsSection({
       if (event.percent >= 100) refresh();
     });
   }, [refresh]);
+
+  const refreshKb = useCallback(async () => {
+    const response = await window.bsub.kbStatus?.();
+    if (response?.ok) setKbStatus(response.data);
+  }, []);
+
+  useEffect(() => {
+    void refreshKb();
+    return window.bsub.onKbProgress?.((event) => setKbProgress(event));
+  }, [refreshKb]);
 
   useEffect(() => {
     return window.bsub?.onOllamaPullProgress?.((event) => {
@@ -288,7 +303,38 @@ export function LocalModelsSection({
       return;
     }
     onUseLocalEmbedding(localBaseUrl.trim(), model);
-    setNotice(`已设为知识库 embedding：${model}（记得保存设置）`);
+    setNotice(`已设为知识库 embedding：${model}（先保存设置，再构建索引）`);
+  };
+
+  const buildIndex = async () => {
+    if (buildingIndex) return;
+    if (!draft.knowledge.enabled) {
+      setProbeError('先启用知识库（设置 → 检索与知识 → 知识库）');
+      return;
+    }
+    setBuildingIndex(true);
+    setProbeError('');
+    setKbProgress({ phase: 'collect', done: 0, total: 1, message: '准备索引…' });
+    try {
+      const response = await window.bsub.kbIndex?.();
+      if (!response) {
+        setProbeError('当前版本不支持构建索引');
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`构建索引失败：${response.error}`);
+        return;
+      }
+      setKbStatus(response.data);
+      setNotice(
+        `索引完成：${response.data.chunks} 块 / ${response.data.videos} 个视频`
+      );
+    } catch (error) {
+      setProbeError(`构建索引失败：${(error as Error).message}`);
+    } finally {
+      setBuildingIndex(false);
+      setKbProgress(null);
+    }
   };
 
   const activeDownload = progress && progress.percent < 100 ? progress : null;
@@ -690,9 +736,38 @@ export function LocalModelsSection({
             </div>
           </>
         )}
+        <div className="local-model-row">
+          <div className="local-model-main">
+            <div className="local-model-name">
+              知识库索引
+              <span className={`local-model-badge ${kbStatus?.ready ? 'is-ready' : ''}`}>
+                {kbStatus ? (kbStatus.ready ? '已就绪' : '待构建') : '读取中…'}
+              </span>
+            </div>
+            <div className="local-model-meta">
+              {kbStatus
+                ? `${kbStatus.chunks} 块 / ${kbStatus.videos} 个视频 · ${
+                    kbStatus.model || '未设置模型'
+                  }`
+                : '读取中…'}
+            </div>
+          </div>
+          <div className="local-model-actions">
+            <button
+              className="mini-btn primary"
+              disabled={buildingIndex || !draft.knowledge.enabled}
+              title={!draft.knowledge.enabled ? '先启用知识库' : undefined}
+              onClick={() => void buildIndex()}
+            >
+              {buildingIndex ? <Loader2 size={12} className="spin" /> : null}
+              {kbStatus?.chunks ? '重建索引' : '构建索引'}
+            </button>
+          </div>
+        </div>
+        {kbProgress && <div className="settings-hint">{kbProgress.message}</div>}
         <div className="settings-hint">
           Ollama 可先运行 <code>ollama pull nomic-embed-text</code>；LM Studio 在「开发者」页启动本地服务。
-          选用后还要到「知识库」点一次构建索引。
+          改完 embedding 设置要先保存，再点「构建索引」。
         </div>
       </div>
 

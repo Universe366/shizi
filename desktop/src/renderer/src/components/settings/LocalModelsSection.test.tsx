@@ -128,7 +128,16 @@ describe('本地模型设置', () => {
       })),
       pullOllamaEmbedding,
       cancelOllamaPull: vi.fn(),
-      onOllamaPullProgress: vi.fn(() => () => {})
+      onOllamaPullProgress: vi.fn(() => () => {}),
+      kbStatus: vi.fn(async () => ({
+        ok: true as const,
+        data: { chunks: 0, videos: 0, model: '', ready: false }
+      })),
+      kbIndex: vi.fn(async () => ({
+        ok: true as const,
+        data: { chunks: 3, videos: 1, model: 'nomic-embed-text', ready: true }
+      })),
+      onKbProgress: vi.fn(() => () => {})
     };
   });
 
@@ -199,6 +208,13 @@ describe('本地模型设置', () => {
       'http://127.0.0.1:11434/v1',
       'nomic-embed-text'
     );
+  });
+
+  it('配置好 embedding 后可以直接构建知识库索引', async () => {
+    render(<LocalModelsSection {...props()} />);
+    await waitFor(() => expect(screen.getByText('知识库索引')).toBeTruthy());
+    fireEvent.click(button('构建索引'));
+    await waitFor(() => expect(screen.getByText(/索引完成：3 块/)).toBeTruthy());
   });
 
   it('可以用 Ollama 拉取 embedding 模型', async () => {
