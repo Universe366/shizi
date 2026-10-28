@@ -1966,6 +1966,45 @@ button:disabled {
   background: var(--surface-2);
 }
 
+.chat-search-result {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-search-result:hover {
+  background: var(--surface-3);
+}
+
+.chat-search-role {
+  flex: none;
+  color: var(--faint);
+}
+
+.chat-search-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-mention-panel {
+  max-height: 40%;
+}
+
+.chat-msg.is-search-hit .chat-bubble {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  transition: background 160ms ease;
+}
+
 .chat-history-head {
   display: flex;
   align-items: center;

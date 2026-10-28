@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
   effectiveContextWindow,
@@ -9,7 +9,7 @@ import {
   formatContextWindow
 } from '../../../shared/modelCapabilities';
 import { describeMcpParameters } from '../../../shared/mcpSchema';
-import { contextMessages } from '../../../shared/chatContext';
+import { contextMessages, formatConversationReference } from '../../../shared/chatContext';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -256,6 +256,11 @@ export function ChatPanel({
     }>
   >([]);
   const [queuePaused, setQueuePaused] = useState(false);
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
   const [elicitations, setElicitations] = useState<McpElicitationRequest[]>([]);
   const [elicitValues, setElicitValues] = useState<
     Record<string, Record<string, string | boolean>>
@@ -1349,6 +1354,30 @@ export function ChatPanel({
     setSavedNotice('已恢复上下文');
   };
 
+  const jumpToMessage = (index: number): void => {
+    setHighlightIndex(index);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-chat-index="${index}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    window.setTimeout(() => {
+      setHighlightIndex((current) => (current === index ? null : current));
+    }, 2200);
+  };
+
+  const insertConversationReference = async (
+    conversation: ChatConversation
+  ): Promise<void> => {
+    setMentionOpen(false);
+    setMentionQuery('');
+    const response = await window.bsub.chatHistoryMessages(conversation.id);
+    const rows = response.ok ? response.data : [];
+    const block = formatConversationReference(conversation.title, rows);
+    setInput((previous) => (previous.trim() ? `${previous.trim()}\n\n${block}` : block));
+    setComposerOpen(false);
+  };
+
   const stop = () => {
     setApprovals([]);
     setQueuePaused(true);
@@ -1631,6 +1660,29 @@ export function ChatPanel({
     }
   };
 
+  const searchQuery = messageSearchQuery.trim().toLowerCase();
+  const messageSearchResults = searchQuery
+    ? messages
+        .map((message, index) => ({ message, index }))
+        .filter(({ message }) =>
+          `${message.role === 'assistant' ? 'AI' : '用户'} ${message.content}`
+            .toLowerCase()
+            .includes(searchQuery)
+        )
+        .slice(0, 60)
+    : [];
+  const mentionQueryText = mentionQuery.trim().toLowerCase();
+  const mentionResults = conversations
+    .filter((conversation) => conversation.id !== conversationRef.current)
+    .filter(
+      (conversation) =>
+        !mentionQueryText ||
+        `${conversation.title} ${conversation.videoTitle || ''}`
+          .toLowerCase()
+          .includes(mentionQueryText)
+    )
+    .slice(0, 20);
+
   const showSettingsHint = Boolean(error) && /Key|模型|平台|设置|401|403|404/.test(error || '');
 
   return (
@@ -1660,6 +1712,18 @@ export function ChatPanel({
           )}
           <button
             className="mini-btn"
+            disabled={!messages.length}
+            onClick={() => {
+              setMessageSearchOpen((value) => !value);
+              setMessageSearchQuery('');
+              setHistoryOpen(false);
+            }}
+            title="在当前对话内搜索"
+          >
+            <Search size={12} /> 搜索
+          </button>
+          <button
+            className="mini-btn"
             disabled={streaming}
             onClick={() => setHistoryOpen((value) => !value)}
             title="历史对话"
@@ -1681,6 +1745,54 @@ export function ChatPanel({
           )}
         </div>
       </div>
+
+      {messageSearchOpen && (
+        <div className="chat-history-panel chat-search-panel">
+          <div className="chat-history-head">
+            <span>对话内搜索</span>
+            <button
+              className="mini-btn"
+              onClick={() => {
+                setMessageSearchOpen(false);
+                setMessageSearchQuery('');
+              }}
+            >
+              关闭
+            </button>
+          </div>
+          <input
+            autoFocus
+            className="settings-input chat-history-search"
+            placeholder="搜索当前对话…"
+            value={messageSearchQuery}
+            spellCheck={false}
+            onChange={(event) => setMessageSearchQuery(event.target.value)}
+          />
+          {searchQuery && !messageSearchResults.length && (
+            <div className="settings-hint">没有匹配的消息</div>
+          )}
+          {messageSearchResults.map(({ message, index }) => {
+            const raw = message.content.replace(/\s+/g, ' ');
+            const position = raw.toLowerCase().indexOf(searchQuery);
+            const start = Math.max(0, position - 30);
+            const snippet = `${start > 0 ? '…' : ''}${raw.slice(start, start + 120)}${
+              raw.length > start + 120 ? '…' : ''
+            }`;
+            return (
+              <button
+                key={index}
+                className="chat-search-result"
+                onClick={() => jumpToMessage(index)}
+              >
+                <span className="chat-search-role">
+                  {message.role === 'assistant' ? 'AI' : '用户'}
+                </span>
+                <span className="chat-search-snippet">{snippet}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {historyOpen && (
         <div className="chat-history-panel">
@@ -1816,7 +1928,12 @@ export function ChatPanel({
                   上下文从这里开始，之前的消息不再发送
                 </div>
               )}
-              <div className={`chat-msg ${message.role}`}>
+              <div
+                className={`chat-msg ${message.role}${
+                  highlightIndex === index ? ' is-search-hit' : ''
+                }`}
+                data-chat-index={index}
+              >
               {message.role === 'assistant' && <div className="chat-avatar">AI</div>}
               <div className="chat-bubble">
                 {message.role === 'assistant' ? (
@@ -2273,6 +2390,18 @@ export function ChatPanel({
             </button>
             <button
               className="chat-menu-card"
+              onClick={() => {
+                setMentionOpen(true);
+                setMentionQuery('');
+                setComposerOpen(false);
+              }}
+            >
+              <AtSign size={15} />
+              <span className="chat-menu-card-title">引用历史对话</span>
+              <span className="chat-menu-card-desc">输入 @ 也可打开</span>
+            </button>
+            <button
+              className="chat-menu-card"
               disabled={!messages.length}
               onClick={clearContext}
             >
@@ -2722,6 +2851,40 @@ export function ChatPanel({
             ))}
           </div>
         )}
+        {mentionOpen && (
+          <div className="chat-history-panel chat-mention-panel">
+            <div className="chat-history-head">
+              <span>引用历史对话</span>
+              <button className="mini-btn" onClick={() => setMentionOpen(false)}>
+                关闭
+              </button>
+            </div>
+            <input
+              autoFocus
+              className="settings-input chat-history-search"
+              placeholder="搜索历史对话标题 / 视频…"
+              value={mentionQuery}
+              spellCheck={false}
+              onChange={(event) => setMentionQuery(event.target.value)}
+            />
+            {!mentionResults.length && (
+              <div className="settings-hint">没有匹配的对话</div>
+            )}
+            {mentionResults.map((conversation) => (
+              <button
+                key={conversation.id}
+                className="chat-search-result"
+                onClick={() => void insertConversationReference(conversation)}
+              >
+                <span className="chat-search-role">对话</span>
+                <span className="chat-search-snippet">
+                  {conversation.title}
+                  {conversation.videoTitle ? ` · ${conversation.videoTitle}` : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         {queue.length > 0 && (
           <div className="chat-queue">
             <span className="chat-queue-label">排队 {queue.length}</span>
@@ -2732,6 +2895,15 @@ export function ChatPanel({
                 title={item.text || '附件'}
               >
                 {item.text.replace(/\s+/g, ' ').slice(0, 22) || '附件'}
+                <button
+                  title="编辑这条排队消息"
+                  onClick={() => {
+                    setInput(item.text);
+                    setQueue((previous) => previous.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Pencil size={9} />
+                </button>
                 <button
                   title="移出队列"
                   onClick={() => setQueue((previous) => previous.filter((_, i) => i !== index))}
@@ -2767,6 +2939,13 @@ export function ChatPanel({
             }
           }}
           onKeyDown={(event) => {
+            if (event.key === '@' && (!input || /\s$/.test(input))) {
+              event.preventDefault();
+              setMentionOpen(true);
+              setMentionQuery('');
+              setComposerOpen(false);
+              return;
+            }
             if (event.key === '/' && !input.trim()) {
               event.preventDefault();
               setComposerOpen(true);
