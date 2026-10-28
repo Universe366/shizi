@@ -11,8 +11,10 @@ import type {
   McpToolOption
 } from '../shared/types';
 
-const PROTOCOL_VERSION = '2024-11-05';
+const LATEST_PROTOCOL_VERSION = '2025-06-18';
+const FALLBACK_PROTOCOL_VERSION = '2024-11-05';
 const sessionIds = new Map<string, string>();
+const protocolVersions = new Map<string, string>();
 let seq = 0;
 const nextId = () => ++seq;
 
@@ -77,8 +79,13 @@ function headersFor(server: McpServer): Record<string, string> {
   for (const [key, value] of Object.entries(server.headers || {})) {
     if (key && value) headers[key] = String(value);
   }
-  const sessionId = sessionIds.get(serverKey(server));
+  const key = serverKey(server);
+  const sessionId = sessionIds.get(key);
   if (sessionId) headers['mcp-session-id'] = sessionId;
+  const protocolVersion = protocolVersions.get(key);
+  if (protocolVersion && server.transport !== 'stdio') {
+    headers['mcp-protocol-version'] = protocolVersion;
+  }
   return headers;
 }
 
@@ -585,35 +592,48 @@ async function notifyInitialized(server: McpServer): Promise<void> {
   }
 }
 
+async function initialize(server: McpServer, protocolVersion: string): Promise<unknown> {
+  return rpc(
+    server,
+    'initialize',
+    {
+      protocolVersion,
+      capabilities: {},
+      clientInfo: { name: 'shizi', version: '1.0.0' }
+    },
+    nextId()
+  );
+}
+
+/** 先按最新协议协商；老服务报错时退回 2024-11-05。 */
+async function negotiateProtocol(server: McpServer): Promise<string> {
+  try {
+    const result = (await initialize(server, LATEST_PROTOCOL_VERSION)) as {
+      protocolVersion?: unknown;
+    } | null;
+    return String(result?.protocolVersion || LATEST_PROTOCOL_VERSION);
+  } catch (error) {
+    const message = (error as Error)?.message || String(error);
+    if (!/protocol|version|400|406|415/i.test(message)) throw error;
+    const result = (await initialize(server, FALLBACK_PROTOCOL_VERSION)) as {
+      protocolVersion?: unknown;
+    } | null;
+    return String(result?.protocolVersion || FALLBACK_PROTOCOL_VERSION);
+  }
+}
+
 async function ensureSession(server: McpServer): Promise<void> {
+  const key = serverKey(server);
   if (server.transport === 'stdio') {
     const client = startStdio(server);
     if (client.initialized) return;
-    await rpc(
-      server,
-      'initialize',
-      {
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: {},
-        clientInfo: { name: 'shizi', version: '1.0.0' }
-      },
-      nextId()
-    );
+    protocolVersions.set(key, await negotiateProtocol(server));
     await notifyInitialized(server);
     client.initialized = true;
     return;
   }
-  if (!sessionIds.has(serverKey(server))) {
-    await rpc(
-      server,
-      'initialize',
-      {
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: {},
-        clientInfo: { name: 'shizi', version: '1.0.0' }
-      },
-      nextId()
-    );
+  if (!sessionIds.has(key)) {
+    protocolVersions.set(key, await negotiateProtocol(server));
     await notifyInitialized(server);
   }
   startHttpNotificationStream(server);
@@ -977,6 +997,7 @@ export async function callMcpTool(
 
 export function resetMcpSession(server: McpServer): void {
   sessionIds.delete(serverKey(server));
+  protocolVersions.delete(serverKey(server));
   httpStreams.get(serverKey(server))?.abort();
   httpStreams.delete(serverKey(server));
   const client = stdioClients.get(stdioKey(server));

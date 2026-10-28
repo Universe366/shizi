@@ -15,7 +15,7 @@ import {
   isGeminiPlatform,
   MAX_TOOL_RESULT_CHARS
 } from './aiClient';
-import type { AiMessage, AiPart, AiToolDef } from './aiClient';
+import type { AiImagePart, AiMessage, AiPart, AiToolDef } from './aiClient';
 import { buildTranscript } from './ai';
 import { glossaryTerms } from './correction';
 import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
@@ -714,7 +714,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           const text = result.images.length
             ? `${result.text}\n（工具返回 ${result.images.length} 张图片，已在界面显示）`
             : result.text;
-          return finish(text, true, images);
+          const output = finish(text, true, images);
+          const modelImages: AiImagePart[] = result.images
+            .slice(0, 2)
+            .map((image) => ({ type: 'image', mime: image.mimeType, data: image.data }));
+          return modelImages.length ? { text: output, images: modelImages } : output;
         } catch (error) {
           return finish(`工具调用失败：${(error as Error).message}`, false);
         }

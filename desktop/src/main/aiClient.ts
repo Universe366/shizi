@@ -49,6 +49,22 @@ export interface AiToolCall {
   arguments: string;
 }
 
+/** 工具可以只返回文本，也可以附带图片（MCP 图片结果）。 */
+export interface AiToolOutput {
+  text: string;
+  images?: AiImagePart[];
+}
+
+export type AiToolRunner = (call: AiToolCall) => Promise<string | AiToolOutput>;
+
+export function normalizeToolOutput(value: string | AiToolOutput): AiToolOutput {
+  if (typeof value === 'string') return { text: value };
+  return {
+    text: String(value?.text || ''),
+    images: Array.isArray(value?.images) ? value.images.slice(0, 2) : []
+  };
+}
+
 export interface AiChatOptions {
   temperature?: number;
   maxTokens?: number;
@@ -869,7 +885,7 @@ async function chatAnthropicToolLoopStream(
     onDelta?: (delta: string) => void;
     onReasoning?: (delta: string) => void;
   },
-  runTool: (call: AiToolCall) => Promise<string>
+  runTool: AiToolRunner
 ): Promise<AiChatResult> {
   const maxRounds = Math.max(1, options.maxRounds || 6);
   const payload = toAnthropicPayload(messages);
@@ -943,16 +959,36 @@ async function chatAnthropicToolLoopStream(
     }
     convo.push({ role: 'assistant', content });
     const results: Array<Record<string, unknown>> = [];
+    const images: AiImagePart[] = [];
     for (const call of ordered) {
-      let output = '';
+      let output: AiToolOutput = { text: '' };
       try {
-        output = await runTool({ id: call.id, name: call.name, arguments: call.json || '{}' });
+        output = normalizeToolOutput(
+          await runTool({ id: call.id, name: call.name, arguments: call.json || '{}' })
+        );
       } catch (error) {
-        output = '工具调用失败：' + (error as Error).message;
+        output = { text: '工具调用失败：' + (error as Error).message };
       }
-      results.push({ type: 'tool_result', tool_use_id: call.id, content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS) });
+      results.push({
+        type: 'tool_result',
+        tool_use_id: call.id,
+        content: output.text.slice(0, MAX_TOOL_RESULT_CHARS)
+      });
+      images.push(...(output.images || []));
     }
     convo.push({ role: 'user', content: results });
+    if (images.length) {
+      convo.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: '工具返回了图片，请结合上一条工具结果回答：' },
+          ...images.map((image) => ({
+            type: 'image',
+            source: { type: 'base64', media_type: image.mime, data: image.data }
+          }))
+        ]
+      });
+    }
   }
   if (text.trim()) return finish();
   throw new Error('工具调用轮次过多');
@@ -968,7 +1004,7 @@ async function chatGeminiToolLoopStream(
     onDelta?: (delta: string) => void;
     onReasoning?: (delta: string) => void;
   },
-  runTool: (call: AiToolCall) => Promise<string>
+  runTool: AiToolRunner
 ): Promise<AiChatResult> {
   const maxRounds = Math.max(1, options.maxRounds || 6);
   const payload = toGeminiPayload(messages);
@@ -1020,20 +1056,38 @@ async function chatGeminiToolLoopStream(
     modelParts.push(...calls);
     contents.push({ role: 'model', parts: modelParts });
     const responses: Array<Record<string, unknown>> = [];
+    const images: AiImagePart[] = [];
     for (const part of calls) {
       const fn = (part.functionCall || {}) as Record<string, unknown>;
       const name = String(fn.name || '');
-      let output = '';
+      let output: AiToolOutput = { text: '' };
       try {
-        output = await runTool({ id: '', name, arguments: JSON.stringify(fn.args ?? {}) });
+        output = normalizeToolOutput(
+          await runTool({ id: '', name, arguments: JSON.stringify(fn.args ?? {}) })
+        );
       } catch (error) {
-        output = '工具调用失败：' + (error as Error).message;
+        output = { text: '工具调用失败：' + (error as Error).message };
       }
       responses.push({
-        functionResponse: { name, response: { result: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS) } }
+        functionResponse: {
+          name,
+          response: { result: output.text.slice(0, MAX_TOOL_RESULT_CHARS) }
+        }
       });
+      images.push(...(output.images || []));
     }
     contents.push({ role: 'user', parts: responses });
+    if (images.length) {
+      contents.push({
+        role: 'user',
+        parts: [
+          { text: '工具返回了图片，请结合上一条工具结果回答：' },
+          ...images.map((image) => ({
+            inlineData: { mimeType: image.mime, data: image.data }
+          }))
+        ]
+      });
+    }
   }
   if (text.trim()) return finish();
   throw new Error('工具调用轮次过多');
@@ -1049,7 +1103,7 @@ export async function chatToolLoopStream(
     onDelta?: (delta: string) => void;
     onReasoning?: (delta: string) => void;
   },
-  runTool: (call: AiToolCall) => Promise<string>
+  runTool: AiToolRunner
 ): Promise<AiChatResult> {
   if (isGeminiPlatform(platform)) {
     return chatGeminiToolLoopStream(platform, messages, tools, options, runTool);
@@ -1111,22 +1165,38 @@ export async function chatToolLoopStream(
           }
         }))
       });
+      const images: AiImagePart[] = [];
       for (const call of calls) {
         const fnPart = (call.function || {}) as Record<string, unknown>;
-        let output = '';
+        let output: AiToolOutput = { text: '' };
         try {
-          output = await runTool({
-            id: String(call.id || ''),
-            name: String(fnPart.name || ''),
-            arguments: String(fnPart.arguments || '{}')
-          });
+          output = normalizeToolOutput(
+            await runTool({
+              id: String(call.id || ''),
+              name: String(fnPart.name || ''),
+              arguments: String(fnPart.arguments || '{}')
+            })
+          );
         } catch (error) {
-          output = '工具调用失败：' + (error as Error).message;
+          output = { text: '工具调用失败：' + (error as Error).message };
         }
         convo.push({
           role: 'tool',
           tool_call_id: String(call.id || ''),
-          content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS)
+          content: output.text.slice(0, MAX_TOOL_RESULT_CHARS)
+        });
+        images.push(...(output.images || []));
+      }
+      if (images.length) {
+        convo.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: '工具返回了图片，请结合上一条工具结果回答：' },
+            ...images.map((image) => ({
+              type: 'image_url',
+              image_url: { url: `data:${image.mime};base64,${image.data}` }
+            }))
+          ]
         });
       }
       continue;
@@ -1201,17 +1271,31 @@ export async function chatToolLoopStream(
         function: { name: call.name, arguments: call.arguments }
       }))
     });
+    const images: AiImagePart[] = [];
     for (const call of ordered) {
-      let output = '';
+      let output: AiToolOutput = { text: '' };
       try {
-        output = await runTool(call);
+        output = normalizeToolOutput(await runTool(call));
       } catch (error) {
-        output = '工具调用失败：' + (error as Error).message;
+        output = { text: '工具调用失败：' + (error as Error).message };
       }
       convo.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS)
+        content: output.text.slice(0, MAX_TOOL_RESULT_CHARS)
+      });
+      images.push(...(output.images || []));
+    }
+    if (images.length) {
+      convo.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: '工具返回了图片，请结合上一条工具结果回答：' },
+          ...images.map((image) => ({
+            type: 'image_url',
+            image_url: { url: `data:${image.mime};base64,${image.data}` }
+          }))
+        ]
       });
     }
   }
@@ -1256,7 +1340,7 @@ export async function chatToolLoop(
   messages: AiMessage[],
   tools: AiToolDef[],
   options: AiChatOptions & { maxRounds?: number },
-  runTool: (call: AiToolCall) => Promise<string>
+  runTool: AiToolRunner
 ): Promise<AiChatResult> {
   if (isGeminiPlatform(platform)) {
     return chatGeminiToolLoop(platform, messages, tools, options, runTool);
@@ -1310,24 +1394,40 @@ export async function chatToolLoop(
       }
       convo.push({ role: 'assistant', content: blocks });
       const results: Array<Record<string, unknown>> = [];
+      const images: AiImagePart[] = [];
       for (const block of toolUses) {
-        let content = '';
+        let output: AiToolOutput = { text: '' };
         try {
-          content = await runTool({
-            id: String(block.id || ''),
-            name: String(block.name || ''),
-            arguments: JSON.stringify(block.input ?? {})
-          });
+          output = normalizeToolOutput(
+            await runTool({
+              id: String(block.id || ''),
+              name: String(block.name || ''),
+              arguments: JSON.stringify(block.input ?? {})
+            })
+          );
         } catch (error) {
-          content = `工具调用失败：${(error as Error).message}`;
+          output = { text: `工具调用失败：${(error as Error).message}` };
         }
         results.push({
           type: 'tool_result',
           tool_use_id: String(block.id || ''),
-          content: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS)
+          content: output.text.slice(0, MAX_TOOL_RESULT_CHARS)
         });
+        images.push(...(output.images || []));
       }
       convo.push({ role: 'user', content: results });
+      if (images.length) {
+        convo.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: '工具返回了图片，请结合上一条工具结果回答：' },
+            ...images.map((image) => ({
+              type: 'image',
+              source: { type: 'base64', media_type: image.mime, data: image.data }
+            }))
+          ]
+        });
+      }
       continue;
     }
 
@@ -1339,22 +1439,38 @@ export async function chatToolLoop(
         content: message?.content ?? null,
         tool_calls: calls
       });
+      const images: AiImagePart[] = [];
       for (const call of calls) {
-        let content = '';
+        let output: AiToolOutput = { text: '' };
         try {
-          content = await runTool({
-            id: String(call?.id || ''),
-            name: String(call?.function?.name || ''),
-            arguments: String(call?.function?.arguments || '{}')
-          });
+          output = normalizeToolOutput(
+            await runTool({
+              id: String(call?.id || ''),
+              name: String(call?.function?.name || ''),
+              arguments: String(call?.function?.arguments || '{}')
+            })
+          );
         } catch (error) {
-          content = `工具调用失败：${(error as Error).message}`;
+          output = { text: `工具调用失败：${(error as Error).message}` };
         }
         convo.push({
           role: 'tool',
           tool_call_id: String(call?.id || ''),
           name: String(call?.function?.name || ''),
-          content: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS)
+          content: output.text.slice(0, MAX_TOOL_RESULT_CHARS)
+        });
+        images.push(...(output.images || []));
+      }
+      if (images.length) {
+        convo.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: '工具返回了图片，请结合上一条工具结果回答：' },
+            ...images.map((image) => ({
+              type: 'image_url',
+              image_url: { url: `data:${image.mime};base64,${image.data}` }
+            }))
+          ]
         });
       }
       continue;
@@ -1375,7 +1491,7 @@ async function chatGeminiToolLoop(
   messages: AiMessage[],
   tools: AiToolDef[],
   options: AiChatOptions & { maxRounds?: number },
-  runTool: (call: AiToolCall) => Promise<string>
+  runTool: AiToolRunner
 ): Promise<AiChatResult> {
   const maxRounds = Math.max(1, options.maxRounds || 6);
   const payload = toGeminiPayload(messages);
@@ -1416,26 +1532,41 @@ async function chatGeminiToolLoop(
 
     contents.push({ role: 'model', parts });
     const responses: Array<Record<string, unknown>> = [];
+    const images: AiImagePart[] = [];
     for (const part of calls) {
       const name = String(part.functionCall?.name || '');
-      let content = '';
+      let output: AiToolOutput = { text: '' };
       try {
-        content = await runTool({
-          id: '',
-          name,
-          arguments: JSON.stringify(part.functionCall?.args ?? {})
-        });
+        output = normalizeToolOutput(
+          await runTool({
+            id: '',
+            name,
+            arguments: JSON.stringify(part.functionCall?.args ?? {})
+          })
+        );
       } catch (error) {
-        content = `工具调用失败：${(error as Error).message}`;
+        output = { text: `工具调用失败：${(error as Error).message}` };
       }
       responses.push({
         functionResponse: {
           name,
-          response: { result: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS) }
+          response: { result: output.text.slice(0, MAX_TOOL_RESULT_CHARS) }
         }
       });
+      images.push(...(output.images || []));
     }
     contents.push({ role: 'user', parts: responses });
+    if (images.length) {
+      contents.push({
+        role: 'user',
+        parts: [
+          { text: '工具返回了图片，请结合上一条工具结果回答：' },
+          ...images.map((image) => ({
+            inlineData: { mimeType: image.mime, data: image.data }
+          }))
+        ]
+      });
+    }
   }
 
   throw new Error(`工具调用轮数过多（超过 ${maxRounds} 轮）`);
