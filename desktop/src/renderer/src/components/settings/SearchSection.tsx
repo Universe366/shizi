@@ -2,6 +2,10 @@ import { useRef, useState } from 'react';
 import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import type { AppSettings, SearchPlatform, SearchTimeRange, WebReference } from '../../../../shared/types';
 import { parseUblacklist } from '../../../../shared/searchBlacklist';
+import {
+  capabilityKey,
+  effectiveModelCapabilities
+} from '../../../../shared/modelCapabilities';
 import { SearchDiagnostics } from './SearchDiagnostics';
 import { SettingsSection } from './SettingsSection';
 
@@ -59,10 +63,13 @@ export function SearchSection({
   const [blacklistNotice, setBlacklistNotice] = useState('');
   const blacklistInputRef = useRef<HTMLInputElement>(null);
   const activeAi = draft.ai.platforms.find((item) => item.id === draft.ai.activeId);
-  const builtinSupported =
-    activeAi?.kind === 'gemini' ||
-    activeAi?.kind === 'anthropic' ||
-    /anthropic\.com/i.test(activeAi?.baseUrl || '');
+  const builtinSupported = activeAi
+    ? effectiveModelCapabilities(
+        activeAi.kind,
+        activeAi.model,
+        draft.ai.capabilities?.[capabilityKey(activeAi.id, activeAi.model)]
+      ).web
+    : false;
 
   return (
     <SettingsSection title="联网检索" defaultOpen={false}>

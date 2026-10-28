@@ -1376,6 +1376,8 @@ export interface AppSettings {
     capabilities: Record<string, {
       vision?: boolean;
       audio?: boolean;
+      /** 是否支持模型内置联网 */
+      web?: boolean;
       /** 手动覆盖上下文窗口（token） */
       contextWindow?: number;
     }>;

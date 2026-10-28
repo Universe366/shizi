@@ -3501,9 +3501,7 @@ export function ChatPanel({
                                     {capability.audio && (
                                       <span className="chat-model-tag">音频</span>
                                     )}
-                                    {(platform.kind === 'gemini' ||
-                                      platform.kind === 'anthropic' ||
-                                      /anthropic\.com/i.test(platform.baseUrl || '')) && (
+                                    {capability.web && (
                                       <span
                                         className="chat-model-tag"
                                         title="支持模型内置联网"

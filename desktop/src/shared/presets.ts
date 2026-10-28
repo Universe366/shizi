@@ -613,6 +613,26 @@ export const SEARCH_PRESETS: SearchPlatform[] = [
     "reuseAiKey": ""
   },
   {
+    "id": "exa-api",
+    "name": "Exa API（需 Key，语义搜索）",
+    "kind": "exa-api",
+    "baseUrl": "https://api.exa.ai/search",
+    "apiKey": "",
+    "homepage": "https://exa.ai/",
+    "keyUrl": "https://dashboard.exa.ai/api-keys",
+    "reuseAiKey": ""
+  },
+  {
+    "id": "firecrawl-search",
+    "name": "Firecrawl 搜索（需 Key）",
+    "kind": "firecrawl",
+    "baseUrl": "https://api.firecrawl.dev/v1/search",
+    "apiKey": "",
+    "homepage": "https://firecrawl.dev/",
+    "keyUrl": "https://www.firecrawl.dev/app/api-keys",
+    "reuseAiKey": ""
+  },
+  {
     "id": "jina-search",
     "name": "Jina 搜索 + 正文提取",
     "kind": "jina",

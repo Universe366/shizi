@@ -5,6 +5,8 @@ import { searchBrave } from './brave';
 import { searchCustom } from './custom';
 import { searchDeepSeek } from './deepseek';
 import { searchExa } from './exa';
+import { searchExaApi } from './exaApi';
+import { searchFirecrawl } from './firecrawl';
 import { searchJina } from './jina';
 import { searchMetaso } from './metaso';
 import { searchSearxng } from './searxng';
@@ -23,6 +25,8 @@ export type ProviderKind =
   | 'baidu'
   | 'brave'
   | 'exa'
+  | 'exa-api'
+  | 'firecrawl'
   | 'anysearch'
   | 'jina'
   | 'searxng'
@@ -44,7 +48,9 @@ const SPECS: Record<ProviderKind, ProviderSpec> = {
   baidu: { kind: 'baidu', label: '百度 AI 搜索', search: searchBaidu },
   brave: { kind: 'brave', label: 'Brave', search: searchBrave },
   // Exa 走 MCP 文本协议，不需要 platform 参数。
-  exa: { kind: 'exa', label: 'Exa', search: (_settings, _platform, query) => searchExa(query, _settings) },
+  exa: { kind: 'exa', label: 'Exa MCP', search: (_settings, _platform, query) => searchExa(query, _settings) },
+  'exa-api': { kind: 'exa-api', label: 'Exa API', search: searchExaApi },
+  firecrawl: { kind: 'firecrawl', label: 'Firecrawl', search: searchFirecrawl },
   anysearch: { kind: 'anysearch', label: 'AnySearch', search: searchAnySearch },
   jina: { kind: 'jina', label: 'Jina', search: searchJina },
   searxng: { kind: 'searxng', label: 'SearXNG', search: searchSearxng },

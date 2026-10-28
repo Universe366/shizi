@@ -1,4 +1,5 @@
 import { session } from 'electron';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { htmlToText } from '../search';
 import type { SearchPlatform } from '../../shared/types';
 
@@ -208,6 +209,23 @@ export async function fetchWebPage(
       }
       if (!response.ok) throw new Error('网页读取失败（HTTP ' + response.status + '）');
       const type = response.headers.get('content-type') || '';
+      if (/application\/pdf/i.test(type) || /\.pdf$/i.test(target.pathname)) {
+        const buffer = Buffer.from(await response.arrayBuffer());
+        if (buffer.byteLength > 20 * 1024 * 1024) throw new Error('PDF 超过 20MB');
+        const parsed = await pdfParse(buffer);
+        const text = String(parsed.text || '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+          .slice(0, Math.max(1000, Math.min(20000, maxChars)));
+        if (!text) throw new Error('PDF 没有可提取文字');
+        return {
+          url: target.href,
+          title: target.pathname.split('/').filter(Boolean).pop() || '',
+          text,
+          via: 'direct',
+          ...(fallbackFrom ? { fallbackFrom } : {})
+        };
+      }
       if (!/text\/html|text\/plain|application\/xhtml/i.test(type)) {
         throw new Error('不是网页正文（' + (type || '未知类型') + '）');
       }

@@ -1,10 +1,12 @@
 /** 模型能力推断与用户覆盖：只做保守判断，允许用户在设置里纠正。 */
-export type ModelCapability = 'text' | 'vision' | 'audio';
+export type ModelCapability = 'text' | 'vision' | 'audio' | 'web';
 
 export interface ModelCapabilityState {
   text: true;
   vision: boolean;
   audio: boolean;
+  /** 模型/平台是否支持内置联网（Gemini google_search / Claude web_search） */
+  web: boolean;
 }
 
 const VISION_PATTERN =
@@ -27,19 +29,24 @@ export function inferModelCapabilities(
     // Gemini 全系支持图片；本地视觉模型常见命名也覆盖
     (kind === 'gemini' && Boolean(name.trim()));
   const audio = AUDIO_PATTERN.test(name) || (kind === 'gemini' && /live|audio/i.test(name));
-  return { text: true, vision, audio };
+  const web =
+    kind === 'gemini' ||
+    kind === 'anthropic' ||
+    /(claude|gemini|web_search|sonar)/i.test(name);
+  return { text: true, vision, audio, web };
 }
 
 export function effectiveModelCapabilities(
   platformKind: string | undefined,
   model: string,
-  override?: { vision?: boolean; audio?: boolean }
+  override?: { vision?: boolean; audio?: boolean; web?: boolean }
 ): ModelCapabilityState {
   const inferred = inferModelCapabilities(platformKind, model);
   return {
     text: true,
     vision: override?.vision ?? inferred.vision,
-    audio: override?.audio ?? inferred.audio
+    audio: override?.audio ?? inferred.audio,
+    web: override?.web ?? inferred.web
   };
 }
 
@@ -70,6 +77,7 @@ export function formatContextWindow(tokens: number): string {
 export function capabilityLabel(capability: ModelCapability): string {
   if (capability === 'vision') return '图片';
   if (capability === 'audio') return '音频';
+  if (capability === 'web') return '联网';
   return '文本';
 }
 /** 把列表里的 from 移到 to，返回新数组；越界时原样返回。 */

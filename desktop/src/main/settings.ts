@@ -955,16 +955,27 @@ function normalize(input: unknown): AppSettings {
     if (raw.ai?.capabilities && typeof raw.ai.capabilities === 'object') {
       const capabilities: Record<
         string,
-        { vision?: boolean; audio?: boolean; contextWindow?: number }
+        { vision?: boolean; audio?: boolean; web?: boolean; contextWindow?: number }
       > = {};
       for (const [key, value] of Object.entries(
         raw.ai.capabilities as Record<string, unknown>
       ).slice(0, 500)) {
         if (!key || typeof value !== 'object' || !value) continue;
-        const row = value as { vision?: unknown; audio?: unknown; contextWindow?: unknown };
-        const entry: { vision?: boolean; audio?: boolean; contextWindow?: number } = {};
+        const row = value as {
+          vision?: unknown;
+          audio?: unknown;
+          web?: unknown;
+          contextWindow?: unknown;
+        };
+        const entry: {
+          vision?: boolean;
+          audio?: boolean;
+          web?: boolean;
+          contextWindow?: number;
+        } = {};
         if (typeof row.vision === 'boolean') entry.vision = row.vision;
         if (typeof row.audio === 'boolean') entry.audio = row.audio;
+        if (typeof row.web === 'boolean') entry.web = row.web;
         if (Number.isFinite(Number(row.contextWindow)) && Number(row.contextWindow) > 0) {
           entry.contextWindow = Math.min(10_000_000, Math.round(Number(row.contextWindow)));
         }
@@ -1373,6 +1384,13 @@ function normalize(input: unknown): AppSettings {
         }
         if (!exaPlatform.baseUrl || exaPlatform.baseUrl === 'https://api.exa.ai/search') {
           exaPlatform.baseUrl = 'https://mcp.exa.ai/mcp';
+        }
+      }
+      // 新增的 Exa API / Firecrawl 搜索预设补进老配置，已有同名项不覆盖。
+      for (const preset of SEARCH_PRESETS) {
+        if (!['exa-api', 'firecrawl-search'].includes(preset.id)) continue;
+        if (!base.search.platforms.some((platform) => platform.id === preset.id)) {
+          base.search.platforms.push({ ...preset });
         }
       }
 

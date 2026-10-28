@@ -12,8 +12,6 @@ import {
   chatOnce,
   chatStream,
   chatToolLoopStream,
-  isAnthropicPlatform,
-  isGeminiPlatform,
   MAX_TOOL_RESULT_CHARS
 } from './aiClient';
 import type { AiImagePart, AiMessage, AiPart, AiToolDef } from './aiClient';
@@ -225,11 +223,13 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   }
   const temperature = profile?.temperature ?? settings.ai.temperature;
   const maxTokens = profile?.maxTokens ?? settings.ai.maxTokens;
-  const toolImagesEnabled = effectiveModelCapabilities(
+  const modelCapability = effectiveModelCapabilities(
     platform.kind,
     platform.model,
     settings.ai.capabilities[capabilityKey(platform.id, platform.model)]
-  ).vision;
+  );
+  const toolImagesEnabled = modelCapability.vision;
+  const builtinWebEnabled = modelCapability.web;
 
   if (options.messages.some((message) => message.images?.length)) {
     const capability = effectiveModelCapabilities(
@@ -287,7 +287,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     options.onStatus?.(webError);
   }
   // 显式点「联网」：走流式工具搜索，由模型决定搜什么、搜几次。
-  const builtinCapable = isGeminiPlatform(platform) || isAnthropicPlatform(platform);
+  const builtinCapable = builtinWebEnabled;
   const useBuiltinWeb =
     wantsSearch && settings.search.preferModelWeb === true && builtinCapable;
   const useWebTool =
@@ -516,7 +516,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   let webSearchCalls = 0;
   let webFetchCalls = 0;
   const webSearchCache = new Map<string, string>();
-  const webFetchCache = new Map<string, string>();
+  const webFetchCache = new Map<string, { payload: string; detail: string }>();
 
   const toolOutputs = new Map<string, string>();
   let toolOutputSeq = 0;
@@ -602,7 +602,15 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           const url = String(args.url || '').trim();
           if (!url) return finish('url 不能为空', false);
           const cachedPage = webFetchCache.get(url);
-          if (cachedPage) return finish(cachedPage + '\n（这篇网页已经读过，不要重复读取）', true);
+          if (cachedPage) {
+            return finish(
+              cachedPage.payload + '\n（这篇网页已经读过，不要重复读取）',
+              true,
+              undefined,
+              undefined,
+              cachedPage.detail
+            );
+          }
           if (webFetchCalls >= 3) {
             return finish('本次网页读取已达到 3 次上限，请基于已有内容回答。', true);
           }
@@ -624,20 +632,15 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               ...(page.fallbackFrom ? { fallbackFrom: page.fallbackFrom } : {}),
               content: page.text
             });
-            webFetchCache.set(url, payload);
             const sourceLabel =
               page.via === 'direct'
                 ? page.fallbackFrom
                   ? `内置抓取（${page.fallbackFrom} 失败回退）`
                   : '内置抓取'
                 : page.via || '第三方读取';
-            return finish(
-              payload,
-              true,
-              undefined,
-              undefined,
-              `${sourceLabel} · ${page.title || page.url} · ${page.text.length} 字`
-            );
+            const detail = `${sourceLabel} · ${page.title || page.url} · ${page.text.length} 字`;
+            webFetchCache.set(url, { payload, detail });
+            return finish(payload, true, undefined, undefined, detail);
           } catch (error) {
             return finish(`网页读取失败：${(error as Error).message}`, false);
           }
@@ -654,14 +657,16 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           }
           webSearchCalls += 1;
           options.onStatus?.(`联网检索：${query}`);
+          const toolLimit = Math.max(1, Math.min(20, settings.search.maxResults || 6));
           try {
             const result = await retrieveEvidence(settings, {
               purpose: 'chat',
               queries: [query],
+              maxResults: toolLimit,
               signal: options.signal
             });
             const rows: Array<Record<string, unknown>> = [];
-            for (const item of result.evidence.slice(0, 6)) {
+            for (const item of result.evidence.slice(0, toolLimit)) {
               let index = references.findIndex((ref) => ref.url === item.url);
               if (index < 0) {
                 references.push(item);

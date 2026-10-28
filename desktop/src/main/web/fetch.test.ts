@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ fetch: vi.fn() }));
@@ -41,6 +42,19 @@ describe('web_fetch', () => {
     expect(page.text).toContain('正文内容');
     expect(page.via).toBe('jina');
     expect(String(state.fetch.mock.calls[0][0])).toContain('https://r.jina.ai/https://example.com/j');
+  });
+
+  it('内置抓取可以解析 PDF 正文', async () => {
+    const pdf = fs.readFileSync('node_modules/pdf-parse/test/data/01-valid.pdf');
+    state.fetch.mockResolvedValue(
+      new Response(pdf, {
+        status: 200,
+        headers: { 'content-type': 'application/pdf' }
+      })
+    );
+    const page = await fetchWebPage('https://example.com/paper.pdf', 50000);
+    expect(page.text.length).toBeGreaterThan(0);
+    expect(page.via).toBe('direct');
   });
 
   it('第三方读取失败时回退内置抓取', async () => {

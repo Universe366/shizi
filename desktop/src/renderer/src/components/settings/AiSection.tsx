@@ -477,6 +477,7 @@ export function AiSection({
                   {context && <span className="ai-model-tag">{context}</span>}
                   {capability.vision && <span className="ai-model-tag">图片</span>}
                   {capability.audio && <span className="ai-model-tag">音频</span>}
+                  {capability.web && <span className="ai-model-tag">联网</span>}
                 </>
               );
             })()}
@@ -506,7 +507,12 @@ export function AiSection({
       const inferredContext = inferContextWindow(active.model);
       const override = draft.ai.capabilities?.[key] || {};
       const capability = effectiveModelCapabilities(active.kind, active.model, override);
-      const setCapability = (patch: { vision?: boolean; audio?: boolean; contextWindow?: number }) =>
+      const setCapability = (patch: {
+        vision?: boolean;
+        audio?: boolean;
+        web?: boolean;
+        contextWindow?: number;
+      }) =>
         updateAi({
           capabilities: {
             ...(draft.ai.capabilities || {}),
@@ -518,7 +524,9 @@ export function AiSection({
           <div className="model-capabilities-head">
             <span className="settings-label">模型能力</span>
             <span className="settings-hint">
-              {inferred.vision || inferred.audio ? '已自动识别，可手动覆盖' : '未识别到图片/音频能力'}
+              {inferred.vision || inferred.audio || inferred.web
+                ? '已自动识别，可手动覆盖'
+                : '未识别到图片/音频/联网能力'}
             </span>
           </div>
           <div className="model-capabilities-chips">
@@ -540,6 +548,17 @@ export function AiSection({
                 onChange={(event) => setCapability({ audio: event.target.checked })}
               />
               音频
+            </label>
+            <label
+              className="model-capability"
+              title="模型是否支持厂商内置联网（Gemini google_search / Claude web_search）"
+            >
+              <input
+                type="checkbox"
+                checked={capability.web}
+                onChange={(event) => setCapability({ web: event.target.checked })}
+              />
+              联网
             </label>
           </div>
           <div className="settings-hint">

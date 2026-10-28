@@ -96,7 +96,7 @@ export async function searchExa(query: string, settings: AppSettings): Promise<W
         name: 'web_search_exa',
         arguments: {
           query,
-          numResults: Math.min(10, settings.search.maxResults)
+          numResults: Math.min(100, settings.search.maxResults)
         }
       }
     })
