@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Copy, Loader2, Sparkles, Square, Volume2 } from 'lucide-react';
 import type {
+  AiUsage,
   Chapter,
   PageInfo,
   SubtitleLine,
@@ -16,6 +17,7 @@ import { ExportMenu } from './ExportMenu';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
+import { formatTokens } from '../lib/usageStats';
 import { invalidCitationNumbers } from '../../../shared/chatCitations';
 import { speakText } from '../lib/speech';
 import {
@@ -50,6 +52,7 @@ export function SummaryPanel({
   const [track, setTrack] = useState<SubtitleTrack | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [usage, setUsage] = useState<AiUsage | null>(null);
   const [totalMs, setTotalMs] = useState(0);
   const [verifyThisRun, setVerifyThisRun] = useState(true);
   const startedAtRef = useRef(0);
@@ -207,6 +210,7 @@ export function SummaryPanel({
       setVerification(event.verification || null);
       setFromSaved(false);
       setModel(event.model);
+      setUsage(event.usage || null);
       setUpdatedAt(Date.now());
       setStreaming(false);
       setStreamText('');
@@ -395,6 +399,7 @@ export function SummaryPanel({
     setSummary('');
     setReasoning('');
     setVerification(null);
+    setUsage(null);
     setFromSaved(false);
     setStatus('准备字幕…');
     setProgress(null);
@@ -764,6 +769,11 @@ export function SummaryPanel({
         <div className="summary-elapsed-line">
           本次耗时 {formatDuration(Math.round(totalMs / 1000))}
           {searchEnabled && verifyThisRun ? '（含联网核对）' : ''}
+          {usage
+            ? ` · 生成 ${formatTokens(usage.inputTokens)} in / ${formatTokens(
+                usage.outputTokens
+              )} out`
+            : ''}
         </div>
       )}
 

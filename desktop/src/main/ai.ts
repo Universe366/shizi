@@ -1,4 +1,10 @@
-import type { AiPlatform, PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
+import type {
+  AiPlatform,
+  AiUsage,
+  PageInfo,
+  SubtitleLine,
+  VerificationSummary
+} from '../shared/types';
 import { activePrompt, loadSettings, platformForTask } from './settings';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream, type AiChatResult } from './aiClient';
@@ -13,6 +19,14 @@ import { capabilityKey, effectiveContextWindow } from '../shared/modelCapabiliti
 import { getSummaryCache, setSummaryCache, summaryCacheKey } from './summaryCache';
 
 const MAX_TRANSCRIPT_CHARS = 200000;
+
+function addUsage(total: AiUsage, next?: AiUsage): void {
+  if (!next) return;
+  total.inputTokens += Math.max(0, Number(next.inputTokens) || 0);
+  total.outputTokens += Math.max(0, Number(next.outputTokens) || 0);
+  total.cacheReadTokens =
+    (total.cacheReadTokens || 0) + Math.max(0, Number(next.cacheReadTokens) || 0);
+}
 const REQUEST_TIMEOUT_MS = 300000;
 // 长视频：超过这个字符数就走「分段总结 → 合并」，不再截断中间内容。
 // 18k 是保守值：中文约 1 字 ≈ 1 token，加上输出与格式说明仍能塞进 32k 上下文模型。
@@ -277,13 +291,14 @@ async function summarizeInChunks(options: {
   onStatus?: (status: string) => void;
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
-}): Promise<{ text: string; chunks: number }> {
+}): Promise<{ text: string; chunks: number; usage: AiUsage }> {
   const { platform, settings, info, lines } = options;
   const chunks = chunkTranscript(lines, SUMMARY_CHUNK_CHARS);
   const total = chunks.length;
   const background = options.metaBlock.slice(0, 900);
   const official = officialSegmentsBlock(info);
   const summaries: string[] = new Array(total).fill('');
+  const usage: AiUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
   // 段数越多，单段输出越克制；但不要压得太狠，细节丢失后最终合并无法补回。
   const chunkMaxTokens = Math.min(
     settings.ai.maxTokens || 8192,
@@ -298,6 +313,7 @@ async function summarizeInChunks(options: {
       options.videoKey || '',
       platform.id,
       platform.model,
+      (options.referencesBlock || '').slice(0, 2000),
       chunk.text
     ]);
     const cachedChunk = getSummaryCache(chunkCacheKey);
@@ -317,7 +333,10 @@ async function summarizeInChunks(options: {
           options.glossaryBlock,
           options.skills,
           SUMMARY_FORMAT_RULES,
-          CHUNK_SYSTEM
+          CHUNK_SYSTEM,
+          options.referencesBlock
+            ? `【外部参考资料（仅辅助，不要照抄；与字幕冲突时以字幕为准）】\n${options.referencesBlock.slice(0, 1600)}`
+            : ''
         ]
           .filter(Boolean)
           .join('\n\n')
@@ -364,6 +383,7 @@ async function summarizeInChunks(options: {
       await new Promise((resolve) => setTimeout(resolve, 900));
       result = await callChunk();
     }
+    addUsage(usage, result.usage);
     const chunkText = (result.text || result.reasoning || '').trim();
     if (!chunkText) {
       console.warn('[m4] chunk empty', index + 1, '/', total);
@@ -478,9 +498,10 @@ async function summarizeInChunks(options: {
       const merged = await chatOnce(platform, messages, chatOptions);
       const text = (merged.text || merged.reasoning || '').trim();
       if (!text) throw new Error('合并总结为空');
+      addUsage(usage, merged.usage);
       options.onDelta?.(text);
       if (merged.reasoning) options.onReasoning?.(merged.reasoning);
-      return { text, chunks: total };
+      return { text, chunks: total, usage };
     }
 
     const merged = await chatStream(platform, messages, {
@@ -490,16 +511,22 @@ async function summarizeInChunks(options: {
     });
     const text = (merged.text || merged.reasoning || '').trim();
     if (!text) throw new Error('合并总结为空');
-    return { text, chunks: total };
+    addUsage(usage, merged.usage);
+    return { text, chunks: total, usage };
   } catch (error) {
     // 最后一步合并失败时退回分层结果，总比整篇总结失败好。
     if (options.signal?.aborted) throw error;
     options.onStatus?.(`合并失败，返回分段结果：${(error as Error).message}`);
-    return { text: doneSummaries.join('\n\n---\n\n'), chunks: total };
+    return { text: doneSummaries.join('\n\n---\n\n'), chunks: total, usage };
   }
 }
 
-export async function summarize(options: SummarizeOptions): Promise<{ text: string; model: string; verification?: VerificationSummary }> {
+export async function summarize(options: SummarizeOptions): Promise<{
+  text: string;
+  model: string;
+  verification?: VerificationSummary;
+  usage?: AiUsage;
+}> {
   const settings = loadSettings();
   const platform = options.platform || platformForTask('summary', settings);
   const template = activePrompt(settings);
@@ -805,7 +832,7 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
       onReasoning: options.onReasoning
     });
     options.onStatus?.(`长视频总结完成（${long.chunks} 段合并）`);
-    return { text: long.text, model: platform.model, verification };
+    return { text: long.text, model: platform.model, verification, usage: long.usage };
   }
 
   options.onStatus?.('正在生成总结…');
@@ -831,7 +858,7 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
     if (!text) throw new Error('AI 返回为空');
     options.onDelta?.(text);
     if (result.reasoning) options.onReasoning?.(result.reasoning);
-    return { text, model: platform.model, verification };
+    return { text, model: platform.model, verification, usage: result.usage };
   }
 
   const result = await chatStream(platform, messages, {
@@ -841,5 +868,5 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
   });
   const text = (result.text || result.reasoning || '').trim();
   if (!text) throw new Error('AI 返回为空');
-  return { text, model: platform.model, verification };
+  return { text, model: platform.model, verification, usage: result.usage };
 }

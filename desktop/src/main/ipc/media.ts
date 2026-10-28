@@ -562,7 +562,8 @@ export function registerMediaIpc(ctx: IpcContext): void {
             requestId,
             text: result.text,
             model: result.model,
-            verification: result.verification
+            verification: result.verification,
+            usage: result.usage
           } satisfies AiDoneEvent);
           trackJob(() =>
             finishJob(

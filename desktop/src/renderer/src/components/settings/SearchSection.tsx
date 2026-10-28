@@ -602,6 +602,11 @@ export function SearchSection({
             自动模式会按模型上下文决定是否分段；尽量一次可能超出小模型上下文。
           </div>
         </div>
+        {search.verifySummary !== false && (
+          <div className="settings-hint">
+            当前已开启「总结前联网核对」：下面的读取篇数与字符预算只在关闭核对后生效；核对读取请在「核对细节」里调。
+          </div>
+        )}
         <div className="settings-inline">
           <div className="settings-field">
             <div className="settings-label">总结读取正文篇数（1–10）</div>

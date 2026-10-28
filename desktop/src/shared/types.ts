@@ -2016,6 +2016,8 @@ export interface AiDoneEvent {
   text: string;
   model: string;
   verification?: VerificationSummary;
+  /** 总结生成阶段的 token 用量（不含校对与核对调用） */
+  usage?: AiUsage;
 }
 
 export interface AiErrorEvent {
