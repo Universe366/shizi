@@ -6,7 +6,12 @@ vi.mock('electron', () => ({
   safeStorage: { isEncryptionAvailable: () => false }
 }));
 
-import { parseJudgeJson, parseSearchQueries, quoteMatches } from './verify';
+import {
+  isRelevantReference,
+  parseJudgeJson,
+  parseSearchQueries,
+  quoteMatches
+} from './verify';
 
 describe('verify quote matching', () => {
   it('忽略标点、空白和大小写', () => {
@@ -37,6 +42,46 @@ describe('parseSearchQueries', () => {
       '苏联 1985 年改革',
       '苏联 解体 时间'
     ]);
+  });
+});
+
+describe('核对证据相关性门槛', () => {
+  const item = {
+    query: '台积电 3nm 2023 年量产',
+    line: '台积电 3nm 2023 年量产',
+    references: []
+  };
+  it('实体和年份都对得上才保留', () => {
+    expect(
+      isRelevantReference(item, {
+        title: '台积电 3nm 2023 年量产',
+        url: 'https://example.com/a',
+        snippet: '台积电宣布 3nm 于 2023 年量产。'
+      })
+    ).toBe(true);
+    expect(
+      isRelevantReference(item, {
+        title: '苹果发布会',
+        url: 'https://example.com/b',
+        snippet: 'iPhone 15 发布。'
+      })
+    ).toBe(false);
+    expect(
+      isRelevantReference(item, {
+        title: '台积电 3nm 量产',
+        url: 'https://example.com/c',
+        snippet: '台积电 3nm 于 2024 年量产。'
+      })
+    ).toBe(false);
+  });
+
+  it('数字对不上时丢弃', () => {
+    expect(
+      isRelevantReference(
+        { query: '售价 12999 元', line: '售价 12999 元', references: [] },
+        { title: '价格公布', url: 'https://example.com/d', snippet: '售价 19999 元' }
+      )
+    ).toBe(false);
   });
 });
 

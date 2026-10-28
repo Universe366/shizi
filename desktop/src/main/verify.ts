@@ -591,6 +591,38 @@ function isQueryGroundedIn(query: string, source: string): boolean {
   return cjk.some((bigram) => bigram.length === 2 && text.includes(bigram));
 }
 
+function significantNumbers(text: string): string[] {
+  return [...String(text || '').matchAll(/\d+(?:\.\d+)?/g)]
+    .map((match) => match[0])
+    .filter((value) => value.length >= 2 || /[年月日元%％]/.test(text));
+}
+
+/** 判定前的相关性门槛：实体要对上，数字/年份也要对得上。 */
+export function isRelevantReference(item: VerifyItem, reference: WebReference): boolean {
+  const haystack = normalizeMatch(
+    `${reference.title || ''} ${reference.snippet || ''} ${reference.content || ''}`
+  );
+  if (!haystack) return false;
+  const { strong, cjk } = queryTokens(item.query || item.line);
+  if (strong.length || cjk.length) {
+    if (!isQueryGroundedIn(item.query || item.line, haystack)) return false;
+  }
+  const claimText = item.line || item.query;
+  const claimYears = [...claimText.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0]);
+  const evidenceYears = new Set(
+    [...haystack.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0])
+  );
+  if (claimYears.length && !claimYears.some((year) => evidenceYears.has(year))) return false;
+  const claimNumbers = significantNumbers(claimText).filter(
+    (number) => !/^(?:19|20)\d{2}$/.test(number)
+  );
+  if (claimNumbers.length) {
+    const evidenceNumbers = new Set(significantNumbers(haystack));
+    if (!claimNumbers.some((number) => evidenceNumbers.has(number))) return false;
+  }
+  return true;
+}
+
 async function buildAiQueries(
   settings: AppSettings,
   info: PageInfo,
@@ -799,7 +831,8 @@ export async function verifySummary(
     let refs = raw;
     const pickReferences = (query: string) =>
       rankEvidence(refs, [query])
-        .slice(0, 4)
+        .filter((reference) => isRelevantReference(item, reference))
+        .slice(0, 3)
         .map((reference) => ({ ...reference, site: reference.site || siteOf(reference.url) }));
     let ranked = pickReferences(searchQuery);
     if (!ranked.length) {

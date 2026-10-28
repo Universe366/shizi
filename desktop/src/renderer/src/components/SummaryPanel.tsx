@@ -821,7 +821,7 @@ export function SummaryPanel({
           </div>
         )}
 
-      {!streaming && verification?.sources?.length ? (
+      {!streaming && verification?.sources?.length && verification.items.length === 0 ? (
         <SourcesCard sources={verification.sources} />
       ) : null}
 
