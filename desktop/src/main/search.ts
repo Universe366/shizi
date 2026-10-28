@@ -186,6 +186,17 @@ function persistSearchCache(): void {
   persistTimer.unref?.();
 }
 
+export function clearSearchCache(): void {
+  searchCache.clear();
+  const file = searchCacheFile();
+  if (!file) return;
+  try {
+    fs.rmSync(file, { force: true });
+  } catch {
+    // ignore
+  }
+}
+
 function rememberSearch(key: string, refs: WebReference[], meta: SearchMeta): void {
   searchCache.set(key, { at: Date.now(), refs, meta });
   if (searchCache.size > SEARCH_CACHE_MAX) {

@@ -58,6 +58,8 @@ import { probePlatformModels, testPlatformConnection } from '../platform';
 
 import { listLibrary } from '../library';
 import { fetchWebPage } from '../web/fetch';
+import { clearPlanCache } from '../web/service';
+import { clearSearchCache } from '../search';
 import { failure, type IpcContext } from './shared';
 import {
   applyPetSettings,
@@ -166,6 +168,12 @@ export function registerSettingsIpc(ctx: IpcContext): void {
       }
     }
   );
+
+  ipcMain.handle('search:clear-cache', (): Result<boolean> => {
+    clearSearchCache();
+    clearPlanCache();
+    return { ok: true, data: true };
+  });
 
   ipcMain.handle(
     'search:test-fetch',

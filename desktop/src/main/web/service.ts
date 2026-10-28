@@ -34,7 +34,13 @@ export interface WebSearchResult {
   meta: WebSearchMeta;
 }
 
-export type WebEvidence = WebReference & { citeId: string; site: string };
+export type WebEvidence = WebReference & {
+  citeId: string;
+  site: string;
+  /** 正文实际读取方式（仅读过正文的条目有） */
+  via?: string;
+  rendered?: boolean;
+};
 
 interface CacheEntry {
   at: number;
@@ -72,6 +78,17 @@ function loadCache(): void {
     }
   } catch {
     // 缓存损坏不影响检索
+  }
+}
+
+export function clearPlanCache(): void {
+  cache.clear();
+  const file = cacheFile();
+  if (!file) return;
+  try {
+    fs.rmSync(file, { force: true });
+  } catch {
+    // ignore
   }
 }
 
@@ -389,12 +406,24 @@ export async function searchWebPlan(
       );
       const text = page?.text || '';
       if (text) rememberDocument(ref.url, text);
-      return { url: ref.url, text, cached: false };
+      return {
+        url: ref.url,
+        text,
+        cached: false,
+        via: page?.via,
+        rendered: page?.rendered
+      };
     })
   );
   const pageText = new Map<string, string>();
+  const pageMeta = new Map<string, { via?: string; rendered?: boolean }>();
   fetched.forEach((item) => {
-    if (item.status === 'fulfilled' && item.value.text) pageText.set(item.value.url, item.value.text);
+    if (item.status !== 'fulfilled' || !item.value.text) return;
+    pageText.set(item.value.url, item.value.text);
+    pageMeta.set(item.value.url, {
+      via: item.value.via,
+      rendered: item.value.rendered
+    });
   });
 
   const prefix = `${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 6)}`;
@@ -405,7 +434,9 @@ export async function searchWebPlan(
       site: ref.site || siteOf(ref.url),
       content: content || ref.content,
       snippet: content && content.length > 120 ? content.slice(0, 1200) : ref.snippet,
-      citeId: `${prefix}-${index + 1}`
+      citeId: `${prefix}-${index + 1}`,
+      ...(pageMeta.get(ref.url)?.via ? { via: pageMeta.get(ref.url)!.via } : {}),
+      ...(pageMeta.get(ref.url)?.rendered ? { rendered: true } : {})
     });
   });
 

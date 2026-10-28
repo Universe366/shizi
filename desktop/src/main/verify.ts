@@ -765,6 +765,7 @@ export async function verifySummary(
             const result = await retrieveEvidence(settings, {
               purpose: 'verify',
               queries: [searchQuery],
+              read: Math.max(1, Math.min(3, settings.search.verifyReadPages || 1)),
               signal: searchAbort.signal
             });
             return result.evidence;
@@ -821,6 +822,7 @@ export async function verifySummary(
                 const result = await retrieveEvidence(settings, {
                   purpose: 'verify',
                   queries: [simplified],
+                  read: Math.max(1, Math.min(3, settings.search.verifyReadPages || 1)),
                   signal: retryAbort.signal
                 });
                 return result.evidence;

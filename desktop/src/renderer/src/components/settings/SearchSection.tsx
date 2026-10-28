@@ -61,6 +61,7 @@ export function SearchSection({
   const [fetchTesting, setFetchTesting] = useState(false);
   const [fetchResult, setFetchResult] = useState<string>('');
   const [blacklistNotice, setBlacklistNotice] = useState('');
+  const [cacheNotice, setCacheNotice] = useState('');
   const blacklistInputRef = useRef<HTMLInputElement>(null);
   const activeAi = draft.ai.platforms.find((item) => item.id === draft.ai.activeId);
   const builtinSupported = activeAi
@@ -534,6 +535,24 @@ export function SearchSection({
                 }
               />
             </div>
+            <div className="settings-field">
+              <div className="settings-label">每项读取正文篇数</div>
+              <input
+                className="settings-input"
+                type="number"
+                min={1}
+                max={3}
+                value={search.verifyReadPages || 1}
+                onChange={(event) =>
+                  updateSearch({
+                    verifyReadPages: Math.min(
+                      3,
+                      Math.max(1, Number(event.target.value) || 1)
+                    )
+                  })
+                }
+              />
+            </div>
             <div className="settings-label">额外核实查询（每行一条，可留空）</div>
             <textarea
               className="settings-input"
@@ -734,6 +753,18 @@ export function SearchSection({
             value={search.cacheMinutes}
             onChange={(event) => updateSearch({ cacheMinutes: Number(event.target.value) || 0 })}
           />
+        </div>
+        <div className="settings-inline">
+          <button
+            className="mini-btn"
+            onClick={async () => {
+              const response = await window.bsub.searchClearCache?.();
+              setCacheNotice(response?.ok ? '已清空检索缓存' : response?.error || '清空失败');
+            }}
+          >
+            清空检索缓存
+          </button>
+          {cacheNotice && <span className="settings-hint">{cacheNotice}</span>}
         </div>
         <div className="settings-inline">
           <div className="settings-label">域名黑名单（每行一条，支持 * 与 /正则/）</div>

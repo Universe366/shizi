@@ -610,6 +610,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('search:test-fetch', payload) as Promise<
       Result<{ url: string; title: string; chars: number; preview: string }>
     >,
+  searchClearCache: () =>
+    ipcRenderer.invoke('search:clear-cache') as Promise<Result<boolean>>,
   pickDownloadDir: () =>
     ipcRenderer.invoke('download:pick-dir') as Promise<Result<string | null>>,
   startProbeSite: (url: string) =>

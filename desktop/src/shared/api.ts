@@ -475,6 +475,7 @@ export interface BsubApi {
     url: string;
     platform?: import('./types').SearchPlatform;
   }): Promise<Result<{ url: string; title: string; chars: number; preview: string }>>;
+  searchClearCache(): Promise<Result<boolean>>;
   /** 选择下载保存目录 */
   pickDownloadDir(): Promise<Result<string | null>>;
   /** 起始页：抓取站点标题/描述/图标 */

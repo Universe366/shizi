@@ -995,6 +995,8 @@ export interface SearchSettings {
   summaryReadPages?: number;
   /** 总结参考资料总字符预算（2000-20000，默认 6000） */
   summaryReferenceChars?: number;
+  /** 总结前逐项核对时每项读几篇正文（1-3，默认 1） */
+  verifyReadPages?: number;
 }
 
 export type AsrTransport = 'auto' | 'multipart' | 'base64-json' | 'chat-audio';

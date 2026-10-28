@@ -428,7 +428,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     blacklist: [],
     planQueries: 3,
     summaryReadPages: 2,
-    summaryReferenceChars: 6000
+    summaryReferenceChars: 6000,
+    verifyReadPages: 1
   },
   correction: {
     enabled: true,
@@ -1465,6 +1466,10 @@ function normalize(input: unknown): AppSettings {
       base.search.summaryReferenceChars = Math.max(
         2000,
         Math.min(20000, Number(raw.search.summaryReferenceChars) || 6000)
+      );
+      base.search.verifyReadPages = Math.max(
+        1,
+        Math.min(3, Number(raw.search.verifyReadPages) || 1)
       );
       base.search.verifyItemCount = Math.max(
         1,

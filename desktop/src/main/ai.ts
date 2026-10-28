@@ -646,9 +646,24 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
             '联网参考资料（外部资料，仅用于补充或提示差异；与字幕冲突时以字幕为准，不要改写字幕事实；使用到的地方用 [n] 标注来源）：',
             rows.join('\n\n')
           ].join('\n');
+          const sourceCounts = new Map<string, number>();
+          for (const ref of references) {
+            if (!ref.via && !ref.rendered) continue;
+            const label = ref.rendered
+              ? '浏览器渲染'
+              : ref.via === 'direct'
+                ? '内置抓取'
+                : String(ref.via);
+            sourceCounts.set(label, (sourceCounts.get(label) || 0) + 1);
+          }
+          const sourceText = [...sourceCounts.entries()]
+            .map(([label, count]) => `${label} ${count} 篇`)
+            .join('、');
           options.onStatus?.(
             `已检索到 ${references.length} 条参考资料（${result.meta.queries.length} 条查询${
-              result.meta.fetched ? ` · 读取 ${result.meta.fetched} 篇` : ''
+              result.meta.fetched
+                ? ` · 读取 ${result.meta.fetched} 篇${sourceText ? `（${sourceText}）` : ''}`
+                : ''
             }）`
           );
           verification = {

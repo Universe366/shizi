@@ -220,6 +220,7 @@
   "quality:check",
   "rules:export",
   "rules:import",
+  "search:clear-cache",
   "search:global",
   "search:test",
   "search:test-fetch",
