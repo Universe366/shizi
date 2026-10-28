@@ -296,6 +296,31 @@ interface EvidenceRow {
   reference: WebReference;
 }
 
+function parseJudgeFallback(text: string, evidence: EvidenceRow[]): Record<string, unknown> | null {
+  const rows: Array<Record<string, unknown>> = [];
+  for (const row of evidence) {
+    const pattern = new RegExp(
+      `${row.id}\\b[^\\n]{0,180}?(支持|反驳|无关|support|refute|irrelevant)`,
+      'i'
+    );
+    const match = pattern.exec(String(text || ''));
+    if (!match) continue;
+    const raw = match[1].toLowerCase();
+    const verdict =
+      raw === '支持' || raw === 'support'
+        ? 'support'
+        : raw === '反驳' || raw === 'refute'
+          ? 'refute'
+          : 'irrelevant';
+    rows.push({
+      id: row.id,
+      verdict,
+      quote: String(row.reference.title || row.reference.snippet || '').slice(0, 40)
+    });
+  }
+  return rows.length ? { judgments: rows } : null;
+}
+
 async function judgeEvidence(
   settings: AppSettings,
   info: PageInfo,
@@ -360,7 +385,7 @@ async function judgeEvidence(
         { role: 'system', content: system },
         { role: 'user', content: prompt }
       ],
-      { temperature: 0, maxTokens: 5000, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
+      { temperature: 0, maxTokens: 8000, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
     );
     // 部分推理模型只把 JSON 放在 reasoning 里，content 为空或只有一句解释；
     // 两边分别解析，不要用 `text || reasoning` 让解释文字顶掉真正的 JSON。
@@ -386,9 +411,12 @@ async function judgeEvidence(
           { role: 'system', content: system },
           { role: 'user', content: compact }
         ],
-        { temperature: 0.1, maxTokens: 2500, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
+        { temperature: 0.1, maxTokens: 4000, signal: controller.signal, timeoutMs: 120000, task: 'verify' }
       );
-      parsed = parseJudgeJson(retry.text || '') ?? parseJudgeJson(retry.reasoning || '');
+      parsed =
+        parseJudgeJson(retry.text || '') ??
+        parseJudgeJson(retry.reasoning || '') ??
+        parseJudgeFallback(retry.text || retry.reasoning || '', evidence);
       if (!parsed) {
         console.warn(
           '[verify] 紧凑格式仍不是 JSON：',
@@ -890,15 +918,29 @@ export async function verifySummary(
   let judgeNote = '';
   try {
     onProgress(items.length, items.length, '语义判定证据…');
-    const verdict = await judgeEvidence(settings, info, results, signal, onProgress);
-    if (verdict) {
-      finalItems = verdict.items;
-      supplements = verdict.supplements;
-      dropped = verdict.dropped;
-      judged = !verdict.formatError;
-      if (verdict.formatError) {
-        judgeNote = '模型没有按 JSON 返回判定结果，已保留检索证据；可换个模型重新生成，或在设置里关闭「总结前联网核对」。';
-      }
+    const batches: Array<{ start: number; items: VerifyItem[] }> = [];
+    for (let index = 0; index < results.length; index += 3) {
+      batches.push({ start: index, items: results.slice(index, index + 3) });
+    }
+    let judgedBatches = 0;
+    let formatErrors = 0;
+    const merged = [...results];
+    for (const batch of batches) {
+      const verdict = await judgeEvidence(settings, info, batch.items, signal, onProgress);
+      if (!verdict) continue;
+      merged.splice(batch.start, batch.items.length, ...verdict.items);
+      supplements.push(...verdict.supplements);
+      dropped += verdict.dropped;
+      if (verdict.formatError) formatErrors += 1;
+      else judgedBatches += 1;
+    }
+    finalItems = merged;
+    supplements = [...new Set(supplements)].slice(0, 3);
+    judged = judgedBatches > 0;
+    if (formatErrors) {
+      judgeNote = judged
+        ? '部分证据未完成语义判定，已保留原文；可减少核对条数或换一个更擅长 JSON 的核对模型。'
+        : '模型没有按 JSON 返回判定结果，已保留检索证据；可换个模型重新生成，或在设置里关闭「总结前联网核对」。';
     }
   } catch (error) {
     if (signal?.aborted) throw error;
