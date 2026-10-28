@@ -182,7 +182,8 @@ function chunkPrompt(options: {
     '- 要点列表（尽量具体：数字、结论、步骤、例子、人物）',
     '- 若出现值得原样保留的说法，用 `> 引用` 格式直接摘录',
     '不要给每条要点都标时间；只有极少数确实需要跳转的位置才写 `[mm:ss]`（整段最多一两处）。',
-    '每段提取控制在 800~1500 字，宁精不滥；不要写总结性的收尾语，直接给提取结果。',
+    '尽量完整保留这一段的数字、结论、步骤、例子和关键原话；内容多就展开，不要为了短而删信息，也不要重复灌水。',
+    '不要写总结性的收尾语，直接给提取结果。',
     '下面是这一段字幕原文：',
     options.text
   ]
@@ -246,7 +247,7 @@ async function mergeFragments(options: {
   ];
   const chatOptions = {
     temperature: 0.2,
-    maxTokens: 3500,
+    maxTokens: Math.min(options.settings.ai.maxTokens || 8192, 6000),
     timeoutMs: 420000,
     signal: options.signal,
     task: 'summary' as const
@@ -281,10 +282,10 @@ async function summarizeInChunks(options: {
   const background = options.metaBlock.slice(0, 900);
   const official = officialSegmentsBlock(info);
   const summaries: string[] = new Array(total).fill('');
-  // 段数越多，单段输出越克制：细节留给最终合并时再展开，避免 10 段 × 8k token 撑爆上下文。
+  // 段数越多，单段输出越克制；但不要压得太狠，细节丢失后最终合并无法补回。
   const chunkMaxTokens = Math.min(
     settings.ai.maxTokens || 8192,
-    total >= 10 ? 3072 : total >= 6 ? 4096 : 6144
+    total >= 10 ? 4096 : total >= 6 ? 6144 : 8192
   );
 
   const summarizeChunk = async (index: number): Promise<void> => {
