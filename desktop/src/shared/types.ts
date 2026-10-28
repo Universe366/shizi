@@ -1547,12 +1547,14 @@ export interface ChatRequest {
 
 export interface ChatToolEvent {
   requestId: string;
-  phase: 'start' | 'done';
+  phase: 'start' | 'progress' | 'done';
   /** 展示名（已去掉 serverId 前缀） */
   name: string;
-  /** 启动时是参数摘要，完成时是结果摘要 */
+  /** 启动时是参数摘要，进度时是进度说明，完成时是结果摘要 */
   detail?: string;
   ok?: boolean;
+  /** MCP 工具返回的图片（data URL），只在当前轮展示，不写入历史。 */
+  images?: string[];
 }
 
 /** 主窗口里可勾选的 MCP 工具（已按服务器展开）。 */
@@ -1564,6 +1566,14 @@ export interface McpToolOption {
   serverName: string;
   name: string;
   description: string;
+  /** 工具参数的 JSON Schema，对话面板用来展开参数树。 */
+  inputSchema?: unknown;
+}
+
+/** MCP 服务端主动通知：工具/提示词列表变化等。 */
+export interface McpServerChangedEvent {
+  serverId: string;
+  kind: 'tools' | 'prompts' | 'resources';
 }
 
 export interface McpPromptOption {

@@ -30,7 +30,8 @@ import {
   listMcpPrompts,
   listMcpResources,
   listMcpTools,
-  readMcpResource
+  readMcpResource,
+  setMcpNotificationSink
 } from '../mcp';
 import { authorizeMcpServer } from '../mcpOAuth';
 import {
@@ -55,6 +56,31 @@ import { failure, type IpcContext } from './shared';
 
 /** MCP / Skills / 搜索测试 / 校对规则 / 字幕质量与章节 相关 IPC。 */
 export function registerToolsIpc(ctx: IpcContext): void {
+  setMcpNotificationSink((server, method, params) => {
+    if (method === 'notifications/tools/list_changed') {
+      ctx.send('mcp:server-changed', { serverId: server.id, kind: 'tools' });
+      return;
+    }
+    if (method === 'notifications/prompts/list_changed') {
+      ctx.send('mcp:server-changed', { serverId: server.id, kind: 'prompts' });
+      return;
+    }
+    if (method === 'notifications/resources/updated') {
+      const uri = String(params.uri || '');
+      if (!uri) return;
+      void readMcpResource(server, uri)
+        .then((content) => {
+          ctx.send('mcp:resource-updated', {
+            serverId: server.id,
+            uri,
+            content: content.slice(0, 4000),
+            at: Date.now()
+          });
+        })
+        .catch(() => undefined);
+    }
+  });
+
   ipcMain.handle('mcp:test', async (_event, server: McpServer): Promise<Result<McpTool[]>> => {
     try {
       return { ok: true, data: await listMcpTools(server) };

@@ -348,6 +348,15 @@ export function SettingsPanel({
     }
   };
 
+  const testMcpRef = useRef(testMcp);
+  testMcpRef.current = testMcp;
+  useEffect(() => {
+    return window.bsub.onMcpServerChanged?.((event) => {
+      const server = draft?.mcp.servers.find((item) => item.id === event.serverId);
+      if (server?.enabled) void testMcpRef.current(server);
+    });
+  }, [draft?.mcp.servers]);
+
   const readMcpResource = async (server: McpServer, uri: string) => {
     setMcpResult(`读取资源 ${uri}…`);
     const response = await window.bsub.mcpReadResource(server, uri);

@@ -16,6 +16,51 @@ const sessionIds = new Map<string, string>();
 let seq = 0;
 const nextId = () => ++seq;
 
+export interface McpProgress {
+  progress: number;
+  total: number;
+  message: string;
+}
+
+type McpNotificationSink = (
+  server: McpServer,
+  method: string,
+  params: Record<string, unknown>
+) => void;
+
+let notificationSink: McpNotificationSink | null = null;
+const progressHandlers = new Map<string, (progress: McpProgress) => void>();
+
+/** 主进程注册一次：把服务端主动通知转发给渲染层。 */
+export function setMcpNotificationSink(sink: McpNotificationSink | null): void {
+  notificationSink = sink;
+}
+
+function handleIncomingMessage(server: McpServer, message: JsonRpcResponse): void {
+  const method = typeof message.method === 'string' ? message.method : '';
+  if (!method) return;
+  const params =
+    message.params && typeof message.params === 'object'
+      ? (message.params as Record<string, unknown>)
+      : {};
+  try {
+    notificationSink?.(server, method, params);
+  } catch {
+    // 通知展示失败不影响协议
+  }
+  if (method === 'notifications/progress') {
+    const token = String(params.progressToken || '');
+    const handler = progressHandlers.get(token);
+    if (handler) {
+      handler({
+        progress: Number(params.progress) || 0,
+        total: Number(params.total) || 0,
+        message: String(params.message || '')
+      });
+    }
+  }
+}
+
 function serverKey(server: McpServer): string {
   return `${server.id}|${server.url}`;
 }
@@ -46,6 +91,8 @@ interface JsonRpcResponse {
   id?: number | null;
   result?: unknown;
   error?: JsonRpcError;
+  method?: string;
+  params?: Record<string, unknown>;
 }
 
 interface McpToolRow {
@@ -58,6 +105,14 @@ interface McpToolRow {
 interface McpContentItem {
   type?: string;
   text?: string;
+  data?: string;
+  mimeType?: string;
+  resource?: {
+    uri?: string;
+    mimeType?: string;
+    text?: string;
+    blob?: string;
+  };
 }
 
 type JsonRpcResult = {
@@ -152,16 +207,66 @@ async function rpcHttp(
     timeoutMs,
     signal
   );
-  const text = await response.text();
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
     throw new Error(`MCP 服务返回 HTTP ${response.status}：${text.slice(0, 200)}`);
   }
-  const message = parseRpc(text, id);
+  const contentType = response.headers.get('content-type') || '';
+  let message: JsonRpcResponse | null = null;
+  if (contentType.includes('text/event-stream') && response.body) {
+    message = await readSseResponse(server, response.body, id);
+  } else {
+    message = parseRpc(await response.text(), id);
+  }
   if (!message) throw new Error('MCP 响应无法解析');
   if (message.error) {
     throw new Error(`MCP 调用出错（${message.error.code ?? '?'}）：${message.error.message || ''}`);
   }
   return (message.result as JsonRpcResult | undefined) ?? null;
+}
+
+/** 读取 POST 返回的 SSE 流：一边派发通知（progress 等），一边等本次请求的响应。 */
+async function readSseResponse(
+  server: McpServer,
+  body: ReadableStream<Uint8Array>,
+  expectId: number
+): Promise<JsonRpcResponse | null> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary >= 0) {
+        const raw = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        const data = raw
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).replace(/^ /, ''))
+          .join('\n');
+        if (data) {
+          try {
+            const message = JSON.parse(data) as JsonRpcResponse;
+            if (message && message.id === expectId) {
+              await reader.cancel().catch(() => undefined);
+              return message;
+            }
+            if (message && message.method) handleIncomingMessage(server, message);
+          } catch {
+            // 忽略无法解析的通知
+          }
+        }
+        boundary = buffer.indexOf('\n\n');
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return null;
 }
 
 interface SseEvent {
@@ -290,6 +395,7 @@ interface StdioPending {
 }
 
 interface StdioClient {
+  server: McpServer;
   child: ChildProcessWithoutNullStreams;
   buffer: string;
   seq: number;
@@ -321,7 +427,10 @@ function handleStdioLine(client: StdioClient, line: string): void {
   } catch {
     return;
   }
-  if (typeof message.id !== 'number') return;
+  if (typeof message.id !== 'number') {
+    handleIncomingMessage(client.server, message);
+    return;
+  }
   const pending = client.pending.get(message.id);
   if (!pending) return;
   clearTimeout(pending.timer);
@@ -351,6 +460,7 @@ function startStdio(server: McpServer): StdioClient {
     shell: process.platform === 'win32'
   });
   const client: StdioClient = {
+    server,
     child,
     buffer: '',
     seq: 0,
@@ -441,6 +551,14 @@ function stdioNotify(server: McpServer, method: string, params?: unknown): void 
 
 /** 退出应用/禁用服务时回收所有 stdio 子进程，避免留下孤儿进程。 */
 export function disposeMcpClients(): void {
+  for (const controller of httpStreams.values()) {
+    try {
+      controller.abort();
+    } catch {
+      // ignore
+    }
+  }
+  httpStreams.clear();
   for (const client of stdioClients.values()) {
     try {
       client.child.kill();
@@ -485,18 +603,80 @@ async function ensureSession(server: McpServer): Promise<void> {
     client.initialized = true;
     return;
   }
-  if (sessionIds.has(serverKey(server))) return;
-  await rpc(
-    server,
-    'initialize',
-    {
-      protocolVersion: PROTOCOL_VERSION,
-      capabilities: {},
-      clientInfo: { name: 'shizi', version: '1.0.0' }
-    },
-    nextId()
-  );
-  await notifyInitialized(server);
+  if (!sessionIds.has(serverKey(server))) {
+    await rpc(
+      server,
+      'initialize',
+      {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'shizi', version: '1.0.0' }
+      },
+      nextId()
+    );
+    await notifyInitialized(server);
+  }
+  startHttpNotificationStream(server);
+}
+
+/** HTTP 服务的常驻通知流：尽力打开 GET SSE，不支持时静默放弃。 */
+const httpStreams = new Map<string, AbortController>();
+
+function startHttpNotificationStream(server: McpServer): void {
+  if (server.transport !== 'http' || !server.url.trim()) return;
+  const key = serverKey(server);
+  if (httpStreams.has(key)) return;
+  const controller = new AbortController();
+  httpStreams.set(key, controller);
+  void (async () => {
+    try {
+      const streamHeaders: Record<string, string> = {
+        ...headersFor(server),
+        accept: 'text/event-stream'
+      };
+      delete streamHeaders['content-type'];
+      const response = await session.defaultSession.fetch(server.url.trim(), {
+        method: 'GET',
+        headers: streamHeaders,
+        signal: controller.signal
+      });
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !response.body || !contentType.includes('text/event-stream')) {
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let boundary = buffer.indexOf('\n\n');
+        while (boundary >= 0) {
+          const raw = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const data = raw
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).replace(/^ /, ''))
+            .join('\n');
+          if (data) {
+            try {
+              const message = JSON.parse(data) as JsonRpcResponse;
+              if (message?.method) handleIncomingMessage(server, message);
+            } catch {
+              // 忽略无法解析的通知
+            }
+          }
+          boundary = buffer.indexOf('\n\n');
+        }
+      }
+    } catch {
+      // 服务端不支持 GET 通知流或连接中断：不影响正常请求
+    } finally {
+      if (httpStreams.get(key) === controller) httpStreams.delete(key);
+    }
+  })();
 }
 
 export async function listMcpTools(server: McpServer): Promise<McpTool[]> {
@@ -633,7 +813,8 @@ export async function listAllMcpTools(servers: McpServer[]): Promise<McpToolOpti
           serverId: server.id,
           serverName: server.name,
           name: tool.name,
-          description: tool.description
+          description: tool.description,
+          inputSchema: tool.inputSchema
         });
       }
     } catch {
@@ -696,38 +877,108 @@ export async function listAllMcpResources(servers: McpServer[]): Promise<McpReso
   return options;
 }
 
-export async function callMcpTool(  server: McpServer,
+export interface McpToolImage {
+  mimeType: string;
+  data: string;
+}
+
+export interface McpToolResult {
+  text: string;
+  images: McpToolImage[];
+}
+
+/** 把 tools/call 的 content 归一成文本 + 图片；二进制资源给占位说明。 */
+export function parseMcpToolResult(result: unknown): McpToolResult {
+  const payload = result as { content?: McpContentItem[]; structuredContent?: unknown } | null;
+  const content = Array.isArray(payload?.content) ? payload.content : [];
+  const texts: string[] = [];
+  const images: McpToolImage[] = [];
+  for (const item of content) {
+    if (!item) continue;
+    if (item.type === 'text' && item.text) {
+      texts.push(String(item.text));
+      continue;
+    }
+    if (item.type === 'image' && item.data) {
+      images.push({
+        mimeType: String(item.mimeType || 'image/png'),
+        data: String(item.data).slice(0, 8_000_000)
+      });
+      continue;
+    }
+    if (item.type === 'resource' && item.resource) {
+      const resource = item.resource;
+      if (resource.text) texts.push(String(resource.text));
+      else if (resource.blob) {
+        texts.push(
+          `（二进制资源 ${resource.mimeType || ''} ${resource.uri || ''}，${resource.blob.length} 字符 base64）`
+        );
+      } else {
+        texts.push(JSON.stringify(resource));
+      }
+      continue;
+    }
+    if (item.text) texts.push(String(item.text));
+    else texts.push(JSON.stringify(item));
+  }
+  if (payload?.structuredContent !== undefined) {
+    texts.push(JSON.stringify(payload.structuredContent));
+  }
+  const text =
+    texts.filter(Boolean).join('\n') ||
+    (images.length
+      ? `（工具返回 ${images.length} 张图片）`
+      : JSON.stringify(result, null, 2));
+  return { text, images: images.slice(0, 4) };
+}
+
+export async function callMcpToolDetailed(
+  server: McpServer,
+  name: string,
+  args: Record<string, unknown>,
+  timeoutMs = 40000,
+  signal?: AbortSignal,
+  onProgress?: (progress: McpProgress) => void
+): Promise<McpToolResult> {
+  await ensureSession(server);
+  const token = onProgress ? `mcp-progress-${server.id}-${nextId()}` : '';
+  if (token && onProgress) progressHandlers.set(token, onProgress);
+  try {
+    const result = await rpc(
+      server,
+      'tools/call',
+      {
+        name,
+        arguments: args,
+        ...(token ? { _meta: { progressToken: token } } : {})
+      },
+      nextId(),
+      timeoutMs,
+      signal
+    );
+    return parseMcpToolResult(result);
+  } finally {
+    if (token) progressHandlers.delete(token);
+  }
+}
+
+export async function callMcpTool(
+  server: McpServer,
   name: string,
   args: Record<string, unknown>,
   timeoutMs = 40000,
   signal?: AbortSignal
 ): Promise<string> {
-  await ensureSession(server);
-  const result = await rpc(
-    server,
-    'tools/call',
-    { name, arguments: args },
-    nextId(),
-    timeoutMs,
-    signal
-  );
-  const content = Array.isArray(result?.content) ? result.content : [];
-  const text = content
-    .map((item) => {
-      if (item?.type === 'text') return String(item.text || '');
-      try {
-        return JSON.stringify(item);
-      } catch {
-        return String(item);
-      }
-    })
-    .filter(Boolean)
-    .join('\n');
-  return text || JSON.stringify(result, null, 2);
+  const result = await callMcpToolDetailed(server, name, args, timeoutMs, signal);
+  return result.images.length
+    ? `${result.text}\n（工具返回 ${result.images.length} 张图片，已在界面显示）`
+    : result.text;
 }
 
 export function resetMcpSession(server: McpServer): void {
   sessionIds.delete(serverKey(server));
+  httpStreams.get(serverKey(server))?.abort();
+  httpStreams.delete(serverKey(server));
   const client = stdioClients.get(stdioKey(server));
   if (client) {
     settleAll(client, new Error('MCP 会话已重置'));

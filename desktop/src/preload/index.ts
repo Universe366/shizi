@@ -80,6 +80,7 @@ import type {
   McpPrompt,
   McpPromptOption,
   McpResourceOption,
+  McpServerChangedEvent,
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
@@ -937,6 +938,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:unwatch-resource', { server, uri }) as Promise<Result<boolean>>,
   onMcpResourceUpdated: (cb: (event: McpResourceUpdate) => void) =>
     on<McpResourceUpdate>('mcp:resource-updated', cb),
+  onMcpServerChanged: (cb: (event: McpServerChangedEvent) => void) =>
+    on<McpServerChangedEvent>('mcp:server-changed', cb),
   mcpOAuth: (server: McpServer) =>
     ipcRenderer.invoke('mcp:oauth', server) as Promise<Result<McpOAuth>>,
   testMcp: (server: McpServer) =>

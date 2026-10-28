@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { McpServer } from '../shared/types';
 
-const state = vi.hoisted(() => ({ calls: [] as string[] }));
+const state = vi.hoisted(() => ({
+  calls: [] as string[],
+  responder: null as null | ((body: Record<string, unknown>, init: RequestInit) => Response)
+}));
 
 vi.mock('electron', () => ({
   session: {
@@ -13,6 +16,7 @@ vi.mock('electron', () => ({
           params?: Record<string, unknown>;
         };
         state.calls.push(String(body.method));
+        if (state.responder) return state.responder(body, init);
         let result: unknown = {};
         if (body.method === 'initialize') {
           result = { protocolVersion: '2024-11-05', capabilities: {} };
@@ -49,13 +53,16 @@ vi.mock('electron', () => ({
 }));
 
 import {
+  callMcpToolDetailed,
   getMcpPrompt,
   listAllMcpPrompts,
   listAllMcpResources,
   listAllMcpTools,
   listMcpPrompts,
   listMcpResources,
-  readMcpResource
+  parseMcpToolResult,
+  readMcpResource,
+  setMcpNotificationSink
 } from './mcp';
 
 const server: McpServer = {
@@ -71,6 +78,8 @@ const server: McpServer = {
 describe('MCP 资源与提示词', () => {
   beforeEach(() => {
     state.calls = [];
+    state.responder = null;
+    setMcpNotificationSink(null);
   });
 
   it('列出资源并读取正文', async () => {
@@ -91,6 +100,74 @@ describe('MCP 资源与提示词', () => {
     expect(text).toContain('提示词正文');
     expect(state.calls).toContain('prompts/list');
     expect(state.calls).toContain('prompts/get');
+  });
+
+  it('工具结果保留图片与资源文本', () => {
+    const result = parseMcpToolResult({
+      content: [
+        { type: 'text', text: '说明' },
+        { type: 'image', mimeType: 'image/png', data: 'AAAA' },
+        { type: 'resource', resource: { text: '资源正文', mimeType: 'text/plain' } }
+      ]
+    });
+    expect(result.text).toBe('说明\n资源正文');
+    expect(result.images).toEqual([{ mimeType: 'image/png', data: 'AAAA' }]);
+
+    const onlyImage = parseMcpToolResult({
+      content: [{ type: 'image', mimeType: 'image/jpeg', data: 'BBBB' }]
+    });
+    expect(onlyImage.text).toBe('（工具返回 1 张图片）');
+    expect(onlyImage.images[0].mimeType).toBe('image/jpeg');
+  });
+
+  it('POST 返回 SSE 时先派发通知，再解析本次响应', async () => {
+    const encoder = new TextEncoder();
+    state.responder = (body) => {
+      if (body.method === 'tools/call') {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            const meta = body.params as { _meta?: { progressToken?: string } } | undefined;
+            const progressToken = (meta && meta._meta && meta._meta.progressToken) || 't';
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  jsonrpc: '2.0',
+                  method: 'notifications/progress',
+                  params: { progressToken, progress: 1, total: 2, message: '下载中' }
+                })}\n\n`
+              )
+            );
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: body.id,
+                  result: { content: [{ type: 'text', text: '完成' }] }
+                })}\n\n`
+              )
+            );
+            controller.close();
+          }
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' }
+        });
+      }
+      return new Response(
+        JSON.stringify({ jsonrpc: '2.0', id: body.id, result: {} }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    };
+    const events: string[] = [];
+    setMcpNotificationSink((_server, method) => events.push(method));
+    const progress: number[] = [];
+    const result = await callMcpToolDetailed(server, 'echo', {}, 4000, undefined, (item) =>
+      progress.push(item.progress)
+    );
+    expect(result.text).toBe('完成');
+    expect(events).toContain('notifications/progress');
+    expect(progress).toEqual([1]);
   });
 
   it('展开提示词与资源，跳过停用服务', async () => {

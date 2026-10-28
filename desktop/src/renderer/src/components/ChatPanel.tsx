@@ -8,6 +8,7 @@ import {
   effectiveModelCapabilities,
   formatContextWindow
 } from '../../../shared/modelCapabilities';
+import { describeMcpParameters } from '../../../shared/mcpSchema';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -805,6 +806,24 @@ export function ChatPanel({
   }, [activeTab?.id, activeTab?.url]);
 
   useEffect(() => {
+    return window.bsub.onMcpServerChanged?.(() => {
+      if (!toolPanelOpen) return;
+      void (async () => {
+        if (toolPanelMode === 'prompts') {
+          const response = await window.bsub.mcpAllPrompts();
+          if (response.ok) setPromptOptions(response.data);
+        } else if (toolPanelMode === 'resources') {
+          const response = await window.bsub.mcpAllResources();
+          if (response.ok) setResourceOptions(response.data);
+        } else {
+          const response = await window.bsub.mcpAllTools();
+          if (response.ok) setToolOptions(response.data);
+        }
+      })();
+    });
+  }, [toolPanelOpen, toolPanelMode]);
+
+  useEffect(() => {
     const offDelta = window.bsub.onChatDelta((event) => {
       if (event.requestId === requestRef.current) {
         if (event.delta) setStreamText((previous) => previous + event.delta);
@@ -912,11 +931,19 @@ export function ChatPanel({
         event
       ]);
     });
-    const offTool = window.bsub.onChatTool((event) => {      if (event.requestId !== requestRef.current) return;
+    const offTool = window.bsub.onChatTool((event) => {
+      if (event.requestId !== requestRef.current) return;
       setToolEvents((previous) => {
         const next = [...previous];
         if (event.phase === 'start') {
           next.push(event);
+        } else if (event.phase === 'progress') {
+          for (let index = next.length - 1; index >= 0; index -= 1) {
+            if (next[index].name === event.name && next[index].phase === 'start') {
+              next[index] = { ...next[index], detail: event.detail };
+              return next;
+            }
+          }
         } else {
           for (let index = next.length - 1; index >= 0; index -= 1) {
             if (next[index].name === event.name && next[index].phase === 'start') {
@@ -1801,6 +1828,18 @@ export function ChatPanel({
                     </span>
                   </div>
                   {tool.detail && <div className="chat-tool-detail">{tool.detail}</div>}
+                  {tool.images?.length ? (
+                    <div className="chat-tool-images">
+                      {tool.images.map((src, imageIndex) => (
+                        <img
+                          key={imageIndex}
+                          src={src}
+                          alt="工具返回的图片"
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -2109,17 +2148,48 @@ export function ChatPanel({
                   )}
                   {toolOptions.map((tool) => {
                     const checked = toolSelection === null || toolSelection.includes(tool.id);
+                    const params = describeMcpParameters(tool.inputSchema);
                     return (
-                      <label key={tool.id} className="chat-tool-option" title={tool.description}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleTool(tool.id)}
-                        />
-                        <span>
-                          {tool.serverName} · {tool.name}
-                        </span>
-                      </label>
+                      <div key={tool.id} className="chat-tool-item">
+                        <label className="chat-tool-option" title={tool.description}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleTool(tool.id)}
+                          />
+                          <span>
+                            {tool.serverName} · {tool.name}
+                          </span>
+                        </label>
+                        {params.length > 0 && (
+                          <details className="chat-tool-schema">
+                            <summary>{params.length} 个参数</summary>
+                            <div className="chat-tool-params">
+                              {params.map((param) => (
+                                <div key={param.name} className="chat-tool-param">
+                                  <div className="chat-tool-param-head">
+                                    <code>{param.name}</code>
+                                    <span>
+                                      {param.type}
+                                      {param.required ? ' · 必填' : ''}
+                                    </span>
+                                  </div>
+                                  {param.description && (
+                                    <div className="chat-tool-param-desc">
+                                      {param.description}
+                                    </div>
+                                  )}
+                                  {param.enumValues.length > 0 && (
+                                    <div className="chat-tool-param-desc">
+                                      可选值：{param.enumValues.join(' / ')}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
                     );
                   })}
                 </>

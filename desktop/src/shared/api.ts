@@ -107,6 +107,7 @@ import type {
   McpPrompt,
   McpPromptOption,
   McpResourceOption,
+  McpServerChangedEvent,
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
@@ -702,6 +703,7 @@ export interface BsubApi {
   mcpWatchResource(server: McpServer, uri: string): Promise<Result<boolean>>;
   mcpUnwatchResource(server: McpServer, uri: string): Promise<Result<boolean>>;
   onMcpResourceUpdated(cb: (event: McpResourceUpdate) => void): () => void;
+  onMcpServerChanged(cb: (event: McpServerChangedEvent) => void): () => void;
   mcpOAuth(server: McpServer): Promise<Result<McpOAuth>>;
   testMcp(server: McpServer): Promise<Result<McpTool[]>>;
   callMcp(server: McpServer, name: string, args: Record<string, unknown>): Promise<Result<string>>;

@@ -22,7 +22,7 @@ import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './searc
 import { retrieveEvidence } from './web/retrieve';
 import { fetchWebPage } from './web/fetch';
 import type { WebSearchMeta } from './web';
-import { listMcpTools, callMcpTool } from './mcp';
+import { listMcpTools, callMcpToolDetailed } from './mcp';
 import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
 import { skillPrompt } from './skills';
 import type { PageContext } from './pageContext';
@@ -555,7 +555,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           name,
           detail: String(call.arguments || '').slice(0, 200)
         });
-        const finish = (content: string, ok = true): string => {
+        const finish = (content: string, ok = true, images?: string[]): string => {
           const inlineLimit = Math.max(4000, MAX_TOOL_RESULT_CHARS - 4000);
           const clipped = truncateToolOutput(content, '', READ_TOOL_OUTPUT, inlineLimit);
           let output = clipped.text;
@@ -563,7 +563,13 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
             const id = storeToolOutput(content);
             output = truncateToolOutput(content, id, READ_TOOL_OUTPUT, inlineLimit).text;
           }
-          emitTool({ phase: 'done', name, detail: output.slice(0, 280), ok });
+          emitTool({
+            phase: 'done',
+            name,
+            detail: output.slice(0, 280),
+            ok,
+            ...(images?.length ? { images } : {})
+          });
           return output;
         };
         if (call.name === WEB_FETCH_TOOL.name) {
@@ -684,15 +690,31 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           if (!allowed) return finish('用户拒绝了这次工具调用', false);
         }
         try {
-          return finish(
-            await callMcpTool(
-              binding.server,
-              binding.tool.name,
-              args,
-              settings.mcp.callTimeoutMs || 60000,
-              options.signal
-            )
+          const result = await callMcpToolDetailed(
+            binding.server,
+            binding.tool.name,
+            args,
+            settings.mcp.callTimeoutMs || 60000,
+            options.signal,
+            (progress) => {
+              const percent =
+                progress.total > 0
+                  ? `${Math.min(100, Math.round((progress.progress / progress.total) * 100))}%`
+                  : '';
+              emitTool({
+                phase: 'progress',
+                name,
+                detail: [percent, progress.message].filter(Boolean).join(' · ') || '执行中…'
+              });
+            }
           );
+          const images = result.images.map(
+            (image) => `data:${image.mimeType};base64,${image.data}`
+          );
+          const text = result.images.length
+            ? `${result.text}\n（工具返回 ${result.images.length} 张图片，已在界面显示）`
+            : result.text;
+          return finish(text, true, images);
         } catch (error) {
           return finish(`工具调用失败：${(error as Error).message}`, false);
         }
