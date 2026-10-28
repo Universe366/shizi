@@ -179,7 +179,12 @@ export async function fetchWebPage(
   try {
     const kind = String(provider?.kind || 'direct');
     if (kind !== 'direct' && provider) {
-      return await fetchViaProvider(target, provider, maxChars, controller.signal);
+      try {
+        return await fetchViaProvider(target, provider, maxChars, controller.signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        // 第三方读取失败（限流/Key/网络）时回退内置抓取，避免一次失败整轮问答中断。
+      }
     }
     for (let hop = 0; hop < 4; hop += 1) {
       const response = await session.defaultSession.fetch(target.href, {

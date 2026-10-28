@@ -299,7 +299,7 @@ export function SearchSection({
       <div className="settings-group">
         <div className="settings-group-title">2. URL 获取服务商</div>
         <div className="settings-group-desc">
-          决定 web_fetch 怎么打开网页：内置抓取免 Key；Jina 免费；Tavily / Exa / Firecrawl 需要 Key。
+          决定 web_fetch 怎么打开网页：内置抓取免 Key；Jina 免费；Tavily / Exa / Firecrawl 需要 Key。第三方读取失败会自动回退内置抓取。
         </div>
         <select
           className="settings-input"

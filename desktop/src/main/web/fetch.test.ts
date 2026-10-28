@@ -42,6 +42,29 @@ describe('web_fetch', () => {
     expect(String(state.fetch.mock.calls[0][0])).toContain('https://r.jina.ai/https://example.com/j');
   });
 
+  it('第三方读取失败时回退内置抓取', async () => {
+    state.fetch
+      .mockResolvedValueOnce(new Response('rate limited', { status: 429 }))
+      .mockResolvedValueOnce(
+        new Response(
+          '<html><head><title>回退标题</title></head><body><p>回退正文</p></body></html>',
+          { status: 200, headers: { 'content-type': 'text/html' } }
+        )
+      );
+    const page = await fetchWebPage('https://example.com/f', 3000, undefined, {
+      id: 'jina',
+      name: 'Jina',
+      kind: 'jina',
+      baseUrl: 'https://r.jina.ai',
+      apiKey: ''
+    });
+    expect(page.title).toContain('回退标题');
+    expect(page.text).toContain('回退正文');
+    expect(state.fetch).toHaveBeenCalledTimes(2);
+    expect(String(state.fetch.mock.calls[0][0])).toContain('r.jina.ai');
+    expect(String(state.fetch.mock.calls[1][0])).toContain('example.com/f');
+  });
+
   it('拒绝本机/内网地址', async () => {
     await expect(fetchWebPage('http://127.0.0.1/admin')).rejects.toThrow('本机');
     await expect(fetchWebPage('http://192.168.1.2/a')).rejects.toThrow('本机');
