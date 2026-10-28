@@ -1,4 +1,6 @@
-import { session } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app, session } from 'electron';
 import type { AppSettings, SearchPlatform, WebReference } from '../shared/types';
 import { UA, searchSignal } from './web/providers/shared';
 import { freePlatform, runProviderSearch } from './web/providers';
@@ -133,15 +135,67 @@ export interface SearchMeta {
 
 const searchCache = new Map<string, { at: number; refs: WebReference[]; meta: SearchMeta }>();
 const SEARCH_CACHE_MAX = 120;
+const SEARCH_CACHE_MAX_AGE = 7 * 86400000;
+let cacheLoaded = false;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function searchCacheFile(): string {
+  try {
+    return app?.getPath ? path.join(app.getPath('userData'), 'search-cache.json') : '';
+  } catch {
+    return '';
+  }
+}
+
+function loadSearchCache(): void {
+  if (cacheLoaded) return;
+  cacheLoaded = true;
+  const file = searchCacheFile();
+  if (!file || !fs.existsSync(file)) return;
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      entries?: Array<[string, { at: number; refs: WebReference[]; meta: SearchMeta }]>;
+    };
+    const cutoff = Date.now() - SEARCH_CACHE_MAX_AGE;
+    for (const [key, entry] of data.entries || []) {
+      if (!key || !entry || !Array.isArray(entry.refs)) continue;
+      if (!Number.isFinite(entry.at) || entry.at < cutoff) continue;
+      searchCache.set(key, entry);
+    }
+  } catch {
+    // 缓存损坏不影响检索
+  }
+}
+
+function persistSearchCache(): void {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    const file = searchCacheFile();
+    if (!file) return;
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ version: 1, savedAt: Date.now(), entries: [...searchCache.entries()] })
+      );
+    } catch {
+      // 磁盘不可写时忽略
+    }
+  }, 300);
+  persistTimer.unref?.();
+}
 
 function rememberSearch(key: string, refs: WebReference[], meta: SearchMeta): void {
   searchCache.set(key, { at: Date.now(), refs, meta });
-  if (searchCache.size <= SEARCH_CACHE_MAX) return;
-  // 长期运行的桌面端不能无限攒检索结果：按时间淘汰最旧的一批。
-  const oldest = [...searchCache.entries()]
-    .sort((a, b) => a[1].at - b[1].at)
-    .slice(0, searchCache.size - SEARCH_CACHE_MAX);
-  for (const [oldKey] of oldest) searchCache.delete(oldKey);
+  if (searchCache.size > SEARCH_CACHE_MAX) {
+    // 长期运行的桌面端不能无限攒检索结果：按时间淘汰最旧的一批。
+    const oldest = [...searchCache.entries()]
+      .sort((a, b) => a[1].at - b[1].at)
+      .slice(0, searchCache.size - SEARCH_CACHE_MAX);
+    for (const [oldKey] of oldest) searchCache.delete(oldKey);
+  }
+  persistSearchCache();
 }
 
 function emitMeta(callback: ((meta: SearchMeta) => void) | undefined, meta: SearchMeta): void {
@@ -331,6 +385,7 @@ export async function searchWeb(
   const cacheKey = `${platform.id}|${platform.kind || ''}|${platform.baseUrl || ''}|${query}|${max}|${settings.search.timeRange}|${settings.search.includeContent ? 1 : 0}|${settings.search.fetchPages ? 1 : 0}|${settings.search.snippetMode || 'truncate'}|${settings.search.snippetChars || 2000}|${(settings.search.blacklist || []).join(',')}`;
   const ttl = Math.max(0, settings.search.cacheMinutes || 0) * 60000;
   if (ttl > 0) {
+    loadSearchCache();
     const cached = searchCache.get(cacheKey);
     if (cached && Date.now() - cached.at < ttl) {
       emitMeta(onMeta, { ...cached.meta, cached: true });

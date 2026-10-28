@@ -6,7 +6,8 @@ const state = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/shizi-test' },
   session: { defaultSession: { fetch: state.fetch } },
-  safeStorage: { isEncryptionAvailable: () => false }
+  safeStorage: { isEncryptionAvailable: () => false },
+  BrowserWindow: undefined
 }));
 
 import { fetchWebPage } from './fetch';

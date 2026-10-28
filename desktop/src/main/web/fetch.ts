@@ -1,4 +1,4 @@
-import { session } from 'electron';
+import { BrowserWindow, session } from 'electron';
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { htmlToText } from '../search';
 import type { SearchPlatform } from '../../shared/types';
@@ -16,6 +16,66 @@ export interface WebPage {
   via?: string;
   /** 第三方失败后回退时记录原服务商 */
   fallbackFrom?: string;
+  /** 是否由隐藏浏览器渲染过（强 JS 页面） */
+  rendered?: boolean;
+}
+
+/** 隐藏浏览器渲染：只给正文极短、疑似 SPA / 需 JS 的页面兜底。 */
+async function renderWithBrowser(
+  url: string,
+  maxChars: number,
+  signal?: AbortSignal
+): Promise<WebPage | null> {
+  if (!BrowserWindow) return null;
+  const win = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 900,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      images: false,
+      backgroundThrottling: false
+    }
+  });
+  let closed = false;
+  const timer = setTimeout(() => {
+    closed = true;
+    if (!win.isDestroyed()) win.destroy();
+  }, 15000);
+  const onAbort = () => {
+    closed = true;
+    if (!win.isDestroyed()) win.destroy();
+  };
+  signal?.addEventListener('abort', onAbort, { once: true });
+  try {
+    await win.loadURL(url);
+    if (closed || signal?.aborted) return null;
+    const info = (await win.webContents.executeJavaScript(
+      "(() => ({ title: document.title || '', text: document.body ? document.body.innerText : '' }))()",
+      true
+    )) as { title?: string; text?: string };
+    const text = String(info?.text || '')
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+      .slice(0, Math.max(1000, Math.min(20000, maxChars)));
+    if (!text) return null;
+    return {
+      url,
+      title: String(info?.title || ''),
+      text,
+      via: 'direct',
+      rendered: true
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
+    if (!win.isDestroyed()) win.destroy();
+  }
 }
 
 function assertPublicUrl(input: string): URL {
@@ -233,6 +293,12 @@ export async function fetchWebPage(
       const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
       const title = titleMatch ? htmlToText(titleMatch[1]).slice(0, 200).trim() : '';
       const text = htmlToText(html).slice(0, Math.max(1000, Math.min(12000, maxChars)));
+      if (text.length < 200 && /text\/html/i.test(type)) {
+        const rendered = await renderWithBrowser(target.href, maxChars, controller.signal);
+        if (rendered && rendered.text.length > text.length) {
+          return { ...rendered, ...(fallbackFrom ? { fallbackFrom } : {}) };
+        }
+      }
       return {
         url: target.href,
         title,

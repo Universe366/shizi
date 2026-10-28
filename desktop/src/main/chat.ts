@@ -630,13 +630,16 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               chars: page.text.length,
               source: page.via || 'direct',
               ...(page.fallbackFrom ? { fallbackFrom: page.fallbackFrom } : {}),
+              ...(page.rendered ? { rendered: true } : {}),
               content: page.text
             });
             const sourceLabel =
               page.via === 'direct'
                 ? page.fallbackFrom
                   ? `内置抓取（${page.fallbackFrom} 失败回退）`
-                  : '内置抓取'
+                  : page.rendered
+                    ? '内置抓取（浏览器渲染）'
+                    : '内置抓取'
                 : page.via || '第三方读取';
             const detail = `${sourceLabel} · ${page.title || page.url} · ${page.text.length} 字`;
             webFetchCache.set(url, { payload, detail });

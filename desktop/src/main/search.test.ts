@@ -3,6 +3,7 @@ import { session } from 'electron';
 import type { AppSettings } from '../shared/types';
 
 vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp/shizi-search-test' },
   session: { defaultSession: { fetch: vi.fn() } }
 }));
 

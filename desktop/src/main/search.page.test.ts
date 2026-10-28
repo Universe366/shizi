@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp/shizi-search-test' },
   session: { defaultSession: { fetch: vi.fn() } }
 }));
 
