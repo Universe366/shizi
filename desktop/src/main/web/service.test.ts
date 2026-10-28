@@ -10,6 +10,10 @@ vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/shizi-plan-cache-test' }
 }));
 
+vi.mock('./fetch', () => ({
+  fetchWebPage: vi.fn(async (url: string) => ({ url, title: '', text: '' }))
+}));
+
 vi.mock('../search', () => ({
   runProviderSearch: vi.fn(async (_settings: unknown, _platform: unknown, query: string) => {
     state.calls.push(query);
@@ -133,6 +137,27 @@ describe('searchWebPlan', () => {
     expect(result.meta.raw).toBe(4);
     expect(result.meta.deduped).toBe(2);
     expect(result.meta.queries).toEqual(['q1', 'q2']);
+  });
+
+  it('读取正文走 fetchWebPage 并带上 URL 获取服务商', async () => {
+    state.rows = [ref('https://example.com/post', '正文页', { content: '摘要' })];
+    const fetchSpy = vi.mocked((await import('./fetch')).fetchWebPage);
+    fetchSpy.mockClear();
+    const platform = {
+      id: 'jina',
+      name: 'Jina',
+      kind: 'jina',
+      baseUrl: 'https://r.jina.ai',
+      apiKey: ''
+    };
+    await searchWebPlan(
+      settings({ fetchPlatforms: [platform], fetchActiveId: 'jina' }),
+      [{ query: 'q', angle: 'base' }],
+      { read: 1 }
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0][0]).toBe('https://example.com/post');
+    expect(fetchSpy.mock.calls[0][3]).toMatchObject({ id: 'jina' });
   });
 
   it('全部查询失败时记录 failures，不抛错', async () => {

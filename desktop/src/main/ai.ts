@@ -623,6 +623,7 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
         const result = await retrieveEvidence(settings, {
           purpose: 'summary',
           queries: plan.map((item) => item.query),
+          maxResults: Math.max(1, Math.min(20, settings.search.maxResults || 8)),
           signal: options.signal
         });
         const references = result.evidence;

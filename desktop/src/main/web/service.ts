@@ -7,12 +7,12 @@ import type {
   WebReference
 } from '../../shared/types';
 import {
-  fetchPageText,
   freePlatform,
   prepareResults,
   runProviderSearch,
   withSearchSignal
 } from '../search';
+import { fetchWebPage } from './fetch';
 import { cachedDocument, rememberDocument } from './documents';
 import { recordSearch } from './metrics';
 import type { SearchPlanItem } from './plan';
@@ -369,18 +369,25 @@ export async function searchWebPlan(
 
   const readCount = Math.max(0, Math.min(4, options.read ?? 2));
   const evidence: WebEvidence[] = [];
+  const fetchPlatform =
+    settings.search.fetchPlatforms?.find(
+      (platform) => platform.id === settings.search.fetchActiveId
+    ) || settings.search.fetchPlatforms?.[0];
   const fetched = await Promise.allSettled(
     ranked.slice(0, readCount).map(async (ref) => {
       const cached = cachedDocument(ref.url);
       if (cached) return { url: ref.url, text: cached, cached: true };
-      const text = await withSearchSignal(options.signal, () =>
-        fetchPageText(
+      const page = await withSearchSignal(options.signal, () =>
+        fetchWebPage(
           ref.url,
           settings.search.snippetMode === 'none'
             ? 20000
-            : Math.max(600, settings.search.snippetChars || 2000)
+            : Math.max(600, settings.search.snippetChars || 2000),
+          options.signal,
+          fetchPlatform
         )
       );
+      const text = page?.text || '';
       if (text) rememberDocument(ref.url, text);
       return { url: ref.url, text, cached: false };
     })
