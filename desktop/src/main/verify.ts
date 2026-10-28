@@ -296,7 +296,7 @@ interface EvidenceRow {
   reference: WebReference;
 }
 
-export async function judgeEvidence(
+async function judgeEvidence(
   settings: AppSettings,
   info: PageInfo,
   items: VerifyItem[],
@@ -330,20 +330,20 @@ export async function judgeEvidence(
   const prompt = [
     `视频标题：${info.title || '未知'}`,
     '',
-    '请逐条判断下面的检索证据是否真的能支持或反驳待核实说法。',
+    '请逐条判断下面的检索证据是否真的能支持或反驳字幕里的待核实项。',
     '只输出一个 JSON 对象，不要 Markdown，不要解释：',
     '{"judgments":[{"id":"E1","verdict":"support|refute|irrelevant","quote":"证据原文中的连续片段"}],"supplements":["基于证据的简短补充"]}',
     '',
     '规则：',
     '- quote 必须逐字摘自对应证据的标题或摘要，4~60 字；找不到就判 irrelevant。',
-    '- support：证据明确支持该说法；refute：证据明确矛盾；irrelevant：只是同名/同领域，没谈那件事。',
+    '- support：证据明确支持字幕说法；refute：证据明确矛盾；irrelevant：只是同名/同领域，没谈字幕里的那件事。',
     '- 不要因为出现同一个产品名就判 support。',
     '- 先确认证据与字幕说的是同一实体、同一时间范围、同一单位；只是同领域或同名不同事就判 irrelevant。',
     '- supplements 最多 3 条，每条不超过 120 字，只能写证据确实补充/纠正的内容；没有就返回空数组。',
     '',
     ...evidence.map(
       (row) =>
-        `${row.id} | 待核实项：${row.item.label || row.item.query} | 说法：${row.item.line.slice(0, 70)} | ` +
+        `${row.id} | 待核实项：${row.item.label || row.item.query} | 字幕：${row.item.line.slice(0, 70)} | ` +
         `标题：${row.reference.title} | 证据：${row.reference.snippet.slice(0, 600)}`
     )
   ].join('\n');
@@ -370,7 +370,7 @@ export async function judgeEvidence(
       // 很多模型在长 ID（E1/E2）格式上会写成说明文，换短格式就能稳定出 JSON。
       console.warn('[verify] 判定不是 JSON，改用紧凑格式重试');
       const compact = [
-        '你是事实核对助手。下面每条是待核实的说法，以及检索到的网页证据。',
+        '你是事实核对助手。下面每条是视频字幕里的一句话，以及检索到的网页证据。',
         'verdict 只能是 support / refute / irrelevant；support/refute 的 quote 必须从证据里逐字摘 4~50 字。',
         '只输出 JSON，不要解释、不要 Markdown 代码块：',
         '{"verdicts":[{"claim":1,"evidence":1,"verdict":"support","quote":"证据里的原文"}]}',
