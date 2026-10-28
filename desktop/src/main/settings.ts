@@ -427,6 +427,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     snippetMode: 'truncate',
     blacklist: [],
     planQueries: 3,
+    chatReadPages: 2,
     summaryReadPages: 2,
     summaryReferenceChars: 6000,
     verifyReadPages: 1
@@ -1459,6 +1460,10 @@ function normalize(input: unknown): AppSettings {
       base.search.verify = raw.search.verify === true;
       base.search.verifySummary = raw.search.verifySummary !== false;
       base.search.planQueries = Math.max(1, Math.min(4, Number(raw.search.planQueries) || 3));
+      base.search.chatReadPages = Math.max(
+        1,
+        Math.min(10, Number(raw.search.chatReadPages) || 2)
+      );
       base.search.summaryReadPages = Math.max(
         1,
         Math.min(10, Number(raw.search.summaryReadPages) || 2)

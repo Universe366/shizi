@@ -586,8 +586,22 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
         };
         referencesBlock = buildVerifyBlock(verified);
         if (referencesBlock) {
+          const sourceCounts = new Map<string, number>();
+          for (const ref of verified.references) {
+            if (!ref.via && !ref.rendered) continue;
+            const label = ref.rendered
+              ? '浏览器渲染'
+              : ref.via === 'direct'
+                ? '内置抓取'
+                : String(ref.via);
+            sourceCounts.set(label, (sourceCounts.get(label) || 0) + 1);
+          }
+          const sourceText = [...sourceCounts.entries()]
+            .map(([label, count]) => `${label} ${count} 篇`)
+            .join('、');
           options.onStatus?.(
             `已核对 ${verified.attempted} 项，取得 ${verified.references.length} 条证据` +
+              (sourceText ? `（${sourceText}）` : '') +
               (verified.judged ? `，判定丢弃 ${verified.dropped} 条` : '') +
               (verified.supplements.length ? `，${verified.supplements.length} 条补充` : '') +
               (verified.failed ? `，${verified.failed} 项失败` : '')

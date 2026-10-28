@@ -321,6 +321,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         retrieveEvidence(settings, {
           purpose: 'chat',
           queries: plan.map((item) => item.query),
+          read: Math.max(1, Math.min(10, settings.search.chatReadPages || 2)),
           signal: searchAbort.signal
         }),
         18000,
@@ -329,7 +330,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         () => searchAbort.abort(new Error('联网检索超时'))
       );
       searchMeta = result.meta;
-      references = result.evidence.slice(0, 8);
+      references = result.evidence.slice(
+        0,
+        Math.max(1, Math.min(20, settings.search.maxResults || 8))
+      );
       if (references.length) {
         webEngine = searchMeta.engine || '';
         const engine = searchMeta
@@ -666,6 +670,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               purpose: 'chat',
               queries: [query],
               maxResults: toolLimit,
+              read: Math.max(1, Math.min(10, settings.search.chatReadPages || 2)),
               signal: options.signal
             });
             const rows: Array<Record<string, unknown>> = [];

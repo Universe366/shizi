@@ -991,6 +991,8 @@ export interface SearchSettings {
   blacklist: string[];
   /** 对话联网的检索计划条数（1-4，默认 3） */
   planQueries: number;
+  /** 对话联网时读取几篇正文（1-10，默认 2） */
+  chatReadPages?: number;
   /** 总结时读取几篇正文（1-10，默认 2） */
   summaryReadPages?: number;
   /** 总结参考资料总字符预算（2000-20000，默认 6000） */
@@ -1039,6 +1041,9 @@ export interface WebReference {
   authority?: number;
   /** 搜索接口给出的排序分（0-3，有就带） */
   rerank?: number;
+  /** 正文实际读取方式（由 web 读取层补充） */
+  via?: string;
+  rendered?: boolean;
   /** 给模型读的长摘要，优先于 snippet */
   summary?: string;
   /** 抓取到的网页正文 */

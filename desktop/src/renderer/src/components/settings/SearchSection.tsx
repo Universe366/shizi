@@ -654,6 +654,24 @@ export function SearchSection({
             />
           </div>
           <div className="settings-field">
+            <div className="settings-label">对话读取正文篇数</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={10}
+              value={search.chatReadPages || 2}
+              onChange={(event) =>
+                updateSearch({
+                  chatReadPages: Math.min(
+                    10,
+                    Math.max(1, Number(event.target.value) || 2)
+                  )
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
             <div className="settings-label">时间范围</div>
             <select
               className="settings-input"
