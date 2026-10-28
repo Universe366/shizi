@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, Captions, Copy, Download, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
   effectiveContextWindow,
@@ -9,6 +9,7 @@ import {
   formatContextWindow
 } from '../../../shared/modelCapabilities';
 import { describeMcpParameters } from '../../../shared/mcpSchema';
+import { contextMessages } from '../../../shared/chatContext';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -245,6 +246,16 @@ export function ChatPanel({
   });
   const [toolEvents, setToolEvents] = useState<ChatToolEvent[]>([]);
   const [approvals, setApprovals] = useState<ChatApprovalEvent[]>([]);
+  const [contextStart, setContextStart] = useState<number | null>(null);
+  const [queue, setQueue] = useState<
+    Array<{
+      text: string;
+      images: string[];
+      attachments: ChatAttachment[];
+      quote: ChatMessage | null;
+    }>
+  >([]);
+  const [queuePaused, setQueuePaused] = useState(false);
   const [elicitations, setElicitations] = useState<McpElicitationRequest[]>([]);
   const [elicitValues, setElicitValues] = useState<
     Record<string, Record<string, string | boolean>>
@@ -343,6 +354,28 @@ export function ChatPanel({
     return created.data.id;
   };
 
+  /** 恢复会话级本地状态：清除上下文的位置与草稿。 */
+  const applyLocalConversationState = (id: number | null, count: number): void => {
+    if (!id) {
+      setContextStart(null);
+      setInput('');
+      return;
+    }
+    let start: number | null = null;
+    try {
+      const raw = Number(localStorage.getItem(`chat-context-${id}`));
+      if (Number.isFinite(raw) && raw > 0 && raw <= count) start = raw;
+    } catch {
+      // ignore
+    }
+    setContextStart(start);
+    try {
+      setInput(localStorage.getItem(`chat-draft-${id}`) || '');
+    } catch {
+      setInput('');
+    }
+  };
+
   const openConversation = async (conversation: ChatConversation): Promise<void> => {
     if (streaming) return;
     const rows = await window.bsub.chatHistoryMessages(conversation.id);
@@ -354,7 +387,9 @@ export function ChatPanel({
         ? { platformId: conversation.platformId, model: conversation.model }
         : null
     );
-    setMessages(rows.data.map(fromStoredMessage));
+    const restored = rows.data.map(fromStoredMessage);
+    setMessages(restored);
+    applyLocalConversationState(conversation.id, restored.length);
     if (conversation.profileId) {
       setProfileId(conversation.profileId);
       try {
@@ -377,10 +412,18 @@ export function ChatPanel({
     if (streaming) return;
     const response = await window.bsub.chatHistoryDelete(id);
     if (!response.ok) return;
+    try {
+      localStorage.removeItem(`chat-context-${id}`);
+      localStorage.removeItem(`chat-draft-${id}`);
+    } catch {
+      // ignore
+    }
     if (conversationRef.current === id) {
       conversationRef.current = null;
       setConversationId(null);
       setMessages([]);
+      setContextStart(null);
+      setInput('');
     }
     void refreshConversations();
   };
@@ -770,7 +813,11 @@ export function ChatPanel({
             // ignore
           }
         }
-        if (rows.ok) setMessages(rows.data.map(fromStoredMessage));
+        if (rows.ok) {
+          const restored = rows.data.map(fromStoredMessage);
+          setMessages(restored);
+          applyLocalConversationState(latest.data.id, restored.length);
+        }
         const legacyKey = chatStorageKey(videoKey);
         if (legacyKey) {
           try {
@@ -1156,18 +1203,42 @@ export function ChatPanel({
     return context;
   };
 
-  const send = async (preset?: string, forcePage = false, base?: ChatMessage[]) => {
-    const text = String(preset ?? input).trim();
-    if ((!text && !images.length && !attachments.length) || streaming) return;
-    if (images.length && !visionEnabled) {
+  const send = async (
+    preset?: string,
+    forcePage = false,
+    base?: ChatMessage[],
+    override?: {
+      text?: string;
+      images?: string[];
+      attachments?: ChatAttachment[];
+      quote?: ChatMessage | null;
+    }
+  ) => {
+    const text = String(override?.text ?? preset ?? input).trim();
+    const sendingImages = override?.images ?? images;
+    const sendingAttachments = override?.attachments ?? attachments;
+    const sendingQuote = override ? override.quote ?? null : quote;
+    if (!text && !sendingImages.length && !sendingAttachments.length) return;
+    if (streaming) {
+      setQueue((previous) => [
+        ...previous,
+        { text, images: sendingImages, attachments: sendingAttachments, quote: sendingQuote }
+      ]);
+      setInput('');
+      setImages([]);
+      setAttachments([]);
+      setQuote(null);
+      return;
+    }
+    if (sendingImages.length && !visionEnabled) {
       setError('当前模型未开启图片能力，请先在设置里勾选「图片」，或移除图片发送。');
       return;
     }
-    const quoted = quote
-      ? `> 引用：${quote.content.slice(0, 400).replace(/\n/g, '\n> ')}\n\n`
+    const quoted = sendingQuote
+      ? `> 引用：${sendingQuote.content.slice(0, 400).replace(/\n/g, '\n> ')}\n\n`
       : '';
     const content = `${quoted}${text || '请阅读并分析这个附件。'}`.trim();
-    const outgoingAttachments = attachments;
+    const outgoingAttachments = sendingAttachments;
 
     setInput('');
     setError(null);
@@ -1183,15 +1254,12 @@ export function ChatPanel({
       {
         role: 'user',
         content,
-        ...(images.length ? { images } : {}),
+        ...(sendingImages.length ? { images: sendingImages } : {}),
         ...(outgoingAttachments.length ? { attachments: outgoingAttachments } : {})
       }
     ];
-    const attachedImages = images;
+    const attachedImages = sendingImages;
     setMessages(nextMessages);
-    setImages([]);
-    setAttachments([]);
-    setQuote(null);
 
     void (async () => {
       const conversation = await ensureConversation(text || '附件提问');
@@ -1216,7 +1284,9 @@ export function ChatPanel({
         platformId: modelOverride?.platformId,
         model: modelOverride?.model,
         lines: context.lines,
-        messages: nextMessages.map(expandForModel),
+        messages: (base ? nextMessages : contextMessages(nextMessages, contextStart)).map(
+          expandForModel
+        ),
         skillIds: skillId ? [skillId] : [],
         profileId: profileId || undefined,
         // 选了助手档案就由档案决定工具，避免手动勾选悄悄覆盖档案配置。
@@ -1234,8 +1304,54 @@ export function ChatPanel({
     }
   };
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    if (streaming || queuePaused || !queue.length) return;
+    const next = queue[0];
+    setQueue((previous) => previous.slice(1));
+    void sendRef.current(undefined, false, undefined, next);
+  }, [streaming, queue, queuePaused]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    try {
+      localStorage.setItem(`chat-draft-${conversationId}`, input);
+    } catch {
+      // ignore
+    }
+  }, [input, conversationId]);
+
+  const clearContext = (): void => {
+    if (!messages.length) return;
+    const next = messages.length;
+    setContextStart(next);
+    if (conversationId) {
+      try {
+        localStorage.setItem(`chat-context-${conversationId}`, String(next));
+      } catch {
+        // ignore
+      }
+    }
+    setComposerOpen(false);
+    setSavedNotice('已清除上下文：之前的消息保留，但不再发送给模型');
+  };
+
+  const restoreContext = (): void => {
+    setContextStart(null);
+    if (conversationId) {
+      try {
+        localStorage.removeItem(`chat-context-${conversationId}`);
+      } catch {
+        // ignore
+      }
+    }
+    setSavedNotice('已恢复上下文');
+  };
+
   const stop = () => {
     setApprovals([]);
+    setQueuePaused(true);
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
   };
 
@@ -1307,7 +1423,15 @@ export function ChatPanel({
     const lastUser = [...base].reverse().find((message) => message.role === 'user');
     if (!lastUser) return;
     const conversation = conversationRef.current;
-    if (conversation) await window.bsub.chatHistoryTruncate(conversation, base.length);
+    if (conversation) {
+      await window.bsub.chatHistoryTruncate(conversation, base.length);
+      try {
+        localStorage.removeItem(`chat-context-${conversation}`);
+      } catch {
+        // ignore
+      }
+    }
+    setContextStart(null);
     setMessages(base);
     await send(lastUser.content, false, base);
   };
@@ -1324,6 +1448,7 @@ export function ChatPanel({
     const created = response.data;
     conversationRef.current = created.id;
     setConversationId(created.id);
+    setContextStart(null);
     setMessages((previous) => previous.slice(0, index + 1));
     if (created.profileId) {
       setProfileId(created.profileId);
@@ -1343,7 +1468,15 @@ export function ChatPanel({
     const target = messages[index];
     if (!target || target.role !== 'user') return;
     const conversation = conversationRef.current;
-    if (conversation) await window.bsub.chatHistoryTruncate(conversation, index);
+    if (conversation) {
+      await window.bsub.chatHistoryTruncate(conversation, index);
+      try {
+        localStorage.removeItem(`chat-context-${conversation}`);
+      } catch {
+        // ignore
+      }
+    }
+    setContextStart(null);
     setMessages(messages.slice(0, index));
     setInput(target.content);
   };
@@ -1416,6 +1549,15 @@ export function ChatPanel({
   const clear = () => {
     if (requestRef.current) void window.bsub.cancelChat(requestRef.current);
     requestRef.current = '';
+    const oldId = conversationRef.current;
+    if (oldId) {
+      try {
+        localStorage.removeItem(`chat-context-${oldId}`);
+        localStorage.removeItem(`chat-draft-${oldId}`);
+      } catch {
+        // ignore
+      }
+    }
     const key = chatStorageKey(videoKey);
     if (key) {
       try {
@@ -1429,6 +1571,10 @@ export function ChatPanel({
     setModelOverride(null);
     setMessages([]);
     setImages([]);
+    setContextStart(null);
+    setQueue([]);
+    setQueuePaused(false);
+    setInput('');
     setStreamText('');
     setStatus('');
     setError(null);
@@ -1664,10 +1810,13 @@ export function ChatPanel({
           )}
 
           {messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}-${message.content.slice(0, 16)}`}
-              className={`chat-msg ${message.role}`}
-            >
+            <Fragment key={`${message.role}-${index}-${message.content.slice(0, 16)}`}>
+              {contextStart === index && (
+                <div className="chat-context-divider">
+                  上下文从这里开始，之前的消息不再发送
+                </div>
+              )}
+              <div className={`chat-msg ${message.role}`}>
               {message.role === 'assistant' && <div className="chat-avatar">AI</div>}
               <div className="chat-bubble">
                 {message.role === 'assistant' ? (
@@ -1851,8 +2000,15 @@ export function ChatPanel({
                   </>
                 )}
               </div>
-            </div>
+              </div>
+            </Fragment>
           ))}
+
+          {contextStart !== null && contextStart >= messages.length && (
+            <div className="chat-context-divider">
+              上下文已清除，从下一条消息开始
+            </div>
+          )}
 
           {toolEvents.length > 0 && (
             <div className="chat-tool-cards">
@@ -2114,6 +2270,15 @@ export function ChatPanel({
               <FileText size={15} />
               <span className="chat-menu-card-title">MCP 资源</span>
               <span className="chat-menu-card-desc">读取内容并放进输入框</span>
+            </button>
+            <button
+              className="chat-menu-card"
+              disabled={!messages.length}
+              onClick={clearContext}
+            >
+              <Eraser size={15} />
+              <span className="chat-menu-card-title">清除上下文</span>
+              <span className="chat-menu-card-desc">保留消息，只把之后的内容发给模型</span>
             </button>
             <button
               className="chat-menu-card"
@@ -2557,6 +2722,32 @@ export function ChatPanel({
             ))}
           </div>
         )}
+        {queue.length > 0 && (
+          <div className="chat-queue">
+            <span className="chat-queue-label">排队 {queue.length}</span>
+            {queue.map((item, index) => (
+              <span
+                key={`${index}-${item.text.slice(0, 8)}`}
+                className="chat-queue-chip"
+                title={item.text || '附件'}
+              >
+                {item.text.replace(/\s+/g, ' ').slice(0, 22) || '附件'}
+                <button
+                  title="移出队列"
+                  onClick={() => setQueue((previous) => previous.filter((_, i) => i !== index))}
+                >
+                  <X size={9} />
+                </button>
+              </span>
+            ))}
+            <button className="mini-btn" onClick={() => setQueuePaused((value) => !value)}>
+              {queuePaused ? '继续' : '暂停'}
+            </button>
+            <button className="mini-btn" onClick={() => setQueue([])}>
+              清空
+            </button>
+          </div>
+        )}
         <textarea
           className="chat-input"
           rows={2}
@@ -2770,6 +2961,15 @@ export function ChatPanel({
                 {profiles.find((profile) => profile.id === profileId)?.name}
               </button>
             )}
+            {contextStart !== null && (
+              <button
+                className="chat-chip is-on"
+                title="之前的消息不再发送给模型，点击恢复"
+                onClick={restoreContext}
+              >
+                <Eraser size={12} /> 上下文已清除 ↺
+              </button>
+            )}
           </div>
           <div className="chat-bar-right">
             <span className="chat-token-hint" title="输入与页面正文的粗略估算">
@@ -2800,7 +3000,7 @@ export function ChatPanel({
             </button>
             <button
               className="chat-send"
-              disabled={!activeTab || (!input.trim() && !images.length) || streaming}
+              disabled={!activeTab || (!input.trim() && !images.length && !attachments.length)}
               onClick={() => void send()}
               title="发送"
             >
