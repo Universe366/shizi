@@ -5,6 +5,7 @@
 | 文件 | 内容 |
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 模块边界、数据流、字幕/数据目录/安装器约束、已知坑 |
+| [`SUMMARY-FLOW.md`](SUMMARY-FLOW.md) | 当前字幕总结全流程、提示词、联网工具、历史限制 |
 | [`HARDENING.md`](HARDENING.md) | 0.34–0.37 的改动与验收记录（安全、迁移、AI 上下文、权限、冒烟） |
 | [`BRIDGE.md`](BRIDGE.md) | 插件 ↔ 桌面本地 HTTP 桥协议 |
 | [`REBRAND.md`](REBRAND.md) | 从 bsub-desktop 到 shizi 的品牌/路径迁移记录 |

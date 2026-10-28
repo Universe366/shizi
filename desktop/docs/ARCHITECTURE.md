@@ -17,7 +17,7 @@ desktop/
 │  ├─ library.ts      SQLite 字幕/总结库
 │  ├─ aiClient.ts     OpenAI 兼容 + Anthropic 协议
 │  ├─ ai.ts           总结、章节、校对、长视频 map-reduce
-│  ├─ verify.ts       联网核对、检索词、语义判定、外部补充
+│  ├─ verify.ts       旧核对/兼容测试（生产总结不再调用）
 │  ├─ bridge.ts       扩展 ↔ 桌面本地 HTTP 桥
 │  ├─ extension-install.ts  安装浏览器扩展的引导
 │  └─ ipc.ts          IPC 注册与任务事件
@@ -161,21 +161,18 @@ SPA 切页瞬间拿到上一个视频的预取轨。
 - 不要为了“有内容”回退到别的轨；
 - 语音转录走当前视频音轨，天然绑定当前视频。
 
-## 4. 总结与联网核对
+## 4. 总结与联网
 
-- `ai.ts`：`DIRECT_SUMMARY_CHARS=40000`，超过后分块 map-reduce；
+- 生产总结入口是 `summaryChat.ts`：`buildSummaryChatPrompt` 生成原总结系统提示词，
+  再交给 `chat()` 的对话式工具循环；长字幕不再分段；
+- `ai.ts` 的旧 `summarize` / `verify.ts` 只保留给开发钩子和兼容测试，生产路径不要
+  再调用；
+- 总结提示词 = 用户模板 + 术语表 + `prompt.summaryFormatRules`（设置里可编辑）；
 - 总结每保存一次就追加一条 `summary_versions`（每个视频保留最近 20 条）；老库启动时
   会把现有总结补成一条版本记录。恢复版本只更新 `summaries`，不会伪造新版本；
-- 总结 system prompt 追加插件同款格式规则（`SUMMARY_FORMAT_RULES`），不要注入
-  Skills，否则格式会跑偏；
-- `verify.ts`：从字幕抽具体项 → 生成检索词 → 搜索 → 语义判定；单个核对项检索最多等
-  15 秒（`withDeadline`），避免一条卡住的检索拖住整次总结；
-- 判定失败时只整理 0~3 条外部补充，不把未判定网页列表塞进总结；
-- 核对卡片默认折叠；
-- 流式/非流式返回都必须带 `verification`；
-- **取消要能穿透**：`verifySummary` / 检索失败的分支必须检查 `signal.aborted` 再决定是否
-  “继续总结”，否则取消后还会发起下一次请求；`fetchWithTimeout` 在注册监听前若已取消，
-  要主动 abort（`addEventListener` 不会补发已发生的事件）。
+- 生成后只保存来源列表（`verification.sources`），没有逐项支持/反驳报告；
+- **取消要能穿透**：检索/读取/模型请求都必须检查 `signal.aborted`；`AbortSignal` 要
+  传进工具循环和 provider。
 - 对话联网在 `chat.ts` 里先检索再拼 prompt：检索词经 `buildChatQuery()` 去掉“帮我查一下”
   之类口令，泛问题补当前标题，短追问带上一问；结果用 `rankReferences()` 排序后取 5 条；
   自动联网判断在 `shouldAutoSearch()`（纯规则，默认关闭）；开启 `autoSearchAi`
@@ -195,8 +192,7 @@ SPA 切页瞬间拿到上一个视频的预取轨。
 - 设置页的「测试检索 / 测试连接」必须只测当前平台：`testSearch()` 与
   `testPlatformConnection()` 都要关掉 `keylessFallback` 和缓存，否则 Exa 兜底会把
   缺少 Key / 地址填错的配置伪装成“连接正常”。
-- 总结侧栏的“是否开启核对”必须读 `search.verifySummary`；`search.verify` 只控制
-  AI 优化时核对改动，两者不要混用（默认 `verifySummary=true`、`verify=false`）。
+- 总结侧栏现在只有「联网」开关，不再有前置核对/快速总结两套入口。
 
 ### 4.1 任务中心（jobs）
 

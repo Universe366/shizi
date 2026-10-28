@@ -179,14 +179,13 @@ npm run dist                      # NSIS + 绿色包 + latest.yml
 
 ### 2.7 总结核对、字幕身份与 Markdown
 
-**总结核对链路**（`desktop/src/main/verify.ts`、`ai.ts`）：
+**总结链路**（`desktop/src/main/summaryChat.ts`、`chat.ts`）：
 
-- 从字幕分段抽具体项（数字/年份/版本/术语），用命中行前后 2 行构造上下文窗口。
-- 搜索用上下文整句，相关性过滤用**短标签**（如 `500次` / `IPHONE`），不要把整句拿去做相关性，否则证据会被全杀。
-- 只把有证据的项展示到核对面板；语义判定失败时保留原始证据，不要静默清空。
-- **流式和非流式返回都必须带 `verification`**。0.30.6 之前的 bug 是非流式有、流式漏，导致界面看不到核对。
-- 输出上限走 `settings.ai.maxTokens`（当前 128000）；字幕上下文 `MAX_TRANSCRIPT_CHARS=200000`，不要再用 30000 截断。
-- `buildVerifyBlock` 抛错不能丢掉已判定的 `verification`；先赋值，再格式化。
+- 生产入口是 `summarizeChat`：原总结提示词 + 术语表 + 可编辑格式规则，交给 `chat()` 的 `app__web_search` / `app__web_fetch` 工具循环。
+- 长字幕不再分段；总结只保存来源列表，没有逐项支持/反驳报告。
+- 联网次数/读取网页/工具轮次在设置中可调；提示词和工具超限提示必须使用设置值。
+- 旧 `summarize` / `verify.ts` 仅开发钩子和兼容测试使用，不要接回生产总结。
+- 完整流程、提示词与工具定义见 [`../desktop/docs/SUMMARY-FLOW.md`](../desktop/docs/SUMMARY-FLOW.md)。
 
 **字幕身份**：
 

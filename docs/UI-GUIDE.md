@@ -330,11 +330,13 @@ start-footnote   操作提示、导入导出设置
 - provider 协议在 `main/web/providers/`（13 个模块 + `shared.ts` + `index.ts` 注册表）；新增一家只需加模块并在注册表登记。
 - 抓取正文按 URL 缓存 6 小时；设置「高级设置 → 检索诊断」可看次数/平均耗时/去重率/失败率/缓存大小，并可清空统计与缓存。
 
-## 11. 长视频总结的 UI
+## 11. 字幕总结的 UI
 
-- 状态文案来自 `main/ai.ts` 的 `onStatus`：分段进度、失败段数、中间层合并、最终合并。
-- 分段阈值 18k 字符，分段结果超过 48k 字符走分层合并；单段失败不会中断整篇。
-- 改这段逻辑时至少跑 `src/shared/summarizeMerge.test.ts`，并用 2 小时以上字幕手动验证一次。
+- 当前总结走 `main/summaryChat.ts`：原总结提示词 + `chat()` 的 `app__web_search` / `app__web_fetch` 工具循环，不再分段。
+- 状态文案来自 `onStatus`：获取热门评论、联网检索、读取网页、生成总结。
+- 总结面板只保留一个「联网」开关；关闭后仍走对话式总结，但不给工具。
+- 字数与耗时合并为一行；思考过程只折叠、不提供“隐藏”；外部资料列表可滚动。
+- 完整流程、提示词与工具说明见 [`../desktop/docs/SUMMARY-FLOW.md`](../desktop/docs/SUMMARY-FLOW.md)。
 
 ## 12. 下载与知识库
 
