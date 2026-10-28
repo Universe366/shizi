@@ -17,9 +17,10 @@ import {
 } from '../library';
 import { batchSummarize } from '../batch';
 import { batchUrls, parseVideoUrls } from '../urlbatch';
-import { buildSummaryChatPrompt, summarize } from '../ai';
+
 import { readPageContext } from '../pageContext';
 import { chat } from '../chat';
+import { summarizeChat } from '../summaryChat';
 import { clearCompressionCache, getCompressionSummary } from '../chatCompression';
 import { loadSettings } from '../settings';
 import { setTrackUrl } from '../library/savedTracks';
@@ -525,104 +526,31 @@ export function registerMediaIpc(ctx: IpcContext): void {
 
       void (async () => {
         try {
-          if (payload.experimentalChatWeb) {
-            const summaryPrompt = buildSummaryChatPrompt(payload.info);
-            const chatResult = await chat({
-              info: payload.info,
-              lines: payload.lines,
-              systemPrompt: summaryPrompt.system,
-              messages: [{ role: 'user', content: summaryPrompt.user }],
-              page: null,
-              includeTranscript: true,
-              web: true,
-              mcpToolIds: [],
-              surface: 'main',
-              signal: controller.signal,
-              onDelta: (delta) =>
-                ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
-              onReasoning: (delta) =>
-                ctx.send('ai:reasoning', { requestId, delta } satisfies AiReasoningEvent),
-              onStatus: (status) => {
-                trackJob(() => updateJob(requestId, { message: status }));
-                ctx.send('ai:status', { requestId, status } satisfies AiStatusEvent);
-              }
-            });
-            if (!chatResult.text.trim()) throw new Error('AI 返回为空');
-            const verification = chatResult.references?.length
-              ? {
-                  items: [],
-                  references: [],
-                  supplements: [],
-                  attempted: 0,
-                  failed: 0,
-                  judged: false,
-                  dropped: 0,
-                  sources: chatResult.references
-                }
-              : undefined;
-            const saved = saveSummary(
-              payload.info,
-              chatResult.text,
-              chatResult.model,
-              verification
-            );
-            ctx.send('ai:done', {
-              requestId,
-              text: chatResult.text,
-              model: chatResult.model,
-              verification
-            } satisfies AiDoneEvent);
-            trackJob(() =>
-              finishJob(
-                requestId,
-                'done',
-                null,
-                `完成 · ${chatResult.text.length.toLocaleString('zh-CN')} 字`
-              )
-            );
-            ctx.send('library:changed', null);
-            console.log('[m4] chat-web summary saved', saved.id);
-            return;
-          }
-          const result = await summarize({
+          const result = await summarizeChat({
             info: payload.info,
             lines: payload.lines,
-            skipProofread: payload.skipProofread === true,
-            skipVerify: payload.skipVerify === true,
+            web: payload.experimentalChatWeb !== false,
             signal: controller.signal,
-            onDelta: (delta) => ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
-            onStatus: (status) => {
-              const match = /(\d+)\s*\/\s*(\d+)/.exec(status);
-              const progress = match
-                ? Math.max(0, Math.min(100, (Number(match[1]) / Number(match[2])) * 100))
-                : undefined;
-              trackJob(() =>
-                updateJob(requestId, {
-                  message: status,
-                  ...(progress !== undefined ? { progress } : {})
-                })
-              );
-              ctx.send('ai:status', { requestId, status } satisfies AiStatusEvent);
-            },
+            onDelta: (delta) =>
+              ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
             onReasoning: (delta) =>
-              ctx.send('ai:reasoning', { requestId, delta } satisfies AiReasoningEvent)
+              ctx.send('ai:reasoning', { requestId, delta } satisfies AiReasoningEvent),
+            onStatus: (status) => {
+              trackJob(() => updateJob(requestId, { message: status }));
+              ctx.send('ai:status', { requestId, status } satisfies AiStatusEvent);
+            }
           });
-          const saved = saveSummary(payload.info, result.text, result.model, result.verification);
-          console.log(
-            '[m4] verification',
+          const saved = saveSummary(
+            payload.info,
+            result.text,
+            result.model,
             result.verification
-              ? `${result.verification.attempted}/${result.verification.references.length}` +
-                  (result.verification.judged
-                    ? ` judged dropped=${result.verification.dropped} supplements=${result.verification.supplements.length}`
-                    : ' judged=false')
-              : 'none'
           );
           ctx.send('ai:done', {
             requestId,
             text: result.text,
             model: result.model,
-            verification: result.verification,
-            usage: result.usage
+            verification: result.verification
           } satisfies AiDoneEvent);
           trackJob(() =>
             finishJob(

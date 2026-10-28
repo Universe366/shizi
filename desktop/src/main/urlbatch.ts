@@ -3,7 +3,7 @@ import type { TabManager } from './tabs';
 import { getPageInfo, getSubtitles, getTrackBody } from './page';
 import { applyCorrectionToLines } from './correction';
 import { ingestVideo, saveSummary } from './library';
-import { summarize } from './ai';
+import { summarizeChat } from './summaryChat';
 import { loadSettings } from './settings';
 import { youtubeVideoId } from './youtube';
 
@@ -177,7 +177,7 @@ export async function batchUrls(
       if (withSummary) {
         onProgress(index, targets.length, url, title, '生成总结', 80);
         try {
-          const result = await summarize({ info, lines, signal });
+          const result = await summarizeChat({ info, lines, signal });
           saveSummary(info, result.text, result.model);
         } catch (error) {
           const message = `已入库，总结失败：${(error as Error).message}`;

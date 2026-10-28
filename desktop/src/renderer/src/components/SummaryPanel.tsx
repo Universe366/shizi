@@ -43,9 +43,9 @@ export function SummaryPanel({
   const [info, setInfo] = useState<PageInfo | null>(null);
   const [summary, setSummary] = useState('');
   const [verification, setVerification] = useState<VerificationSummary | null>(null);
-  const [verifyEnabled, setVerifyEnabled] = useState(true);
+
   const [searchEnabled, setSearchEnabled] = useState(true);
-  const [fromSaved, setFromSaved] = useState(false);
+
   const [model, setModel] = useState('');
   const [updatedAt, setUpdatedAt] = useState(0);
   const [lines, setLines] = useState<SubtitleLine[]>([]);
@@ -54,7 +54,7 @@ export function SummaryPanel({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const [totalMs, setTotalMs] = useState(0);
-  const [verifyThisRun, setVerifyThisRun] = useState(true);
+
   const [experimentalChatWeb, setExperimentalChatWeb] = useState(() => {
     try {
       return localStorage.getItem('summary-chat-web') !== '0';
@@ -75,7 +75,7 @@ export function SummaryPanel({
   const [chapterError, setChapterError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [preProofread, setPreProofread] = useState(false);
+
   const [reasoning, setReasoning] = useState('');
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const [asrRunning, setAsrRunning] = useState(false);
@@ -132,7 +132,6 @@ export function SummaryPanel({
     setInfo(null);
     setSummary('');
     setVerification(null);
-    setFromSaved(false);
     setModel('');
     setUpdatedAt(0);
     setLines([]);
@@ -182,7 +181,6 @@ export function SummaryPanel({
         if (cancelled) return;
         if (saved.ok && saved.data) {
           setSummary(saved.data.content);
-          setFromSaved(true);
           setModel(saved.data.model);
           setUpdatedAt(saved.data.updatedAt);
           setVerification(saved.data.verification ?? null);
@@ -215,7 +213,6 @@ export function SummaryPanel({
       );
       setSummary(event.text);
       setVerification(event.verification || null);
-      setFromSaved(false);
       setModel(event.model);
       setUsage(event.usage || null);
       setUpdatedAt(Date.now());
@@ -281,17 +278,11 @@ export function SummaryPanel({
   useEffect(() => {
     void window.bsub.getSettings().then((response) => {
       if (response.ok) {
-        setPreProofread(response.data.settings.ai.preProofread === true);
-        // 总结核对由 verifySummary 控制；verify 是「AI 优化时核对」，不要混用。
-        setVerifyEnabled(response.data.settings.search.verifySummary !== false);
-        setVerifyThisRun(response.data.settings.search.verifySummary !== false);
         setSearchEnabled(response.data.settings.search.enabled !== false);
         autoReadSummaryRef.current = response.data.settings.tts?.autoRead?.summary === true;
       }
     });
     return window.bsub.onSettingsChanged((snapshot) => {
-      setPreProofread(snapshot.settings.ai.preProofread === true);
-      setVerifyEnabled(snapshot.settings.search.verifySummary !== false);
       setSearchEnabled(snapshot.settings.search.enabled !== false);
       autoReadSummaryRef.current = snapshot.settings.tts?.autoRead?.summary === true;
     });
@@ -393,7 +384,7 @@ export function SummaryPanel({
     return { info: currentInfo, track: chosen, lines: body.data.lines };
   }, []);
 
-  const generate = async (skipProofread = false) => {
+  const generate = async () => {
     if (streaming) return;
     flushStreams();
     streamBufferRef.current = '';
@@ -407,7 +398,6 @@ export function SummaryPanel({
     setReasoning('');
     setVerification(null);
     setUsage(null);
-    setFromSaved(false);
     setStatus('准备字幕…');
     setProgress(null);
     progressPhaseRef.current = '';
@@ -423,9 +413,6 @@ export function SummaryPanel({
         requestId,
         info: data.info,
         lines: data.lines,
-        // 「快速」与插件一致：跳过字幕校对 + 联网核对，直接生成。
-        skipProofread,
-        skipVerify: skipProofread || !verifyThisRun,
         experimentalChatWeb
       });
       if (!started.ok) throw new Error(started.error);
@@ -591,7 +578,7 @@ export function SummaryPanel({
           {!streaming && (
             <label
               className="summary-verify-toggle"
-              title="实验：让总结模型像对话一样自己决定搜索、读网页和引用来源"
+              title="联网：模型自己决定搜索、读网页和引用来源；关闭则只基于字幕"
             >
               <input
                 type="checkbox"
@@ -606,36 +593,8 @@ export function SummaryPanel({
                   }
                 }}
               />
-              对话式联网
+              联网
             </label>
-          )}
-          {!streaming && searchEnabled && (
-            <label
-              className="summary-verify-toggle"
-              title={
-                experimentalChatWeb
-                  ? '对话式联网开启时，本次不使用前置核对'
-                  : '关闭可明显加快生成（不联网核对）'
-              }
-            >
-              <input
-                type="checkbox"
-                checked={verifyThisRun}
-                disabled={experimentalChatWeb}
-                onChange={(event) => setVerifyThisRun(event.target.checked)}
-              />
-              核对
-            </label>
-          )}
-          {!streaming && (preProofread || (verifyEnabled && searchEnabled)) && (
-            <button
-              className="mini-btn"
-              disabled={!isVideoPage || loading || !activeTab}
-              onClick={() => void generate(true)}
-              title="快速总结：跳过字幕校对与联网核对，直接生成（更快、更省额度）"
-            >
-              快速
-            </button>
           )}
           {streaming ? (
             <button className="mini-btn" onClick={cancel} title="停止生成">
@@ -647,17 +606,13 @@ export function SummaryPanel({
               disabled={!isVideoPage || loading || !activeTab}
               onClick={() => void generate()}
               title={
-                preProofread
+                experimentalChatWeb
                   ? summary
-                    ? '重新生成（先校对字幕 + 联网核对）'
-                    : '生成总结（先校对字幕 + 联网核对）'
-                  : verifyEnabled
-                    ? summary
-                      ? '重新生成（先联网核对）'
-                      : '生成总结（先联网核对，可能较慢）'
-                    : summary
-                      ? '重新生成'
-                      : '生成 AI 总结'
+                    ? '重新生成（联网总结）'
+                    : '生成总结（联网）'
+                  : summary
+                    ? '重新生成（仅字幕）'
+                    : '生成总结（仅字幕）'
               }
             >
               {summary ? '重生成' : '生成'}
@@ -805,7 +760,7 @@ export function SummaryPanel({
       {!streaming && totalMs > 0 && (
         <div className="summary-elapsed-line">
           本次耗时 {formatDuration(Math.round(totalMs / 1000))}
-          {searchEnabled && verifyThisRun ? '（含联网核对）' : ''}
+          {experimentalChatWeb ? '（含联网）' : '（仅字幕）'}
           {usage
             ? ` · 生成 ${formatTokens(usage.inputTokens)} in / ${formatTokens(
                 usage.outputTokens
@@ -820,43 +775,20 @@ export function SummaryPanel({
         </div>
       )}
 
-      {!streaming &&
-        summary &&
-        (!verification || (!fromSaved && (!verifyEnabled || !searchEnabled))) && (
-          <div className="summary-verify-hint">
-            {fromSaved ? (
-              <>
-                <span>
-                  这是已保存的总结；
-                  {!searchEnabled || !verifyEnabled
-                    ? '重新生成不会执行联网核对。'
-                    : '重新生成会执行联网核对。'}
-                </span>
-                {(!searchEnabled || !verifyEnabled) && (
-                  <button className="mini-btn" onClick={onOpenSettings}>
-                    去设置
-                  </button>
-                )}
-              </>
-            ) : !searchEnabled ? (
-              <>
-                <span>联网检索已在设置中关闭，本次总结不会检查外部证据。</span>
-                <button className="mini-btn" onClick={onOpenSettings}>
-                  去设置
-                </button>
-              </>
-            ) : !verifyEnabled ? (
-              <>
-                <span>联网核对未开启，本次总结不会检查外部证据。</span>
-                <button className="mini-btn" onClick={onOpenSettings}>
-                  去设置
-                </button>
-              </>
-            ) : (
-              <span>本次没有产生核对结果（可能没有可核实项或检索失败）。</span>
-            )}
-          </div>
-        )}
+      {!streaming && summary && !experimentalChatWeb && (
+        <div className="summary-verify-hint">
+          <span>本次总结未启用联网，只基于字幕。</span>
+        </div>
+      )}
+
+      {!streaming && summary && experimentalChatWeb && !searchEnabled && (
+        <div className="summary-verify-hint">
+          <span>联网检索已在设置中关闭，模型只能基于字幕总结。</span>
+          <button className="mini-btn" onClick={onOpenSettings}>
+            去设置
+          </button>
+        </div>
+      )}
 
       {!streaming && verification?.sources?.length && verification.items.length === 0 ? (
         <SourcesCard sources={verification.sources} />

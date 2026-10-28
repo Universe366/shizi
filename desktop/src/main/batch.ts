@@ -1,6 +1,6 @@
 import type { PageInfo } from '../shared/types';
 import { libraryVideoBundle, saveSummary } from './library';
-import { summarize } from './ai';
+import { summarizeChat } from './summaryChat';
 
 export interface BatchControl {
   paused: boolean;
@@ -99,7 +99,7 @@ export async function batchSummarize(
         hooks?.onItemStart?.(videoId, title);
         reportItem(videoId, title);
 
-        const result = await summarize({
+        const result = await summarizeChat({
           info: bundle.info as PageInfo,
           lines: bundle.lines,
           signal
