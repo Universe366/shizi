@@ -89,12 +89,12 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
   });
 
-  it('侧栏宽度超范围时夹到 260–560', () => {
+  it('侧栏宽度超范围时夹到 260–900', () => {
     const p = props();
     render(<Groups {...p} />);
     const width = screen.getByDisplayValue('320') as HTMLInputElement;
     fireEvent.change(width, { target: { value: '999' } });
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 560 });
+    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 900 });
     fireEvent.change(width, { target: { value: '100' } });
     expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 260 });
   });

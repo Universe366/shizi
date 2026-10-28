@@ -128,12 +128,12 @@ export function AppearanceGroup({ value, onChange }: Props) {
         className="settings-input"
         type="number"
         min={260}
-        max={560}
+        max={900}
         step={10}
         value={value.sidebarWidth || 320}
         onChange={(event) =>
           onChange({
-            sidebarWidth: Math.min(560, Math.max(260, Number(event.target.value) || 320))
+            sidebarWidth: Math.min(900, Math.max(260, Number(event.target.value) || 320))
           })
         }
       />

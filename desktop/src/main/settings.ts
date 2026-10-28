@@ -476,7 +476,7 @@ function normalize(input: unknown): AppSettings {
       }
       const sidebarWidth = Number(raw.general.sidebarWidth);
       if (Number.isFinite(sidebarWidth)) {
-        base.general.sidebarWidth = Math.min(560, Math.max(260, Math.round(sidebarWidth)));
+        base.general.sidebarWidth = Math.min(900, Math.max(260, Math.round(sidebarWidth)));
       }
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
@@ -1720,7 +1720,7 @@ export function setSidebarLayout(patch: {
 }): AppSettings {
   const settings = loadSettings();
   if (Number.isFinite(Number(patch.width))) {
-    settings.general.sidebarWidth = Math.min(560, Math.max(260, Math.round(Number(patch.width))));
+    settings.general.sidebarWidth = Math.min(900, Math.max(260, Math.round(Number(patch.width))));
   }
   if (patch.position === 'left' || patch.position === 'right') {
     settings.general.sidebarPosition = patch.position;

@@ -163,11 +163,12 @@ export function Sidebar({
       const delta = startPosition === 'left' ? clientX - startX : startX - clientX;
       return startWidth + delta;
     };
+    const maxWidth = () => Math.max(320, Math.min(900, window.innerWidth - 320));
     const move = (moveEvent: MouseEvent) => {
       const raw = rawWidthAt(moveEvent.clientX);
       const width = crossedAt(moveEvent.clientX)
         ? startWidth
-        : Math.min(560, Math.max(260, raw));
+        : Math.min(maxWidth(), Math.max(260, raw));
       onWidthChange?.(width);
     };
     const up = (upEvent: MouseEvent) => {
@@ -178,7 +179,7 @@ export function Sidebar({
       } else if (crossed) {
         onDockChange?.(startPosition === 'left' ? 'right' : 'left');
       } else {
-        onWidthCommit?.(Math.min(560, Math.max(260, raw)));
+        onWidthCommit?.(Math.min(maxWidth(), Math.max(260, raw)));
       }
 
       restoreView();

@@ -3365,7 +3365,7 @@ button:disabled {
 
 .chat-composer-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
 }
@@ -3376,6 +3376,16 @@ button:disabled {
   align-items: center;
   gap: 5px;
   min-width: 0;
+}
+
+.chat-bar-left {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.chat-bar-right {
+  flex: none;
 }
 
 .chat-chip {
