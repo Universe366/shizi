@@ -55,6 +55,17 @@ describe('本地 ASR 下载配置', () => {
     expect(localAsrStatus().models.tiny).toBeUndefined();
   });
 
+  it('未完成的下载计入占用，删除时一并清理', () => {
+    const dir = path.join(state.dir, 'models', 'whisper');
+    const file = path.join(dir, 'ggml-base.bin');
+    fs.writeFileSync(`${file}.download`, Buffer.alloc(1024));
+    const status = localAsrStatus();
+    expect(status.modelCatalog.find((row) => row.id === 'base')?.partialBytes).toBe(1024);
+    expect(status.totalBytes).toBeGreaterThanOrEqual(1024);
+    expect(deleteLocalModel('base')).toBe(true);
+    expect(fs.existsSync(`${file}.download`)).toBe(false);
+  });
+
   it('清单包含未下载项、体积与占用，标签不带体积后缀', () => {
     const status = localAsrStatus();
     expect(status.modelCatalog.map((row) => row.id)).toEqual([

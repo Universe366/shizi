@@ -23,6 +23,7 @@ import type {
   AsrProgressEvent,
   AsrDownloadProgress,
   AsrLocalStatus,
+  LocalEmbeddingTestResult,
   TranslateRequest,
   TranslateProgressEvent,
   TranslateDoneEvent,
@@ -804,6 +805,10 @@ const api: BsubApi = {
     >,
   onAsrDownloadProgress: (cb: (event: AsrDownloadProgress) => void) =>
     on<AsrDownloadProgress>('asr:download-progress', cb),
+  testLocalEmbedding: (payload: { baseUrl: string; model: string; apiKey?: string }) =>
+    ipcRenderer.invoke('local:embedding-test', payload) as Promise<
+      Result<LocalEmbeddingTestResult>
+    >,
   pickSubtitleFile: () =>
     ipcRenderer.invoke('subtitle:pick-file') as Promise<
       Result<{ name: string; text: string } | null>

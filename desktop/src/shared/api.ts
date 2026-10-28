@@ -97,6 +97,7 @@ import type {
   PageContextSummary,
   UsageEvent,
   UsageSummary,
+  LocalEmbeddingTestResult,
   TtsSettings,
   ChatConversation,
   StoredChatMessage,
@@ -612,6 +613,12 @@ export interface BsubApi {
     Result<{ removed: boolean; status: AsrLocalStatus }>
   >;
   onAsrDownloadProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
+  /** 验证本机 OpenAI 兼容服务的 embedding 模型（返回维度/耗时）。 */
+  testLocalEmbedding?(payload: {
+    baseUrl: string;
+    model: string;
+    apiKey?: string;
+  }): Promise<Result<LocalEmbeddingTestResult>>;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
   pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
   /** 智能断句：只合并/拆分，不改写字幕文字 */

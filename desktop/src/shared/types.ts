@@ -1707,6 +1707,13 @@ export interface AsrProgressEvent {
 }
 
 /** 本地 whisper.cpp 模型/可执行文件下载进度 */
+export interface LocalEmbeddingTestResult {
+  /** 向量维度，用来确认模型确实是 embedding 模型。 */
+  dimensions: number;
+  latencyMs: number;
+  model: string;
+}
+
 export interface AsrDownloadProgress {
   key: string;
   percent: number;
@@ -1721,6 +1728,8 @@ export interface LocalWhisperModelEntry {
   /** 下载体积（字节），用于未下载时的占用预估。 */
   size: number;
   downloaded: boolean;
+  /** 未完成的 .download 文件大小（字节），用于「继续下载 / 清理」。 */
+  partialBytes: number;
 }
 
 export interface LocalWhisperBinaryEntry {
@@ -1730,6 +1739,8 @@ export interface LocalWhisperBinaryEntry {
   /** 压缩包体积（字节）。 */
   size: number;
   downloaded: boolean;
+  /** 未完成的 zip.download 大小（字节）。 */
+  partialBytes: number;
 }
 
 export interface AsrLocalStatus {

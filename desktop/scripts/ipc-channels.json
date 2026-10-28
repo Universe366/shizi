@@ -144,6 +144,7 @@
   "library:tag-rename",
   "library:tags",
   "library:vacuum",
+  "local:embedding-test",
   "local:import",
   "mcp:all-tools",
   "mcp:call",

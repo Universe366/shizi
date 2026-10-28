@@ -15,6 +15,7 @@ import { registerStartIpc } from './ipc/start';
 import { registerSyncIpc } from './ipc/sync';
 import { registerPetToolsIpc } from './ipc/petTools';
 import { registerAsrSetupIpc } from './ipc/asrSetup';
+import { registerLocalModelsIpc } from './ipc/localModels';
 import { registerVideoIpc } from './ipc/video';
 import { registerUsageIpc } from './ipc/usage';
 import { registerOcrIpc } from './ipc/ocr';
@@ -58,6 +59,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerMediaIpc(ctx);
 
   registerAsrSetupIpc(ctx);
+  registerLocalModelsIpc();
 
   registerVideoIpc(ctx);
 

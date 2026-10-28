@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { askConfirm } from './ui/confirm';
 import type { DiagnosticsInfo } from '../../../shared/types';
 import { AssistantSection } from './settings/AssistantSection';
@@ -188,24 +188,21 @@ export function SettingsPanel({
     return () => dispose?.();
   }, []);
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const query = settingsQuery.trim().toLowerCase();
-      const sections = Array.from(
-        document.querySelectorAll<HTMLElement>('.settings-section')
-      );
-      let count = 0;
-      for (const section of sections) {
-        const match = !query || (section.textContent || '').toLowerCase().includes(query);
-        section.style.display = match ? '' : 'none';
-        if (match) {
-          count += 1;
-          if (query) (section as HTMLDetailsElement).open = true;
-        }
+  // 同步过滤，不排到 requestAnimationFrame：窗口被遮挡时 rAF 会被节流，
+  // 搜索框看起来会「没反应」。过滤只读 textContent，直接跑开销很小。
+  useLayoutEffect(() => {
+    const query = settingsQuery.trim().toLowerCase();
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('.settings-section'));
+    let count = 0;
+    for (const section of sections) {
+      const match = !query || (section.textContent || '').toLowerCase().includes(query);
+      section.style.display = match ? '' : 'none';
+      if (match) {
+        count += 1;
+        if (query) (section as HTMLDetailsElement).open = true;
       }
-      setVisibleSections(count);
-    });
-    return () => window.cancelAnimationFrame(frame);
+    }
+    setVisibleSections(count);
   }, [settingsQuery, group, draft === null]);
 
   const active = draft
@@ -876,6 +873,57 @@ export function SettingsPanel({
     });
   };
 
+  /** 本地模型页把本机服务设为知识库 embedding：已有同地址平台就复用，否则补一个。 */
+  const useLocalEmbedding = (baseUrl: string, model: string) => {
+    if (!draft) return;
+    const normalize = (value: string) => value.trim().replace(/\/+$/, '').toLowerCase();
+    const target = normalize(baseUrl);
+    const existing = draft.ai.platforms.find(
+      (platform) => normalize(platform.baseUrl) === target
+    );
+    let platforms = draft.ai.platforms;
+    let platformId = existing?.id || '';
+    if (existing) {
+      if (!(existing.models || []).includes(model)) {
+        platforms = platforms.map((platform) =>
+          platform.id === existing.id
+            ? { ...platform, models: [...(platform.models || []), model] }
+            : platform
+        );
+      }
+    } else {
+      let id = baseUrl.includes(':11434')
+        ? 'ollama'
+        : baseUrl.includes(':1234')
+          ? 'lmstudio'
+          : 'local-embedding';
+      if (platforms.some((platform) => platform.id === id)) {
+        id = `${id}-${Date.now().toString(36)}`;
+      }
+      platformId = id;
+      platforms = [
+        ...platforms,
+        {
+          id,
+          name: id.startsWith('ollama')
+            ? 'Ollama（本地）'
+            : id.startsWith('lmstudio')
+              ? 'LM Studio（本地）'
+              : '本地向量服务',
+          baseUrl,
+          apiKey: '',
+          model: '',
+          models: [model]
+        }
+      ];
+    }
+    setDraft({
+      ...draft,
+      ai: { ...draft.ai, platforms },
+      knowledge: { ...draft.knowledge, enabled: true, platformId, model }
+    });
+  };
+
   const removePlatform = () => {
     if (!draft || !active || draft.ai.platforms.length <= 1) return;
     const platforms = draft.ai.platforms.filter((platform) => platform.id !== active.id);
@@ -1432,6 +1480,7 @@ export function SettingsPanel({
           draft={draft}
           activeAsr={activeAsr}
           updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
+          onUseLocalEmbedding={useLocalEmbedding}
         />
       )}
 

@@ -455,6 +455,14 @@ function cleanLabel(value: string): string {
 }
 
 /** 目录实际占用；模型是单文件，运行组件是多文件目录。 */
+function partialSize(file: string): number {
+  try {
+    return fs.statSync(`${file}.download`).size;
+  } catch {
+    return 0;
+  }
+}
+
 function dirSize(dir: string): number {
   let total = 0;
   const stack = [dir];
@@ -494,6 +502,7 @@ export function localAsrStatus(): {
     label: string;
     size: number;
     downloaded: boolean;
+    partialBytes: number;
   }>;
   binaryCatalog: Array<{
     variant: LocalBinaryVariant;
@@ -501,6 +510,7 @@ export function localAsrStatus(): {
     note: string;
     size: number;
     downloaded: boolean;
+    partialBytes: number;
   }>;
   totalBytes: number;
 } {
@@ -528,14 +538,18 @@ export function localAsrStatus(): {
     id,
     label: cleanLabel(LOCAL_MODELS[id].label),
     size: LOCAL_MODELS[id].size,
-    downloaded: Boolean(models[id])
+    downloaded: Boolean(models[id]),
+    partialBytes: partialSize(path.join(dir, `ggml-${id}.bin`))
   }));
   const binaryCatalog = (Object.keys(LOCAL_BINARIES) as LocalBinaryVariant[]).map((variant) => ({
     variant,
     label: cleanLabel(LOCAL_BINARIES[variant].label),
     note: LOCAL_BINARIES[variant].note,
     size: LOCAL_BINARIES[variant].size,
-    downloaded: Boolean(binaries[variant])
+    downloaded: Boolean(binaries[variant]),
+    partialBytes: partialSize(
+      path.join(dir, `${LOCAL_BINARIES[variant].dir}.zip`)
+    )
   }));
 
   let totalBytes = 0;
@@ -547,6 +561,9 @@ export function localAsrStatus(): {
       // ignore
     }
   }
+  // 未完成的下载也占空间，别让「占用」比实际少。
+  for (const model of modelCatalog) totalBytes += model.partialBytes;
+  for (const binary of binaryCatalog) totalBytes += binary.partialBytes;
   for (const variant of Object.keys(LOCAL_BINARIES) as LocalBinaryVariant[]) {
     totalBytes += dirSize(path.join(dir, LOCAL_BINARIES[variant].dir));
   }
@@ -569,7 +586,8 @@ export function deleteLocalModel(id: LocalModelId): boolean {
   const file = localModelPath(id);
   try {
     if (fs.existsSync(file)) fs.rmSync(file, { force: true });
-    return !fs.existsSync(file);
+    fs.rmSync(`${file}.download`, { force: true });
+    return !fs.existsSync(file) && !fs.existsSync(`${file}.download`);
   } catch {
     return false;
   }
@@ -577,9 +595,11 @@ export function deleteLocalModel(id: LocalModelId): boolean {
 
 export function deleteLocalBinary(variant: LocalBinaryVariant): boolean {
   const dir = localAsrDir();
+  const zip = path.join(dir, `${LOCAL_BINARIES[variant].dir}.zip`);
   try {
     fs.rmSync(path.join(dir, LOCAL_BINARIES[variant].dir), { recursive: true, force: true });
-    fs.rmSync(path.join(dir, `${LOCAL_BINARIES[variant].dir}.zip`), { force: true });
+    fs.rmSync(zip, { force: true });
+    fs.rmSync(`${zip}.download`, { force: true });
     return true;
   } catch {
     return false;

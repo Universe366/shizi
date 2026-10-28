@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Boxes,
   Cpu,
+  Database,
   Download,
   HardDrive,
+  Loader2,
   RefreshCw,
   ScanText,
   Trash2
@@ -24,6 +26,8 @@ interface Props {
   draft: AppSettings;
   activeAsr: AsrPlatform | null;
   updateAsrPlatform: (patch: Partial<AsrPlatform>) => void;
+  /** 把本机 OpenAI 兼容服务设为知识库的 embedding 平台（必要时新建平台）。 */
+  onUseLocalEmbedding: (baseUrl: string, model: string) => void;
 }
 
 function formatSize(bytes: number): string {
@@ -37,12 +41,33 @@ function isLocalUrl(url: string): boolean {
 }
 
 /** 本地模型：whisper 模型与运行组件统一管理，另列知识库向量/OCR 的本地能力状态。 */
-export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Props) {
+export function LocalModelsSection({
+  draft,
+  activeAsr,
+  updateAsrPlatform,
+  onUseLocalEmbedding
+}: Props) {
+  const kbPlatform = draft.ai.platforms.find(
+    (platform) => platform.id === (draft.knowledge.platformId || draft.ai.activeId)
+  );
+  const kbLocal = Boolean(kbPlatform && isLocalUrl(kbPlatform.baseUrl));
   const [status, setStatus] = useState<AsrLocalStatus | null>(null);
   const [progress, setProgress] = useState<AsrDownloadProgress | null>(null);
   const [notice, setNotice] = useState('');
   const [gpuNames, setGpuNames] = useState<string[]>([]);
   const [recommended, setRecommended] = useState<BinaryVariant | ''>('');
+  const [localBaseUrl, setLocalBaseUrl] = useState(() =>
+    kbPlatform && isLocalUrl(kbPlatform.baseUrl)
+      ? kbPlatform.baseUrl
+      : 'http://127.0.0.1:11434/v1'
+  );
+  const [embeddingModel, setEmbeddingModel] = useState(() => draft.knowledge.model || '');
+  const [probeModels, setProbeModels] = useState<string[] | null>(null);
+  const [probeError, setProbeError] = useState('');
+  const [probeBusy, setProbeBusy] = useState(false);
+  const [showAllModels, setShowAllModels] = useState(false);
+  const [testingEmbedding, setTestingEmbedding] = useState(false);
+  const [embeddingTest, setEmbeddingTest] = useState('');
 
   const refresh = useCallback(() => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -82,7 +107,7 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
   };
 
   const removeModel = async (id: ModelId, modelPath: string) => {
-    if (currentModel === modelPath) {
+    if (modelPath && currentModel === modelPath) {
       setNotice('当前转写正在使用这个模型；先在「语音识别」里换一个模型或取消本地平台。');
       return;
     }
@@ -96,7 +121,7 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
   };
 
   const removeBinary = async (variant: BinaryVariant, exePath: string) => {
-    if (currentBinary === exePath) {
+    if (exePath && currentBinary === exePath) {
       setNotice('当前转写正在使用这个运行组件；先在「语音识别」里换一个构建。');
       return;
     }
@@ -142,6 +167,81 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
     setNotice(`检测到 ${names.length ? names.join(' / ') : '未知显卡'}；推荐 ${next} 构建。`);
   };
 
+  const probeLocalService = async () => {
+    setProbeBusy(true);
+    setProbeError('');
+    setEmbeddingTest('');
+    setProbeModels(null);
+    try {
+      const response = await window.bsub.probePlatformModels?.('ai', {
+        id: 'local-embedding-probe',
+        name: '本地向量服务',
+        baseUrl: localBaseUrl.trim(),
+        apiKey: '',
+        model: ''
+      });
+      if (!response) {
+        setProbeError('当前版本不支持检测本地服务');
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`连接失败：${response.error}`);
+        return;
+      }
+      const models = response.data.models || [];
+      setProbeModels(models);
+      const preferred =
+        models.find((name) => /embed|bge|gte|nomic|e5|m3/i.test(name)) || models[0] || '';
+      if (preferred) setEmbeddingModel(preferred);
+      if (!models.length) {
+        setProbeError('服务已连接，但没有返回模型；先在本地服务里拉取 embedding 模型。');
+      }
+    } catch (error) {
+      setProbeError(`连接失败：${(error as Error).message}`);
+    } finally {
+      setProbeBusy(false);
+    }
+  };
+
+  const testEmbedding = async () => {
+    setTestingEmbedding(true);
+    setEmbeddingTest('');
+    setProbeError('');
+    try {
+      const response = await window.bsub.testLocalEmbedding?.({
+        baseUrl: localBaseUrl.trim(),
+        model: embeddingModel
+      });
+      if (!response) {
+        setProbeError('当前版本不支持测试 embedding');
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`测试失败：${response.error}`);
+        return;
+      }
+      setEmbeddingTest(
+        `可用 · ${response.data.dimensions} 维 · ${response.data.latencyMs}ms`
+      );
+    } finally {
+      setTestingEmbedding(false);
+    }
+  };
+
+  const useEmbedding = () => {
+    const model = embeddingModel.trim();
+    if (!model) {
+      setProbeError('先检测服务并选择一个 embedding 模型');
+      return;
+    }
+    if (!/^https?:\/\//i.test(localBaseUrl.trim())) {
+      setProbeError('服务地址要以 http:// 或 https:// 开头');
+      return;
+    }
+    onUseLocalEmbedding(localBaseUrl.trim(), model);
+    setNotice(`已设为知识库 embedding：${model}（记得保存设置）`);
+  };
+
   const activeDownload = progress && progress.percent < 100 ? progress : null;
 
   const models = status?.modelCatalog || [];
@@ -149,10 +249,6 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
   const installedModels = models.filter((row) => row.downloaded).length;
   const installedBinaries = binaries.filter((row) => row.downloaded).length;
 
-  const kbPlatform = draft.ai.platforms.find(
-    (platform) => platform.id === (draft.knowledge.platformId || draft.ai.activeId)
-  );
-  const kbLocal = Boolean(kbPlatform && isLocalUrl(kbPlatform.baseUrl));
   const kbText = kbPlatform
     ? `${kbPlatform.name} · ${draft.knowledge.model || '未填模型'}`
     : '没有可用平台';
@@ -161,6 +257,11 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
       ? `PaddleOCR 服务 · ${draft.ocr.paddleUrl || '未填地址'}`
       : 'Windows 系统 OCR · 离线免下载';
   const ocrLocal = draft.ocr.engine !== 'paddle' || isLocalUrl(draft.ocr.paddleUrl);
+  const filteredModels = (probeModels || []).filter((name) =>
+    /embed|bge|gte|nomic|e5|m3/i.test(name)
+  );
+  const visibleModels =
+    showAllModels || !filteredModels.length ? probeModels || [] : filteredModels;
 
   return (
     <SettingsSection title="本地模型管理" defaultOpen={false}>
@@ -252,7 +353,14 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
                     {model.downloaded && !inUse && (
                       <span className="local-model-badge is-ready">已就绪</span>
                     )}
-                    {!model.downloaded && <span className="local-model-badge">未下载</span>}
+                    {!model.downloaded && model.partialBytes > 0 && (
+                      <span className="local-model-badge is-warn">
+                        未完成 {formatSize(model.partialBytes)}
+                      </span>
+                    )}
+                    {!model.downloaded && model.partialBytes === 0 && (
+                      <span className="local-model-badge">未下载</span>
+                    )}
                   </div>
                   <div className="local-model-meta">{formatSize(model.size)}</div>
                 </div>
@@ -275,13 +383,24 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
                       </button>
                     </>
                   ) : (
-                    <button
-                      className="mini-btn primary"
-                      disabled={Boolean(activeDownload)}
-                      onClick={() => void download('model', model.id)}
-                    >
-                      <Download size={12} /> {busy ? '下载中' : '下载'}
-                    </button>
+                    <>
+                      <button
+                        className="mini-btn primary"
+                        disabled={Boolean(activeDownload)}
+                        onClick={() => void download('model', model.id)}
+                      >
+                        <Download size={12} /> {busy ? '下载中' : model.partialBytes > 0 ? '继续下载' : '下载'}
+                      </button>
+                      {model.partialBytes > 0 && (
+                        <button
+                          className="mini-btn"
+                          title="删除未完成的下载"
+                          onClick={() => void removeModel(model.id, '')}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -307,6 +426,11 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
                     {inUse && <span className="local-model-badge is-ready">使用中</span>}
                     {binary.downloaded && !inUse && (
                       <span className="local-model-badge is-ready">已就绪</span>
+                    )}
+                    {!binary.downloaded && binary.partialBytes > 0 && (
+                      <span className="local-model-badge is-warn">
+                        未完成 {formatSize(binary.partialBytes)}
+                      </span>
                     )}
                     {!binary.downloaded && recommended && binary.variant === recommended && (
                       <span className="local-model-badge is-warn">推荐</span>
@@ -335,13 +459,24 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
                       </button>
                     </>
                   ) : (
-                    <button
-                      className="mini-btn primary"
-                      disabled={Boolean(activeDownload)}
-                      onClick={() => void download('binary', binary.variant)}
-                    >
-                      <Download size={12} /> 下载
-                    </button>
+                    <>
+                      <button
+                        className="mini-btn primary"
+                        disabled={Boolean(activeDownload)}
+                        onClick={() => void download('binary', binary.variant)}
+                      >
+                        <Download size={12} /> {binary.partialBytes > 0 ? '继续下载' : '下载'}
+                      </button>
+                      {binary.partialBytes > 0 && (
+                        <button
+                          className="mini-btn"
+                          title="删除未完成的下载"
+                          onClick={() => void removeBinary(binary.variant, '')}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -352,18 +487,122 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
 
       <div className="settings-group">
         <div className="settings-group-title">
-          <ScanText size={12} /> 其他本地能力
+          <Database size={12} /> 本地向量服务（知识库 embedding）
+        </div>
+        <div className="settings-group-sub">
+          知识库需要 OpenAI 兼容的 /embeddings 接口；本机 Ollama / LM Studio / llama.cpp
+          都提供，本地地址不需要 Key。
         </div>
         <div className="local-model-row">
           <div className="local-model-main">
             <div className="local-model-name">
-              知识库向量（embedding）
+              当前知识库
               <span className={`local-model-badge ${kbLocal ? 'is-ready' : ''}`}>
-                {kbLocal ? '本地地址' : '云端'}
+                {kbPlatform ? (kbLocal ? '本地地址' : '云端') : '未配置'}
               </span>
             </div>
             <div className="local-model-meta">{kbText}</div>
           </div>
+        </div>
+        <div className="settings-inline">
+          <input
+            className="settings-input"
+            value={localBaseUrl}
+            spellCheck={false}
+            placeholder="http://127.0.0.1:11434/v1"
+            onChange={(event) => setLocalBaseUrl(event.target.value)}
+          />
+          <button
+            className="mini-btn primary"
+            disabled={probeBusy}
+            onClick={() => void probeLocalService()}
+          >
+            {probeBusy ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+            检测服务
+          </button>
+        </div>
+        <div className="settings-inline">
+          <button
+            className="mini-btn"
+            onClick={() => setLocalBaseUrl('http://127.0.0.1:11434/v1')}
+          >
+            Ollama
+          </button>
+          <button
+            className="mini-btn"
+            onClick={() => setLocalBaseUrl('http://127.0.0.1:1234/v1')}
+          >
+            LM Studio
+          </button>
+          <button
+            className="mini-btn"
+            onClick={() => setLocalBaseUrl('http://127.0.0.1:8080/v1')}
+          >
+            llama.cpp
+          </button>
+        </div>
+        {probeError && (
+          <div className="settings-hint" style={{ color: 'var(--danger)' }}>
+            {probeError}
+          </div>
+        )}
+        {probeModels && (
+          <>
+            <div className="settings-inline">
+              <select
+                className="settings-input"
+                value={embeddingModel}
+                onChange={(event) => setEmbeddingModel(event.target.value)}
+              >
+                {visibleModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+                {!visibleModels.length && <option value="">没有可用模型</option>}
+              </select>
+              <label className="settings-check">
+                <input
+                  type="checkbox"
+                  checked={showAllModels}
+                  onChange={(event) => setShowAllModels(event.target.checked)}
+                />
+                显示全部模型
+              </label>
+            </div>
+            <div className="settings-inline">
+              <button
+                className="mini-btn"
+                disabled={!embeddingModel || testingEmbedding}
+                onClick={() => void testEmbedding()}
+              >
+                {testingEmbedding ? <Loader2 size={12} className="spin" /> : null}
+                测试向量
+              </button>
+              <button
+                className="mini-btn primary"
+                disabled={!embeddingModel}
+                onClick={useEmbedding}
+              >
+                设为知识库 embedding
+              </button>
+              {embeddingTest && <span className="settings-hint">{embeddingTest}</span>}
+            </div>
+            <div className="settings-hint">
+              检测到 {probeModels.length} 个模型；向量模型通常带 embed / bge / nomic 等字样，
+              选对话模型会测不出维度。
+            </div>
+          </>
+        )}
+        <div className="settings-hint">
+          Ollama 可先运行 <code>ollama pull nomic-embed-text</code>；LM Studio 在「开发者」页启动本地服务。
+          选用后还要到「知识库」点一次构建索引。
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-group-title">
+          <ScanText size={12} /> 其他本地能力
         </div>
         <div className="local-model-row">
           <div className="local-model-main">
@@ -377,9 +616,7 @@ export function LocalModelsSection({ draft, activeAsr, updateAsrPlatform }: Prop
           </div>
         </div>
         <div className="settings-hint">
-          知识库的 embedding 可以指向本机服务：Ollama 填 <code>http://127.0.0.1:11434/v1</code>、
-          LM Studio 填 <code>http://127.0.0.1:1234/v1</code>，本地地址不需要 Key。
-          在「检索与知识 → 知识库」里选平台与模型即可。
+          文字识别默认走 Windows 离线 OCR；接 PaddleOCR 时填本机或局域网服务地址即可。
         </div>
       </div>
 

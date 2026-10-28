@@ -41,8 +41,20 @@ const status: AsrLocalStatus = {
   note: '模型保存在用户数据目录',
   totalBytes: 200 * 1024 * 1024,
   modelCatalog: [
-    { id: 'tiny', label: 'tiny · 最快、准确率一般', size: 74 * 1024 * 1024, downloaded: true },
-    { id: 'base', label: 'base · 推荐', size: 141 * 1024 * 1024, downloaded: false }
+    {
+      id: 'tiny',
+      label: 'tiny · 最快、准确率一般',
+      size: 74 * 1024 * 1024,
+      downloaded: true,
+      partialBytes: 0
+    },
+    {
+      id: 'base',
+      label: 'base · 推荐',
+      size: 141 * 1024 * 1024,
+      downloaded: false,
+      partialBytes: 0
+    }
   ],
   binaryCatalog: [
     {
@@ -50,14 +62,16 @@ const status: AsrLocalStatus = {
       label: 'CPU（通用）',
       note: '没有独立显卡时选这个。',
       size: 8 * 1024 * 1024,
-      downloaded: true
+      downloaded: true,
+      partialBytes: 0
     },
     {
       variant: 'vulkan',
       label: 'Vulkan',
       note: 'AMD 显卡推荐。',
       size: 20 * 1024 * 1024,
-      downloaded: false
+      downloaded: false,
+      partialBytes: 0
     }
   ]
 };
@@ -65,7 +79,8 @@ const status: AsrLocalStatus = {
 const props = () => ({
   draft,
   activeAsr: localPlatform,
-  updateAsrPlatform: vi.fn()
+  updateAsrPlatform: vi.fn(),
+  onUseLocalEmbedding: vi.fn()
 });
 
 describe('本地模型设置', () => {
@@ -98,7 +113,15 @@ describe('本地模型设置', () => {
       detectGpu: vi.fn(async () => ({ ok: true as const, data: { names: ['NVIDIA GeForce RTX 4070'] } })),
       cancelAsrDownload: vi.fn(),
       openDataDir: vi.fn(),
-      onAsrDownloadProgress: vi.fn(() => () => {})
+      onAsrDownloadProgress: vi.fn(() => () => {}),
+      probePlatformModels: vi.fn(async () => ({
+        ok: true as const,
+        data: { models: ['nomic-embed-text', 'qwen3:8b'], url: 'http://127.0.0.1:11434/v1/models' }
+      })),
+      testLocalEmbedding: vi.fn(async () => ({
+        ok: true as const,
+        data: { dimensions: 768, latencyMs: 12, model: 'nomic-embed-text' }
+      }))
     };
   });
 
@@ -126,6 +149,26 @@ describe('本地模型设置', () => {
     await waitFor(() => expect(downloadAsrModel).toHaveBeenCalledWith('base'));
   });
 
+  it('未完成的下载可以继续或清理', async () => {
+    localAsrStatus.mockImplementationOnce(async () => ({
+      ok: true as const,
+      data: {
+        ...status,
+        totalBytes: status.totalBytes + 10 * 1024 * 1024,
+        modelCatalog: status.modelCatalog.map((row) =>
+          row.id === 'base' ? { ...row, partialBytes: 10 * 1024 * 1024 } : row
+        )
+      }
+    }));
+    const p = props();
+    p.activeAsr = { ...localPlatform, localModel: '' };
+    render(<LocalModelsSection {...p} />);
+    await waitFor(() => expect(screen.getByText(/未完成 10\.0 MB/)).toBeTruthy());
+    expect(button('继续下载')).toBeTruthy();
+    fireEvent.click(screen.getByTitle('删除未完成的下载'));
+    await waitFor(() => expect(deleteAsrModel).toHaveBeenCalledWith('base'));
+  });
+
   it('正在使用的模型不允许删除', async () => {
     render(<LocalModelsSection {...props()} />);
     await waitFor(() => expect(screen.getByText('tiny · 最快、准确率一般')).toBeTruthy());
@@ -134,6 +177,21 @@ describe('本地模型设置', () => {
     fireEvent.click(trash);
     await waitFor(() => expect(screen.getByText(/当前转写正在使用/)).toBeTruthy());
     expect(deleteAsrModel).not.toHaveBeenCalled();
+  });
+
+  it('检测本地服务、测试向量并设为知识库', async () => {
+    const p = props();
+    render(<LocalModelsSection {...p} />);
+    await waitFor(() => expect(screen.getByText('当前知识库')).toBeTruthy());
+    fireEvent.click(button('检测服务'));
+    await waitFor(() => expect(screen.getByDisplayValue('nomic-embed-text')).toBeTruthy());
+    fireEvent.click(button('测试向量'));
+    await waitFor(() => expect(screen.getByText(/768 维/)).toBeTruthy());
+    fireEvent.click(button('设为知识库'));
+    expect(p.onUseLocalEmbedding).toHaveBeenCalledWith(
+      'http://127.0.0.1:11434/v1',
+      'nomic-embed-text'
+    );
   });
 
   it('正在使用的模型禁用选用，检测显卡给出推荐', async () => {
