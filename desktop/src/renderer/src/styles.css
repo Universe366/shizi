@@ -7143,6 +7143,12 @@ html[data-density='compact'] .chat-history-row {
   border-top: 1px dashed var(--border);
 }
 
+.chat-usage {
+  margin-top: 3px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
 .chat-sources-title {
   padding: 0 6px 2px;
   color: var(--faint);

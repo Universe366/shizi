@@ -652,7 +652,8 @@ export function registerMediaIpc(ctx: IpcContext): void {
             reasoning: result.reasoning,
             references: result.references,
             webEngine: result.webEngine,
-            webError: result.webError
+            webError: result.webError,
+            usage: result.usage
           } satisfies ChatDoneEvent);
         } catch (error) {
           const message = controller.signal.aborted

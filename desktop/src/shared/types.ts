@@ -776,6 +776,8 @@ export interface StoredChatMessage {
   tools: ChatToolRecord[];
   attachments: ChatAttachment[];
   compare?: ChatCompareResult[];
+  /** 该条回答的实际 token 用量（服务端返回时才有） */
+  usage?: AiUsage;
   createdAt: number;
 }
 
@@ -1524,6 +1526,8 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
   /** 多模型并行回答（一条消息内多列） */
   compare?: ChatCompareResult[];
+  /** 该条回答的实际 token 用量（服务端返回时才有） */
+  usage?: AiUsage;
 }
 
 export interface ChatRequest {
@@ -1744,6 +1748,8 @@ export interface ChatDoneEvent {
   webEngine?: string;
   /** 联网失败/未启用时的提示（回答仍会继续） */
   webError?: string;
+  /** 本轮实际 token 用量 */
+  usage?: AiUsage;
 }
 
 export interface ChatErrorEvent {

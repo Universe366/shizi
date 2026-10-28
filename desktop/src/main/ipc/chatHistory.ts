@@ -2,6 +2,7 @@ import { dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
+  AiUsage,
   ChatAttachment,
   ChatConversation,
   ChatToolRecord,
@@ -111,6 +112,7 @@ export function registerChatHistoryIpc(): void {
           webNotice?: string;
           tools?: ChatToolRecord[];
           attachments?: ChatAttachment[];
+          usage?: AiUsage;
         };
       }
     ) => {

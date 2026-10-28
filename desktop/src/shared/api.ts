@@ -115,6 +115,7 @@ import type {
   ChatToolRecord,
   ChatApprovalEvent,
   ChatAttachment,
+  AiUsage,
   ChatCompareResult,
   KbCard,
   KbChunk,
@@ -578,6 +579,7 @@ export interface BsubApi {
       tools?: ChatToolRecord[];
       attachments?: ChatAttachment[];
       compare?: ChatCompareResult[];
+      usage?: AiUsage;
     }
   ): Promise<Result<StoredChatMessage>>;
   chatHistoryRename(id: number, title: string): Promise<Result<boolean>>;

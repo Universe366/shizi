@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
   effectiveContextWindow,
@@ -11,6 +11,7 @@ import {
 import { describeMcpParameters } from '../../../shared/mcpSchema';
 import { contextMessages, formatConversationReference } from '../../../shared/chatContext';
 import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
+import { formatTokens } from '../lib/usageStats';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -135,7 +136,8 @@ function fromStoredMessage(row: StoredChatMessage): ChatMessage {
     ...(row.webNotice ? { webNotice: row.webNotice } : {}),
     ...(row.tools.length ? { tools: row.tools } : {}),
     ...(row.attachments.length ? { attachments: row.attachments } : {}),
-    ...(row.compare?.length ? { compare: row.compare } : {})
+    ...(row.compare?.length ? { compare: row.compare } : {}),
+    ...(row.usage ? { usage: row.usage } : {})
   };
 }
 
@@ -258,6 +260,7 @@ export function ChatPanel({
   >([]);
   const [queuePaused, setQueuePaused] = useState(false);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -947,7 +950,8 @@ export function ChatPanel({
           ...(sources.length ? { sources } : {}),
           ...(event.webEngine ? { webEngine: event.webEngine } : {}),
           ...(event.webError ? { webNotice: event.webError } : {}),
-          ...(tools.length ? { tools } : {})
+          ...(tools.length ? { tools } : {}),
+          ...(event.usage ? { usage: event.usage } : {})
         }
       ]);
       setToolEvents([]);
@@ -966,7 +970,8 @@ export function ChatPanel({
           sources,
           webEngine: event.webEngine,
           webNotice: event.webError,
-          tools
+          tools,
+          usage: event.usage
         });
         void refreshConversations();
       }
@@ -1719,10 +1724,23 @@ export function ChatPanel({
               setMessageSearchOpen((value) => !value);
               setMessageSearchQuery('');
               setHistoryOpen(false);
+              setOutlineOpen(false);
             }}
             title="在当前对话内搜索"
           >
             <Search size={12} /> 搜索
+          </button>
+          <button
+            className="mini-btn"
+            disabled={!messages.some((message) => message.role === 'user')}
+            onClick={() => {
+              setOutlineOpen((value) => !value);
+              setMessageSearchOpen(false);
+              setHistoryOpen(false);
+            }}
+            title="按提问列出对话大纲"
+          >
+            <List size={12} /> 大纲
           </button>
           <button
             className="mini-btn"
@@ -1793,6 +1811,33 @@ export function ChatPanel({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {outlineOpen && (
+        <div className="chat-history-panel chat-outline-panel">
+          <div className="chat-history-head">
+            <span>对话大纲</span>
+            <button className="mini-btn" onClick={() => setOutlineOpen(false)}>
+              关闭
+            </button>
+          </div>
+          {messages.map((message, index) =>
+            message.role === 'user' ? (
+              <button
+                key={index}
+                className="chat-search-result"
+                onClick={() => jumpToMessage(index)}
+              >
+                <span className="chat-search-role">
+                  {messages.slice(0, index + 1).filter((item) => item.role === 'user').length}
+                </span>
+                <span className="chat-search-snippet">
+                  {message.content.replace(/\s+/g, ' ').slice(0, 120) || '附件提问'}
+                </span>
+              </button>
+            ) : null
+          )}
         </div>
       )}
 
@@ -2024,6 +2069,19 @@ export function ChatPanel({
                         </div>
                       </details>
                     ) : null}
+                    {message.usage && (
+                      <div
+                        className="chat-usage"
+                        title={`输入 ${message.usage.inputTokens.toLocaleString('zh-CN')} · 输出 ${message.usage.outputTokens.toLocaleString('zh-CN')}${
+                          message.usage.cacheReadTokens
+                            ? ` · 缓存命中 ${message.usage.cacheReadTokens.toLocaleString('zh-CN')}`
+                            : ''
+                        }`}
+                      >
+                        输入 {formatTokens(message.usage.inputTokens)} · 输出{' '}
+                        {formatTokens(message.usage.outputTokens)}
+                      </div>
+                    )}
                     <div className="chat-msg-actions">
                       <button
                         className="chat-action"

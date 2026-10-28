@@ -39,6 +39,17 @@ describe('对话持久化', () => {
     fs.rmSync(state.dir, { recursive: true, force: true });
   });
 
+  it('保存并读取消息 token 用量', () => {
+    const conversation = createConversation({ title: '用量', videoKey: 'BV-usage' });
+    appendMessage(conversation.id, {
+      role: 'assistant',
+      content: '回答',
+      usage: { inputTokens: 1200, outputTokens: 340, cacheReadTokens: 200 }
+    });
+    const [row] = listMessages(conversation.id);
+    expect(row.usage).toEqual({ inputTokens: 1200, outputTokens: 340, cacheReadTokens: 200 });
+  });
+
   it('创建会话、追加消息并按视频取最新', () => {
     const conversation = createConversation({
       title: '第一个对话',

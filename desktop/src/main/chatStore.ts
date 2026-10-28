@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type {
+  AiUsage,
   ChatAttachment,
   ChatCompareResult,
   ChatConversation,
@@ -67,6 +68,9 @@ function db(): DatabaseSync | null {
     }
     if (!columns.some((column) => column.name === 'compare_json')) {
       database.exec("ALTER TABLE messages ADD COLUMN compare_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!columns.some((column) => column.name === 'usage_json')) {
+      database.exec("ALTER TABLE messages ADD COLUMN usage_json TEXT NOT NULL DEFAULT 'null'");
     }
     const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all() as Array<{
       name?: string;
@@ -243,6 +247,7 @@ interface MessageRow {
   tools_json: string;
   attachments_json: string;
   compare_json: string;
+  usage_json?: string;
   created_at: number;
 }
 
@@ -270,8 +275,28 @@ function mapMessage(row: MessageRow): StoredChatMessage {
     tools: parseJsonArray<ChatToolRecord>(row.tools_json),
     attachments: parseJsonArray<ChatAttachment>(row.attachments_json),
     compare: parseJsonArray<ChatCompareResult>(row.compare_json),
+    ...(parseUsage(row.usage_json) ? { usage: parseUsage(row.usage_json) as AiUsage } : {}),
     createdAt: Number(row.created_at) || 0
   };
+}
+
+function parseUsage(text: string | undefined): AiUsage | null {
+  if (!text || text === 'null') return null;
+  try {
+    const value = JSON.parse(text) as Partial<AiUsage>;
+    const inputTokens = Number(value.inputTokens) || 0;
+    const outputTokens = Number(value.outputTokens) || 0;
+    if (!inputTokens && !outputTokens) return null;
+    return {
+      inputTokens,
+      outputTokens,
+      ...(Number(value.cacheReadTokens)
+        ? { cacheReadTokens: Number(value.cacheReadTokens) }
+        : {})
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function listMessages(conversationId: number): StoredChatMessage[] {
@@ -301,13 +326,14 @@ export function appendMessage(
     tools?: ChatToolRecord[];
     attachments?: ChatAttachment[];
     compare?: ChatCompareResult[];
+    usage?: AiUsage;
   }
 ): StoredChatMessage {
   const now = Date.now();
   const statement = db()?.prepare(
     `INSERT INTO messages
-       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, compare_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, compare_json, usage_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -323,6 +349,7 @@ export function appendMessage(
     JSON.stringify(message.tools || []),
     JSON.stringify(message.attachments || []),
     JSON.stringify(message.compare || []),
+    JSON.stringify(message.usage || null),
     now
   );
   try {
@@ -346,6 +373,7 @@ export function appendMessage(
     tools: message.tools || [],
     attachments: message.attachments || [],
     compare: message.compare || [],
+    ...(message.usage ? { usage: message.usage } : {}),
     createdAt: now
   };
 }
@@ -375,7 +403,8 @@ export function branchConversation(sourceId: number, keep: number): ChatConversa
       webNotice: row.webNotice,
       tools: row.tools,
       attachments: row.attachments,
-      compare: row.compare
+      compare: row.compare,
+      usage: row.usage
     });
   }
   return { ...created, messageCount: rows.length };

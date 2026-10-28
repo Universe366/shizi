@@ -1,5 +1,6 @@
 import type {
   AiPlatform,
+  AiUsage,
   ChatMessage,
   PageInfo,
   SubtitleLine,
@@ -126,6 +127,7 @@ export interface ChatResult {
   references?: WebReference[];
   webEngine?: string;
   webError?: string;
+  usage?: AiUsage;
 }
 
 /** 解析「是否需要联网」的小模型输出；无法判断时交给规则兜底。 */
@@ -758,7 +760,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       reasoning: result.reasoning,
       references,
       webEngine: webEngine || undefined,
-      webError: webError || undefined
+      webError: webError || undefined,
+      usage: result.usage
     };
   }
 
@@ -783,7 +786,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       reasoning: result.reasoning,
       references,
       webEngine: webEngine || undefined,
-      webError: webError || undefined
+      webError: webError || undefined,
+      usage: result.usage
     };
   }
 
@@ -798,6 +802,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     reasoning: result.reasoning,
     references,
     webEngine: webEngine || undefined,
-    webError: webError || undefined
+    webError: webError || undefined,
+    usage: result.usage
   };
 }
