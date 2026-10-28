@@ -21,6 +21,7 @@ import { RadialSection } from './settings/RadialSection';
 import { KnowledgeSection } from './settings/KnowledgeSection';
 import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
+import { ChatPromptsSection } from './settings/ChatPromptsSection';
 import { OcrSection } from './settings/OcrSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
@@ -1468,6 +1469,10 @@ export function SettingsPanel({
 
       {show('ai') && (
         <ContextSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
+      )}
+
+      {show('ai') && (
+        <ChatPromptsSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
       )}
 
       {show('ai') && (

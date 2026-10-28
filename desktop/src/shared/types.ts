@@ -1355,6 +1355,8 @@ export interface AppSettings {
     contextKeepRecent: number;
     /** 超过多少估算 token 触发压缩 */
     contextCompressTokens: number;
+    /** 对话输入框 / 命令面板里的常用指令 */
+    chatPrompts: PromptTemplate[];
     stream: boolean;
     preProofread: boolean;
     sendOnEnter: boolean;

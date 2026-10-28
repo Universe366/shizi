@@ -53,6 +53,19 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
+  it('对话快捷指令有默认值并可持久化', () => {
+    const settings = loadSettings();
+    expect(settings.ai.chatPrompts.length).toBeGreaterThan(0);
+    const original = settings.ai.chatPrompts;
+    settings.ai.chatPrompts = [{ id: 'test', name: '测试指令', text: '你好' }];
+    saveSettings(settings);
+    expect(loadSettings().ai.chatPrompts).toEqual([
+      { id: 'test', name: '测试指令', text: '你好' }
+    ]);
+    settings.ai.chatPrompts = original;
+    saveSettings(settings);
+  });
+
   it('非法搜索引擎回退必应，坐标非法归零', () => {
     const settings = loadSettings();
     settings.general.searchEngine = 'nonsense' as unknown as 'bilibili';

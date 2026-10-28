@@ -240,6 +240,28 @@ export const DEFAULT_SETTINGS: AppSettings = {
     contextAutoCompress: true,
     contextKeepRecent: 10,
     contextCompressTokens: 24000,
+    chatPrompts: [
+      {
+        id: 'chat-summary',
+        name: '总结页面',
+        text: '用 5 条要点总结当前页面，先给结论，再列依据。'
+      },
+      {
+        id: 'chat-translate',
+        name: '翻译成中文',
+        text: '把下面的内容翻译成中文，保留原意，不要解释：\n\n'
+      },
+      {
+        id: 'chat-outline',
+        name: '生成大纲',
+        text: '为当前内容生成层级大纲，最多三级，每级用短句。'
+      },
+      {
+        id: 'chat-explain',
+        name: '解释概念',
+        text: '解释下面这个概念：先给一句话定义，再给例子和常见误区。\n\n'
+      }
+    ],
     stream: true,
     preProofread: false,
     sendOnEnter: true,
@@ -883,6 +905,19 @@ function normalize(input: unknown): AppSettings {
         200000,
         Math.max(2000, Math.round(compressTokens))
       );
+    }
+    if (Array.isArray(raw.ai?.chatPrompts)) {
+      base.ai.chatPrompts = raw.ai.chatPrompts
+        .filter(
+          (item): item is PromptTemplate =>
+            Boolean(item && typeof item.id === 'string' && typeof item.name === 'string')
+        )
+        .map((item, index) => ({
+          id: String(item.id || `chat-prompt-${index}`),
+          name: String(item.name || '').slice(0, 40),
+          text: String(item.text || '').slice(0, 4000)
+        }))
+        .filter((item) => item.name.trim());
     }
     base.ai.stream = raw.ai?.stream !== false;
     base.ai.preProofread = raw.ai?.preProofread === true;

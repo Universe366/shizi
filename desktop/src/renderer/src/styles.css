@@ -1995,7 +1995,8 @@ button:disabled {
   white-space: nowrap;
 }
 
-.chat-mention-panel {
+.chat-mention-panel,
+.chat-slash-panel {
   max-height: 40%;
 }
 

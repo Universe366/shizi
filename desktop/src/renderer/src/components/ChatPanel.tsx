@@ -26,6 +26,7 @@ import type {
   ChatMessage,
   ChatMessageSearchHit,
   FavoriteChatMessage,
+  PromptTemplate,
   ChatToolEvent,
   ChatToolRecord,
   McpElicitationAction,
@@ -235,6 +236,9 @@ export function ChatPanel({
   const [crossQuery, setCrossQuery] = useState('');
   const [crossHits, setCrossHits] = useState<ChatMessageSearchHit[]>([]);
   const [crossLoading, setCrossLoading] = useState(false);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [chatPrompts, setChatPrompts] = useState<PromptTemplate[]>([]);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [compressionSummary, setCompressionSummary] = useState<{
     summary: string;
@@ -747,6 +751,7 @@ export function ChatPanel({
       setSkills(items);
       setSkillId((current) => (items.some((item) => item.id === current) ? current : ''));
       setProfiles(response.data.settings.ai.profiles || []);
+      setChatPrompts(response.data.settings.ai.chatPrompts || []);
       setPlatforms(response.data.settings.ai.platforms || []);
       setActiveAiId(response.data.settings.ai.activeId || '');
       setDefaultModelState(response.data.settings.ai.defaultModel || null);
@@ -774,6 +779,7 @@ export function ChatPanel({
       const searchOn = snapshot.settings.search.enabled !== false;
       setSearchEnabled(searchOn);
       setProfiles(snapshot.settings.ai.profiles || []);
+      setChatPrompts(snapshot.settings.ai.chatPrompts || []);
       setPlatforms(snapshot.settings.ai.platforms || []);
       setActiveAiId(snapshot.settings.ai.activeId || '');
       setDefaultModelState(snapshot.settings.ai.defaultModel || null);
@@ -1795,6 +1801,12 @@ export function ChatPanel({
         )
         .slice(0, 60)
     : [];
+  const slashQueryText = slashQuery.trim().toLowerCase();
+  const slashResults = chatPrompts.filter(
+    (prompt) =>
+      !slashQueryText ||
+      `${prompt.name} ${prompt.text}`.toLowerCase().includes(slashQueryText)
+  );
   const mentionQueryText = mentionQuery.trim().toLowerCase();
   const mentionResults = conversations
     .filter((conversation) => conversation.id !== conversationRef.current)
@@ -2749,6 +2761,18 @@ export function ChatPanel({
             </button>
             <button
               className="chat-menu-card"
+              onClick={() => {
+                setSlashOpen(true);
+                setSlashQuery('');
+                setComposerOpen(false);
+              }}
+            >
+              <Sparkles size={15} />
+              <span className="chat-menu-card-title">快捷指令</span>
+              <span className="chat-menu-card-desc">输入 / 也可打开</span>
+            </button>
+            <button
+              className="chat-menu-card"
               disabled={!messages.length}
               onClick={clearContext}
             >
@@ -3203,6 +3227,46 @@ export function ChatPanel({
             ))}
           </div>
         )}
+        {slashOpen && (
+          <div className="chat-history-panel chat-slash-panel">
+            <div className="chat-history-head">
+              <span>快捷指令</span>
+              <button className="mini-btn" onClick={() => setSlashOpen(false)}>
+                关闭
+              </button>
+            </div>
+            <input
+              autoFocus
+              className="settings-input chat-history-search"
+              placeholder="搜索指令…"
+              value={slashQuery}
+              spellCheck={false}
+              onChange={(event) => setSlashQuery(event.target.value)}
+            />
+            {!slashResults.length && (
+              <div className="settings-hint">
+                没有匹配的指令，可在「设置 → 对话快捷指令」里新增。
+              </div>
+            )}
+            {slashResults.map((prompt) => (
+              <button
+                key={prompt.id}
+                className="chat-search-result"
+                onClick={() => {
+                  setInput(prompt.text);
+                  setSlashOpen(false);
+                  setSlashQuery('');
+                }}
+              >
+                <span className="chat-search-role">/</span>
+                <span className="chat-search-snippet">
+                  {prompt.name} · {prompt.text.slice(0, 60)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {mentionOpen && (
           <div className="chat-history-panel chat-mention-panel">
             <div className="chat-history-head">
@@ -3315,7 +3379,9 @@ export function ChatPanel({
             }
             if (event.key === '/' && !input.trim()) {
               event.preventDefault();
-              setComposerOpen(true);
+              setSlashOpen(true);
+              setSlashQuery('');
+              setComposerOpen(false);
               return;
             }
             const enterSends = sendOnEnter
