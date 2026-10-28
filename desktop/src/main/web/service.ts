@@ -384,7 +384,7 @@ export async function searchWebPlan(
   const deduped = dedupeEvidence(withSite);
   const ranked = capPerDomain(rankEvidence(deduped, queries), 2).slice(0, Math.max(max, 7));
 
-  const readCount = Math.max(0, Math.min(4, options.read ?? 2));
+  const readCount = Math.max(0, Math.min(10, options.read ?? 2));
   const evidence: WebEvidence[] = [];
   const fetchPlatform =
     settings.search.fetchPlatforms?.find(

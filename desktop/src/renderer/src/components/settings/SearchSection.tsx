@@ -536,17 +536,17 @@ export function SearchSection({
               />
             </div>
             <div className="settings-field">
-              <div className="settings-label">每项读取正文篇数</div>
+              <div className="settings-label">每项读取正文篇数（1–5）</div>
               <input
                 className="settings-input"
                 type="number"
                 min={1}
-                max={3}
+                max={5}
                 value={search.verifyReadPages || 1}
                 onChange={(event) =>
                   updateSearch({
                     verifyReadPages: Math.min(
-                      3,
+                      5,
                       Math.max(1, Number(event.target.value) || 1)
                     )
                   })
@@ -585,17 +585,17 @@ export function SearchSection({
         </label>
         <div className="settings-inline">
           <div className="settings-field">
-            <div className="settings-label">总结读取正文篇数</div>
+            <div className="settings-label">总结读取正文篇数（1–10）</div>
             <input
               className="settings-input"
               type="number"
               min={1}
-              max={4}
+              max={10}
               value={search.summaryReadPages || 2}
               onChange={(event) =>
                 updateSearch({
                   summaryReadPages: Math.min(
-                    4,
+                    10,
                     Math.max(1, Number(event.target.value) || 2)
                   )
                 })

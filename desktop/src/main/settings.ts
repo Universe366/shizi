@@ -1461,7 +1461,7 @@ function normalize(input: unknown): AppSettings {
       base.search.planQueries = Math.max(1, Math.min(4, Number(raw.search.planQueries) || 3));
       base.search.summaryReadPages = Math.max(
         1,
-        Math.min(4, Number(raw.search.summaryReadPages) || 2)
+        Math.min(10, Number(raw.search.summaryReadPages) || 2)
       );
       base.search.summaryReferenceChars = Math.max(
         2000,
@@ -1469,7 +1469,7 @@ function normalize(input: unknown): AppSettings {
       );
       base.search.verifyReadPages = Math.max(
         1,
-        Math.min(3, Number(raw.search.verifyReadPages) || 1)
+        Math.min(5, Number(raw.search.verifyReadPages) || 1)
       );
       base.search.verifyItemCount = Math.max(
         1,

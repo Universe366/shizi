@@ -7,7 +7,7 @@ export type SearchPurpose = 'chat' | 'summary' | 'verify';
 interface SearchPolicy {
   maxQueries: number;
   maxResults: number;
-  /** 每次检索读取几篇正文；0 = 只用检索结果自带的摘要/正文 */
+  /** 每次检索读取几篇正文（0-10）；0 = 只用检索结果自带的摘要/正文 */
   read: number;
 }
 

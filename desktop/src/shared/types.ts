@@ -991,11 +991,11 @@ export interface SearchSettings {
   blacklist: string[];
   /** 对话联网的检索计划条数（1-4，默认 3） */
   planQueries: number;
-  /** 总结时读取几篇正文（1-4，默认 2） */
+  /** 总结时读取几篇正文（1-10，默认 2） */
   summaryReadPages?: number;
   /** 总结参考资料总字符预算（2000-20000，默认 6000） */
   summaryReferenceChars?: number;
-  /** 总结前逐项核对时每项读几篇正文（1-3，默认 1） */
+  /** 总结前逐项核对时每项读几篇正文（1-5，默认 1） */
   verifyReadPages?: number;
 }
 
