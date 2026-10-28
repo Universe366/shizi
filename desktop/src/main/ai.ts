@@ -547,6 +547,7 @@ export function buildSummaryChatPrompt(info: PageInfo): { system: string; user: 
     meta,
     '',
     '请基于上面的字幕写一份完整总结，严格按系统提示里的格式规则输出；不要写开场白或“根据字幕”这类过程说明。',
+    '尽量详细：每个主题至少展开 2–4 个具体要点，保留数字、时间、步骤、例子和结论，不要只写一句话概括。',
     '需要外部事实时，可以调用联网搜索/读取网页；用到外部资料时用 [n] 标注来源。'
   ].join('\n');
   return { system, user };

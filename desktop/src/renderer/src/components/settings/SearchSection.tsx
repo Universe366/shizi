@@ -508,35 +508,6 @@ export function SearchSection({
           />
           视频简介（标题、UP 主、简介）
         </label>
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={search.useComments === true}
-            onChange={(event) => updateSearch({ useComments: event.target.checked })}
-          />
-          热门评论（仅作观众观点参考）
-        </label>
-        <div className="settings-field">
-          <div className="settings-label">总结分段数量（0=自动，1=不分段）</div>
-          <input
-            className="settings-input"
-            type="number"
-            min={0}
-            max={20}
-            value={search.summarySegments ?? 0}
-            onChange={(event) =>
-              updateSearch({
-                summarySegments: Math.min(
-                  20,
-                  Math.max(0, Math.floor(Number(event.target.value) || 0))
-                )
-              })
-            }
-          />
-          <div className="settings-hint">
-            0 会按字幕长度自动估算；固定 2–20 段会均分字幕，分段提取后再联网合并。
-          </div>
-        </div>
       </details>
 
       <details className="settings-advanced">
@@ -552,17 +523,6 @@ export function SearchSection({
               max={100}
               value={search.maxResults}
               onChange={(event) => updateSearch({ maxResults: Number(event.target.value) || 5 })}
-            />
-          </div>
-          <div className="settings-field">
-            <div className="settings-label">对话检索条数</div>
-            <input
-              className="settings-input"
-              type="number"
-              min={1}
-              max={4}
-              value={search.planQueries ?? 3}
-              onChange={(event) => updateSearch({ planQueries: Number(event.target.value) || 3 })}
             />
           </div>
           <div className="settings-field">

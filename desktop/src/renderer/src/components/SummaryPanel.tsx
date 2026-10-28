@@ -711,23 +711,7 @@ export function SummaryPanel({
           open={reasoningOpen}
           onToggle={(event) => setReasoningOpen((event.target as HTMLDetailsElement).open)}
         >
-          <summary>
-            💭 思考过程{streaming ? '（生成中）' : ''}
-            <button
-              type="button"
-              className="chat-reasoning-close"
-              title="隐藏思考过程"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                reasoningBufferRef.current = '';
-                setReasoning('');
-                setReasoningOpen(false);
-              }}
-            >
-              隐藏
-            </button>
-          </summary>
+          <summary>💭 思考过程{streaming ? '（生成中）' : ''}</summary>
           <pre>{reasoning}</pre>
         </details>
       )}
@@ -766,6 +750,12 @@ export function SummaryPanel({
                 usage.outputTokens
               )} out`
             : ''}
+        </div>
+      )}
+
+      {!streaming && summary && (
+        <div className="summary-elapsed-line">
+          共 {summary.replace(/\s+/g, '').length.toLocaleString('zh-CN')} 字
         </div>
       )}
 

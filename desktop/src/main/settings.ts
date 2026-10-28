@@ -429,7 +429,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     planQueries: 3,
     chatReadPages: 2,
     summarySplitMode: 'auto',
-    summarySegments: 0,
     summaryReadPages: 2,
     summaryReferenceChars: 6000,
     verifyReadPages: 1
@@ -1470,10 +1469,6 @@ function normalize(input: unknown): AppSettings {
         raw.search.summarySplitMode === 'fixed' || raw.search.summarySplitMode === 'never'
           ? raw.search.summarySplitMode
           : 'auto';
-      base.search.summarySegments = Math.max(
-        0,
-        Math.min(20, Math.floor(Number(raw.search.summarySegments) || 0))
-      );
       base.search.summaryReadPages = Math.max(
         1,
         Math.min(10, Number(raw.search.summaryReadPages) || 2)
