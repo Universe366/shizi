@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { contextMessages, formatConversationReference } from './chatContext';
+import {
+  contextMessages,
+  formatConversationReference,
+  moveQueueItem
+} from './chatContext';
 
 describe('清除上下文后的消息切片', () => {
   const rows = ['a', 'b', 'c', 'd'];
@@ -12,6 +16,16 @@ describe('清除上下文后的消息切片', () => {
     expect(contextMessages(rows, 2)).toEqual(['c', 'd']);
     expect(contextMessages(rows, 99)).toEqual([]);
     expect(contextMessages(rows, 1.8)).toEqual(['b', 'c', 'd']);
+  });
+});
+
+describe('队列排序', () => {
+  it('把一项移到目标位置，越界时保持原样', () => {
+    expect(moveQueueItem(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a']);
+    expect(moveQueueItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
+    expect(moveQueueItem(['a', 'b'], 0, 0)).toEqual(['a', 'b']);
+    expect(moveQueueItem(['a', 'b'], 5, 0)).toEqual(['a', 'b']);
+    expect(moveQueueItem(['a', 'b'], -1, 0)).toEqual(['a', 'b']);
   });
 });
 

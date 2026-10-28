@@ -101,7 +101,11 @@ import type {
   LocalEmbeddingTestResult,
   OllamaPullProgress,
   TtsSettings,
+  ChatCompressionSummary,
   ChatConversation,
+  ChatMessageSearchHit,
+  ConversationUsageSummary,
+  FavoriteChatMessage,
   StoredChatMessage,
   McpResource,
   McpPrompt,
@@ -591,6 +595,14 @@ export interface BsubApi {
   chatHistoryTruncate(conversationId: number, keep: number): Promise<Result<boolean>>;
   chatHistoryDelete(id: number): Promise<Result<boolean>>;
   chatHistoryExport(id: number): Promise<Result<{ canceled: boolean; path?: string }>>;
+  chatMessageFavorite(messageId: number, favorite: boolean): Promise<Result<boolean>>;
+  chatFavorites(limit?: number): Promise<Result<FavoriteChatMessage[]>>;
+  chatMessageSearch(query: string, limit?: number): Promise<Result<ChatMessageSearchHit[]>>;
+  chatUsageSummary(): Promise<Result<ConversationUsageSummary[]>>;
+  chatCompressionSummary(
+    conversationId: number
+  ): Promise<Result<ChatCompressionSummary | null>>;
+  clearChatCompression(conversationId: number): Promise<Result<boolean>>;
   onChatDelta(cb: (event: ChatDeltaEvent) => void): () => void;
   onChatDone(cb: (event: ChatDoneEvent) => void): () => void;
   onChatError(cb: (event: ChatErrorEvent) => void): () => void;

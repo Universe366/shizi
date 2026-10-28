@@ -5,7 +5,10 @@ import type {
   AiUsage,
   ChatAttachment,
   ChatConversation,
+  ChatMessageSearchHit,
   ChatToolRecord,
+  ConversationUsageSummary,
+  FavoriteChatMessage,
   Result,
   StoredChatMessage,
   WebReference
@@ -18,11 +21,15 @@ import {
   deleteConversation,
   latestConversationForVideo,
   listConversations,
+  listFavoriteMessages,
   listMessages,
   renameConversation,
+  searchMessages,
+  setMessageFavorite,
   setConversationModel,
   setConversationProfile,
-  truncateMessages
+  truncateMessages,
+  usageByConversation
 } from '../chatStore';
 
 function ok<T>(data: T): Result<T> {
@@ -92,6 +99,47 @@ export function registerChatHistoryIpc(): void {
       return ok<StoredChatMessage[]>(listMessages(Number(id)));
     } catch (error) {
       return failure<StoredChatMessage[]>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'chat:message-favorite',
+    (_event, payload: { messageId?: number; favorite?: boolean }): Result<boolean> => {
+      try {
+        return ok(setMessageFavorite(Number(payload?.messageId) || 0, Boolean(payload?.favorite)));
+      } catch (error) {
+        return failure<boolean>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'chat:favorites',
+    (_event, limit?: number): Result<FavoriteChatMessage[]> => {
+      try {
+        return ok(listFavoriteMessages(Number(limit) || 100));
+      } catch (error) {
+        return failure<FavoriteChatMessage[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'chat:message-search',
+    (_event, payload: { query?: string; limit?: number }): Result<ChatMessageSearchHit[]> => {
+      try {
+        return ok(searchMessages(String(payload?.query || ''), Number(payload?.limit) || 50));
+      } catch (error) {
+        return failure<ChatMessageSearchHit[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('chat:usage-summary', (): Result<ConversationUsageSummary[]> => {
+    try {
+      return ok(usageByConversation(50));
+    } catch (error) {
+      return failure<ConversationUsageSummary[]>(error);
     }
   });
 

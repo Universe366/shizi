@@ -4,6 +4,25 @@ export function contextMessages<T>(messages: T[], start: number | null): T[] {
   return messages.slice(Math.min(Math.floor(start), messages.length));
 }
 
+/** 队列拖拽排序：把 from 项移到 to 位置。 */
+export function moveQueueItem<T>(items: T[], from: number, to: number): T[] {
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= items.length ||
+    to >= items.length ||
+    !Number.isInteger(from) ||
+    !Number.isInteger(to)
+  ) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 /** 把另一个历史对话压缩成可插入输入框的引用块。 */
 export function formatConversationReference(
   title: string,

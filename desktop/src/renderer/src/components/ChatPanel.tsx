@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Star, Trash2, Volume2, Wrench, X } from 'lucide-react';
 import {
   capabilityKey,
   effectiveContextWindow,
@@ -9,7 +9,11 @@ import {
   formatContextWindow
 } from '../../../shared/modelCapabilities';
 import { describeMcpParameters } from '../../../shared/mcpSchema';
-import { contextMessages, formatConversationReference } from '../../../shared/chatContext';
+import {
+  contextMessages,
+  formatConversationReference,
+  moveQueueItem
+} from '../../../shared/chatContext';
 import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
 import { formatTokens } from '../lib/usageStats';
 import type {
@@ -20,6 +24,8 @@ import type {
   ChatCompareResult,
   ChatConversation,
   ChatMessage,
+  ChatMessageSearchHit,
+  FavoriteChatMessage,
   ChatToolEvent,
   ChatToolRecord,
   McpElicitationAction,
@@ -137,7 +143,9 @@ function fromStoredMessage(row: StoredChatMessage): ChatMessage {
     ...(row.tools.length ? { tools: row.tools } : {}),
     ...(row.attachments.length ? { attachments: row.attachments } : {}),
     ...(row.compare?.length ? { compare: row.compare } : {}),
-    ...(row.usage ? { usage: row.usage } : {})
+    ...(row.usage ? { usage: row.usage } : {}),
+    id: row.id,
+    ...(row.favorite ? { favorite: true } : {})
   };
 }
 
@@ -221,6 +229,17 @@ export function ChatPanel({
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState('');
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [favorites, setFavorites] = useState<FavoriteChatMessage[]>([]);
+  const [crossSearchOpen, setCrossSearchOpen] = useState(false);
+  const [crossQuery, setCrossQuery] = useState('');
+  const [crossHits, setCrossHits] = useState<ChatMessageSearchHit[]>([]);
+  const [crossLoading, setCrossLoading] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [compressionSummary, setCompressionSummary] = useState<{
+    summary: string;
+    covered: number;
+  } | null>(null);
   const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -259,6 +278,7 @@ export function ChatPanel({
     }>
   >([]);
   const [queuePaused, setQueuePaused] = useState(false);
+  const queueDragRef = useRef<number | null>(null);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
@@ -962,17 +982,28 @@ export function ChatPanel({
       }
       const conversation = conversationRef.current;
       if (conversation) {
-        void window.bsub.chatHistoryAppend(conversation, {
-          role: 'assistant',
-          content: event.text,
-          reasoning: event.reasoning,
-          model: event.model,
-          sources,
-          webEngine: event.webEngine,
-          webNotice: event.webError,
-          tools,
-          usage: event.usage
-        });
+        void (async () => {
+          const appended = await window.bsub.chatHistoryAppend(conversation, {
+            role: 'assistant',
+            content: event.text,
+            reasoning: event.reasoning,
+            model: event.model,
+            sources,
+            webEngine: event.webEngine,
+            webNotice: event.webError,
+            tools,
+            usage: event.usage
+          });
+          if (appended.ok) {
+            setMessages((previous) =>
+              previous.map((item, index) =>
+                index === previous.length - 1 && item.role === 'assistant'
+                  ? { ...item, id: appended.data.id, favorite: false }
+                  : item
+              )
+            );
+          }
+        })();
         void refreshConversations();
       }
       setStreaming(false);
@@ -1373,6 +1404,92 @@ export function ChatPanel({
     }, 2200);
   };
 
+  const toggleFavorite = async (index: number): Promise<void> => {
+    const message = messages[index];
+    if (!message?.id) return;
+    const next = !message.favorite;
+    const response = await window.bsub.chatMessageFavorite(message.id, next);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setMessages((previous) =>
+      previous.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, favorite: next } : item
+      )
+    );
+    setSavedNotice(next ? '已收藏这条消息' : '已取消收藏');
+  };
+
+  const openFavorites = async (): Promise<void> => {
+    const response = await window.bsub.chatFavorites(100);
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setFavorites(response.data);
+    setFavoritesOpen(true);
+    setHistoryOpen(false);
+    setMessageSearchOpen(false);
+    setOutlineOpen(false);
+  };
+
+  const openCompressionSummary = async (): Promise<void> => {
+    if (!conversationRef.current) {
+      setSavedNotice('当前还没有可压缩的对话');
+      return;
+    }
+    const response = await window.bsub.chatCompressionSummary(conversationRef.current);
+    if (response.ok) setCompressionSummary(response.data);
+    else setError(response.error);
+    setSummaryOpen(true);
+    setComposerOpen(false);
+    setCrossSearchOpen(false);
+    setFavoritesOpen(false);
+  };
+
+  const searchAcrossConversations = async (): Promise<void> => {
+    const query = crossQuery.trim();
+    if (!query) return;
+    setCrossLoading(true);
+    try {
+      const response = await window.bsub.chatMessageSearch(query, 50);
+      if (response.ok) setCrossHits(response.data);
+      else setError(response.error);
+    } finally {
+      setCrossLoading(false);
+    }
+  };
+
+  const openConversationById = async (
+    id: number,
+    messageId?: number
+  ): Promise<void> => {
+    if (streaming) return;
+    const list = await window.bsub.chatHistoryList(200);
+    const found = list.ok ? list.data.find((item) => item.id === id) : undefined;
+    const rows = await window.bsub.chatHistoryMessages(id);
+    if (!rows.ok) return;
+    conversationRef.current = id;
+    setConversationId(id);
+    setModelOverride(
+      found?.platformId && found.model
+        ? { platformId: found.platformId, model: found.model }
+        : null
+    );
+    const restored = rows.data.map(fromStoredMessage);
+    setMessages(restored);
+    applyLocalConversationState(id, restored.length);
+    setHistoryOpen(false);
+    setFavoritesOpen(false);
+    setMessageSearchOpen(false);
+    setOutlineOpen(false);
+    if (messageId) {
+      const index = rows.data.findIndex((row) => row.id === messageId);
+      if (index >= 0) window.setTimeout(() => jumpToMessage(index), 150);
+    }
+  };
+
   const insertConversationReference = async (
     conversation: ChatConversation
   ): Promise<void> => {
@@ -1744,6 +1861,27 @@ export function ChatPanel({
           </button>
           <button
             className="mini-btn"
+            onClick={() => {
+              setCrossSearchOpen((value) => !value);
+              setCrossHits([]);
+              setMessageSearchOpen(false);
+              setOutlineOpen(false);
+              setHistoryOpen(false);
+              setFavoritesOpen(false);
+            }}
+            title="在所有历史对话里搜索消息"
+          >
+            <Search size={12} /> 跨对话
+          </button>
+          <button
+            className="mini-btn"
+            onClick={() => void openFavorites()}
+            title="收藏的消息"
+          >
+            <Star size={12} /> 收藏
+          </button>
+          <button
+            className="mini-btn"
             disabled={streaming}
             onClick={() => setHistoryOpen((value) => !value)}
             title="历史对话"
@@ -1822,21 +1960,158 @@ export function ChatPanel({
               关闭
             </button>
           </div>
-          {messages.map((message, index) =>
-            message.role === 'user' ? (
+          {messages.map((message, index) => {
+            if (message.role !== 'user') return null;
+            const answer = messages
+              .slice(index + 1)
+              .find((item) => item.role === 'assistant' && item.content.trim());
+            const answerLine = answer
+              ? answer.content
+                  .replace(/[#>*`-]/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+                  .slice(0, 100)
+              : '';
+            return (
               <button
                 key={index}
-                className="chat-search-result"
+                className="chat-search-result chat-outline-item"
                 onClick={() => jumpToMessage(index)}
               >
                 <span className="chat-search-role">
                   {messages.slice(0, index + 1).filter((item) => item.role === 'user').length}
                 </span>
                 <span className="chat-search-snippet">
-                  {message.content.replace(/\s+/g, ' ').slice(0, 120) || '附件提问'}
+                  <span>
+                    {message.content.replace(/\s+/g, ' ').slice(0, 120) || '附件提问'}
+                  </span>
+                  {answerLine && (
+                    <span className="chat-outline-answer">{answerLine}</span>
+                  )}
                 </span>
               </button>
-            ) : null
+            );
+          })}
+        </div>
+      )}
+
+      {crossSearchOpen && (
+        <div className="chat-history-panel chat-cross-panel">
+          <div className="chat-history-head">
+            <span>跨对话搜索</span>
+            <button
+              className="mini-btn"
+              disabled={!crossQuery.trim() || crossLoading}
+              onClick={() => void searchAcrossConversations()}
+            >
+              搜索
+            </button>
+            <button className="mini-btn" onClick={() => setCrossSearchOpen(false)}>
+              关闭
+            </button>
+          </div>
+          <input
+            autoFocus
+            className="settings-input chat-history-search"
+            placeholder="在所有历史对话里搜索消息…"
+            value={crossQuery}
+            spellCheck={false}
+            onChange={(event) => setCrossQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              void searchAcrossConversations();
+            }}
+          />
+          {crossLoading && <div className="settings-hint">正在搜索…</div>}
+          {!crossLoading && crossQuery.trim() && !crossHits.length && (
+            <div className="settings-hint">没有匹配的消息</div>
+          )}
+          {crossHits.map((hit) => (
+            <button
+              key={`${hit.conversationId}-${hit.messageId}`}
+              className="chat-search-result"
+              onClick={() => void openConversationById(hit.conversationId, hit.messageId)}
+            >
+              <span className="chat-search-role">
+                {hit.role === 'assistant' ? 'AI' : '用户'}
+              </span>
+              <span className="chat-search-snippet">
+                {hit.conversationTitle} · {hit.content.replace(/\s+/g, ' ').slice(0, 100)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {favoritesOpen && (
+        <div className="chat-history-panel chat-favorites-panel">
+          <div className="chat-history-head">
+            <span>收藏消息（{favorites.length}）</span>
+            <button className="mini-btn" onClick={() => void openFavorites()}>
+              刷新
+            </button>
+            <button className="mini-btn" onClick={() => setFavoritesOpen(false)}>
+              关闭
+            </button>
+          </div>
+          {!favorites.length && (
+            <div className="settings-hint">还没有收藏：在回答下方点星标即可收藏。</div>
+          )}
+          {favorites.map((favorite) => (
+            <button
+              key={favorite.id}
+              className="chat-search-result"
+              onClick={() => void openConversationById(favorite.conversationId, favorite.id)}
+            >
+              <span className="chat-search-role">
+                {favorite.role === 'assistant' ? 'AI' : '用户'}
+              </span>
+              <span className="chat-search-snippet">
+                {favorite.conversationTitle} ·{' '}
+                {favorite.content.replace(/\s+/g, ' ').slice(0, 100)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {summaryOpen && (
+        <div className="chat-history-panel chat-summary-panel">
+          <div className="chat-history-head">
+            <span>上下文压缩摘要</span>
+            <button
+              className="mini-btn"
+              onClick={() => void openCompressionSummary()}
+            >
+              刷新
+            </button>
+            <button className="mini-btn" onClick={() => setSummaryOpen(false)}>
+              关闭
+            </button>
+          </div>
+          {compressionSummary ? (
+            <>
+              <div className="settings-hint">
+                已压缩 {compressionSummary.covered} 条旧消息；之后的请求会带上这段摘要。
+              </div>
+              <pre className="chat-summary-text">{compressionSummary.summary}</pre>
+              <button
+                className="mini-btn"
+                onClick={async () => {
+                  if (!conversationRef.current) return;
+                  await window.bsub.clearChatCompression(conversationRef.current);
+                  setCompressionSummary(null);
+                  setSavedNotice('已清除上下文摘要，下次超长时会重新压缩');
+                }}
+              >
+                清除摘要
+              </button>
+            </>
+          ) : (
+            <div className="settings-hint">
+              当前没有压缩摘要：对话未超过阈值，或摘要已被清除。
+            </div>
           )}
         </div>
       )}
@@ -2083,6 +2358,18 @@ export function ChatPanel({
                       </div>
                     )}
                     <div className="chat-msg-actions">
+                      {message.id && (
+                        <button
+                          className="chat-action"
+                          title={message.favorite ? '取消收藏' : '收藏这条回答'}
+                          onClick={() => void toggleFavorite(index)}
+                        >
+                          <Star
+                            size={11}
+                            fill={message.favorite ? 'currentColor' : 'none'}
+                          />
+                        </button>
+                      )}
                       <button
                         className="chat-action"
                         title="朗读回答"
@@ -2468,6 +2755,11 @@ export function ChatPanel({
               <Eraser size={15} />
               <span className="chat-menu-card-title">清除上下文</span>
               <span className="chat-menu-card-desc">保留消息，只把之后的内容发给模型</span>
+            </button>
+            <button className="chat-menu-card" onClick={() => void openCompressionSummary()}>
+              <FileText size={15} />
+              <span className="chat-menu-card-title">上下文摘要</span>
+              <span className="chat-menu-card-desc">查看自动压缩生成的摘要</span>
             </button>
             <button
               className="chat-menu-card"
@@ -2953,6 +3245,21 @@ export function ChatPanel({
                 key={`${index}-${item.text.slice(0, 8)}`}
                 className="chat-queue-chip"
                 title={item.text || '附件'}
+                draggable
+                onDragStart={() => {
+                  queueDragRef.current = index;
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const from = queueDragRef.current;
+                  queueDragRef.current = null;
+                  if (from === null) return;
+                  setQueue((previous) => moveQueueItem(previous, from, index));
+                }}
+                onDragEnd={() => {
+                  queueDragRef.current = null;
+                }}
               >
                 {item.text.replace(/\s+/g, ' ').slice(0, 22) || '附件'}
                 <button

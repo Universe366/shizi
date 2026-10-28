@@ -20,6 +20,13 @@ export function clearCompressionCache(conversationId?: number): void {
   else summaryCache.delete(conversationId);
 }
 
+export function getCompressionSummary(
+  conversationId: number
+): { summary: string; covered: number } | null {
+  const entry = summaryCache.get(Number(conversationId));
+  return entry ? { summary: entry.summary, covered: entry.covered } : null;
+}
+
 export function buildTranscript(messages: AiMessage[], maxChars = 30000): string {
   const lines: string[] = [];
   let total = 0;

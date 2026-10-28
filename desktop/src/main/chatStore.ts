@@ -7,7 +7,10 @@ import type {
   ChatAttachment,
   ChatCompareResult,
   ChatConversation,
+  ChatMessageSearchHit,
   ChatToolRecord,
+  ConversationUsageSummary,
+  FavoriteChatMessage,
   StoredChatMessage,
   WebReference
 } from '../shared/types';
@@ -71,6 +74,9 @@ function db(): DatabaseSync | null {
     }
     if (!columns.some((column) => column.name === 'usage_json')) {
       database.exec("ALTER TABLE messages ADD COLUMN usage_json TEXT NOT NULL DEFAULT 'null'");
+    }
+    if (!columns.some((column) => column.name === 'favorite')) {
+      database.exec('ALTER TABLE messages ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
     }
     const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all() as Array<{
       name?: string;
@@ -248,6 +254,8 @@ interface MessageRow {
   attachments_json: string;
   compare_json: string;
   usage_json?: string;
+  favorite?: number;
+  conversation_title?: string;
   created_at: number;
 }
 
@@ -276,6 +284,7 @@ function mapMessage(row: MessageRow): StoredChatMessage {
     attachments: parseJsonArray<ChatAttachment>(row.attachments_json),
     compare: parseJsonArray<ChatCompareResult>(row.compare_json),
     ...(parseUsage(row.usage_json) ? { usage: parseUsage(row.usage_json) as AiUsage } : {}),
+    favorite: Boolean(row.favorite),
     createdAt: Number(row.created_at) || 0
   };
 }
@@ -327,13 +336,14 @@ export function appendMessage(
     attachments?: ChatAttachment[];
     compare?: ChatCompareResult[];
     usage?: AiUsage;
+    favorite?: boolean;
   }
 ): StoredChatMessage {
   const now = Date.now();
   const statement = db()?.prepare(
     `INSERT INTO messages
-       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, compare_json, usage_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (conversation_id, role, content, reasoning, model, images_json, sources_json, web_engine, web_notice, tools_json, attachments_json, compare_json, usage_json, favorite, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   if (!statement) throw new Error('对话库不可用');
   const result = statement.run(
@@ -350,6 +360,7 @@ export function appendMessage(
     JSON.stringify(message.attachments || []),
     JSON.stringify(message.compare || []),
     JSON.stringify(message.usage || null),
+    message.favorite ? 1 : 0,
     now
   );
   try {
@@ -374,6 +385,7 @@ export function appendMessage(
     attachments: message.attachments || [],
     compare: message.compare || [],
     ...(message.usage ? { usage: message.usage } : {}),
+    favorite: Boolean(message.favorite),
     createdAt: now
   };
 }
@@ -404,7 +416,8 @@ export function branchConversation(sourceId: number, keep: number): ChatConversa
       tools: row.tools,
       attachments: row.attachments,
       compare: row.compare,
-      usage: row.usage
+      usage: row.usage,
+      favorite: row.favorite
     });
   }
   return { ...created, messageCount: rows.length };
@@ -464,6 +477,109 @@ export function deleteConversation(id: number): boolean {
     return Boolean(result && Number(result.changes) > 0);
   } catch {
     return false;
+  }
+}
+
+export function setMessageFavorite(messageId: number, favorite: boolean): boolean {
+  try {
+    const result = db()
+      ?.prepare('UPDATE messages SET favorite = ? WHERE id = ?')
+      .run(favorite ? 1 : 0, Number(messageId));
+    return Boolean(result && Number(result.changes) > 0);
+  } catch {
+    return false;
+  }
+}
+
+function joinedMessage(row: MessageRow): FavoriteChatMessage {
+  return { ...mapMessage(row), conversationTitle: String(row.conversation_title || '未命名对话') };
+}
+
+export function listFavoriteMessages(limit = 100): FavoriteChatMessage[] {
+  try {
+    const rows = db()
+      ?.prepare(
+        `SELECT m.*, c.title AS conversation_title FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.favorite = 1 ORDER BY m.created_at DESC LIMIT ?`
+      )
+      .all(Math.max(1, Math.min(500, Math.round(limit)))) as unknown as MessageRow[];
+    return (rows || []).map(joinedMessage);
+  } catch {
+    return [];
+  }
+}
+
+export function searchMessages(query: string, limit = 50): ChatMessageSearchHit[] {
+  const value = String(query || '').trim();
+  if (!value) return [];
+  try {
+    const rows = db()
+      ?.prepare(
+        `SELECT m.id, m.conversation_id, m.role, m.content, m.created_at,
+                c.title AS conversation_title
+         FROM messages m JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.content LIKE ? ORDER BY m.created_at DESC LIMIT ?`
+      )
+      .all(`%${value}%`, Math.max(1, Math.min(200, Math.round(limit)))) as unknown as Array<{
+      id: number;
+      conversation_id: number;
+      role: string;
+      content: string;
+      created_at: number;
+      conversation_title: string;
+    }>;
+    return (rows || []).map((row) => ({
+      messageId: Number(row.id),
+      conversationId: Number(row.conversation_id),
+      conversationTitle: String(row.conversation_title || '未命名对话'),
+      role: row.role === 'assistant' ? 'assistant' : 'user',
+      content: String(row.content || '').slice(0, 500),
+      createdAt: Number(row.created_at) || 0
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function usageByConversation(limit = 20): ConversationUsageSummary[] {
+  try {
+    const rows = db()
+      ?.prepare(
+        `SELECT m.conversation_id, c.title AS conversation_title, m.usage_json
+         FROM messages m JOIN conversations c ON c.id = m.conversation_id
+         WHERE m.usage_json IS NOT NULL AND m.usage_json != 'null'
+         ORDER BY m.created_at DESC LIMIT 5000`
+      )
+      .all() as unknown as Array<{
+      conversation_id: number;
+      conversation_title: string;
+      usage_json: string;
+    }>;
+    const map = new Map<number, ConversationUsageSummary>();
+    for (const row of rows || []) {
+      const usage = parseUsage(row.usage_json);
+      if (!usage) continue;
+      const id = Number(row.conversation_id);
+      const current = map.get(id) || {
+        conversationId: id,
+        title: String(row.conversation_title || '未命名对话'),
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0
+      };
+      current.requests += 1;
+      current.inputTokens += usage.inputTokens;
+      current.outputTokens += usage.outputTokens;
+      current.cacheReadTokens += usage.cacheReadTokens || 0;
+      map.set(id, current);
+    }
+    return [...map.values()]
+      .sort((a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens))
+      .slice(0, Math.max(1, Math.min(200, Math.round(limit))));
+  } catch {
+    return [];
   }
 }
 

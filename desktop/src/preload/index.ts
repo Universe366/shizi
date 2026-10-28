@@ -74,7 +74,11 @@ import type {
   UsageEvent,
   UsageSummary,
   TtsSettings,
+  ChatCompressionSummary,
   ChatConversation,
+  ChatMessageSearchHit,
+  ConversationUsageSummary,
+  FavoriteChatMessage,
   StoredChatMessage,
   McpResource,
   McpPrompt,
@@ -785,6 +789,24 @@ const api: BsubApi = {
     ipcRenderer.invoke('chat:history-export', id) as Promise<
       Result<{ canceled: boolean; path?: string }>
     >,
+  chatMessageFavorite: (messageId: number, favorite: boolean) =>
+    ipcRenderer.invoke('chat:message-favorite', { messageId, favorite }) as Promise<
+      Result<boolean>
+    >,
+  chatFavorites: (limit?: number) =>
+    ipcRenderer.invoke('chat:favorites', limit) as Promise<Result<FavoriteChatMessage[]>>,
+  chatMessageSearch: (query: string, limit?: number) =>
+    ipcRenderer.invoke('chat:message-search', { query, limit }) as Promise<
+      Result<ChatMessageSearchHit[]>
+    >,
+  chatUsageSummary: () =>
+    ipcRenderer.invoke('chat:usage-summary') as Promise<Result<ConversationUsageSummary[]>>,
+  chatCompressionSummary: (conversationId: number) =>
+    ipcRenderer.invoke('chat:compression-summary', conversationId) as Promise<
+      Result<ChatCompressionSummary | null>
+    >,
+  clearChatCompression: (conversationId: number) =>
+    ipcRenderer.invoke('chat:compression-clear', conversationId) as Promise<Result<boolean>>,
 
   transcribe: (requestId: string) =>
     ipcRenderer.invoke('asr:transcribe', { requestId }) as Promise<Result<{ requestId: string }>>,

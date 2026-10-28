@@ -4,6 +4,7 @@ import type {
   AiTask,
   AppSettings,
   ModelPrice,
+  ConversationUsageSummary,
   UsageEvent,
   UsageSummary
 } from '../../../../shared/types';
@@ -168,6 +169,9 @@ export function UsageSection({ value, onChange }: Props) {
   const [metric, setMetric] = useState<UsageMetric>('tokens');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [conversationUsage, setConversationUsage] = useState<ConversationUsageSummary[]>(
+    []
+  );
 
   const load = useCallback(async (range: number, day: string) => {
     setLoading(true);
@@ -188,6 +192,12 @@ export function UsageSection({ value, onChange }: Props) {
   useEffect(() => {
     void load(days, selectedDay);
   }, [days, selectedDay, load]);
+
+  useEffect(() => {
+    void window.bsub.chatUsageSummary?.().then((response) => {
+      if (response?.ok) setConversationUsage(response.data);
+    });
+  }, []);
 
   const pickRange = (range: number) => {
     setSelectedDay('');
@@ -604,6 +614,37 @@ export function UsageSection({ value, onChange }: Props) {
                   </table>
                 </>
               )}
+            </details>
+          )}
+
+          {conversationUsage.length > 0 && (
+            <details className="settings-details">
+              <summary>按对话</summary>
+              <div className="settings-hint">
+                来自对话消息里记录的实际用量；只统计服务端返回 usage 的回答。
+              </div>
+              <table className="usage-table">
+                <thead>
+                  <tr>
+                    <th>对话</th>
+                    <th>请求</th>
+                    <th>tokens</th>
+                    <th>缓存</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conversationUsage.slice(0, 20).map((row) => (
+                    <tr key={row.conversationId}>
+                      <td className="usage-model" title={row.title}>
+                        {row.title}
+                      </td>
+                      <td>{row.requests}</td>
+                      <td>{formatTokens(row.inputTokens + row.outputTokens)}</td>
+                      <td>{formatTokens(row.cacheReadTokens)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </details>
           )}
 

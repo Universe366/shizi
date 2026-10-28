@@ -12,6 +12,10 @@ vi.mock('electron', () => ({
 import {
   appendMessage,
   branchConversation,
+  listFavoriteMessages,
+  searchMessages,
+  setMessageFavorite,
+  usageByConversation,
   closeChatStore,
   conversationMarkdown,
   createConversation,
@@ -48,6 +52,23 @@ describe('对话持久化', () => {
     });
     const [row] = listMessages(conversation.id);
     expect(row.usage).toEqual({ inputTokens: 1200, outputTokens: 340, cacheReadTokens: 200 });
+  });
+
+  it('收藏、跨对话搜索与按对话汇总用量', () => {
+    const conversation = createConversation({ title: '可搜索对话', videoKey: 'BV-search' });
+    const user = appendMessage(conversation.id, { role: 'user', content: '如何学习 Python' });
+    const answer = appendMessage(conversation.id, {
+      role: 'assistant',
+      content: '从基础语法开始，再写小项目。',
+      usage: { inputTokens: 300, outputTokens: 120, cacheReadTokens: 50 }
+    });
+    expect(setMessageFavorite(answer.id, true)).toBe(true);
+    expect(listFavoriteMessages(10).some((row) => row.id === answer.id)).toBe(true);
+    expect(searchMessages('Python', 10).some((row) => row.messageId === user.id)).toBe(true);
+    const usage = usageByConversation(10).find(
+      (row) => row.conversationId === conversation.id
+    );
+    expect(usage).toMatchObject({ requests: 1, inputTokens: 300, outputTokens: 120 });
   });
 
   it('创建会话、追加消息并按视频取最新', () => {

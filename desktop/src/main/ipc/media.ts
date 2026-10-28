@@ -20,6 +20,7 @@ import { batchUrls, parseVideoUrls } from '../urlbatch';
 import { summarize } from '../ai';
 import { readPageContext } from '../pageContext';
 import { chat } from '../chat';
+import { clearCompressionCache, getCompressionSummary } from '../chatCompression';
 import { loadSettings } from '../settings';
 import { setTrackUrl } from '../library/savedTracks';
 import { getPageInfo } from '../page';
@@ -43,6 +44,7 @@ import type {
   ChatDeltaEvent,
   ChatDoneEvent,
   ChatErrorEvent,
+  ChatCompressionSummary,
   ChatRequest,
   ChatStatusEvent,
   ChatToolEvent,
@@ -394,6 +396,19 @@ function settleRequestApprovals(requestId: string, allow = false): void {
 }
 
 export function registerMediaIpc(ctx: IpcContext): void {
+  ipcMain.handle(
+    'chat:compression-summary',
+    (_event, conversationId: unknown): { ok: true; data: ChatCompressionSummary | null } => ({
+      ok: true,
+      data: getCompressionSummary(Number(conversationId) || 0)
+    })
+  );
+
+  ipcMain.handle('chat:compression-clear', (_event, conversationId: unknown) => {
+    clearCompressionCache(Number(conversationId) || 0);
+    return { ok: true as const, data: true };
+  });
+
   ipcMain.handle(
     'chat:approve',
     (

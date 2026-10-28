@@ -778,7 +778,36 @@ export interface StoredChatMessage {
   compare?: ChatCompareResult[];
   /** 该条回答的实际 token 用量（服务端返回时才有） */
   usage?: AiUsage;
+  /** 是否收藏 */
+  favorite?: boolean;
   createdAt: number;
+}
+
+export interface FavoriteChatMessage extends StoredChatMessage {
+  conversationTitle: string;
+}
+
+export interface ChatMessageSearchHit {
+  messageId: number;
+  conversationId: number;
+  conversationTitle: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: number;
+}
+
+export interface ChatCompressionSummary {
+  summary: string;
+  covered: number;
+}
+
+export interface ConversationUsageSummary {
+  conversationId: number;
+  title: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
 }
 
 export type TtsEngine = 'edge' | 'sapi' | 'openai';
@@ -1528,6 +1557,9 @@ export interface ChatMessage {
   compare?: ChatCompareResult[];
   /** 该条回答的实际 token 用量（服务端返回时才有） */
   usage?: AiUsage;
+  /** 消息 id（从历史加载或写入后才有，用于收藏） */
+  id?: number;
+  favorite?: boolean;
 }
 
 export interface ChatRequest {
