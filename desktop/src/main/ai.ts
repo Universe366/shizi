@@ -522,7 +522,10 @@ async function summarizeInChunks(options: {
 }
 
 /** 实验：把原总结提示词/格式规则交给对话式联网，尽量保留总结格式。 */
-export function buildSummaryChatPrompt(info: PageInfo): { system: string; user: string } {
+export async function buildSummaryChatPrompt(
+  info: PageInfo,
+  options?: { signal?: AbortSignal; onStatus?: (status: string) => void }
+): Promise<{ system: string; user: string }> {
   const settings = loadSettings();
   const template = activePrompt(settings);
   const glossary = glossaryTerms(settings);
@@ -533,6 +536,33 @@ export function buildSummaryChatPrompt(info: PageInfo): { system: string; user: 
         .join('\n')}`
     : '';
   const system = [template.text, glossaryBlock, '', SUMMARY_FORMAT_RULES].filter(Boolean).join('\n');
+
+  let commentsBlock = '';
+  if (settings.search.useComments && info.aid) {
+    options?.onStatus?.('正在获取热门评论…');
+    try {
+      const comments = await fetchHotComments(
+        info,
+        Math.max(1, Math.min(30, Number(settings.search.hotCommentCount) || 12))
+      );
+      if (options?.signal?.aborted) throw new Error('已终止');
+      if (comments.length) {
+        commentsBlock = [
+          '',
+          '热门评论（仅作观众观点参考，不代表事实；不要逐条复述）：',
+          ...comments.map(
+            (comment, index) =>
+              `${index + 1}. [${comment.like} 赞] ${comment.author}：${comment.content.slice(0, 180)}`
+          )
+        ].join('\n');
+        options?.onStatus?.(`已获取 ${comments.length} 条热门评论`);
+      }
+    } catch (error) {
+      if (options?.signal?.aborted) throw error;
+      options?.onStatus?.(`评论获取失败：${(error as Error).message}（继续总结）`);
+    }
+  }
+
   const meta = [
     `视频标题：${info.title || '未知'}`,
     `UP 主：${info.owner || '未知'}`,
@@ -541,6 +571,7 @@ export function buildSummaryChatPrompt(info: PageInfo): { system: string; user: 
     ...(settings.search.useVideoMeta !== false && info.desc
       ? [`视频简介：${info.desc.slice(0, 2000)}`]
       : []),
+    ...(commentsBlock ? [commentsBlock] : []),
     ...(officialSegmentsBlock(info) ? [officialSegmentsBlock(info)] : [])
   ].join('\n');
   const user = [

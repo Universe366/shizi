@@ -1,4 +1,6 @@
 import React from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import type { WebReference } from '../../../shared/types';
 
 interface InlineOptions {
@@ -8,7 +10,8 @@ interface InlineOptions {
 
 function inline(text: string, keyPrefix: string, options: InlineOptions = {}): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\d{1,2}\])/g;
+  const pattern =
+    /(\$\$[^$]+\$\$|\$[^$\n]+\$|\\\([^)]+\\\)|\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\d{1,2}\])/g;
   let last = 0;
   let index = 0;
   let match: RegExpExecArray | null;
@@ -17,7 +20,27 @@ function inline(text: string, keyPrefix: string, options: InlineOptions = {}): R
     if (match.index > last) nodes.push(text.slice(last, match.index));
     const token = match[0];
 
-    if (token.startsWith('**')) {
+    if (token.startsWith('$$') || token.startsWith('$') || token.startsWith('\\(')) {
+      const display = token.startsWith('$$');
+      const expr = display
+        ? token.slice(2, -2)
+        : token.startsWith('$')
+          ? token.slice(1, -1)
+          : token.slice(2, -2);
+      nodes.push(
+        <span
+          key={`${keyPrefix}-math-${index++}`}
+          className={display ? 'math-block-inline' : 'math-inline'}
+          dangerouslySetInnerHTML={{
+            __html: katex.renderToString(expr, {
+              displayMode: display,
+              throwOnError: false,
+              strict: 'ignore'
+            })
+          }}
+        />
+      );
+    } else if (token.startsWith('**')) {
       nodes.push(<strong key={`${keyPrefix}-b-${index++}`}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith('`')) {
       nodes.push(<code key={`${keyPrefix}-c-${index++}`}>{token.slice(1, -1)}</code>);
@@ -147,6 +170,42 @@ export function Markdown({
     }
     if (!line.trim()) {
       flushList();
+      continue;
+    }
+
+    if (line.trim().startsWith('$$')) {
+      flushList();
+      let expr = line.trim().slice(2);
+      if (expr.endsWith('$$')) {
+        expr = expr.slice(0, -2);
+      } else {
+        let cursor = lineIndex + 1;
+        const parts = [expr];
+        while (cursor < lines.length) {
+          const current = lines[cursor].trim();
+          if (current.endsWith('$$')) {
+            parts.push(current.slice(0, -2));
+            lineIndex = cursor;
+            break;
+          }
+          parts.push(lines[cursor]);
+          cursor += 1;
+        }
+        expr = parts.join('\n');
+      }
+      blocks.push(
+        <div
+          className="math-block"
+          key={`math-${key++}`}
+          dangerouslySetInnerHTML={{
+            __html: katex.renderToString(expr, {
+              displayMode: true,
+              throwOnError: false,
+              strict: 'ignore'
+            })
+          }}
+        />
+      );
       continue;
     }
 

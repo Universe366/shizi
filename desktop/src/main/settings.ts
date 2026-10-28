@@ -420,6 +420,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     alwaysSearchOnChat: false,
     useVideoMeta: true,
     useComments: true,
+    hotCommentCount: 12,
     aiQueryGeneration: true,
     extraVerifyQueries: '',
     fetchPages: false,
@@ -1508,6 +1509,10 @@ function normalize(input: unknown): AppSettings {
       base.search.useVideoMeta = raw.search.useVideoMeta !== false;
       base.search.useComments =
         raw.search.useComments === undefined ? true : raw.search.useComments === true;
+      base.search.hotCommentCount = Math.max(
+        1,
+        Math.min(30, Number(raw.search.hotCommentCount) || 12)
+      );
       base.search.aiQueryGeneration = raw.search.aiQueryGeneration !== false;
       if (typeof raw.search.extraVerifyQueries === 'string') {
         base.search.extraVerifyQueries = raw.search.extraVerifyQueries.slice(0, 4000);

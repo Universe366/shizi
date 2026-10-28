@@ -508,6 +508,34 @@ export function SearchSection({
           />
           视频简介（标题、UP 主、简介）
         </label>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={search.useComments === true}
+            onChange={(event) => updateSearch({ useComments: event.target.checked })}
+          />
+          热门评论（仅作观众观点参考）
+        </label>
+        {search.useComments === true && (
+          <div className="settings-field">
+            <div className="settings-label">热门评论条数（1–30）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={30}
+              value={search.hotCommentCount || 12}
+              onChange={(event) =>
+                updateSearch({
+                  hotCommentCount: Math.min(
+                    30,
+                    Math.max(1, Number(event.target.value) || 12)
+                  )
+                })
+              }
+            />
+          </div>
+        )}
       </details>
 
       <details className="settings-advanced">

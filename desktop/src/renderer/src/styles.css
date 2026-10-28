@@ -12977,7 +12977,9 @@ sup:has(> .cite-ref) {
 }
 
 .sources-card {
-  margin: 10px 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -12988,7 +12990,7 @@ sup:has(> .cite-ref) {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   cursor: pointer;
   list-style: none;
   color: var(--muted);
@@ -12998,6 +13000,19 @@ sup:has(> .cite-ref) {
 
 .sources-head::-webkit-details-marker {
   display: none;
+}
+
+.math-block {
+  overflow-x: auto;
+  margin: 10px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.math-inline {
+  overflow-x: auto;
+  vertical-align: middle;
 }
 
 .sources-list {
@@ -13013,10 +13028,10 @@ sup:has(> .cite-ref) {
 .sources-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
   text-align: left;
 }
 
@@ -13147,6 +13162,9 @@ sup:has(> .cite-ref) {
 }
 
 .summary-elapsed-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
   margin: 2px 0 6px;
   color: var(--faint);
   font-size: var(--fs-xs);

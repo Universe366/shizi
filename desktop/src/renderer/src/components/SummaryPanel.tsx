@@ -741,21 +741,20 @@ export function SummaryPanel({
         </>
       )}
 
-      {!streaming && totalMs > 0 && (
+      {!streaming && summary && (
         <div className="summary-elapsed-line">
-          本次耗时 {formatDuration(Math.round(totalMs / 1000))}
-          {experimentalChatWeb ? '（含联网）' : '（仅字幕）'}
+          {totalMs > 0
+            ? `本次耗时 ${formatDuration(Math.round(totalMs / 1000))}${
+                experimentalChatWeb ? '（含联网）' : '（仅字幕）'
+              }`
+            : ''}
+          {totalMs > 0 ? ' · ' : ''}
+          共 {summary.replace(/\s+/g, '').length.toLocaleString('zh-CN')} 字
           {usage
             ? ` · 生成 ${formatTokens(usage.inputTokens)} in / ${formatTokens(
                 usage.outputTokens
               )} out`
             : ''}
-        </div>
-      )}
-
-      {!streaming && summary && (
-        <div className="summary-elapsed-line">
-          共 {summary.replace(/\s+/g, '').length.toLocaleString('zh-CN')} 字
         </div>
       )}
 

@@ -20,7 +20,10 @@ export interface SummarizeChatResult {
 
 /** 字幕总结的唯一联网流程：原总结提示词 + 对话式联网工具循环。 */
 export async function summarizeChat(options: SummarizeChatOptions): Promise<SummarizeChatResult> {
-  const prompt = buildSummaryChatPrompt(options.info);
+  const prompt = await buildSummaryChatPrompt(options.info, {
+    signal: options.signal,
+    onStatus: options.onStatus
+  });
   const result = await chat({
     info: options.info,
     lines: options.lines,
