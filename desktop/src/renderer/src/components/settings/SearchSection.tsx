@@ -564,6 +564,48 @@ export function SearchSection({
           />
           热门评论（仅作观众观点参考）
         </label>
+        <div className="settings-inline">
+          <div className="settings-field">
+            <div className="settings-label">总结读取正文篇数</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={4}
+              value={search.summaryReadPages || 2}
+              onChange={(event) =>
+                updateSearch({
+                  summaryReadPages: Math.min(
+                    4,
+                    Math.max(1, Number(event.target.value) || 2)
+                  )
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">参考资料字符预算</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={2000}
+              max={20000}
+              step={1000}
+              value={search.summaryReferenceChars || 6000}
+              onChange={(event) =>
+                updateSearch({
+                  summaryReferenceChars: Math.min(
+                    20000,
+                    Math.max(2000, Number(event.target.value) || 6000)
+                  )
+                })
+              }
+            />
+          </div>
+        </div>
+        <div className="settings-hint">
+          只影响视频 / 字幕总结；读取篇数越多、预算越大，总结越慢也越费 token。
+        </div>
       </details>
 
       <details className="settings-advanced">

@@ -53,6 +53,21 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
+  it('总结联网读取篇数与预算可配置', () => {
+    const settings = loadSettings();
+    expect(settings.search.summaryReadPages).toBe(2);
+    expect(settings.search.summaryReferenceChars).toBe(6000);
+    settings.search.summaryReadPages = 4;
+    settings.search.summaryReferenceChars = 12000;
+    saveSettings(settings);
+    const reloaded = loadSettings();
+    expect(reloaded.search.summaryReadPages).toBe(4);
+    expect(reloaded.search.summaryReferenceChars).toBe(12000);
+    settings.search.summaryReadPages = 2;
+    settings.search.summaryReferenceChars = 6000;
+    saveSettings(settings);
+  });
+
   it('联网默认使用 Exa MCP 搜索与 Jina 读取', () => {
     const settings = loadSettings();
     expect(settings.search.activeId).toBe('exa');

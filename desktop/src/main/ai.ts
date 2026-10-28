@@ -624,15 +624,19 @@ export async function summarize(options: SummarizeOptions): Promise<{ text: stri
           purpose: 'summary',
           queries: plan.map((item) => item.query),
           maxResults: Math.max(1, Math.min(20, settings.search.maxResults || 8)),
+          read: Math.max(1, Math.min(4, settings.search.summaryReadPages || 2)),
           signal: options.signal
         });
         const references = result.evidence;
         if (references.length) {
-          let budget = 6000;
+          let budget = Math.max(2000, Math.min(20000, settings.search.summaryReferenceChars || 6000));
           const rows: string[] = [];
           references.forEach((ref, index) => {
             if (budget <= 0) return;
-            const snippet = (ref.summary || ref.snippet || '').slice(0, Math.min(900, budget));
+            const snippet = (ref.summary || ref.snippet || '').slice(
+              0,
+              Math.min(1500, budget)
+            );
             budget -= snippet.length;
             const meta = [ref.site, ref.date ? String(ref.date).slice(0, 10) : ''].filter(Boolean).join(' · ');
             rows.push(`[${index + 1}] ${ref.title}${meta ? `（${meta}）` : ''}\n${ref.url}\n${snippet}`);

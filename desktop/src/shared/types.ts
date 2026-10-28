@@ -991,6 +991,10 @@ export interface SearchSettings {
   blacklist: string[];
   /** 对话联网的检索计划条数（1-4，默认 3） */
   planQueries: number;
+  /** 总结时读取几篇正文（1-4，默认 2） */
+  summaryReadPages?: number;
+  /** 总结参考资料总字符预算（2000-20000，默认 6000） */
+  summaryReferenceChars?: number;
 }
 
 export type AsrTransport = 'auto' | 'multipart' | 'base64-json' | 'chat-audio';
