@@ -1400,7 +1400,7 @@ function normalize(input: unknown): AppSettings {
 
       const maxResults = Number(raw.search.maxResults);
       if (Number.isFinite(maxResults)) {
-        base.search.maxResults = Math.min(10, Math.max(1, Math.round(maxResults)));
+        base.search.maxResults = Math.min(100, Math.max(1, Math.round(maxResults)));
       }
       base.search.includeContent = raw.search.includeContent !== false;
       const ranges = ['any', 'year', 'month', 'week'];
@@ -1449,7 +1449,7 @@ function normalize(input: unknown): AppSettings {
         base.search.blacklist = raw.search.blacklist
           .map((item) => String(item || '').trim())
           .filter(Boolean)
-          .slice(0, 100);
+          .slice(0, 5000);
       }
     }
 

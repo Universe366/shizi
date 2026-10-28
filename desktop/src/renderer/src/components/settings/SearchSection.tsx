@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import type { AppSettings, SearchPlatform, SearchTimeRange, WebReference } from '../../../../shared/types';
+import { parseUblacklist } from '../../../../shared/searchBlacklist';
 import { SearchDiagnostics } from './SearchDiagnostics';
 import { SettingsSection } from './SettingsSection';
 
@@ -55,6 +56,8 @@ export function SearchSection({
   const [fetchTestUrl, setFetchTestUrl] = useState('https://example.com');
   const [fetchTesting, setFetchTesting] = useState(false);
   const [fetchResult, setFetchResult] = useState<string>('');
+  const [blacklistNotice, setBlacklistNotice] = useState('');
+  const blacklistInputRef = useRef<HTMLInputElement>(null);
   const activeAi = draft.ai.platforms.find((item) => item.id === draft.ai.activeId);
   const builtinSupported =
     activeAi?.kind === 'gemini' ||
@@ -520,7 +523,7 @@ export function SearchSection({
               className="settings-input"
               type="number"
               min={1}
-              max={20}
+              max={100}
               value={search.maxResults}
               onChange={(event) => updateSearch({ maxResults: Number(event.target.value) || 5 })}
             />
@@ -637,7 +640,39 @@ export function SearchSection({
             onChange={(event) => updateSearch({ cacheMinutes: Number(event.target.value) || 0 })}
           />
         </div>
-        <div className="settings-label">域名黑名单（每行一条，支持 * 与 /正则/）</div>
+        <div className="settings-inline">
+          <div className="settings-label">域名黑名单（每行一条，支持 * 与 /正则/）</div>
+          <button
+            className="mini-btn"
+            onClick={() => blacklistInputRef.current?.click()}
+            title="导入 ublacklist 导出的 txt / JSON"
+          >
+            导入 ublacklist
+          </button>
+        </div>
+        <input
+          ref={blacklistInputRef}
+          type="file"
+          accept=".txt,.json,text/plain,application/json"
+          style={{ display: 'none' }}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+            try {
+              const rules = parseUblacklist(await file.text());
+              const merged = [
+                ...new Set([...(search.blacklist || []), ...rules])
+              ].slice(0, 5000);
+              updateSearch({ blacklist: merged });
+              setBlacklistNotice(
+                `已导入 ${rules.length} 条规则，当前共 ${merged.length} 条`
+              );
+            } catch (error) {
+              setBlacklistNotice(`导入失败：${(error as Error).message}`);
+            }
+          }}
+        />
         <textarea
           className="settings-textarea"
           rows={3}
@@ -650,10 +685,14 @@ export function SearchSection({
                 .split('\n')
                 .map((line) => line.trim())
                 .filter(Boolean)
-                .slice(0, 100)
+                .slice(0, 5000)
             })
           }
         />
+        {blacklistNotice && <div className="settings-hint">{blacklistNotice}</div>}
+        <div className="settings-hint">
+          支持 ublacklist 的纯文本导出（一行一条）或 JSON（rules 数组）；导入会与现有规则合并去重。
+        </div>
         <label className="settings-check">
           <input
             type="checkbox"

@@ -280,7 +280,7 @@ export async function searchWebPlan(
   const platform = activePlatform(settings);
   if (!platform) return empty;
 
-  const max = Math.max(1, Math.min(20, options.maxResults || settings.search.maxResults || 6));
+  const max = Math.max(1, Math.min(100, options.maxResults || settings.search.maxResults || 6));
   const settled = await Promise.allSettled(
     plan.map((item) =>
       withSearchSignal(options.signal, () => searchOnce(settings, platform, item.query, max))
