@@ -873,6 +873,15 @@ export function SettingsPanel({
     });
   };
 
+  /** 本地模型页把内置向量模型设为知识库 embedding（离线、无需平台）。 */
+  const useBuiltinEmbedding = () => {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      knowledge: { ...draft.knowledge, enabled: true, provider: 'local' }
+    });
+  };
+
   /** 本地模型页把本机服务设为知识库 embedding：已有同地址平台就复用，否则补一个。 */
   const useLocalEmbedding = (baseUrl: string, model: string) => {
     if (!draft) return;
@@ -1481,6 +1490,7 @@ export function SettingsPanel({
           activeAsr={activeAsr}
           updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
           onUseLocalEmbedding={useLocalEmbedding}
+          onUseBuiltinEmbedding={useBuiltinEmbedding}
         />
       )}
 

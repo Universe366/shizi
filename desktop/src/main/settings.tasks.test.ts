@@ -339,14 +339,25 @@ describe('任务槽位 / 用量设置', () => {
 
   it('知识库设置保存', () => {
     const settings = loadSettings();
-    settings.knowledge = { enabled: true, platformId: 'deepseek', model: 'bge-m3' };
+    settings.knowledge = {
+      enabled: true,
+      provider: 'platform',
+      platformId: 'deepseek',
+      model: 'bge-m3'
+    };
     saveSettings(settings);
     expect(loadSettings().knowledge).toEqual({
       enabled: true,
+      provider: 'platform',
       platformId: 'deepseek',
       model: 'bge-m3'
     });
-    settings.knowledge = { enabled: false, platformId: '', model: 'text-embedding-3-small' };
+    settings.knowledge = {
+      enabled: false,
+      provider: 'platform',
+      platformId: '',
+      model: 'text-embedding-3-small'
+    };
     saveSettings(settings);
   });
 

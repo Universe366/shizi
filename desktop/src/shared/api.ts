@@ -97,6 +97,7 @@ import type {
   PageContextSummary,
   UsageEvent,
   UsageSummary,
+  LocalEmbeddingStatus,
   LocalEmbeddingTestResult,
   OllamaPullProgress,
   TtsSettings,
@@ -627,6 +628,15 @@ export interface BsubApi {
   }): Promise<Result<{ model: string }>>;
   cancelOllamaPull?(model: string): void;
   onOllamaPullProgress?(cb: (event: OllamaPullProgress) => void): () => void;
+  /** 内置本地向量模型（bge-small-zh-v1.5） */
+  localEmbeddingStatus?(): Promise<Result<LocalEmbeddingStatus>>;
+  downloadLocalEmbedding?(): Promise<Result<LocalEmbeddingStatus>>;
+  cancelLocalEmbeddingDownload?(): void;
+  removeLocalEmbedding?(): Promise<
+    Result<{ removed: boolean; status: LocalEmbeddingStatus }>
+  >;
+  testLocalEmbeddingBuiltin?(): Promise<Result<{ dimensions: number; latencyMs: number }>>;
+  onLocalEmbeddingProgress?(cb: (event: AsrDownloadProgress) => void): () => void;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
   pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
   /** 智能断句：只合并/拆分，不改写字幕文字 */

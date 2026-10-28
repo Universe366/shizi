@@ -17,6 +17,7 @@ import type {
   AsrPlatform,
   KbProgress,
   KbStatus,
+  LocalEmbeddingStatus,
   OllamaPullProgress
 } from '../../../../shared/types';
 import { OLLAMA_EMBEDDING_CATALOG } from '../../../../shared/localModels';
@@ -32,6 +33,8 @@ interface Props {
   updateAsrPlatform: (patch: Partial<AsrPlatform>) => void;
   /** 把本机 OpenAI 兼容服务设为知识库的 embedding 平台（必要时新建平台）。 */
   onUseLocalEmbedding: (baseUrl: string, model: string) => void;
+  /** 把内置本地向量模型设为知识库 embedding。 */
+  onUseBuiltinEmbedding: () => void;
 }
 
 function formatSize(bytes: number): string {
@@ -49,7 +52,8 @@ export function LocalModelsSection({
   draft,
   activeAsr,
   updateAsrPlatform,
-  onUseLocalEmbedding
+  onUseLocalEmbedding,
+  onUseBuiltinEmbedding
 }: Props) {
   const kbPlatform = draft.ai.platforms.find(
     (platform) => platform.id === (draft.knowledge.platformId || draft.ai.activeId)
@@ -78,6 +82,10 @@ export function LocalModelsSection({
   const [kbStatus, setKbStatus] = useState<KbStatus | null>(null);
   const [kbProgress, setKbProgress] = useState<KbProgress | null>(null);
   const [buildingIndex, setBuildingIndex] = useState(false);
+  const [builtinStatus, setBuiltinStatus] = useState<LocalEmbeddingStatus | null>(null);
+  const [builtinProgress, setBuiltinProgress] = useState<AsrDownloadProgress | null>(null);
+  const [builtinBusy, setBuiltinBusy] = useState(false);
+  const [builtinTest, setBuiltinTest] = useState('');
 
   const refresh = useCallback(() => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -92,6 +100,22 @@ export function LocalModelsSection({
       if (event.percent >= 100) refresh();
     });
   }, [refresh]);
+
+  const refreshBuiltin = useCallback(async () => {
+    const response = await window.bsub.localEmbeddingStatus?.();
+    if (response?.ok) setBuiltinStatus(response.data);
+  }, []);
+
+  useEffect(() => {
+    void refreshBuiltin();
+    return window.bsub.onLocalEmbeddingProgress?.((event) => {
+      setBuiltinProgress(event);
+      if (event.percent >= 100) {
+        setBuiltinBusy(false);
+        void refreshBuiltin();
+      }
+    });
+  }, [refreshBuiltin]);
 
   const refreshKb = useCallback(async () => {
     const response = await window.bsub.kbStatus?.();
@@ -290,6 +314,71 @@ export function LocalModelsSection({
     } finally {
       setPulling(false);
     }
+  };
+
+  const downloadBuiltin = async () => {
+    setBuiltinBusy(true);
+    setProbeError('');
+    setBuiltinTest('');
+    setBuiltinProgress({ key: 'builtin', percent: 0, received: 0, total: 0, message: '准备下载…' });
+    try {
+      const response = await window.bsub.downloadLocalEmbedding?.();
+      if (!response) {
+        setProbeError('当前版本不支持内置向量模型');
+        setBuiltinProgress(null);
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`下载失败：${response.error}`);
+        setBuiltinProgress(null);
+        return;
+      }
+      setBuiltinStatus(response.data);
+      setBuiltinProgress(null);
+      setNotice('内置向量模型已下载');
+    } catch (error) {
+      setProbeError(`下载失败：${(error as Error).message}`);
+      setBuiltinProgress(null);
+    } finally {
+      setBuiltinBusy(false);
+    }
+  };
+
+  const removeBuiltin = async () => {
+    const response = await window.bsub.removeLocalEmbedding?.();
+    if (!response) return;
+    if (!response.ok) {
+      setProbeError(`删除失败：${response.error}`);
+      return;
+    }
+    setBuiltinStatus(response.data.status);
+    setBuiltinTest('');
+    setNotice(response.data.removed ? '已删除内置向量模型' : '没有可删除的模型');
+  };
+
+  const testBuiltin = async () => {
+    setBuiltinBusy(true);
+    setBuiltinTest('');
+    setProbeError('');
+    try {
+      const response = await window.bsub.testLocalEmbeddingBuiltin?.();
+      if (!response) {
+        setProbeError('当前版本不支持测试内置向量模型');
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`测试失败：${response.error}`);
+        return;
+      }
+      setBuiltinTest(`可用 · ${response.data.dimensions} 维 · ${response.data.latencyMs}ms`);
+    } finally {
+      setBuiltinBusy(false);
+    }
+  };
+
+  const useBuiltin = () => {
+    onUseBuiltinEmbedding();
+    setNotice('已设为知识库 embedding：内置 bge-small-zh-v1.5（先保存设置，再构建索引）');
   };
 
   const useEmbedding = () => {
@@ -577,6 +666,92 @@ export function LocalModelsSection({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <div className="settings-group-title">
+          <Cpu size={12} /> 内置向量模型（离线）
+        </div>
+        <div className="settings-group-sub">
+          bge-small-zh-v1.5 · 512 维 · 约 24MB；由 onnxruntime 在本机推理，不联网、不需要 Key。
+        </div>
+        <div className="local-model-row">
+          <div className="local-model-main">
+            <div className="local-model-name">
+              内置向量模型
+              {draft.knowledge.provider === 'local' && (
+                <span className="local-model-badge is-ready">使用中</span>
+              )}
+              {builtinStatus?.installed ? (
+                <span className="local-model-badge is-ready">已就绪</span>
+              ) : (
+                <span className="local-model-badge">未下载</span>
+              )}
+            </div>
+            <div className="local-model-meta">
+              {builtinStatus
+                ? `${formatSize(builtinStatus.bytes)} · ${builtinStatus.dimensions} 维`
+                : '读取中…'}
+            </div>
+          </div>
+          <div className="local-model-actions">
+            {builtinStatus?.installed ? (
+              <>
+                <button
+                  className="mini-btn"
+                  disabled={builtinBusy}
+                  onClick={() => void testBuiltin()}
+                >
+                  {builtinBusy ? <Loader2 size={12} className="spin" /> : null} 测试
+                </button>
+                <button
+                  className="mini-btn"
+                  disabled={draft.knowledge.provider === 'local'}
+                  onClick={useBuiltin}
+                >
+                  {draft.knowledge.provider === 'local' ? '当前' : '使用'}
+                </button>
+                <button
+                  className="mini-btn"
+                  disabled={draft.knowledge.provider === 'local'}
+                  title={
+                    draft.knowledge.provider === 'local' ? '先切换知识库向量来源' : '删除模型'
+                  }
+                  onClick={() => void removeBuiltin()}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </>
+            ) : (
+              <button
+                className="mini-btn primary"
+                disabled={builtinBusy}
+                onClick={() => void downloadBuiltin()}
+              >
+                <Download size={12} /> {builtinBusy ? '下载中' : '下载'}
+              </button>
+            )}
+          </div>
+        </div>
+        {builtinProgress && builtinProgress.percent < 100 && (
+          <div className="local-model-progress">
+            <span className="settings-hint">
+              {builtinProgress.message} · {builtinProgress.percent}%
+            </span>
+            {builtinBusy && (
+              <button
+                className="mini-btn"
+                onClick={() => window.bsub.cancelLocalEmbeddingDownload?.()}
+              >
+                取消
+              </button>
+            )}
+          </div>
+        )}
+        {builtinTest && <div className="settings-hint">{builtinTest}</div>}
+        <div className="settings-hint">
+          下载后点「使用」，保存设置，再在下方「知识库索引」点构建；从 AI 平台切到本地需要重建索引。
         </div>
       </div>
 

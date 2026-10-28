@@ -23,6 +23,7 @@ import type {
   AsrProgressEvent,
   AsrDownloadProgress,
   AsrLocalStatus,
+  LocalEmbeddingStatus,
   LocalEmbeddingTestResult,
   OllamaPullProgress,
   TranslateRequest,
@@ -812,6 +813,21 @@ const api: BsubApi = {
     >,
   pullOllamaEmbedding: (payload: { baseUrl: string; model: string }) =>
     ipcRenderer.invoke('local:ollama-pull', payload) as Promise<Result<{ model: string }>>,
+  localEmbeddingStatus: () =>
+    ipcRenderer.invoke('local:builtin-status') as Promise<Result<LocalEmbeddingStatus>>,
+  downloadLocalEmbedding: () =>
+    ipcRenderer.invoke('local:builtin-download') as Promise<Result<LocalEmbeddingStatus>>,
+  cancelLocalEmbeddingDownload: () => ipcRenderer.send('local:builtin-cancel'),
+  removeLocalEmbedding: () =>
+    ipcRenderer.invoke('local:builtin-remove') as Promise<
+      Result<{ removed: boolean; status: LocalEmbeddingStatus }>
+    >,
+  testLocalEmbeddingBuiltin: () =>
+    ipcRenderer.invoke('local:builtin-test') as Promise<
+      Result<{ dimensions: number; latencyMs: number }>
+    >,
+  onLocalEmbeddingProgress: (cb: (event: AsrDownloadProgress) => void) =>
+    on<AsrDownloadProgress>('local:builtin-progress', cb),
   cancelOllamaPull: (model: string) => ipcRenderer.send('local:pull-cancel', model),
   onOllamaPullProgress: (cb: (event: OllamaPullProgress) => void) =>
     on<OllamaPullProgress>('local:pull-progress', cb),

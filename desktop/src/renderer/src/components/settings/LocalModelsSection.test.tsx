@@ -80,7 +80,8 @@ const props = () => ({
   draft,
   activeAsr: localPlatform,
   updateAsrPlatform: vi.fn(),
-  onUseLocalEmbedding: vi.fn()
+  onUseLocalEmbedding: vi.fn(),
+  onUseBuiltinEmbedding: vi.fn()
 });
 
 describe('本地模型设置', () => {
@@ -100,6 +101,19 @@ describe('本地模型设置', () => {
   const pullOllamaEmbedding = vi.fn(async () => ({
     ok: true as const,
     data: { model: 'nomic-embed-text' }
+  }));
+  const builtinStatus = {
+    id: 'bge-small-zh-v1.5',
+    label: 'BGE small zh v1.5',
+    installed: false,
+    bytes: 0,
+    dir: 'C:\\models\\embedding',
+    modelPath: 'C:\\models\\embedding\\model_quantized.onnx',
+    dimensions: 512
+  };
+  const downloadLocalEmbedding = vi.fn(async () => ({
+    ok: true as const,
+    data: { ...builtinStatus, installed: true, bytes: 24 * 1024 * 1024 }
   }));
 
   beforeEach(() => {
@@ -129,6 +143,21 @@ describe('本地模型设置', () => {
       pullOllamaEmbedding,
       cancelOllamaPull: vi.fn(),
       onOllamaPullProgress: vi.fn(() => () => {}),
+      localEmbeddingStatus: vi.fn(async () => ({
+        ok: true as const,
+        data: builtinStatus
+      })),
+      downloadLocalEmbedding,
+      cancelLocalEmbeddingDownload: vi.fn(),
+      removeLocalEmbedding: vi.fn(async () => ({
+        ok: true as const,
+        data: { removed: true, status: builtinStatus }
+      })),
+      testLocalEmbeddingBuiltin: vi.fn(async () => ({
+        ok: true as const,
+        data: { dimensions: 512, latencyMs: 30 }
+      })),
+      onLocalEmbeddingProgress: vi.fn(() => () => {}),
       kbStatus: vi.fn(async () => ({
         ok: true as const,
         data: { chunks: 0, videos: 0, model: '', ready: false }
@@ -208,6 +237,22 @@ describe('本地模型设置', () => {
       'http://127.0.0.1:11434/v1',
       'nomic-embed-text'
     );
+  });
+
+  it('内置向量模型可以下载并使用', async () => {
+    const p = props();
+    render(<LocalModelsSection {...p} />);
+    await waitFor(() => expect(screen.getByText('内置向量模型')).toBeTruthy());
+    const row = screen.getByText('内置向量模型').closest('.local-model-row') as HTMLElement;
+    fireEvent.click(row.querySelector('button') as HTMLButtonElement);
+    await waitFor(() => expect(downloadLocalEmbedding).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText(/24\.0 MB/)).toBeTruthy());
+    const nextRow = screen.getByText('内置向量模型').closest('.local-model-row') as HTMLElement;
+    const useButton = [...nextRow.querySelectorAll('button')].find((item) =>
+      item.textContent?.includes('使用')
+    ) as HTMLButtonElement;
+    fireEvent.click(useButton);
+    expect(p.onUseBuiltinEmbedding).toHaveBeenCalled();
   });
 
   it('配置好 embedding 后可以直接构建知识库索引', async () => {

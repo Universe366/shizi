@@ -1,5 +1,16 @@
 # 第三方素材许可
 
+## ONNX Runtime
+
+桌面端依赖 [onnxruntime-node](https://github.com/microsoft/onnxruntime)（MIT，Copyright (c) Microsoft Corporation）
+在本机执行向量模型推理，原生库随安装包分发。
+
+## BGE small zh v1.5
+
+「内置向量模型」在首次使用时从 Hugging Face 按需下载
+[BAAI/bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)（MIT）的 ONNX 量化权重
+（[Xenova 转换版](https://huggingface.co/Xenova/bge-small-zh-v1.5)），不随安装包分发；下载后做 SHA-256 校验。
+
 ## DeepSeek 大肥鱼桌宠形象
 
 `desktop/src/renderer/src/assets/pet/` 下的图片（`keai.png`、`go_to_agi.png`、`push.png`）来自

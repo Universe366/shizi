@@ -62,31 +62,53 @@ export function KnowledgeSection({ value, platforms, onChange }: Props) {
       </label>
       <div className="settings-inline">
         <div className="settings-field">
-          <div className="settings-label">Embedding 平台</div>
+          <div className="settings-label">向量来源</div>
           <select
             className="settings-input"
-            value={value.platformId}
-            onChange={(event) => onChange({ platformId: event.target.value })}
+            value={value.provider || 'platform'}
+            onChange={(event) =>
+              onChange({ provider: event.target.value as 'platform' | 'local' })
+            }
           >
-            <option value="">跟随当前平台</option>
-            {platforms.map((platform) => (
-              <option key={platform.id} value={platform.id}>
-                {platform.name}
-              </option>
-            ))}
+            <option value="platform">AI 平台（OpenAI 兼容）</option>
+            <option value="local">内置本地模型（离线）</option>
           </select>
         </div>
-        <div className="settings-field">
-          <div className="settings-label">Embedding 模型</div>
-          <input
-            className="settings-input"
-            value={value.model}
-            placeholder="text-embedding-3-small / BAAI/bge-m3"
-            spellCheck={false}
-            onChange={(event) => onChange({ model: event.target.value })}
-          />
-        </div>
       </div>
+      {(value.provider || 'platform') === 'local' ? (
+        <div className="settings-hint">
+          使用内置 bge-small-zh-v1.5（512 维）：模型在「AI 与语音 → 本地模型管理」下载，
+          由 onnxruntime 在本机推理，不联网、不需要 Key。切换来源后需要重建索引。
+        </div>
+      ) : (
+        <div className="settings-inline">
+          <div className="settings-field">
+            <div className="settings-label">Embedding 平台</div>
+            <select
+              className="settings-input"
+              value={value.platformId}
+              onChange={(event) => onChange({ platformId: event.target.value })}
+            >
+              <option value="">跟随当前平台</option>
+              {platforms.map((platform) => (
+                <option key={platform.id} value={platform.id}>
+                  {platform.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">Embedding 模型</div>
+            <input
+              className="settings-input"
+              value={value.model}
+              placeholder="text-embedding-3-small / BAAI/bge-m3"
+              spellCheck={false}
+              onChange={(event) => onChange({ model: event.target.value })}
+            />
+          </div>
+        </div>
+      )}
       <div className="settings-inline">
         <button className="mini-btn" disabled={!value.enabled || building} onClick={() => void refresh()}>
           <RefreshCw size={12} /> 刷新状态
@@ -102,7 +124,7 @@ export function KnowledgeSection({ value, platforms, onChange }: Props) {
         </button>
         {status && (
           <span className="settings-hint">
-            {status.chunks} 块 · {status.videos} 个视频 · {status.model}
+            {status.chunks} 块 · {status.videos} 个视频 · {status.modelLabel || status.model}
           </span>
         )}
       </div>

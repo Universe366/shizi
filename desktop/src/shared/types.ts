@@ -1354,6 +1354,8 @@ export interface AppSettings {
   };
   knowledge: {
     enabled: boolean;
+    /** platform = 走 AI 平台的 /embeddings；local = 内置本地向量模型（离线） */
+    provider: 'platform' | 'local';
     /** 空 = 使用当前 AI 平台（必须支持 OpenAI 兼容 /embeddings） */
     platformId: string;
     model: string;
@@ -1588,6 +1590,8 @@ export interface KbStatus {
   chunks: number;
   videos: number;
   model: string;
+  /** 展示用名称（本地模型比 model key 好读）。 */
+  modelLabel?: string;
   ready: boolean;
 }
 
@@ -1715,6 +1719,17 @@ export interface LocalEmbeddingTestResult {
 }
 
 /** Ollama 拉取本地 embedding 模型的流式进度。 */
+/** 内置本地向量模型（bge-small-zh-v1.5）的安装状态。 */
+export interface LocalEmbeddingStatus {
+  id: string;
+  label: string;
+  installed: boolean;
+  bytes: number;
+  dir: string;
+  modelPath: string;
+  dimensions: number;
+}
+
 export interface OllamaPullProgress {
   model: string;
   percent: number;

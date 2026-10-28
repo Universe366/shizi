@@ -276,6 +276,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   knowledge: {
     enabled: false,
+    provider: 'platform',
     platformId: '',
     model: 'text-embedding-3-small'
   },
@@ -1002,6 +1003,7 @@ function normalize(input: unknown): AppSettings {
 
     if (raw.knowledge && typeof raw.knowledge === 'object') {
       base.knowledge.enabled = raw.knowledge.enabled === true;
+      base.knowledge.provider = raw.knowledge.provider === 'local' ? 'local' : 'platform';
       base.knowledge.platformId = String(raw.knowledge.platformId || '').trim().slice(0, 60);
       base.knowledge.model =
         String(raw.knowledge.model || '').trim().slice(0, 120) ||

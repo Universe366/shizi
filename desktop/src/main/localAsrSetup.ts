@@ -7,7 +7,7 @@ import { app, session } from 'electron';
 export type LocalModelId = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo';
 export type LocalBinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
 
-interface RemoteFile {
+export interface RemoteFile {
   urls: string[];
   sha256: string;
   size: number;
@@ -199,7 +199,7 @@ function sizeOf(file: string): number {
  * 模型下载：global fetch（比 Chromium session 更适合大文件）、Range 续传、
  * 空闲超时重试、下载中持续回报速度，不会因为卡住而让进度条永远停在 0%。
  */
-async function downloadTo(
+export async function downloadTo(
   file: RemoteFile,
   target: string,
   key: string,

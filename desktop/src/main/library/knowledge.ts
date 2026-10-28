@@ -10,6 +10,12 @@ import type {
   KbStatus
 } from '../../shared/types';
 import { aiBaseUrl, aiHeaders, chatOnce, isAnthropicPlatform, isGeminiPlatform } from '../aiClient';
+import {
+  LOCAL_EMBEDDING_MODEL_KEY,
+  LOCAL_EMBEDDING_MODEL_LABEL,
+  embedTextsLocal,
+  localEmbeddingStatus
+} from '../localEmbeddingModel';
 import { activePlatform, loadSettings } from '../settings';
 import { requireDb } from './db';
 import {
@@ -37,6 +43,37 @@ interface ChunkRow {
 
 function hashOf(value: string): string {
   return createHash('sha1').update(value).digest('hex');
+}
+
+function currentEmbeddingModel(): string {
+  const settings = loadSettings();
+  return settings.knowledge.provider === 'local'
+    ? LOCAL_EMBEDDING_MODEL_KEY
+    : settings.knowledge.model;
+}
+
+interface EmbeddingMode {
+  local: boolean;
+  model: string;
+  platform: AiPlatform | null;
+}
+
+/** 本地 provider 不需要 AI 平台；平台 provider 仍走原来的 OpenAI 兼容接口。 */
+function embeddingMode(): EmbeddingMode {
+  const settings = loadSettings();
+  if (settings.knowledge.provider === 'local') {
+    if (!settings.knowledge.enabled) {
+      throw new Error('知识库未启用（设置 → AI 与语音 → 知识库）');
+    }
+    if (!localEmbeddingStatus().installed) {
+      throw new Error('内置向量模型未下载（设置 → AI 与语音 → 本地模型管理）');
+    }
+    return { local: true, model: LOCAL_EMBEDDING_MODEL_KEY, platform: null };
+  }
+  const platform = resolveEmbeddingPlatform();
+  const model = settings.knowledge.model;
+  if (!model.trim()) throw new Error('请填写 embedding 模型名');
+  return { local: false, model, platform };
 }
 
 function resolveEmbeddingPlatform(): AiPlatform {
@@ -184,17 +221,22 @@ export function kbStatus(): KbStatus {
       )?.n || 0
     );
     const settings = loadSettings();
+    const model = currentEmbeddingModel();
     const vectors = Number(
       (
-        db
-          .prepare('SELECT COUNT(*) AS n FROM kb_vectors WHERE model = ?')
-          .get(settings.knowledge.model) as { n?: number }
+        db.prepare('SELECT COUNT(*) AS n FROM kb_vectors WHERE model = ?').get(model) as {
+          n?: number;
+        }
       )?.n || 0
     );
     return {
       chunks,
       videos,
-      model: settings.knowledge.model,
+      model,
+      modelLabel:
+        settings.knowledge.provider === 'local'
+          ? `本地 · ${LOCAL_EMBEDDING_MODEL_LABEL}`
+          : model,
       ready: chunks > 0 && vectors > 0
     };
   } catch {
@@ -206,7 +248,7 @@ export function kbStatus(): KbStatus {
 export function kbDocuments(): KbDocument[] {
   try {
     const db = requireDb();
-    const model = loadSettings().knowledge.model;
+    const model = currentEmbeddingModel();
     const rows = db
       .prepare(
         `SELECT c.video_id AS videoId, v.title AS title, v.owner AS owner,
@@ -299,10 +341,8 @@ export function collectionVideoIds(collectionId: number): number[] {
 export async function indexKnowledge(
   onProgress: (progress: KbProgress) => void
 ): Promise<KbStatus> {
-  const settings = loadSettings();
-  const platform = resolveEmbeddingPlatform();
-  const model = settings.knowledge.model;
-  if (!model.trim()) throw new Error('请填写 embedding 模型名');
+  const mode = embeddingMode();
+  const model = mode.model;
   const db = requireDb();
 
   onProgress({ phase: 'collect', done: 0, total: 1, message: '正在整理字幕/总结/笔记…' });
@@ -336,11 +376,13 @@ export async function indexKnowledge(
   const batchSize = 16;
   for (let offset = 0; offset < chunks.length; offset += batchSize) {
     const batch = chunks.slice(offset, offset + batchSize);
-    const vectors = await embedTexts(
-      platform,
-      model,
-      batch.map((chunk) => chunk.text.slice(0, 4000))
-    );
+    const vectors = mode.local
+      ? await embedTextsLocal(batch.map((chunk) => chunk.text.slice(0, 4000)))
+      : await embedTexts(
+          mode.platform as AiPlatform,
+          model,
+          batch.map((chunk) => chunk.text.slice(0, 4000))
+        );
     if (vectors.length !== batch.length) {
       throw new Error(`embedding 返回数量不匹配（${vectors.length}/${batch.length}）`);
     }
@@ -376,11 +418,14 @@ export async function searchKnowledge(
   limit = 8,
   scope?: KbScope
 ): Promise<KbHit[]> {
-  const settings = loadSettings();
-  const platform = resolveEmbeddingPlatform();
-  const model = settings.knowledge.model;
+  const mode = embeddingMode();
+  const model = mode.model;
   const db = requireDb();
-  const [vector] = await embedTexts(platform, model, [String(question || '').slice(0, 2000)]);
+  const [vector] = mode.local
+    ? await embedTextsLocal([String(question || '').slice(0, 2000)])
+    : await embedTexts(mode.platform as AiPlatform, model, [
+        String(question || '').slice(0, 2000)
+      ]);
   if (!vector) return [];
   let scopeIds: number[] | null = null;
   if (scope?.videoId) scopeIds = [Number(scope.videoId)];
