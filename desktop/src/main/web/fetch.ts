@@ -11,6 +11,10 @@ export interface WebPage {
   url: string;
   title: string;
   text: string;
+  /** 实际读取方式：jina/tavily/exa/firecrawl/custom/direct */
+  via?: string;
+  /** 第三方失败后回退时记录原服务商 */
+  fallbackFrom?: string;
 }
 
 function assertPublicUrl(input: string): URL {
@@ -178,12 +182,15 @@ export async function fetchWebPage(
   if (signal?.aborted) controller.abort();
   try {
     const kind = String(provider?.kind || 'direct');
+    let fallbackFrom: string | undefined;
     if (kind !== 'direct' && provider) {
       try {
-        return await fetchViaProvider(target, provider, maxChars, controller.signal);
+        const page = await fetchViaProvider(target, provider, maxChars, controller.signal);
+        return { ...page, via: kind };
       } catch (error) {
         if (signal?.aborted) throw error;
         // 第三方读取失败（限流/Key/网络）时回退内置抓取，避免一次失败整轮问答中断。
+        fallbackFrom = kind;
       }
     }
     for (let hop = 0; hop < 4; hop += 1) {
@@ -208,7 +215,13 @@ export async function fetchWebPage(
       const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
       const title = titleMatch ? htmlToText(titleMatch[1]).slice(0, 200).trim() : '';
       const text = htmlToText(html).slice(0, Math.max(1000, Math.min(12000, maxChars)));
-      return { url: target.href, title, text };
+      return {
+        url: target.href,
+        title,
+        text,
+        via: 'direct',
+        ...(fallbackFrom ? { fallbackFrom } : {})
+      };
     }
     throw new Error('重定向次数过多');
   } finally {

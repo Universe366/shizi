@@ -39,6 +39,7 @@ describe('web_fetch', () => {
     });
     expect(page.title).toBe('Jina 页面');
     expect(page.text).toContain('正文内容');
+    expect(page.via).toBe('jina');
     expect(String(state.fetch.mock.calls[0][0])).toContain('https://r.jina.ai/https://example.com/j');
   });
 
@@ -60,6 +61,8 @@ describe('web_fetch', () => {
     });
     expect(page.title).toContain('回退标题');
     expect(page.text).toContain('回退正文');
+    expect(page.via).toBe('direct');
+    expect(page.fallbackFrom).toBe('jina');
     expect(state.fetch).toHaveBeenCalledTimes(2);
     expect(String(state.fetch.mock.calls[0][0])).toContain('r.jina.ai');
     expect(String(state.fetch.mock.calls[1][0])).toContain('example.com/f');

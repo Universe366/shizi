@@ -578,7 +578,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           content: string,
           ok = true,
           images?: string[],
-          structured?: unknown
+          structured?: unknown,
+          detail?: string
         ): string => {
           const inlineLimit = Math.max(4000, MAX_TOOL_RESULT_CHARS - 4000);
           const clipped = truncateToolOutput(content, '', READ_TOOL_OUTPUT, inlineLimit);
@@ -590,7 +591,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           emitTool({
             phase: 'done',
             name,
-            detail: output.slice(0, 280),
+            detail: detail ?? output.slice(0, 280),
             ok,
             ...(images?.length ? { images } : {}),
             ...(structured !== undefined ? { structured } : {})
@@ -619,10 +620,24 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               url: page.url,
               title: page.title,
               chars: page.text.length,
+              source: page.via || 'direct',
+              ...(page.fallbackFrom ? { fallbackFrom: page.fallbackFrom } : {}),
               content: page.text
             });
             webFetchCache.set(url, payload);
-            return finish(payload, true);
+            const sourceLabel =
+              page.via === 'direct'
+                ? page.fallbackFrom
+                  ? `内置抓取（${page.fallbackFrom} 失败回退）`
+                  : '内置抓取'
+                : page.via || '第三方读取';
+            return finish(
+              payload,
+              true,
+              undefined,
+              undefined,
+              `${sourceLabel} · ${page.title || page.url} · ${page.text.length} 字`
+            );
           } catch (error) {
             return finish(`网页读取失败：${(error as Error).message}`, false);
           }
