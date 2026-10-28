@@ -6,6 +6,7 @@ import type {
   VerificationSummary
 } from '../shared/types';
 import { activePrompt, loadSettings, platformForTask } from './settings';
+import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { needsApiKey } from './platformKey';
 import { chatOnce, chatStream, type AiChatResult } from './aiClient';
 import { buildSearchPlan } from './web';
@@ -40,37 +41,9 @@ const CHUNK_SYSTEM =
   '你是视频字幕整理助手。用户会给你一部长视频中的一段字幕。' +
   '请只针对这一段做结构化提取，不要臆测其它段落的内容，也不要写“本段/接下来”这类过渡语。';
 
-// 与插件 panel-ai.js 的 FEISHU_FORMAT_RULES 对齐：
-// 插件总结之所以看起来像一份「图文笔记」，靠的就是这段格式细则。
-const SUMMARY_FORMAT_RULES = [
-  '【输出风格：做成一份信息密度高的图文笔记，不要平铺直叙的流水账】',
-  '',
-  '飞书文档能渲染丰富结构，请**主动使用**，不要只用「标题 + 段落」：',
-  '',
-  '1. **先给一句话结论**，紧接一个「速览」表格（3~6 行），让读者 10 秒抓住重点。',
-  '2. **该用表格就用表格** —— 对比、参数、时间线、优劣、步骤一律用管道表格，',
-  '   不要写成句子。必须有表头与 `---` 分隔行。',
-  '3. **引用块（行首 `> `）用来强调关键判断或原话**，例如 `> **结论**：…`。',
-  '4. **代码块**（三个反引号 + 语言）用于命令、配置、代码、数据样例。',
-  '5. **超链接**写成 `[文字](https://…)`。**只链接字幕里明确出现过、或你确信真实存在的 URL**，绝对不要编造。',
-  '6. **公式**用 LaTeX：行内 `$…$`、块级 `$$…$$`。',
-  '7. **任务列表** `- [ ]` / `- [x]` 用于待办、检查项、可执行建议。',
-  '8. **分割线** `---` 用于分节。',
-  '9. **emoji 做小标题前缀**提升可读性（如 `## 🎯 核心结论`），但不要每行都加。',
-  '10. **图片无法通过文本携带**。某个位置适合配图时，用一行 `> 🖼️ 建议配图：<放什么图>` 占位，不要输出假的图片语法。',
-  '',
-  '【硬性要求】',
-  '· 内容必须**全部来自字幕**（以及下方给出的简介/评论/外部补充），不要引入字幕里没有的信息。',
-  '· **不要输出**内嵌 HTML、脚注、自定义容器语法、base64 图片。',
-  '· 标题最多三级（`#` / `##` / `###`），不要跳级。',
-  '',
-  '【详细程度：宁可详细，不要简略】',
-  '· 这是一份**完整的观看笔记**，不是摘要提纲，请充分展开。',
-  '· 每个要点都要写清「是什么 + 为什么 + 怎么做/结论」，不要只写一句短语。',
-  '· 视频里出现的**具体数字、名称、命令、步骤、参数、结论**都要保留；有流程就逐步列出，有对比就做成表格，有坑就写清现象与原因。',
-  '· 按内容自然分节，不要为了短而合并章节；长视频写长一些是正常的。',
-  '· 唯一要避免的是**重复与灌水** —— 不要为了凑长度而复述同一件事。'
-].join('\n');
+function summaryFormatRules(settings: ReturnType<typeof loadSettings>): string {
+  return String(settings.prompt.summaryFormatRules || '').trim() || DEFAULT_SUMMARY_FORMAT_RULES;
+}
 
 export interface SummarizeOptions {
   info: PageInfo;
@@ -332,7 +305,7 @@ async function summarizeInChunks(options: {
           options.prompt,
           options.glossaryBlock,
           options.skills,
-          SUMMARY_FORMAT_RULES,
+          summaryFormatRules(options.settings),
           CHUNK_SYSTEM,
           options.referencesBlock
             ? `【外部参考资料（仅辅助，不要照抄；与字幕冲突时以字幕为准）】\n${options.referencesBlock.slice(0, 1600)}`
@@ -466,7 +439,7 @@ async function summarizeInChunks(options: {
   const messages = [
     {
       role: 'system' as const,
-      content: [options.prompt, options.glossaryBlock, options.skills, SUMMARY_FORMAT_RULES]
+      content: [options.prompt, options.glossaryBlock, options.skills, summaryFormatRules(settings)]
         .filter(Boolean)
         .join('\n\n')
     },
@@ -535,7 +508,9 @@ export async function buildSummaryChatPrompt(
         .map((term) => `- ${term.from} → ${term.to}${term.note ? `（${term.note}）` : ''}`)
         .join('\n')}`
     : '';
-  const system = [template.text, glossaryBlock, '', SUMMARY_FORMAT_RULES].filter(Boolean).join('\n');
+  const system = [template.text, glossaryBlock, '', summaryFormatRules(settings)]
+    .filter(Boolean)
+    .join('\n');
 
   let commentsBlock = '';
   if (settings.search.useComments && info.aid) {
@@ -903,7 +878,7 @@ export async function summarize(options: SummarizeOptions): Promise<{
   const messages = [
     {
       role: 'system' as const,
-      content: `${prompt}${glossaryBlock}${skills}\n\n${SUMMARY_FORMAT_RULES}`
+      content: `${prompt}${glossaryBlock}${skills}\n\n${summaryFormatRules(settings)}`
     },
     { role: 'user' as const, content: `${userContent}${referencesBlock}` }
   ];

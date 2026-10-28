@@ -18,6 +18,7 @@ import type {
 import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
+import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { isSearchEngineId } from '../shared/searchEngines';
 import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
 import { shortcutAction } from '../shared/shortcuts';
@@ -394,7 +395,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     chat: DEFAULT_CHAT_PROMPT,
     translate: DEFAULT_TRANSLATE_PROMPT,
     optimize: DEFAULT_OPTIMIZE_PROMPT,
-    chapters: DEFAULT_CHAPTERS_PROMPT
+    chapters: DEFAULT_CHAPTERS_PROMPT,
+    summaryFormatRules: DEFAULT_SUMMARY_FORMAT_RULES
   },
   search: {
     enabled: true,
@@ -1214,6 +1216,11 @@ function normalize(input: unknown): AppSettings {
     if (typeof raw.prompt?.chat === 'string' && raw.prompt.chat.trim()) {
       base.prompt.chat = raw.prompt.chat.trim();
     }
+    base.prompt.summaryFormatRules =
+      typeof raw.prompt?.summaryFormatRules === 'string' &&
+      raw.prompt.summaryFormatRules.trim()
+        ? raw.prompt.summaryFormatRules.slice(0, 30000)
+        : DEFAULT_SUMMARY_FORMAT_RULES;
     if (typeof raw.prompt?.translate === 'string' && raw.prompt.translate.trim()) {
       base.prompt.translate = raw.prompt.translate.trim();
     }

@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../../../../shared/types';
+import { DEFAULT_SUMMARY_FORMAT_RULES } from '../../../../shared/summaryFormat';
 import { SettingsSection } from './SettingsSection';
 
 type PromptSettings = AppSettings['prompt'];
@@ -61,6 +62,17 @@ export function PromptSection({
         rows={9}
         value={activeTemplate?.text || ''}
         onChange={(event) => onUpdateTemplate({ text: event.target.value })}
+      />
+
+      <div className="settings-label">总结格式规则</div>
+      <div className="settings-hint">
+        最终系统提示词 = 上面的模板 + 术语表 + 这段格式规则。留空则使用内置默认。
+      </div>
+      <textarea
+        className="settings-textarea"
+        rows={14}
+        value={value.summaryFormatRules ?? DEFAULT_SUMMARY_FORMAT_RULES}
+        onChange={(event) => onPatch({ summaryFormatRules: event.target.value })}
       />
 
       <div className="settings-label">对话提示词</div>

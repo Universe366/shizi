@@ -1434,6 +1434,8 @@ export interface AppSettings {
     translate: string;
     optimize: string;
     chapters: string;
+    /** 总结格式规则；留空使用内置 DEFAULT_SUMMARY_FORMAT_RULES */
+    summaryFormatRules?: string;
   };
   mcp: {
     enabled: boolean;
