@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
 import type {
   AppSettings,
   SearchPlatform,
@@ -40,6 +43,56 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const CACHE_MAX = 200;
+const CACHE_MAX_AGE = 7 * 86400000;
+let cacheLoaded = false;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cacheFile(): string {
+  try {
+    return app?.getPath ? path.join(app.getPath('userData'), 'search-plan-cache.json') : '';
+  } catch {
+    return '';
+  }
+}
+
+function loadCache(): void {
+  if (cacheLoaded) return;
+  cacheLoaded = true;
+  const file = cacheFile();
+  if (!file || !fs.existsSync(file)) return;
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      entries?: Array<[string, CacheEntry]>;
+    };
+    const cutoff = Date.now() - CACHE_MAX_AGE;
+    for (const [key, entry] of data.entries || []) {
+      if (!key || !entry || !Array.isArray(entry.refs) || !Number.isFinite(entry.at)) continue;
+      if (entry.at < cutoff) continue;
+      cache.set(key, entry);
+    }
+  } catch {
+    // 缓存损坏不影响检索
+  }
+}
+
+function persistCache(): void {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    const file = cacheFile();
+    if (!file) return;
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ version: 1, savedAt: Date.now(), entries: [...cache.entries()] })
+      );
+    } catch {
+      // 磁盘不可写时忽略
+    }
+  }, 300);
+  persistTimer.unref?.();
+}
 
 export function siteOf(url: string): string {
   try {
@@ -204,6 +257,7 @@ async function searchOnce(
   const ttl = Math.max(0, Number(settings.search.cacheMinutes) || 0) * 60000;
   const key = cacheKey(platform, query, max);
   if (ttl > 0) {
+    loadCache();
     const hit = cache.get(key);
     if (hit && Date.now() - hit.at < ttl) return { refs: hit.refs.map((ref) => ({ ...ref })), cached: true };
   }
@@ -215,6 +269,7 @@ async function searchOnce(
       const oldest = [...cache.entries()].sort((a, b) => a[1].at - b[1].at).slice(0, cache.size - CACHE_MAX);
       for (const [oldKey] of oldest) cache.delete(oldKey);
     }
+    persistCache();
   }
   return { refs, cached: false };
 }

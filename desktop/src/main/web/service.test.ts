@@ -6,6 +6,10 @@ const state = vi.hoisted(() => ({
   calls: [] as string[]
 }));
 
+vi.mock('electron', () => ({
+  app: { getPath: () => '/tmp/shizi-plan-cache-test' }
+}));
+
 vi.mock('../search', () => ({
   runProviderSearch: vi.fn(async (_settings: unknown, _platform: unknown, query: string) => {
     state.calls.push(query);

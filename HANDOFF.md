@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-28
-> 适用版本：桌面 **0.103.0** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.103.0`
-> 最新 Release：`v0.103.0`
+> 适用版本：桌面 **0.103.1** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.103.1`
+> 最新 Release：`v0.103.1`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -26,15 +26,20 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.103.0` 通过（一次通过） |
+| 发布 CI | `v0.103.1` 构建中（本机 check + smoke 通过） |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.103.0，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 将指向 0.103.1，发布完成后确认 `/releases/latest` |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.103.1（2026-10-28，总结检索缓存持久化）
+
+- summary/chat 共用的 search-plan-cache 也写入 userData，重启可命中。
+- 测试：170 文件 / 973 用例，冒烟 19/19。
 
 ### 0.103.0（2026-10-28，JS 渲染与缓存持久化）
 
@@ -1018,9 +1023,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.103.0 测试/冒烟通过
+- [x] 0.103.1 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.103.0`
+- [x] 最新 Release 指向 `v0.103.1`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
