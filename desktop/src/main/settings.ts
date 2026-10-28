@@ -401,9 +401,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     activeId: 'exa',
     platforms: SEARCH_PRESETS.map((platform) => ({ ...platform })),
     fetchPlatforms: [
+      { id: 'jina', name: 'Jina Reader（免 Key）', kind: 'jina', baseUrl: 'https://r.jina.ai', apiKey: '' },
       { id: 'direct', name: '内置抓取（免 Key）', kind: 'direct', baseUrl: '', apiKey: '' }
     ],
-    fetchActiveId: 'direct',
+    fetchActiveId: 'jina',
     preferModelWeb: false,
     maxResults: 5,
     includeContent: true,
@@ -1362,6 +1363,19 @@ function normalize(input: unknown): AppSettings {
       }
       if (platforms.length) base.search.platforms = platforms;
 
+      // 旧版 Exa 预设名/地址升级到免 Key 的 MCP 端点；用户自定义过的地址保留。
+      const exaPlatform = base.search.platforms.find(
+        (platform) => platform.id === 'exa' && platform.kind === 'exa'
+      );
+      if (exaPlatform) {
+        if (exaPlatform.name === 'Exa（语义搜索）') {
+          exaPlatform.name = 'Exa MCP（免 Key，推荐）';
+        }
+        if (!exaPlatform.baseUrl || exaPlatform.baseUrl === 'https://api.exa.ai/search') {
+          exaPlatform.baseUrl = 'https://mcp.exa.ai/mcp';
+        }
+      }
+
       const activeId = String(raw.search.activeId || '');
       base.search.activeId = base.search.platforms.some((platform) => platform.id === activeId)
         ? activeId
@@ -1388,8 +1402,24 @@ function normalize(input: unknown): AppSettings {
       }
       if (!fetchPlatforms.length) {
         fetchPlatforms = [
+          {
+            id: 'jina',
+            name: 'Jina Reader（免 Key）',
+            kind: 'jina',
+            baseUrl: 'https://r.jina.ai',
+            apiKey: ''
+          },
           { id: 'direct', name: '内置抓取（免 Key）', kind: 'direct', baseUrl: '', apiKey: '' }
         ];
+      } else if (!fetchPlatforms.some((platform) => platform.id === 'jina')) {
+        // 老配置只有内置抓取时补上 Jina 选项；是否切换仍由用户决定。
+        fetchPlatforms.push({
+          id: 'jina',
+          name: 'Jina Reader（免 Key）',
+          kind: 'jina',
+          baseUrl: 'https://r.jina.ai',
+          apiKey: ''
+        });
       }
       base.search.fetchPlatforms = fetchPlatforms;
       const fetchActiveId = String(raw.search.fetchActiveId || '');

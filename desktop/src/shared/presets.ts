@@ -604,9 +604,9 @@ export const SEARCH_PRESETS: SearchPlatform[] = [
   },
   {
     "id": "exa",
-    "name": "Exa（语义搜索）",
+    "name": "Exa MCP（免 Key，推荐）",
     "kind": "exa",
-    "baseUrl": "https://api.exa.ai/search",
+    "baseUrl": "https://mcp.exa.ai/mcp",
     "apiKey": "",
     "homepage": "https://exa.ai/",
     "keyUrl": "https://dashboard.exa.ai/api-keys",

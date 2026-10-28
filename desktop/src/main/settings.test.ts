@@ -53,6 +53,15 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
+  it('联网默认使用 Exa MCP 搜索与 Jina 读取', () => {
+    const settings = loadSettings();
+    expect(settings.search.activeId).toBe('exa');
+    expect(settings.search.fetchActiveId).toBe('jina');
+    expect(
+      settings.search.platforms.find((platform) => platform.id === 'exa')?.baseUrl
+    ).toBe('https://mcp.exa.ai/mcp');
+  });
+
   it('默认输出上限为 128000', () => {
     expect(loadSettings().ai.maxTokens).toBe(128000);
   });

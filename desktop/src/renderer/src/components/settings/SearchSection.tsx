@@ -69,6 +69,52 @@ export function SearchSection({
       <div className="settings-hint">
         只配三件事：用哪个搜索、什么时候自动搜、总结前要不要核对。其余保持默认即可。
       </div>
+      <div className="settings-inline">
+        <button
+          className="mini-btn"
+          onClick={() => {
+            const existingExa = search.platforms.find((platform) => platform.id === 'exa');
+            const exa: SearchPlatform = {
+              ...(existingExa || {
+                id: 'exa',
+                apiKey: '',
+                homepage: 'https://exa.ai/',
+                keyUrl: 'https://dashboard.exa.ai/api-keys',
+                reuseAiKey: ''
+              }),
+              name: 'Exa MCP（免 Key，推荐）',
+              kind: 'exa',
+              baseUrl: 'https://mcp.exa.ai/mcp'
+            };
+            const platforms = existingExa
+              ? search.platforms.map((platform) => (platform.id === 'exa' ? exa : platform))
+              : [...search.platforms, exa];
+            const existingJina = (search.fetchPlatforms || []).find(
+              (platform) => platform.id === 'jina'
+            );
+            const jina: SearchPlatform = {
+              ...(existingJina || { id: 'jina', apiKey: '' }),
+              name: 'Jina Reader（免 Key）',
+              kind: 'jina',
+              baseUrl: 'https://r.jina.ai'
+            };
+            const fetchPlatforms = existingJina
+              ? (search.fetchPlatforms || []).map((platform) =>
+                  platform.id === 'jina' ? jina : platform
+                )
+              : [...(search.fetchPlatforms || []), jina];
+            updateSearch({
+              activeId: 'exa',
+              platforms,
+              fetchActiveId: 'jina',
+              fetchPlatforms
+            });
+          }}
+          title="切换为 Cherry 同款默认：Exa MCP 搜索 + Jina 读取网页"
+        >
+          使用推荐默认（Exa MCP + Jina）
+        </button>
+      </div>
 
       <label className="settings-check">
         <input
