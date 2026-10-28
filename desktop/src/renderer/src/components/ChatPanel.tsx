@@ -18,6 +18,8 @@ import type {
   ChatMessage,
   ChatToolEvent,
   ChatToolRecord,
+  McpPromptOption,
+  McpResourceOption,
   McpToolOption,
   PageContextSummary,
   PageInfo,
@@ -217,6 +219,17 @@ export function ChatPanel({
   const [composerOpen, setComposerOpen] = useState(false);
   const [toolPanelOpen, setToolPanelOpen] = useState(false);
   const [toolOptions, setToolOptions] = useState<McpToolOption[]>([]);
+  const [toolPanelMode, setToolPanelMode] = useState<'tools' | 'prompts' | 'resources'>(
+    'tools'
+  );
+  const [promptOptions, setPromptOptions] = useState<McpPromptOption[]>([]);
+  const [resourceOptions, setResourceOptions] = useState<McpResourceOption[]>([]);
+  const [mcpPanelBusy, setMcpPanelBusy] = useState(false);
+  const [mcpPanelNotice, setMcpPanelNotice] = useState('');
+  const [promptForm, setPromptForm] = useState<{
+    option: McpPromptOption;
+    args: Record<string, string>;
+  } | null>(null);
   const [toolSelection, setToolSelection] = useState<string[] | null>(() => {
     try {
       const raw = localStorage.getItem('chat-tools');
@@ -381,12 +394,82 @@ export function ChatPanel({
     }
   };
 
-  const openToolPanel = async (): Promise<void> => {
+  const appendComposer = (text: string): void => {
+    const value = String(text || '').trim();
+    if (!value) return;
+    setInput((previous) => (previous.trim() ? `${previous.trim()}\n\n${value}` : value));
+    setComposerOpen(false);
+    setToolPanelOpen(false);
+    setPromptForm(null);
+  };
+
+  const openToolPanel = async (
+    mode: 'tools' | 'prompts' | 'resources' = 'tools'
+  ): Promise<void> => {
     setComposerOpen(true);
     setToolPanelOpen(true);
-    const response = await window.bsub.mcpAllTools();
-    if (response.ok) setToolOptions(response.data);
-    else setError(response.error);
+    setToolPanelMode(mode);
+    setPromptForm(null);
+    setMcpPanelNotice('');
+    setMcpPanelBusy(true);
+    try {
+      if (mode === 'tools') {
+        const response = await window.bsub.mcpAllTools();
+        if (response.ok) setToolOptions(response.data);
+        else setMcpPanelNotice(response.error);
+      } else if (mode === 'prompts') {
+        const response = await window.bsub.mcpAllPrompts();
+        if (response.ok) setPromptOptions(response.data);
+        else setMcpPanelNotice(response.error);
+      } else {
+        const response = await window.bsub.mcpAllResources();
+        if (response.ok) setResourceOptions(response.data);
+        else setMcpPanelNotice(response.error);
+      }
+    } finally {
+      setMcpPanelBusy(false);
+    }
+  };
+
+  const runMcpPrompt = async (
+    option: McpPromptOption,
+    args: Record<string, string>
+  ): Promise<void> => {
+    setMcpPanelBusy(true);
+    setMcpPanelNotice('');
+    try {
+      const response = await window.bsub.mcpRunPrompt(option.serverId, option.name, args);
+      if (!response.ok) {
+        setMcpPanelNotice(`提示词运行失败：${response.error}`);
+        return;
+      }
+      appendComposer(response.data);
+    } finally {
+      setMcpPanelBusy(false);
+    }
+  };
+
+  const pickMcpPrompt = (option: McpPromptOption): void => {
+    if (option.arguments.length) {
+      setPromptForm({ option, args: {} });
+      return;
+    }
+    void runMcpPrompt(option, {});
+  };
+
+  const insertMcpResource = async (option: McpResourceOption): Promise<void> => {
+    setMcpPanelBusy(true);
+    setMcpPanelNotice('');
+    try {
+      const response = await window.bsub.mcpResourceText(option.serverId, option.uri);
+      if (!response.ok) {
+        setMcpPanelNotice(`读取资源失败：${response.error}`);
+        return;
+      }
+      appendComposer(`【${option.serverName} · ${option.name}】\n${response.data}`);
+    } finally {
+      setMcpPanelBusy(false);
+    }
   };
 
   const toggleTool = (id: string): void => {
@@ -1821,12 +1904,22 @@ export function ChatPanel({
             </button>
           </div>
           <div className="chat-menu-grid">
-            <button className="chat-menu-card" onClick={() => void openToolPanel()}>
+            <button className="chat-menu-card" onClick={() => void openToolPanel('tools')}>
               <Wrench size={15} />
               <span className="chat-menu-card-title">MCP 工具</span>
               <span className="chat-menu-card-desc">
                 {toolSelection === null ? '全部可用工具' : `已选 ${toolSelection.length} 个`}
               </span>
+            </button>
+            <button className="chat-menu-card" onClick={() => void openToolPanel('prompts')}>
+              <Quote size={15} />
+              <span className="chat-menu-card-title">MCP 提示词</span>
+              <span className="chat-menu-card-desc">插入服务预设的提示词</span>
+            </button>
+            <button className="chat-menu-card" onClick={() => void openToolPanel('resources')}>
+              <FileText size={15} />
+              <span className="chat-menu-card-title">MCP 资源</span>
+              <span className="chat-menu-card-desc">读取内容并放进输入框</span>
             </button>
             <button
               className="chat-menu-card"
@@ -1972,42 +2065,163 @@ export function ChatPanel({
           </div>
           {toolPanelOpen && (
             <div className="chat-tool-panel">
-              {profileId && (
-                <div className="settings-hint">
-                  当前使用助手档案，工具由档案的「MCP 工具」设置决定；想手动勾选请先切回「无助手档案」。
-                </div>
-              )}
               <div className="chat-tool-panel-head">
                 <span>
-                  本轮可用工具（{toolSelection === null ? '全部' : toolSelection.length}）
+                  {toolPanelMode === 'tools'
+                    ? `本轮可用工具（${toolSelection === null ? '全部' : toolSelection.length}）`
+                    : toolPanelMode === 'prompts'
+                      ? 'MCP 提示词'
+                      : 'MCP 资源'}
                 </span>
-                <button className="mini-btn" onClick={selectAllTools}>
-                  全选
-                </button>
-                <button className="mini-btn" onClick={selectNoTools}>
-                  不用 MCP
-                </button>
+                {toolPanelMode !== 'tools' && (
+                  <button className="mini-btn" onClick={() => void openToolPanel('tools')}>
+                    工具
+                  </button>
+                )}
+                {toolPanelMode === 'tools' && (
+                  <>
+                    <button className="mini-btn" onClick={selectAllTools}>
+                      全选
+                    </button>
+                    <button className="mini-btn" onClick={selectNoTools}>
+                      不用 MCP
+                    </button>
+                  </>
+                )}
               </div>
-              {!toolOptions.length && (
-                <div className="settings-hint">
-                  没有可用工具：先在「设置 → 插件与集成 → MCP」添加并启用服务。
+              {mcpPanelNotice && (
+                <div className="settings-hint" style={{ color: 'var(--danger)' }}>
+                  {mcpPanelNotice}
                 </div>
               )}
-              {toolOptions.map((tool) => {
-                const checked = toolSelection === null || toolSelection.includes(tool.id);
-                return (
-                  <label key={tool.id} className="chat-tool-option" title={tool.description}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleTool(tool.id)}
-                    />
-                    <span>
-                      {tool.serverName} · {tool.name}
-                    </span>
-                  </label>
-                );
-              })}
+              {mcpPanelBusy && <div className="settings-hint">读取中…</div>}
+              {toolPanelMode === 'tools' && (
+                <>
+                  {profileId && (
+                    <div className="settings-hint">
+                      当前使用助手档案，工具由档案的「MCP 工具」设置决定；想手动勾选请先切回「无助手档案」。
+                    </div>
+                  )}
+                  {!toolOptions.length && (
+                    <div className="settings-hint">
+                      没有可用工具：先在「设置 → 插件与集成 → MCP」添加并启用服务。
+                    </div>
+                  )}
+                  {toolOptions.map((tool) => {
+                    const checked = toolSelection === null || toolSelection.includes(tool.id);
+                    return (
+                      <label key={tool.id} className="chat-tool-option" title={tool.description}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTool(tool.id)}
+                        />
+                        <span>
+                          {tool.serverName} · {tool.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </>
+              )}
+              {toolPanelMode === 'prompts' &&
+                (promptForm ? (
+                  <div className="chat-mcp-form">
+                    <div className="chat-tool-panel-head">
+                      <span>
+                        {promptForm.option.serverName} · {promptForm.option.name}
+                      </span>
+                      <button className="mini-btn" onClick={() => setPromptForm(null)}>
+                        返回
+                      </button>
+                    </div>
+                    {promptForm.option.description && (
+                      <div className="settings-hint">{promptForm.option.description}</div>
+                    )}
+                    {promptForm.option.arguments.map((arg) => (
+                      <label key={arg.name} className="chat-mcp-field">
+                        <span>
+                          {arg.name}
+                          {arg.required ? ' *' : ''}
+                        </span>
+                        <input
+                          className="settings-input"
+                          value={promptForm.args[arg.name] || ''}
+                          placeholder={arg.description || ''}
+                          onChange={(event) =>
+                            setPromptForm((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    args: { ...current.args, [arg.name]: event.target.value }
+                                  }
+                                : current
+                            )
+                          }
+                        />
+                      </label>
+                    ))}
+                    <button
+                      className="mini-btn primary"
+                      disabled={
+                        mcpPanelBusy ||
+                        promptForm.option.arguments.some(
+                          (arg) => arg.required && !String(promptForm.args[arg.name] || '').trim()
+                        )
+                      }
+                      onClick={() => void runMcpPrompt(promptForm.option, promptForm.args)}
+                    >
+                      运行并插入
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {!promptOptions.length && !mcpPanelBusy && (
+                      <div className="settings-hint">
+                        没有提示词：服务需要提供 prompts 能力并已启用。
+                      </div>
+                    )}
+                    {promptOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        className="chat-mcp-item"
+                        title={option.description}
+                        onClick={() => pickMcpPrompt(option)}
+                      >
+                        <span>
+                          {option.serverName} · {option.name}
+                        </span>
+                        {option.arguments.length > 0 && (
+                          <span className="chat-mcp-meta">
+                            {option.arguments.length} 个参数
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </>
+                ))}
+              {toolPanelMode === 'resources' && (
+                <>
+                  {!resourceOptions.length && !mcpPanelBusy && (
+                    <div className="settings-hint">
+                      没有资源：服务需要提供 resources 能力并已启用。
+                    </div>
+                  )}
+                  {resourceOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      className="chat-mcp-item"
+                      title={option.description || option.uri}
+                      onClick={() => void insertMcpResource(option)}
+                    >
+                      <span>
+                        {option.serverName} · {option.name}
+                      </span>
+                      <span className="chat-mcp-meta">{option.mimeType || 'resource'}</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
           {compareOpen && (

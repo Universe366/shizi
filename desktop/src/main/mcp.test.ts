@@ -48,7 +48,15 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { getMcpPrompt, listAllMcpTools, listMcpPrompts, listMcpResources, readMcpResource } from './mcp';
+import {
+  getMcpPrompt,
+  listAllMcpPrompts,
+  listAllMcpResources,
+  listAllMcpTools,
+  listMcpPrompts,
+  listMcpResources,
+  readMcpResource
+} from './mcp';
 
 const server: McpServer = {
   id: 'test',
@@ -83,6 +91,29 @@ describe('MCP 资源与提示词', () => {
     expect(text).toContain('提示词正文');
     expect(state.calls).toContain('prompts/list');
     expect(state.calls).toContain('prompts/get');
+  });
+
+  it('展开提示词与资源，跳过停用服务', async () => {
+    const prompts = await listAllMcpPrompts([
+      { ...server, id: 'a', name: '服务 A' },
+      { ...server, id: 'b', name: '停用', enabled: false }
+    ]);
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toMatchObject({
+      id: 'a__review',
+      serverId: 'a',
+      serverName: '服务 A',
+      name: 'review'
+    });
+    expect(prompts[0].arguments[0]).toMatchObject({ name: 'text', required: true });
+
+    const resources = await listAllMcpResources([{ ...server, id: 'a', name: '服务 A' }]);
+    expect(resources[0]).toMatchObject({
+      id: 'a__file:///a.md',
+      serverId: 'a',
+      serverName: '服务 A',
+      uri: 'file:///a.md'
+    });
   });
 
   it('展开可勾选工具：跳过禁用服务与未授权工具', async () => {

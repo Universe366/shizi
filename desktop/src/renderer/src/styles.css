@@ -2087,6 +2087,46 @@ button:disabled {
   background: var(--surface-2);
 }
 
+.chat-mcp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-mcp-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.chat-mcp-meta {
+  flex: none;
+  color: var(--faint);
+}
+
+.chat-mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-mcp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
 .chat-tool-cards {
   display: flex;
   flex-direction: column;

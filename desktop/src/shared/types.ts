@@ -1566,6 +1566,25 @@ export interface McpToolOption {
   description: string;
 }
 
+export interface McpPromptOption {
+  id: string;
+  serverId: string;
+  serverName: string;
+  name: string;
+  description: string;
+  arguments: McpPrompt['arguments'];
+}
+
+export interface McpResourceOption {
+  id: string;
+  serverId: string;
+  serverName: string;
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+}
+
 export interface ChatApprovalEvent {
   requestId: string;
   approvalId: string;

@@ -3,7 +3,9 @@ import { session } from 'electron';
 import { refreshMcpOAuth } from './mcpOAuth';
 import type {
   McpPrompt,
+  McpPromptOption,
   McpResource,
+  McpResourceOption,
   McpServer,
   McpTool,
   McpToolOption
@@ -97,7 +99,15 @@ function parseRpc(text: string, expectId: number | null): JsonRpcResponse | null
   return null;
 }
 
-async function postHttp(server: McpServer, body: unknown, timeoutMs = 40000): Promise<Response> {
+async function postHttp(
+  server: McpServer,
+  body: unknown,
+  timeoutMs = 40000,
+  signal?: AbortSignal
+): Promise<Response> {
+  const combined = signal
+    ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+    : AbortSignal.timeout(timeoutMs);
   if (!server.url.trim()) throw new Error('MCP 服务地址为空');
   if (
     server.oauth?.refreshToken &&
@@ -111,7 +121,7 @@ async function postHttp(server: McpServer, body: unknown, timeoutMs = 40000): Pr
       method: 'POST',
       headers: headersFor(server),
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs)
+      signal: combined
     });
   let response = await send();
   if (response.status === 401 && server.oauth?.refreshToken) {
@@ -128,7 +138,8 @@ async function rpcHttp(
   method: string,
   params: unknown,
   id: number,
-  timeoutMs = 40000
+  timeoutMs = 40000,
+  signal?: AbortSignal
 ): Promise<JsonRpcResult | null> {
   const response = await postHttp(
     server,
@@ -138,7 +149,8 @@ async function rpcHttp(
       method,
       ...(params === undefined ? {} : { params })
     },
-    timeoutMs
+    timeoutMs,
+    signal
   );
   const text = await response.text();
   if (!response.ok) {
@@ -161,10 +173,13 @@ async function rpcSse(
   server: McpServer,
   body: { jsonrpc: string; id?: number; method: string; params?: unknown },
   expectId: number | null,
-  timeoutMs = 40000
+  timeoutMs = 40000,
+  signal?: AbortSignal
 ): Promise<JsonRpcResult | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener('abort', forwardAbort, { once: true });
   try {
     const response = await session.defaultSession.fetch(server.url.trim(), {
       method: 'GET',
@@ -240,6 +255,7 @@ async function rpcSse(
     return (message.result as JsonRpcResult | undefined) ?? null;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', forwardAbort);
     controller.abort();
   }
 }
@@ -249,15 +265,16 @@ async function rpc(
   method: string,
   params: unknown,
   id: number,
-  timeoutMs = 40000
+  timeoutMs = 40000,
+  signal?: AbortSignal
 ): Promise<JsonRpcResult | null> {
   if (server.transport === 'stdio') {
-    return stdioRequest(server, method, params, timeoutMs);
+    return stdioRequest(server, method, params, timeoutMs, signal);
   }
   if (server.transport === 'sse') {
-    return rpcSse(server, { jsonrpc: '2.0', id, method, params }, id, timeoutMs);
+    return rpcSse(server, { jsonrpc: '2.0', id, method, params }, id, timeoutMs, signal);
   }
-  return rpcHttp(server, method, params, id, timeoutMs);
+  return rpcHttp(server, method, params, id, timeoutMs, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +286,7 @@ interface StdioPending {
   resolve: (result: JsonRpcResult | null) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
+  cleanup?: () => void;
 }
 
 interface StdioClient {
@@ -288,6 +306,7 @@ function stdioKey(server: McpServer): string {
 function settleAll(client: StdioClient, error: Error): void {
   for (const pending of client.pending.values()) {
     clearTimeout(pending.timer);
+    pending.cleanup?.();
     pending.reject(error);
   }
   client.pending.clear();
@@ -306,6 +325,7 @@ function handleStdioLine(client: StdioClient, line: string): void {
   const pending = client.pending.get(message.id);
   if (!pending) return;
   clearTimeout(pending.timer);
+  pending.cleanup?.();
   client.pending.delete(message.id);
   if (message.error) {
     pending.reject(
@@ -369,16 +389,30 @@ function stdioRequest(
   server: McpServer,
   method: string,
   params: unknown,
-  timeoutMs = 40000
+  timeoutMs = 40000,
+  signal?: AbortSignal
 ): Promise<JsonRpcResult | null> {
   const client = startStdio(server);
   const id = ++client.seq;
+  if (signal?.aborted) return Promise.reject(new Error('已取消'));
   return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      client.pending.delete(id);
+      reject(new Error('已取消'));
+    };
     const timer = setTimeout(() => {
       client.pending.delete(id);
+      signal?.removeEventListener('abort', onAbort);
       reject(new Error(`MCP stdio 超时（${Math.round(timeoutMs / 1000)} 秒）：${method}`));
     }, timeoutMs);
-    client.pending.set(id, { resolve, reject, timer });
+    signal?.addEventListener('abort', onAbort, { once: true });
+    client.pending.set(id, {
+      resolve,
+      reject,
+      timer,
+      cleanup: () => signal?.removeEventListener('abort', onAbort)
+    });
     const payload = JSON.stringify({
       jsonrpc: '2.0',
       id,
@@ -609,13 +643,74 @@ export async function listAllMcpTools(servers: McpServer[]): Promise<McpToolOpti
   return options;
 }
 
+function enabledServers(servers: McpServer[]): McpServer[] {
+  return servers.filter(
+    (item) => item.enabled && (item.transport === 'stdio' ? item.command : item.url)
+  );
+}
+
+/** 对话输入面板用：所有已启用服务的提示词。 */
+export async function listAllMcpPrompts(servers: McpServer[]): Promise<McpPromptOption[]> {
+  const options: McpPromptOption[] = [];
+  for (const server of enabledServers(servers)) {
+    try {
+      const prompts = await listMcpPrompts(server);
+      for (const prompt of prompts) {
+        options.push({
+          id: `${server.id}__${prompt.name}`,
+          serverId: server.id,
+          serverName: server.name,
+          name: prompt.name,
+          description: prompt.description,
+          arguments: prompt.arguments
+        });
+      }
+    } catch {
+      // 单个服务连不上不影响其它服务
+    }
+  }
+  return options;
+}
+
+/** 对话输入面板用：所有已启用服务的资源。 */
+export async function listAllMcpResources(servers: McpServer[]): Promise<McpResourceOption[]> {
+  const options: McpResourceOption[] = [];
+  for (const server of enabledServers(servers)) {
+    try {
+      const resources = await listMcpResources(server);
+      for (const resource of resources) {
+        options.push({
+          id: `${server.id}__${resource.uri}`,
+          serverId: server.id,
+          serverName: server.name,
+          uri: resource.uri,
+          name: resource.name,
+          description: resource.description,
+          mimeType: resource.mimeType
+        });
+      }
+    } catch {
+      // 单个服务连不上不影响其它服务
+    }
+  }
+  return options;
+}
+
 export async function callMcpTool(  server: McpServer,
   name: string,
   args: Record<string, unknown>,
-  timeoutMs = 40000
+  timeoutMs = 40000,
+  signal?: AbortSignal
 ): Promise<string> {
   await ensureSession(server);
-  const result = await rpc(server, 'tools/call', { name, arguments: args }, nextId(), timeoutMs);
+  const result = await rpc(
+    server,
+    'tools/call',
+    { name, arguments: args },
+    nextId(),
+    timeoutMs,
+    signal
+  );
   const content = Array.isArray(result?.content) ? result.content : [];
   const text = content
     .map((item) => {

@@ -3,6 +3,9 @@ import type { AiPlatform, AiTask, AiUsage } from '../shared/types';
 import { needsApiKey } from './platformKey';
 import { recordUsage } from './usage';
 
+/** 单次工具结果进入模型上下文的上限；更长内容由 app__read_tool_output 分段读取。 */
+export const MAX_TOOL_RESULT_CHARS = 12000;
+
 // ---------------------------------------------------------------------------
 // AI 请求的公共层。
 //
@@ -947,7 +950,7 @@ async function chatAnthropicToolLoopStream(
       } catch (error) {
         output = '工具调用失败：' + (error as Error).message;
       }
-      results.push({ type: 'tool_result', tool_use_id: call.id, content: String(output || '').slice(0, 4000) });
+      results.push({ type: 'tool_result', tool_use_id: call.id, content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS) });
     }
     convo.push({ role: 'user', content: results });
   }
@@ -1027,7 +1030,7 @@ async function chatGeminiToolLoopStream(
         output = '工具调用失败：' + (error as Error).message;
       }
       responses.push({
-        functionResponse: { name, response: { result: String(output || '').slice(0, 4000) } }
+        functionResponse: { name, response: { result: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS) } }
       });
     }
     contents.push({ role: 'user', parts: responses });
@@ -1123,7 +1126,7 @@ export async function chatToolLoopStream(
         convo.push({
           role: 'tool',
           tool_call_id: String(call.id || ''),
-          content: String(output || '').slice(0, 4000)
+          content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS)
         });
       }
       continue;
@@ -1208,7 +1211,7 @@ export async function chatToolLoopStream(
       convo.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: String(output || '').slice(0, 4000)
+        content: String(output || '').slice(0, MAX_TOOL_RESULT_CHARS)
       });
     }
   }
@@ -1321,7 +1324,7 @@ export async function chatToolLoop(
         results.push({
           type: 'tool_result',
           tool_use_id: String(block.id || ''),
-          content: String(content || '').slice(0, 4000)
+          content: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS)
         });
       }
       convo.push({ role: 'user', content: results });
@@ -1351,7 +1354,7 @@ export async function chatToolLoop(
           role: 'tool',
           tool_call_id: String(call?.id || ''),
           name: String(call?.function?.name || ''),
-          content: String(content || '').slice(0, 4000)
+          content: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS)
         });
       }
       continue;
@@ -1428,7 +1431,7 @@ async function chatGeminiToolLoop(
       responses.push({
         functionResponse: {
           name,
-          response: { result: String(content || '').slice(0, 4000) }
+          response: { result: String(content || '').slice(0, MAX_TOOL_RESULT_CHARS) }
         }
       });
     }

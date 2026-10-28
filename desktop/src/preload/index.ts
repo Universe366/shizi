@@ -78,6 +78,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpPromptOption,
+  McpResourceOption,
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
@@ -949,8 +951,18 @@ const api: BsubApi = {
     ipcRenderer.invoke('mcp:prompts', server) as Promise<Result<McpPrompt[]>>,
   mcpAllTools: () =>
     ipcRenderer.invoke('mcp:all-tools') as Promise<Result<McpToolOption[]>>,
+  mcpAllPrompts: () =>
+    ipcRenderer.invoke('mcp:all-prompts') as Promise<Result<McpPromptOption[]>>,
+  mcpAllResources: () =>
+    ipcRenderer.invoke('mcp:all-resources') as Promise<Result<McpResourceOption[]>>,
   mcpPrompt: (server: McpServer, name: string, args: Record<string, string>) =>
     ipcRenderer.invoke('mcp:prompt', { server, name, args }) as Promise<Result<string>>,
+  mcpRunPrompt: (serverId: string, name: string, args: Record<string, string>) =>
+    ipcRenderer.invoke('mcp:run-prompt', { serverId, name, args }) as Promise<
+      Result<string>
+    >,
+  mcpResourceText: (serverId: string, uri: string) =>
+    ipcRenderer.invoke('mcp:resource-text', { serverId, uri }) as Promise<Result<string>>,
   importSkill: () =>
     ipcRenderer.invoke('skills:import') as Promise<Result<SkillItem | null>>,
   fetchSkillIndex: (url: string) =>

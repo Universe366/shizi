@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-28
-> 适用版本：桌面 **0.87.0** / 插件 **2.18.8**
-> 当前发布基线：tag `v0.87.0`
-> 最新 Release：`v0.87.0`
+> 适用版本：桌面 **0.88.0** / 插件 **2.18.8**
+> 当前发布基线：tag `v0.88.0`
+> 最新 Release：`v0.88.0`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -21,20 +21,28 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 162 个文件 / 938 个用例（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、知识库与索引、本地 ASR、Skills/MCP、OAuth、外观与设置页） |
+| 桌面单测 | 163 个文件 / 942 个用例（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、知识库与索引、本地 ASR、Skills/MCP、MCP 提示词/资源与工具分段、OAuth、外观与设置页） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.87.0` 通过（一次通过） |
+| 发布 CI | `v0.88.0` 构建中（本机 check + smoke 通过） |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.87.0，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 将指向 0.88.0，发布完成后确认 `/releases/latest` |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.88.0（2026-10-28，MCP 对话体验与长结果）
+
+- 对话「更多工具」新增 MCP 提示词 / 资源面板：参数表单、运行后插入输入框、资源读取插入。
+- 工具结果前 8k 内联，超出转存，模型可用 `app__read_tool_output` 按 6k 分段读取；协议层上限 12k。
+- MCP 工具调用支持随对话停止取消（HTTP/SSE/stdio）。
+- 仍未做：streamable HTTP 通知流、`notifications/progress`、`tools/list_changed` 自动刷新；下一轮处理。
+- 测试：163 文件 / 942 用例，冒烟 19/19。
 
 ### 0.87.0（2026-10-28，内置本地向量模型）
 
@@ -886,9 +894,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.87.0 测试/冒烟通过
+- [x] 0.88.0 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.87.0`
+- [x] 最新 Release 指向 `v0.88.0`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新

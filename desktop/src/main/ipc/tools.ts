@@ -9,6 +9,8 @@ import type {
   McpTool,
   McpResource,
   McpPrompt,
+  McpPromptOption,
+  McpResourceOption,
   McpToolOption,
   PageInfo,
   QualityReport,
@@ -22,6 +24,8 @@ import type {
 import {
   callMcpTool,
   getMcpPrompt,
+  listAllMcpPrompts,
+  listAllMcpResources,
   listAllMcpTools,
   listMcpPrompts,
   listMcpResources,
@@ -99,6 +103,74 @@ export function registerToolsIpc(ctx: IpcContext): void {
         return { ok: true, data: await listAllMcpTools(settings.mcp.servers) };
       } catch (error) {
         return failure<McpToolOption[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:all-prompts',
+    async (): Promise<Result<McpPromptOption[]>> => {
+      try {
+        const settings = loadSettings();
+        return { ok: true, data: await listAllMcpPrompts(settings.mcp.servers) };
+      } catch (error) {
+        return failure<McpPromptOption[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:all-resources',
+    async (): Promise<Result<McpResourceOption[]>> => {
+      try {
+        const settings = loadSettings();
+        return { ok: true, data: await listAllMcpResources(settings.mcp.servers) };
+      } catch (error) {
+        return failure<McpResourceOption[]>(error);
+      }
+    }
+  );
+
+  const findServer = (serverId: string): McpServer => {
+    const server = loadSettings().mcp.servers.find((item) => item.id === serverId);
+    if (!server) throw new Error('MCP 服务不存在或已被删除');
+    if (!server.enabled) throw new Error('MCP 服务已停用');
+    return server;
+  };
+
+  ipcMain.handle(
+    'mcp:run-prompt',
+    async (
+      _event,
+      payload: { serverId: string; name: string; args?: Record<string, string> }
+    ): Promise<Result<string>> => {
+      try {
+        const server = findServer(String(payload?.serverId || ''));
+        return {
+          ok: true,
+          data: await getMcpPrompt(
+            server,
+            String(payload?.name || ''),
+            payload?.args || {}
+          )
+        };
+      } catch (error) {
+        return failure<string>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'mcp:resource-text',
+    async (
+      _event,
+      payload: { serverId: string; uri: string }
+    ): Promise<Result<string>> => {
+      try {
+        const server = findServer(String(payload?.serverId || ''));
+        return { ok: true, data: await readMcpResource(server, String(payload?.uri || '')) };
+      } catch (error) {
+        return failure<string>(error);
       }
     }
   );

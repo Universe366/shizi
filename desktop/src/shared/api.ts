@@ -105,6 +105,8 @@ import type {
   StoredChatMessage,
   McpResource,
   McpPrompt,
+  McpPromptOption,
+  McpResourceOption,
   McpToolOption,
   ChatToolEvent,
   ChatToolRecord,
@@ -707,11 +709,19 @@ export interface BsubApi {
   mcpReadResource(server: McpServer, uri: string): Promise<Result<string>>;
   mcpPrompts(server: McpServer): Promise<Result<McpPrompt[]>>;
   mcpAllTools(): Promise<Result<McpToolOption[]>>;
+  mcpAllPrompts(): Promise<Result<McpPromptOption[]>>;
+  mcpAllResources(): Promise<Result<McpResourceOption[]>>;
   mcpPrompt(
     server: McpServer,
     name: string,
     args: Record<string, string>
   ): Promise<Result<string>>;
+  mcpRunPrompt(
+    serverId: string,
+    name: string,
+    args: Record<string, string>
+  ): Promise<Result<string>>;
+  mcpResourceText(serverId: string, uri: string): Promise<Result<string>>;
   importSkill(): Promise<Result<SkillItem | null>>;
   fetchSkillIndex(url: string): Promise<Result<SkillIndexEntry[]>>;
   importSkillRepo(url: string): Promise<Result<SkillItem[]>>;

@@ -12,7 +12,8 @@ import {
   chatStream,
   chatToolLoopStream,
   isAnthropicPlatform,
-  isGeminiPlatform
+  isGeminiPlatform,
+  MAX_TOOL_RESULT_CHARS
 } from './aiClient';
 import type { AiMessage, AiPart, AiToolDef } from './aiClient';
 import { buildTranscript } from './ai';
@@ -31,8 +32,24 @@ import { withDeadline } from './async';
 import { selectByAllowed } from '../shared/toolSelection';
 import { toolNeedsApproval } from '../shared/mcpApproval';
 import { capabilityKey, effectiveModelCapabilities } from '../shared/modelCapabilities';
+import { readToolOutputChunk, truncateToolOutput } from '../shared/toolOutput';
 
 const MAX_HISTORY = 16;
+const READ_TOOL_OUTPUT = `${APP_TOOL_PREFIX}read_tool_output`;
+
+const READ_TOOL_OUTPUT_DEF: AiToolDef = {
+  name: READ_TOOL_OUTPUT,
+  description:
+    '读取之前被截断的工具完整输出。MCP 或本地工具的返回超过上下文上限时，结果末尾会给出 id 和 offset；用这个工具分批读取剩余内容。',
+  parameters: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: '截断提示里给出的输出 id' },
+      offset: { type: 'number', description: '从第几个字符开始读，默认 0' }
+    },
+    required: ['id']
+  }
+};
 
 const WEB_SEARCH_TOOL: AiToolDef = {
   name: 'app__web_search',
@@ -474,10 +491,26 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
         ...(appToolsEnabled ? APP_TOOL_DEFS : []),
         ...(useWebTool ? [WEB_SEARCH_TOOL, WEB_FETCH_TOOL] : [])
       ];
+  if (localTools.length || activeBindings.length) {
+    localTools.push(READ_TOOL_OUTPUT_DEF);
+  }
   let webSearchCalls = 0;
   let webFetchCalls = 0;
   const webSearchCache = new Map<string, string>();
   const webFetchCache = new Map<string, string>();
+
+  const toolOutputs = new Map<string, string>();
+  let toolOutputSeq = 0;
+  const storeToolOutput = (content: string): string => {
+    const id = `tool-${++toolOutputSeq}`;
+    toolOutputs.set(id, content);
+    while (toolOutputs.size > 20) {
+      const first = toolOutputs.keys().next().value;
+      if (!first) break;
+      toolOutputs.delete(first);
+    }
+    return id;
+  };
 
   const emitTool = (event: Omit<ChatToolEvent, 'requestId'>) => {
     try {
@@ -523,8 +556,15 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           detail: String(call.arguments || '').slice(0, 200)
         });
         const finish = (content: string, ok = true): string => {
-          emitTool({ phase: 'done', name, detail: content.slice(0, 280), ok });
-          return content;
+          const inlineLimit = Math.max(4000, MAX_TOOL_RESULT_CHARS - 4000);
+          const clipped = truncateToolOutput(content, '', READ_TOOL_OUTPUT, inlineLimit);
+          let output = clipped.text;
+          if (clipped.truncated) {
+            const id = storeToolOutput(content);
+            output = truncateToolOutput(content, id, READ_TOOL_OUTPUT, inlineLimit).text;
+          }
+          emitTool({ phase: 'done', name, detail: output.slice(0, 280), ok });
+          return output;
         };
         if (call.name === WEB_FETCH_TOOL.name) {
           const url = String(args.url || '').trim();
@@ -604,6 +644,22 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
             return finish(`联网检索失败：${message}`, false);
           }
         }
+        if (call.name === READ_TOOL_OUTPUT) {
+          const id = String(args.id || '');
+          const full = toolOutputs.get(id);
+          if (!full) return finish('找不到该工具输出（可能已过期）。', false);
+          const offset = Math.max(
+            0,
+            Math.min(full.length, Math.floor(Number(args.offset) || 0))
+          );
+          const chunk = readToolOutputChunk(full, offset);
+          return finish(
+            chunk.nextOffset === null
+              ? chunk.text
+              : `${chunk.text}\n\n[还有剩余内容，继续用 ${READ_TOOL_OUTPUT} 读取，offset=${chunk.nextOffset}]`,
+            true
+          );
+        }
         if (call.name.startsWith(APP_TOOL_PREFIX)) {
           try {
             return finish(await callAppTool(call.name, args));
@@ -633,7 +689,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               binding.server,
               binding.tool.name,
               args,
-              settings.mcp.callTimeoutMs || 60000
+              settings.mcp.callTimeoutMs || 60000,
+              options.signal
             )
           );
         } catch (error) {
