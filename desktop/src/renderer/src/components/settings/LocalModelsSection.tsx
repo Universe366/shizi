@@ -14,8 +14,10 @@ import type {
   AppSettings,
   AsrDownloadProgress,
   AsrLocalStatus,
-  AsrPlatform
+  AsrPlatform,
+  OllamaPullProgress
 } from '../../../../shared/types';
+import { OLLAMA_EMBEDDING_CATALOG } from '../../../../shared/localModels';
 import { SettingsSection } from './SettingsSection';
 import { formatBytes } from '../../lib/format';
 
@@ -68,6 +70,9 @@ export function LocalModelsSection({
   const [showAllModels, setShowAllModels] = useState(false);
   const [testingEmbedding, setTestingEmbedding] = useState(false);
   const [embeddingTest, setEmbeddingTest] = useState('');
+  const [pullModel, setPullModel] = useState<string>(OLLAMA_EMBEDDING_CATALOG[0].model);
+  const [pulling, setPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState<OllamaPullProgress | null>(null);
 
   const refresh = useCallback(() => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -82,6 +87,16 @@ export function LocalModelsSection({
       if (event.percent >= 100) refresh();
     });
   }, [refresh]);
+
+  useEffect(() => {
+    return window.bsub?.onOllamaPullProgress?.((event) => {
+      setPullProgress(event);
+      if (event.percent >= 100) {
+        setPulling(false);
+        setNotice(`已拉取 ${event.model}；点「检测服务」刷新模型列表`);
+      }
+    });
+  }, []);
 
   const localActive = activeAsr?.kind === 'local-whisper' ? activeAsr : null;
   const currentModel = localActive?.localModel || '';
@@ -225,6 +240,40 @@ export function LocalModelsSection({
       );
     } finally {
       setTestingEmbedding(false);
+    }
+  };
+
+  const pullModelNow = async () => {
+    const model = pullModel.trim();
+    if (!model) {
+      setProbeError('先选择或填写模型名');
+      return;
+    }
+    setPulling(true);
+    setProbeError('');
+    setPullProgress({ model, percent: 0, status: '准备拉取…' });
+    try {
+      const response = await window.bsub.pullOllamaEmbedding?.({
+        baseUrl: localBaseUrl.trim(),
+        model
+      });
+      if (!response) {
+        setProbeError('当前版本不支持拉取模型');
+        setPullProgress(null);
+        return;
+      }
+      if (!response.ok) {
+        setProbeError(`拉取失败：${response.error}`);
+        setPullProgress(null);
+        return;
+      }
+      setNotice(`已拉取 ${model}；点「检测服务」刷新模型列表`);
+      setPullProgress(null);
+    } catch (error) {
+      setProbeError(`拉取失败：${(error as Error).message}`);
+      setPullProgress(null);
+    } finally {
+      setPulling(false);
     }
   };
 
@@ -541,6 +590,53 @@ export function LocalModelsSection({
             llama.cpp
           </button>
         </div>
+        <div className="settings-group-sub">
+          没有 embedding 模型？用本机 Ollama 拉取（下载由 Ollama 完成，不经过桌面端）：
+        </div>
+        <div className="settings-inline">
+          <input
+            className="settings-input"
+            list="ollama-embedding-models"
+            value={pullModel}
+            spellCheck={false}
+            placeholder="nomic-embed-text"
+            onChange={(event) => setPullModel(event.target.value)}
+          />
+          <datalist id="ollama-embedding-models">
+            {OLLAMA_EMBEDDING_CATALOG.map((item) => (
+              <option key={item.model} value={item.model}>
+                {item.label}
+              </option>
+            ))}
+          </datalist>
+          <button
+            className="mini-btn"
+            disabled={pulling}
+            onClick={() => void pullModelNow()}
+          >
+            {pulling ? <Loader2 size={12} className="spin" /> : <Download size={12} />}
+            拉取模型
+          </button>
+        </div>
+        {pullProgress && (
+          <div className="local-model-progress">
+            <span className="settings-hint">
+              {pullProgress.model} · {pullProgress.status}
+              {pullProgress.percent > 0 ? ` · ${pullProgress.percent}%` : ''}
+              {pullProgress.total && pullProgress.completed
+                ? ` · ${formatSize(pullProgress.completed)} / ${formatSize(pullProgress.total)}`
+                : ''}
+            </span>
+            {pulling && (
+              <button
+                className="mini-btn"
+                onClick={() => window.bsub.cancelOllamaPull?.(pullProgress.model)}
+              >
+                取消
+              </button>
+            )}
+          </div>
+        )}
         {probeError && (
           <div className="settings-hint" style={{ color: 'var(--danger)' }}>
             {probeError}

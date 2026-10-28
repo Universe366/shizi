@@ -1,10 +1,13 @@
 import { ipcMain } from 'electron';
 import type { LocalEmbeddingTestResult, Result } from '../../shared/types';
-import { testLocalEmbedding } from '../localEmbedding';
+import { pullOllamaEmbedding, testLocalEmbedding } from '../localEmbedding';
 import { failure } from './shared';
+import type { IpcContext } from './shared';
 
-/** 本地向量服务：只做连通性/维度验证，真正索引仍走知识库的 embedding 平台。 */
-export function registerLocalModelsIpc(): void {
+/** 本地向量服务：连通性/维度验证 + 通过本机 Ollama 拉取模型。 */
+export function registerLocalModelsIpc(ctx: IpcContext): void {
+  const pulls = new Map<string, AbortController>();
+
   ipcMain.handle(
     'local:embedding-test',
     async (
@@ -25,4 +28,35 @@ export function registerLocalModelsIpc(): void {
       }
     }
   );
+
+  ipcMain.handle(
+    'local:ollama-pull',
+    async (
+      _event,
+      payload: { baseUrl?: string; model?: string }
+    ): Promise<Result<{ model: string }>> => {
+      const model = String(payload?.model || '').trim();
+      if (pulls.has(model)) return failure(new Error('该模型正在拉取中'));
+      const controller = new AbortController();
+      pulls.set(model, controller);
+      try {
+        return {
+          ok: true,
+          data: await pullOllamaEmbedding(
+            { baseUrl: String(payload?.baseUrl || ''), model },
+            (progress) => ctx.send('local:pull-progress', progress),
+            controller.signal
+          )
+        };
+      } catch (error) {
+        return failure(error);
+      } finally {
+        pulls.delete(model);
+      }
+    }
+  );
+
+  ipcMain.on('local:pull-cancel', (_event, model: unknown) => {
+    pulls.get(String(model || ''))?.abort();
+  });
 }

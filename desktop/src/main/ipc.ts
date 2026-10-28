@@ -59,7 +59,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerMediaIpc(ctx);
 
   registerAsrSetupIpc(ctx);
-  registerLocalModelsIpc();
+  registerLocalModelsIpc(ctx);
 
   registerVideoIpc(ctx);
 

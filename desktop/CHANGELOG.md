@@ -1,3 +1,12 @@
+## 0.85.0（2026-10-28）
+
+### Ollama 模型拉取
+
+- 「本地模型管理」新增「拉取模型」：调用本机 Ollama 的 `/api/pull`，内置 nomic-embed-text / bge-m3 / qwen3-embedding:0.6b 预设，也支持手动填写其它模型名。
+- 拉取过程解析 NDJSON 的 total/completed，显示状态、百分比和已下载体积，可随时取消；完成后提示重新检测。
+- 新增 `local:ollama-pull` / `local:pull-cancel` IPC 与 `local:pull-progress` 事件；地址仍限制在回环，模型名做字符校验。
+- 测试：161 文件 / 932 用例，冒烟 19/19。
+
 ## 0.84.0（2026-10-28）
 
 ### 本地向量服务与下载状态

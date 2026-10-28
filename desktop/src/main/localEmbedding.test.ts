@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { normalizeLocalBaseUrl, testLocalEmbedding } from './localEmbedding';
+import type { OllamaPullProgress } from '../shared/types';
+import {
+  normalizeLocalBaseUrl,
+  normalizeOllamaModel,
+  ollamaApiRoot,
+  parseOllamaPullLine,
+  pullOllamaEmbedding,
+  testLocalEmbedding
+} from './localEmbedding';
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -72,5 +80,48 @@ describe('本地 embedding 服务', () => {
     await expect(
       testLocalEmbedding({ baseUrl: 'http://127.0.0.1:11434/v1', model: 'x' })
     ).rejects.toThrow(/没有返回向量/);
+  });
+
+  it('解析 Ollama 根地址、模型名与 NDJSON 进度', () => {
+    expect(ollamaApiRoot('http://127.0.0.1:11434/v1')).toBe('http://127.0.0.1:11434');
+    expect(ollamaApiRoot('http://localhost:11434')).toBe('http://localhost:11434');
+    expect(normalizeOllamaModel('bge-m3')).toBe('bge-m3');
+    expect(() => normalizeOllamaModel('bad model')).toThrow(/模型名/);
+    expect(parseOllamaPullLine('{"status":"downloading","total":100,"completed":50}')).toEqual({
+      status: 'downloading',
+      total: 100,
+      completed: 50
+    });
+    expect(parseOllamaPullLine('not json')).toBeNull();
+    expect(parseOllamaPullLine('{"error":"boom"}')).toEqual({ error: 'boom' });
+  });
+
+  it('拉取 Ollama 模型并按行回报进度', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            '{"status":"pulling manifest"}\n{"status":"downloading","total":100,"completed":50}\n'
+          )
+        );
+        controller.enqueue(encoder.encode('{"status":"success"}\n'));
+        controller.close();
+      }
+    });
+    const fetchMock = vi.fn(async () => new Response(body, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const events: OllamaPullProgress[] = [];
+    const result = await pullOllamaEmbedding(
+      { baseUrl: 'http://127.0.0.1:11434/v1', model: 'nomic-embed-text' },
+      (progress) => events.push(progress)
+    );
+    expect(result.model).toBe('nomic-embed-text');
+    expect(events.some((event) => event.percent === 50)).toBe(true);
+    expect(events.at(-1)?.percent).toBe(100);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:11434/api/pull',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });

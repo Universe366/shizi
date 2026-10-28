@@ -98,6 +98,7 @@ import type {
   UsageEvent,
   UsageSummary,
   LocalEmbeddingTestResult,
+  OllamaPullProgress,
   TtsSettings,
   ChatConversation,
   StoredChatMessage,
@@ -619,6 +620,13 @@ export interface BsubApi {
     model: string;
     apiKey?: string;
   }): Promise<Result<LocalEmbeddingTestResult>>;
+  /** 通过本机 Ollama 拉取 embedding 模型（流式进度走 local:pull-progress）。 */
+  pullOllamaEmbedding?(payload: {
+    baseUrl: string;
+    model: string;
+  }): Promise<Result<{ model: string }>>;
+  cancelOllamaPull?(model: string): void;
+  onOllamaPullProgress?(cb: (event: OllamaPullProgress) => void): () => void;
   /** 选择一个本地 .srt/.vtt 字幕文件（返回文件名与文本） */
   pickSubtitleFile?(): Promise<Result<{ name: string; text: string } | null>>;
   /** 智能断句：只合并/拆分，不改写字幕文字 */

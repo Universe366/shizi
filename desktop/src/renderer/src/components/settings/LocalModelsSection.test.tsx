@@ -97,6 +97,10 @@ describe('本地模型设置', () => {
     ok: true as const,
     data: { path: 'C:\\models\\whisper\\vulkan\\whisper-cli.exe' }
   }));
+  const pullOllamaEmbedding = vi.fn(async () => ({
+    ok: true as const,
+    data: { model: 'nomic-embed-text' }
+  }));
 
   beforeEach(() => {
     localStorage.clear();
@@ -121,7 +125,10 @@ describe('本地模型设置', () => {
       testLocalEmbedding: vi.fn(async () => ({
         ok: true as const,
         data: { dimensions: 768, latencyMs: 12, model: 'nomic-embed-text' }
-      }))
+      })),
+      pullOllamaEmbedding,
+      cancelOllamaPull: vi.fn(),
+      onOllamaPullProgress: vi.fn(() => () => {})
     };
   });
 
@@ -191,6 +198,19 @@ describe('本地模型设置', () => {
     expect(p.onUseLocalEmbedding).toHaveBeenCalledWith(
       'http://127.0.0.1:11434/v1',
       'nomic-embed-text'
+    );
+  });
+
+  it('可以用 Ollama 拉取 embedding 模型', async () => {
+    const p = props();
+    render(<LocalModelsSection {...p} />);
+    await waitFor(() => expect(screen.getByText('当前知识库')).toBeTruthy());
+    fireEvent.click(button('拉取模型'));
+    await waitFor(() =>
+      expect(pullOllamaEmbedding).toHaveBeenCalledWith({
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        model: 'nomic-embed-text'
+      })
     );
   });
 

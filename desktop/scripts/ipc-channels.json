@@ -146,6 +146,8 @@
   "library:vacuum",
   "local:embedding-test",
   "local:import",
+  "local:ollama-pull",
+  "local:pull-cancel",
   "mcp:all-tools",
   "mcp:call",
   "mcp:oauth",

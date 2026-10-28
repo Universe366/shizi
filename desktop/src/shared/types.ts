@@ -1714,6 +1714,15 @@ export interface LocalEmbeddingTestResult {
   model: string;
 }
 
+/** Ollama 拉取本地 embedding 模型的流式进度。 */
+export interface OllamaPullProgress {
+  model: string;
+  percent: number;
+  status: string;
+  total?: number;
+  completed?: number;
+}
+
 export interface AsrDownloadProgress {
   key: string;
   percent: number;
