@@ -525,6 +525,69 @@ export function registerMediaIpc(ctx: IpcContext): void {
 
       void (async () => {
         try {
+          if (payload.experimentalChatWeb) {
+            const chatResult = await chat({
+              info: payload.info,
+              lines: payload.lines,
+              messages: [
+                {
+                  role: 'user',
+                  content:
+                    '请为这个视频写一份完整总结，而不是回答单个问题。要求：先给一句话结论；按主题分节覆盖全片；保留具体数字、时间、步骤、例子；需要外部事实时可以联网搜索或读取网页，引用时标明来源；不要输出“根据字幕/检索到”这类过程说明。'
+                }
+              ],
+              page: null,
+              includeTranscript: true,
+              web: true,
+              mcpToolIds: [],
+              surface: 'main',
+              signal: controller.signal,
+              onDelta: (delta) =>
+                ctx.send('ai:delta', { requestId, delta } satisfies AiDeltaEvent),
+              onReasoning: (delta) =>
+                ctx.send('ai:reasoning', { requestId, delta } satisfies AiReasoningEvent),
+              onStatus: (status) => {
+                trackJob(() => updateJob(requestId, { message: status }));
+                ctx.send('ai:status', { requestId, status } satisfies AiStatusEvent);
+              }
+            });
+            if (!chatResult.text.trim()) throw new Error('AI 返回为空');
+            const verification = chatResult.references?.length
+              ? {
+                  items: [],
+                  references: [],
+                  supplements: [],
+                  attempted: 0,
+                  failed: 0,
+                  judged: false,
+                  dropped: 0,
+                  sources: chatResult.references
+                }
+              : undefined;
+            const saved = saveSummary(
+              payload.info,
+              chatResult.text,
+              chatResult.model,
+              verification
+            );
+            ctx.send('ai:done', {
+              requestId,
+              text: chatResult.text,
+              model: chatResult.model,
+              verification
+            } satisfies AiDoneEvent);
+            trackJob(() =>
+              finishJob(
+                requestId,
+                'done',
+                null,
+                `完成 · ${chatResult.text.length.toLocaleString('zh-CN')} 字`
+              )
+            );
+            ctx.send('library:changed', null);
+            console.log('[m4] chat-web summary saved', saved.id);
+            return;
+          }
           const result = await summarize({
             info: payload.info,
             lines: payload.lines,

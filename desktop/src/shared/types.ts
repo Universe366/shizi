@@ -2009,6 +2009,8 @@ export interface SummarizeRequest {
   skipProofread?: boolean;
   /** 跳过联网核对/参考资料（快速总结） */
   skipVerify?: boolean;
+  /** 实验：用侧边栏对话的联网工具循环来生成总结 */
+  experimentalChatWeb?: boolean;
 }
 
 export interface AiDoneEvent {

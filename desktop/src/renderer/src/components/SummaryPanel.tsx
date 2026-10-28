@@ -55,6 +55,13 @@ export function SummaryPanel({
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const [totalMs, setTotalMs] = useState(0);
   const [verifyThisRun, setVerifyThisRun] = useState(true);
+  const [experimentalChatWeb, setExperimentalChatWeb] = useState(() => {
+    try {
+      return localStorage.getItem('summary-chat-web') !== '0';
+    } catch {
+      return true;
+    }
+  });
   const startedAtRef = useRef(0);
   const [summaryVideoKey, setSummaryVideoKey] = useState('');
   const [streamText, setStreamText] = useState('');
@@ -418,7 +425,8 @@ export function SummaryPanel({
         lines: data.lines,
         // 「快速」与插件一致：跳过字幕校对 + 联网核对，直接生成。
         skipProofread,
-        skipVerify: skipProofread || !verifyThisRun
+        skipVerify: skipProofread || !verifyThisRun,
+        experimentalChatWeb
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -580,11 +588,40 @@ export function SummaryPanel({
             </button>
           )}
           {summary && <ExportMenu info={info} track={track} lines={lines} summary={summary} />}
+          {!streaming && (
+            <label
+              className="summary-verify-toggle"
+              title="实验：让总结模型像对话一样自己决定搜索、读网页和引用来源"
+            >
+              <input
+                type="checkbox"
+                checked={experimentalChatWeb}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setExperimentalChatWeb(next);
+                  try {
+                    localStorage.setItem('summary-chat-web', next ? '1' : '0');
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
+              对话式联网
+            </label>
+          )}
           {!streaming && searchEnabled && (
-            <label className="summary-verify-toggle" title="关闭可明显加快生成（不联网核对）">
+            <label
+              className="summary-verify-toggle"
+              title={
+                experimentalChatWeb
+                  ? '对话式联网开启时，本次不使用前置核对'
+                  : '关闭可明显加快生成（不联网核对）'
+              }
+            >
               <input
                 type="checkbox"
                 checked={verifyThisRun}
+                disabled={experimentalChatWeb}
                 onChange={(event) => setVerifyThisRun(event.target.checked)}
               />
               核对
