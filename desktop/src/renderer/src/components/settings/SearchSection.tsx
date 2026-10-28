@@ -540,21 +540,77 @@ export function SearchSection({
 
       <details className="settings-advanced">
         <summary>高级设置（一般不用改）</summary>
-        <div className="settings-hint">这些项影响检索质量、速度和额度；不确定时保持默认。</div>
+        <div className="settings-hint">
+          搜索服务商在上一节选择；下面这些数字只控制本次总结/对话最多用多少检索额度。不确定时保持默认。
+        </div>
         <div className="settings-inline">
           <div className="settings-field">
-            <div className="settings-label">每次结果数</div>
+            <div className="settings-label">单次最多搜索几次（1–20）</div>
             <input
               className="settings-input"
               type="number"
               min={1}
-              max={100}
-              value={search.maxResults}
-              onChange={(event) => updateSearch({ maxResults: Number(event.target.value) || 5 })}
+              max={20}
+              value={search.toolSearchLimit || 5}
+              onChange={(event) =>
+                updateSearch({
+                  toolSearchLimit: Math.min(20, Math.max(1, Number(event.target.value) || 5))
+                })
+              }
             />
           </div>
           <div className="settings-field">
-            <div className="settings-label">对话读取正文篇数</div>
+            <div className="settings-label">单次最多打开几篇网页（1–10）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={10}
+              value={search.toolFetchLimit || 3}
+              onChange={(event) =>
+                updateSearch({
+                  toolFetchLimit: Math.min(10, Math.max(1, Number(event.target.value) || 3))
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">工具循环最多几轮（1–20）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={20}
+              value={search.toolMaxRounds || 10}
+              onChange={(event) =>
+                updateSearch({
+                  toolMaxRounds: Math.min(20, Math.max(1, Number(event.target.value) || 10))
+                })
+              }
+            />
+          </div>
+        </div>
+        <div className="settings-hint">
+          搜索次数是 web_search 的调用上限；网页数只限制 web_fetch 打开网页，不影响搜索返回条数。
+        </div>
+        <div className="settings-inline">
+          <div className="settings-field">
+            <div className="settings-label">每次搜索返回结果数（1–20）</div>
+            <input
+              className="settings-input"
+              type="number"
+              min={1}
+              max={20}
+              value={search.maxResults}
+              onChange={(event) =>
+                updateSearch({
+                  maxResults: Math.min(20, Math.max(1, Number(event.target.value) || 5))
+                })
+              }
+            />
+          </div>
+          <div className="settings-field">
+            <div className="settings-label">每次搜索自动读取正文篇数（1–10）</div>
             <input
               className="settings-input"
               type="number"

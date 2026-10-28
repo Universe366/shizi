@@ -407,6 +407,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     fetchActiveId: 'jina',
     preferModelWeb: false,
     maxResults: 5,
+    toolSearchLimit: 5,
+    toolFetchLimit: 3,
+    toolMaxRounds: 10,
     includeContent: true,
     timeRange: 'any',
     verify: false,
@@ -1456,6 +1459,18 @@ function normalize(input: unknown): AppSettings {
       if (Number.isFinite(maxResults)) {
         base.search.maxResults = Math.min(100, Math.max(1, Math.round(maxResults)));
       }
+      base.search.toolSearchLimit = Math.max(
+        1,
+        Math.min(20, Number(raw.search.toolSearchLimit) || 5)
+      );
+      base.search.toolFetchLimit = Math.max(
+        1,
+        Math.min(10, Number(raw.search.toolFetchLimit) || 3)
+      );
+      base.search.toolMaxRounds = Math.max(
+        1,
+        Math.min(20, Number(raw.search.toolMaxRounds) || 10)
+      );
       base.search.includeContent = raw.search.includeContent !== false;
       const ranges = ['any', 'year', 'month', 'week'];
       base.search.timeRange = ranges.includes(raw.search.timeRange) ? raw.search.timeRange : 'any';

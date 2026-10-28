@@ -414,8 +414,10 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     .filter(Boolean)
     .join('\n\n');
 
+  const searchLimit = Math.max(1, Math.min(20, Number(settings.search.toolSearchLimit) || 5));
+  const fetchLimit = Math.max(1, Math.min(10, Number(settings.search.toolFetchLimit) || 3));
   const webToolSystem = useWebTool
-    ? '本轮已开启联网：需要外部事实时调用 web_search（可以多次、换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 3 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。'
+    ? `本轮已开启联网：需要外部事实时调用 web_search（最多 ${searchLimit} 次，可以换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 ${fetchLimit} 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。`
     : '';
   const citationSystem = webBlock
     ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'
@@ -578,7 +580,9 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       {
         temperature,
         maxTokens: maxTokens || undefined,
-        maxRounds: useWebTool ? 10 : settings.mcp.maxToolRounds || 6,
+        maxRounds: useWebTool
+          ? Math.max(1, Math.min(20, Number(settings.search.toolMaxRounds) || 10))
+          : settings.mcp.maxToolRounds || 6,
         signal: options.signal,
         task: 'chat',
         onDelta: options.onDelta,
@@ -634,8 +638,8 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               cachedPage.detail
             );
           }
-          if (webFetchCalls >= 3) {
-            return finish('本次网页读取已达到 3 次上限，请基于已有内容回答。', true);
+          if (webFetchCalls >= fetchLimit) {
+            return finish(`本次网页读取已达到 ${fetchLimit} 次上限，请基于已有内容回答。`, true);
           }
           webFetchCalls += 1;
           options.onStatus?.(`读取网页：${url.slice(0, 80)}`);
@@ -678,8 +682,11 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
           if (cached) {
             return finish(cached + '\n（这条查询已经搜过，直接使用上面的结果，不要重复搜索）', true);
           }
-          if (webSearchCalls >= 5) {
-            return finish('本次联网搜索已达到 5 次上限，请基于已有结果直接回答，不要再调用工具。', true);
+          if (webSearchCalls >= searchLimit) {
+            return finish(
+              `本次联网搜索已达到 ${searchLimit} 次上限，请基于已有结果直接回答，不要再调用工具。`,
+              true
+            );
           }
           webSearchCalls += 1;
           options.onStatus?.(`联网检索：${query}`);

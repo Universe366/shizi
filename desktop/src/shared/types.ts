@@ -962,6 +962,12 @@ export interface SearchSettings {
   /** 优先使用模型内置 Web 工具（Gemini google_search / Claude web_search） */
   preferModelWeb?: boolean;
   maxResults: number;
+  /** 单次总结最多允许几次 web_search（1-20） */
+  toolSearchLimit?: number;
+  /** 单次总结最多允许几次 web_fetch（1-10） */
+  toolFetchLimit?: number;
+  /** 工具循环最多轮次（1-20） */
+  toolMaxRounds?: number;
   includeContent: boolean;
   timeRange: SearchTimeRange;
   verify: boolean;
