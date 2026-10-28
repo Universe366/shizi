@@ -545,7 +545,7 @@ export function SearchSection({
         </div>
         <div className="settings-inline">
           <div className="settings-field">
-            <div className="settings-label">单次最多搜索几次（1–20）</div>
+            <div className="settings-label">一次总结最多搜索几次（1–20）</div>
             <input
               className="settings-input"
               type="number"
@@ -558,9 +558,10 @@ export function SearchSection({
                 })
               }
             />
+            <div className="settings-hint">模型最多调用几次 web_search；调大能换更多关键词，但更慢。</div>
           </div>
           <div className="settings-field">
-            <div className="settings-label">单次最多打开几篇网页（1–10）</div>
+            <div className="settings-label">一次总结最多打开几篇网页（1–10）</div>
             <input
               className="settings-input"
               type="number"
@@ -573,6 +574,7 @@ export function SearchSection({
                 })
               }
             />
+            <div className="settings-hint">模型最多用 web_fetch 打开几篇网页；不影响搜索结果条数。</div>
           </div>
           <div className="settings-field">
             <div className="settings-label">工具循环最多几轮（1–20）</div>
@@ -588,14 +590,12 @@ export function SearchSection({
                 })
               }
             />
+            <div className="settings-hint">模型→工具→模型算一轮；太小会被强制收尾，太大会反复搜。</div>
           </div>
-        </div>
-        <div className="settings-hint">
-          搜索次数是 web_search 的调用上限；网页数只限制 web_fetch 打开网页，不影响搜索返回条数。
         </div>
         <div className="settings-inline">
           <div className="settings-field">
-            <div className="settings-label">每次搜索返回结果数（1–20）</div>
+            <div className="settings-label">每次搜索返回几条结果（1–20）</div>
             <input
               className="settings-input"
               type="number"
@@ -608,9 +608,10 @@ export function SearchSection({
                 })
               }
             />
+            <div className="settings-hint">一次搜索给模型几条网页结果；调大上下文更长。</div>
           </div>
           <div className="settings-field">
-            <div className="settings-label">每次搜索自动读取正文篇数（1–10）</div>
+            <div className="settings-label">每次搜索自动读取几篇正文（1–10）</div>
             <input
               className="settings-input"
               type="number"
@@ -626,6 +627,7 @@ export function SearchSection({
                 })
               }
             />
+            <div className="settings-hint">搜索结果里自动抓几篇正文；调大更完整，但更慢。</div>
           </div>
           <div className="settings-field">
             <div className="settings-label">时间范围</div>
