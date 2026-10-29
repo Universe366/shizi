@@ -1499,6 +1499,12 @@ export function StartPage({
         }}
       />
 
+      <div className="start-liquid" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+
       <header className="start-topbar">
         <div className="start-topbar-brand">
           <span className="start-brand-dot" />
