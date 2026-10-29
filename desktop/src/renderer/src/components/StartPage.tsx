@@ -81,6 +81,7 @@ const UNIT_KEY = 'start-weather-unit';
 const SUGGEST_KEY = 'start-search-suggest';
 const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
 const AUTO_SYNC_KEY = 'start-auto-sync';
+const EXTRA_GROUPS_KEY = 'start-extra-groups';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -174,6 +175,20 @@ function readWidgetCollapsed(): string[] {
   }
 }
 
+function readExtraGroups(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EXTRA_GROUPS_KEY) || '[]');
+    return Array.isArray(raw)
+      ? raw
+          .map(String)
+          .filter((item) => Boolean(item.trim()))
+          .slice(0, 30)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function readSearchSuggest(): boolean {
   try {
     return localStorage.getItem(SUGGEST_KEY) !== '0';
@@ -216,6 +231,7 @@ export function StartPage({
   const [activeGroup, setActiveGroup] = useState('全部');
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupSeed, setGroupSeed] = useState<string | null>(null);
+  const [extraGroups, setExtraGroups] = useState<string[]>(readExtraGroups);
   const [dockIds, setDockIds] = useState<string[]>([]);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
@@ -829,8 +845,11 @@ export function StartPage({
       list.push(item);
       map.set(key, list);
     }
+    for (const group of extraGroups) {
+      if (!map.has(group)) map.set(group, []);
+    }
     return Array.from(map.entries());
-  }, [shortcuts]);
+  }, [shortcuts, extraGroups]);
 
   const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
   const dockShortcuts = useMemo(() => {
@@ -924,11 +943,7 @@ export function StartPage({
   };
 
   const requestNewGroup = (id: string) => {
-    if (!id) {
-      showNotice('拖动一个快捷方式到「新分组」即可创建');
-      return;
-    }
-    setGroupSeed(id);
+    setGroupSeed(id || null);
     setGroupDialogOpen(true);
   };
 
@@ -938,6 +953,7 @@ export function StartPage({
     const seed = groupSeed;
     setGroupDialogOpen(false);
     setGroupSeed(null);
+    saveExtraGroups([...extraGroups, trimmed]);
     if (seed) {
       void persistShortcuts(
         shortcuts.map((item) => (item.id === seed ? { ...item, group: trimmed } : item))
@@ -991,17 +1007,37 @@ export function StartPage({
     })();
   };
 
+  const saveExtraGroups = (next: string[]) => {
+    const unique = Array.from(new Set(next.map((item) => item.trim()).filter(Boolean))).slice(
+      0,
+      30
+    );
+    setExtraGroups(unique);
+    try {
+      localStorage.setItem(EXTRA_GROUPS_KEY, JSON.stringify(unique));
+    } catch {
+      // ignore
+    }
+  };
+
   const renameGroup = (from: string, to: string) => {
     const next = shortcuts.map((item) =>
       (item.group || '常用') === from ? { ...item, group: to } : item
     );
+    if (extraGroups.includes(from)) {
+      saveExtraGroups(extraGroups.map((group) => (group === from ? to : group)));
+    }
     if (activeGroup === from) setActiveGroup(to);
     void persistShortcuts(next);
   };
 
   const removeGroup = async (group: string) => {
     const items = shortcuts.filter((item) => (item.group || '常用') === group);
-    if (!items.length) return;
+    if (!items.length) {
+      saveExtraGroups(extraGroups.filter((item) => item !== group));
+      if (activeGroup === group) setActiveGroup('全部');
+      return;
+    }
     const ok = await askConfirm({
       title: `删除分组「${group}」？`,
       description: `${items.length} 个站点会移到「常用」，不会丢失。`,

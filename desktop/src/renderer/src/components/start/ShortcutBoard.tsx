@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Folder,
   FolderPlus,
   Info,
   Plus,
@@ -162,6 +163,7 @@ export function ShortcutBoard({
               setDropGroup(null);
             }}
           >
+            <Folder size={12} />
             {group}
             <span className="start-tab-count">{items.length}</span>
           </button>
