@@ -31,11 +31,11 @@
 一次版本 bump 至少检查这些位置：
 
 ```text
-shizi-extension/manifest.json                     2.19.0
+shizi-extension/manifest.json                     2.20.0
 shizi-extension/src/shared/constants.js          VERSION
 shizi-extension/src/content/content.js            CONTENT_VERSION
 shizi-extension/src/content/page-bridge.js        bridge version
-desktop/package.json                                          0.161.0
+desktop/package.json                                          0.162.0
 desktop/package-lock.json                                     顶层与 packages[""].version
 desktop/README.md / CHANGELOG.md                              产物名与版本说明
 verify/package.json                                           测试包版本（按需同步）
