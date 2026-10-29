@@ -210,6 +210,10 @@ start/Dock.tsx         底部 Dock：常用站点 + 内置页面 + 指令面板 
 start/SiteIcon.tsx     站点 favicon，失败回退字母色块
 start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
 start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
+start/useStartClock.ts 时钟状态与刷新频率（15s / 1s）
+start/useStartWeather.ts 天气状态、城市与强制刷新
+start/commands.ts      指令面板的静态命令与动态搜索命令
+start/pomodoroStore.ts 全局番茄钟（跨页面/重启）
 styles/start.css       起始页全部样式（只作用于 .start-page 子树）
 ```
 
@@ -234,7 +238,7 @@ start-footnote   操作提示、导入导出设置
 
 ### 交互约定
 
-- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；输入 ≥2 字后 250ms 防抖请求 Bing 联想词（主进程缓存 10 分钟，失败静默回退本地建议）。`/` 聚焦搜索框，`Esc` 先清空再关闭。
+- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；输入 ≥2 字后 250ms 防抖请求 Bing 联想词（主进程缓存 10 分钟，失败静默回退本地建议）。`/` 聚焦搜索框，`Esc` 先清空再关闭；页面空白处直接打字也会聚焦搜索框并带入第一个字符。
 - 指令面板：`Ctrl/⌘ + K` 打开，子序列模糊匹配，`↑`/`↓` 选择、`Enter` 执行、`Esc` 关闭、`Tab` 在面板内循环；命令由 StartPage 组装（搜索 / 最近使用 / 操作 / 页面 / 小组件 / 快捷方式）。执行过的命令记入 `localStorage: start-palette-recent`，关闭后焦点回到打开前的位置。输入网址或 BV 号时第一条是「打开 …」。
 - 卡片：左键打开，右键菜单「打开 / 详情 / 复制链接 / 编辑 / 删除」，编辑模式下可拖拽排序与换组；卡片右上角 ⓘ 打开详情。
 - 标签：编辑弹窗可填描述与标签（≤6，逗号/空格分隔）；标签行按标签筛选，可与分组、常用叠加。
@@ -244,9 +248,12 @@ start-footnote   操作提示、导入导出设置
 - 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式、外观偏好、壁纸直链、便签、使用次数与番茄轮数；导入走 `parseStartBackup()` 校验并 askConfirm 合并。本地 GIF/视频在 IndexedDB，不随备份导出。
 - 撤销：删除快捷方式、删除待办、清除已完成、清空便签都会弹 6 秒 toast，点「撤销」恢复上一步。
 - 待办与小组件：待办超过 4 条可展开/收起，条目可拖动排序；编辑态的小组件开关可拖动调整顺序（也保留 ↑↓）。
+- Dock：右键卡片「固定到 Dock / 取消固定」，固定项按 `general.startDockIds` 顺序展示并可拖动排序；没有固定项时回退到「常用」或前 6 个。
+- 菜单键盘：搜索引擎菜单、卡片右键菜单都支持 `↑`/`↓` 与 `Esc`；`?` 随时重新打开快捷操作提示。
 - 自动获取：编辑弹窗「自动获取」调用 `start:probe-site` 填标题/描述；批量导入时名称仍是域名的条目会自动补全（最多 8 个、3 并发），失败保留原值。
 - 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
-- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。抽屉会预览当前自定义壁纸，必应每日图显示版权 tooltip。壁纸在独立 `.start-wallpaper-layer` 图层里淡入，不再直接写页面背景。
+- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。抽屉会预览当前自定义壁纸，并列出最近 8 天必应每日一图（选中后写 `startBingImage`，可恢复每日一图）。壁纸在独立 `.start-wallpaper-layer` 图层里淡入，不再直接写页面背景。
+- 时钟与天气：抽屉可切换「显示秒 / 12 小时制」；天气卡片右上角可在 °C / °F 间切换。
 - 墨色自适应：对自定义壁纸与必应每日图采样平均亮度，给 `.start-page` 加 `is-ink-light` / `is-ink-dark`；抽屉可手动选「自动 / 浅色字 / 深色字」（`localStorage: start-ink-mode`）。远程图/视频无 CORS 时保持主题默认。
 - 动态降级：`prefers-reduced-motion` 下动画/过渡近似关闭，壁纸视频不自动播放。
 - 禅模式（极简模式）：隐藏小组件、站点分组、常去站点、Dock 与底部提示，顶栏只留禅模式按钮，显示「按 Esc 退出禅模式」与轻微的呼吸动画；`Esc` 直接退出。
@@ -277,6 +284,10 @@ start-footnote   操作提示、导入导出设置
 | 文字配色 | `localStorage: start-ink-mode`（auto / light / dark） |
 | 最近指令 | `localStorage: start-palette-recent`（最多 6 条） |
 | 首次提示 | `localStorage: start-onboarding-done`（`1` 表示已关闭） |
+| 必应图库选择 | `general.startBingImage` / `startBingCopyright` |
+| Dock 固定 | `general.startDockIds`（最多 8 个，按顺序） |
+| 时钟格式 | `localStorage: start-clock`（`{ seconds, hour12 }`） |
+| 温度单位 | `localStorage: start-weather-unit`（`c` / `f`） |
 
 **加组件**：
 

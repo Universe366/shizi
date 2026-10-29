@@ -16,6 +16,7 @@ interface DockProps {
   pomodoro: { phase: PomodoroPhase; left: number; running: boolean; onToggle: () => void };
   zen: boolean;
   onOpenShortcut: (item: StartShortcut) => void;
+  onReorder: (fromId: string, toId: string) => void;
   onBuiltIn: (entry: BuiltInEntry) => void;
   onPalette: () => void;
   onZen: () => void;
@@ -29,6 +30,7 @@ export function Dock({
   pomodoro,
   zen,
   onOpenShortcut,
+  onReorder,
   onBuiltIn,
   onPalette,
   onZen
@@ -41,6 +43,17 @@ export function Dock({
           className="start-dock-item"
           title={item.label}
           aria-label={item.label}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData('text/plain', `dock:${item.id}`);
+            event.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const raw = event.dataTransfer.getData('text/plain');
+            if (raw.startsWith('dock:')) onReorder(raw.slice(5), item.id);
+          }}
           onClick={() => onOpenShortcut(item)}
         >
           <SiteIcon item={item} small />

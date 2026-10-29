@@ -242,6 +242,7 @@
   "skills:import-url",
   "skills:index",
   "source:resolve-collection",
+  "start:bing-gallery",
   "start:bing-wallpaper",
   "start:hot",
   "start:probe-site",

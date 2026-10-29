@@ -30,6 +30,10 @@ let hotCache: { at: number; data: string[] } | null = null;
 const suggestCache = new Map<string, { at: number; data: string[] }>();
 const SUGGEST_TTL = 10 * 60 * 1000;
 let bingCache: { at: number; data: { url: string; copyright: string } } | null = null;
+let bingGalleryCache: {
+  at: number;
+  data: Array<{ url: string; copyright: string; date: string }>;
+} | null = null;
 
 const WEATHER_CODES: Record<number, string> = {
   0: '晴',
@@ -212,6 +216,41 @@ export function registerStartIpc(): void {
       return { ok: true, data };
     } catch (error) {
       return failure(`必应壁纸获取失败：${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('start:bing-gallery', async () => {
+    const now = Date.now();
+    if (bingGalleryCache && now - bingGalleryCache.at < 60 * 60 * 1000) {
+      return { ok: true, data: bingGalleryCache.data };
+    }
+    try {
+      const response = await fetch(
+        'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=zh-CN',
+        {
+          headers: {
+            'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            referer: 'https://www.bing.com/'
+          },
+          signal: AbortSignal.timeout(10000)
+        }
+      );
+      const json = (await response.json()) as {
+        images?: Array<{ urlbase?: string; copyright?: string; startdate?: string }>;
+      };
+      const data = (json.images || [])
+        .filter((image) => Boolean(image.urlbase))
+        .map((image) => ({
+          url: `https://www.bing.com${image.urlbase}_1920x1080.jpg`,
+          copyright: String(image.copyright || ''),
+          date: String(image.startdate || '')
+        }));
+      if (!data.length) return failure('必应壁纸不可用');
+      bingGalleryCache = { at: now, data };
+      return { ok: true, data };
+    } catch (error) {
+      return failure(`必应壁纸列表获取失败：${(error as Error).message}`);
     }
   });
 

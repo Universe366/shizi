@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Check, ImagePlus, Link2, Sparkles, Trash2, X } from 'lucide-react';
-import { WALLPAPERS, type StartWallpaperMedia, type WallpaperId } from './model';
+import {
+  WALLPAPERS,
+  formatBingDate,
+  type ClockOptions,
+  type StartWallpaperMedia,
+  type WallpaperId
+} from './model';
 
 const MEDIA_LABELS: Record<StartWallpaperMedia['kind'], string> = {
   image: '图片',
@@ -15,8 +21,14 @@ interface WallpaperDrawerProps {
   wallpaperMedia: StartWallpaperMedia | null;
   wallpaperPreview: string;
   wallpaperPreviewKind: StartWallpaperMedia['kind'];
+  bingGallery: Array<{ url: string; copyright: string; date: string }>;
+  bingSelection: { url: string; copyright: string } | null;
+  onPickBing: (image: { url: string; copyright: string; date: string }) => void;
+  onResetBing: () => void;
   inkMode: 'auto' | 'light' | 'dark';
   onInkMode: (mode: 'auto' | 'light' | 'dark') => void;
+  clock: ClockOptions;
+  onClock: (patch: Partial<ClockOptions>) => void;
   bingWallpaper: { url: string; copyright: string } | null;
   blur: number;
   dim: number;
@@ -39,8 +51,14 @@ export function WallpaperDrawer({
   wallpaperMedia,
   wallpaperPreview,
   wallpaperPreviewKind,
+  bingGallery,
+  bingSelection,
+  onPickBing,
+  onResetBing,
   inkMode,
   onInkMode,
+  clock,
+  onClock,
   bingWallpaper,
   blur,
   dim,
@@ -103,6 +121,32 @@ export function WallpaperDrawer({
               );
             })}
           </div>
+
+          <div className="start-drawer-label">必应图库</div>
+          {bingGallery.length ? (
+            <div className="start-bing-grid">
+              {bingGallery.map((image) => (
+                <button
+                  key={image.url}
+                  className={`start-bing-thumb${
+                    bingSelection?.url === image.url ? ' is-active' : ''
+                  }`}
+                  title={image.copyright}
+                  onClick={() => onPickBing(image)}
+                >
+                  <img src={image.url} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                  <span>{formatBingDate(image.date)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="start-drawer-hint">图库加载中…</div>
+          )}
+          {bingSelection && (
+            <button className="start-link-btn" onClick={onResetBing}>
+              恢复每日一图
+            </button>
+          )}
 
           {wallpaper === 'bing' && bingWallpaper?.copyright && (
             <div className="start-drawer-hint">{bingWallpaper.copyright}</div>
@@ -219,6 +263,26 @@ export function WallpaperDrawer({
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="start-drawer-section">
+          <div className="start-drawer-label">时钟</div>
+          <label className="start-check-row">
+            <input
+              type="checkbox"
+              checked={clock.seconds}
+              onChange={(event) => onClock({ seconds: event.target.checked })}
+            />
+            显示秒
+          </label>
+          <label className="start-check-row">
+            <input
+              type="checkbox"
+              checked={clock.hour12}
+              onChange={(event) => onClock({ hour12: event.target.checked })}
+            />
+            12 小时制
+          </label>
         </section>
 
         <section className="start-drawer-section">

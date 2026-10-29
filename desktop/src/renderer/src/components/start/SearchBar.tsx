@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { ChevronDown, Globe, History, Search } from 'lucide-react';
 import { SEARCH_ENGINES } from '../../../../shared/searchEngines';
 import type { SearchEngineId } from '../../../../shared/searchEngines';
@@ -59,6 +59,45 @@ export function SearchBar({
   onHover,
   onEscape
 }: SearchBarProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<HTMLButtonElement>(null);
+  const toggleRef = useRef(onToggleEngine);
+  toggleRef.current = onToggleEngine;
+
+  useEffect(() => {
+    if (!engineOpen) return;
+    const timer = window.setTimeout(() => {
+      menuRef.current?.querySelector('button')?.focus();
+    }, 0);
+    const onKey = (event: KeyboardEvent) => {
+      const buttons = menuRef.current
+        ? [...menuRef.current.querySelectorAll<HTMLButtonElement>('button')]
+        : [];
+      if (!buttons.length) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        toggleRef.current();
+        engineRef.current?.focus();
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const next =
+        event.key === 'ArrowDown'
+          ? (index + 1) % buttons.length
+          : index <= 0
+            ? buttons.length - 1
+            : index - 1;
+      buttons[next].focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [engineOpen]);
+
   const jump = () => {
     const item = active >= 0 ? suggestions[active] : null;
     if (item) onCommit(item.text);
@@ -69,15 +108,18 @@ export function SearchBar({
     <div className="start-search" ref={boxRef}>
       <div className="start-engine-wrap">
         <button
+          ref={engineRef}
           className={`start-engine${engineOpen ? ' is-open' : ''}`}
           title="切换搜索引擎"
+          aria-haspopup="menu"
+          aria-expanded={engineOpen}
           onClick={onToggleEngine}
         >
           <span>{engineLabel}</span>
           <ChevronDown size={13} />
         </button>
         {engineOpen && (
-          <div className="start-engine-menu" role="menu">
+          <div className="start-engine-menu" role="menu" ref={menuRef}>
             {SEARCH_ENGINES.map((item) => (
               <button
                 key={item.id}
@@ -98,6 +140,13 @@ export function SearchBar({
         value={query}
         placeholder={`在 ${engineLabel} 搜索，或输入网址 / BV 号…`}
         spellCheck={false}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={searchOpen && suggestions.length > 0}
+        aria-controls="start-suggest-list"
+        aria-activedescendant={
+          active >= 0 && suggestions[active] ? `start-suggest-${active}` : undefined
+        }
         onChange={(event) => onChange(event.target.value)}
         onFocus={onFocus}
         onKeyDown={(event) => {
@@ -125,10 +174,11 @@ export function SearchBar({
       </button>
 
       {searchOpen && suggestions.length > 0 && (
-        <div className="start-suggest" role="listbox">
+        <div className="start-suggest" role="listbox" id="start-suggest-list">
           {suggestions.map((item, index) => (
             <button
               key={`${item.kind}-${item.text}-${index}`}
+              id={`start-suggest-${index}`}
               className={`start-suggest-item${active === index ? ' is-active' : ''}`}
               role="option"
               aria-selected={active === index}

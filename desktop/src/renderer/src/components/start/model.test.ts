@@ -262,3 +262,23 @@ describe('起始页数据备份', () => {
     expect(normalizeUsage(null)).toBeUndefined();
   });
 });
+import { formatBingDate, formatClock, formatTemperature } from './model';
+
+describe('时钟 / 温度 / 必应日期', () => {
+  it('按设置输出 24 小时与秒', () => {
+    const date = new Date(2026, 9, 29, 9, 5, 3);
+    expect(formatClock(date, { seconds: false, hour12: false })).toBe('09:05');
+    expect(formatClock(date, { seconds: true, hour12: false })).toBe('09:05:03');
+  });
+
+  it('摄氏度与华氏度', () => {
+    expect(formatTemperature(22, 'c')).toBe('22°');
+    expect(formatTemperature(0, 'f')).toBe('32°');
+    expect(formatTemperature(22, 'f')).toBe('72°');
+  });
+
+  it('必应 startdate 转月日', () => {
+    expect(formatBingDate('20261029')).toBe('10月29日');
+    expect(formatBingDate('bad')).toBe('');
+  });
+});

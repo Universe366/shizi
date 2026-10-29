@@ -2453,3 +2453,85 @@
 .start-todo-item[draggable='true'] {
   cursor: grab;
 }
+
+/* ---------- 必应图库 / 时钟设置 ---------- */
+.start-bing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.start-bing-thumb {
+  position: relative;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--start-border);
+}
+
+.start-bing-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.start-bing-thumb span {
+  position: absolute;
+  left: 4px;
+  bottom: 3px;
+  color: #fff;
+  font-size: 9px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.start-bing-thumb.is-active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.start-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  color: var(--start-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.start-check-row input {
+  accent-color: var(--accent);
+}
+
+.start-dock-item[draggable='true'] {
+  cursor: grab;
+}
+
+.start-drawer-backdrop {
+  animation: start-fade-in 0.18s ease;
+}
+
+.start-drawer {
+  animation: start-drawer-in 0.22s ease;
+}
+
+@keyframes start-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes start-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

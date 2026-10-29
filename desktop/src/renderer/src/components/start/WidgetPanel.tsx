@@ -12,7 +12,14 @@ import {
 } from 'lucide-react';
 import { formatReminder } from '../../../../shared/reminder';
 import type { HistoryEntry, LibraryVideo, PetTodo } from '../../../../shared/types';
-import { ALL_WIDGETS, WIDGET_LABELS, forecastLabel, type Weather } from './model';
+import {
+  ALL_WIDGETS,
+  WIDGET_LABELS,
+  forecastLabel,
+  formatTemperature,
+  type TemperatureUnit,
+  type Weather
+} from './model';
 import { PomodoroWidget, type PomodoroState } from './PomodoroWidget';
 import { NotesWidget } from './NotesWidget';
 
@@ -34,6 +41,8 @@ interface WidgetPanelProps {
   onCityCancel: () => void;
   onWeatherRefresh: () => void;
   weatherAt: number | null;
+  weatherUnit: TemperatureUnit;
+  onWeatherUnit: () => void;
 
   pomodoro: PomodoroState;
 
@@ -80,6 +89,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onCityCancel,
     onWeatherRefresh,
     weatherAt,
+    weatherUnit,
+    onWeatherUnit,
     pomodoro,
     notes,
     onNotes,
@@ -187,17 +198,27 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   <MapPin size={10} /> {weather?.city || city}
                 </button>
               )}
+              <button
+                className="start-widget-meta"
+                title="切换温度单位"
+                onClick={onWeatherUnit}
+              >
+                {weatherUnit === 'c' ? '°C' : '°F'}
+              </button>
               <button className="start-widget-icon" title="刷新天气" onClick={onWeatherRefresh}>
                 <RefreshCw size={12} />
               </button>
             </header>
             {weather ? (
               <div className="start-weather-body">
-                <span className="start-weather-temp">{Math.round(weather.temperature)}°</span>
+                <span className="start-weather-temp">
+                  {formatTemperature(weather.temperature, weatherUnit)}
+                </span>
                 <div className="start-weather-desc">
                   <span>{weather.description}</span>
                   <span className="start-widget-meta">
-                    {Math.round(weather.low)}° ~ {Math.round(weather.high)}°
+                    {formatTemperature(weather.low, weatherUnit)} ~{' '}
+                    {formatTemperature(weather.high, weatherUnit)}
                   </span>
                 </div>
               </div>
@@ -216,7 +237,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
                     <span className="start-weather-day-label">{forecastLabel(day.date)}</span>
                     <span className="start-weather-day-desc">{day.description}</span>
                     <span className="start-weather-day-temp">
-                      {Math.round(day.low)}° / {Math.round(day.high)}°
+                      {formatTemperature(day.low, weatherUnit)} /{' '}
+                      {formatTemperature(day.high, weatherUnit)}
                     </span>
                   </div>
                 ))}
@@ -229,7 +251,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
                 typeof weather.wind === 'number') && (
                 <div className="start-weather-facts">
                   {typeof weather.apparent === 'number' && (
-                    <span>体感 {Math.round(weather.apparent)}°</span>
+                    <span>体感 {formatTemperature(weather.apparent, weatherUnit)}</span>
                   )}
                   {typeof weather.humidity === 'number' && (
                     <span>湿度 {Math.round(weather.humidity)}%</span>

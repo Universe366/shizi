@@ -1,27 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
-  CloudSun,
   Command,
   Copy,
   Download,
-  Flame,
-  BookOpen,
-  Globe,
   History,
   Library,
   Info,
   ListChecks,
   Palette,
   Pencil,
-  Search,
+  Pin,
   Settings,
   Sparkles,
-  StickyNote,
-  Timer,
-  Trash2,
-  Upload,
-  type LucideIcon
+  Trash2
 } from 'lucide-react';
 import { parseReminder } from '../../../shared/reminder';
 import { searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
@@ -33,7 +25,7 @@ import type {
   StartWallpaperMedia
 } from '../../../shared/types';
 import { SearchBar, type Suggestion } from './start/SearchBar';
-import { CommandPalette, type PaletteCommand } from './start/CommandPalette';
+import { CommandPalette } from './start/CommandPalette';
 import { Dock } from './start/Dock';
 import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
@@ -45,10 +37,10 @@ import { WallpaperDrawer } from './start/WallpaperDrawer';
 import {
   ALL_WIDGETS,
   QUICK_LINKS,
-  WIDGET_LABELS,
   WALLPAPERS,
   buildStartBackup,
   bumpUsage,
+  formatClock,
   greeting,
   hostOf,
   imageLuminance,
@@ -69,13 +61,16 @@ import {
   topUsed,
   type InkMode,
   type StartDensity,
+  type TemperatureUnit,
   type StartUsage,
-  type WallpaperId,
-  type Weather
+  type WallpaperId
 } from './start/model';
 import { clearWallpaperBlob, loadWallpaperBlob, saveWallpaperBlob } from './start/wallpaperStore';
 import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 import { useReducedMotion } from './start/useReducedMotion';
+import { useStartClock } from './start/useStartClock';
+import { useStartWeather } from './start/useStartWeather';
+import { buildStartCommands, buildStartQueryCommands } from './start/commands';
 
 const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
 const EFFECT_KEY = 'start-wallpaper-effect';
@@ -85,6 +80,13 @@ const COLLAPSED_KEY = 'start-collapsed-groups';
 const USAGE_KEY = 'start-usage';
 const NOTES_KEY = 'start-notes';
 const INK_KEY = 'start-ink-mode';
+const UNIT_KEY = 'start-weather-unit';
+
+interface BingGalleryItem {
+  url: string;
+  copyright: string;
+  date: string;
+}
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -168,6 +170,14 @@ function readNotes(): string {
   }
 }
 
+function readWeatherUnit(): TemperatureUnit {
+  try {
+    return localStorage.getItem(UNIT_KEY) === 'f' ? 'f' : 'c';
+  } catch {
+    return 'c';
+  }
+}
+
 function readInkMode(): 'auto' | InkMode {
   try {
     const value = localStorage.getItem(INK_KEY);
@@ -191,7 +201,7 @@ export function StartPage({
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<LibraryVideo[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [now, setNow] = useState(() => new Date());
+  const { now, clock, changeClock } = useStartClock();
   const [engine, setEngine] = useState<SearchEngineId>('bing');
   const [engineOpen, setEngineOpen] = useState(false);
   const [todos, setTodos] = useState<PetTodo[]>([]);
@@ -204,11 +214,16 @@ export function StartPage({
   const [bingWallpaper, setBingWallpaper] = useState<{ url: string; copyright: string } | null>(
     null
   );
+  const [bingGallery, setBingGallery] = useState<BingGalleryItem[]>([]);
+  const [bingSelection, setBingSelection] = useState<{ url: string; copyright: string } | null>(
+    null
+  );
+  const [dockIds, setDockIds] = useState<string[]>([]);
   const [wallpaperMedia, setWallpaperMedia] = useState<StartWallpaperMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState('');
   const [ink, setInk] = useState<InkMode | null>(null);
   const [inkMode, setInkMode] = useState<'auto' | InkMode>(readInkMode);
-  const [weatherAt, setWeatherAt] = useState<number | null>(null);
+  const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
   const reducedMotion = useReducedMotion();
   const [widgetOrder, setWidgetOrder] = useState<string[]>([
@@ -221,9 +236,16 @@ export function StartPage({
     'history'
   ]);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [weatherOn, setWeatherOn] = useState(true);
-  const [city, setCity] = useState('上海');
+  const {
+    weather,
+    weatherAt,
+    weatherOn,
+    setWeatherOn,
+    city,
+    setCity,
+    refresh: refreshWeather,
+    apply: applyWeather
+  } = useStartWeather(() => showNotice('天气刷新失败'));
   const [hot, setHot] = useState<string[]>([]);
   const [hotOn, setHotOn] = useState(true);
   const [editing, setEditing] = useState<ShortcutDraft | null>(null);
@@ -272,11 +294,7 @@ export function StartPage({
   const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 15_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const patchGeneral = async (patch: Record<string, unknown>) => {
     const snapshot = await window.bsub.getSettings();
@@ -304,6 +322,17 @@ export function StartPage({
     }
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
     setWallpaperImage(String(general.startWallpaperImage || ''));
+    const bingImage = String(general.startBingImage || '');
+    setBingSelection(
+      bingImage
+        ? { url: bingImage, copyright: String(general.startBingCopyright || '') }
+        : null
+    );
+    setDockIds(
+      Array.isArray(general.startDockIds)
+        ? (general.startDockIds as unknown[]).map(String).slice(0, 8)
+        : []
+    );
     const media = general.startWallpaperMedia as StartWallpaperMedia | undefined;
     setWallpaperMedia(
       media &&
@@ -315,8 +344,7 @@ export function StartPage({
     if (Array.isArray(general.startWidgets)) {
       setWidgetOrder(general.startWidgets.map(String));
     }
-    setWeatherOn(general.startWeather !== false);
-    setCity(String(general.startCity || '上海'));
+    applyWeather(general);
     setHotOn(general.startHotSearch !== false);
   };
 
@@ -333,19 +361,6 @@ export function StartPage({
       }
     });
   }, []);
-
-  useEffect(() => {
-    if (!weatherOn || !widgetOrder.includes('weather')) return;
-    let alive = true;
-    void window.bsub.startWeather(city, false).then((response) => {
-      if (!alive) return;
-      setWeather(response.ok ? response.data : null);
-      if (response.ok) setWeatherAt(Date.now());
-    });
-    return () => {
-      alive = false;
-    };
-  }, [weatherOn, city, widgetOrder]);
 
   useEffect(() => {
     if (!hotOn || !widgetOrder.includes('hot')) return;
@@ -406,6 +421,17 @@ export function StartPage({
   }, [searchOpen]);
 
   useEffect(() => {
+    if (!wallpaperOpen || bingGallery.length) return;
+    let alive = true;
+    void window.bsub.startBingGallery?.().then((response) => {
+      if (alive && response.ok) setBingGallery(response.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [wallpaperOpen, bingGallery.length]);
+
+  useEffect(() => {
     if (wallpaper !== 'bing' || wallpaperImage) return;
     let alive = true;
     void window.bsub.startBingWallpaper().then((response) => {
@@ -445,7 +471,8 @@ export function StartPage({
     const videoSource = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
     const imageSource = wallpaperMedia
       ? mediaUrl
-      : wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
+      : wallpaperImage ||
+        (wallpaper === 'bing' ? bingSelection?.url || bingWallpaper?.url || '' : '');
     if (!videoSource && !imageSource) {
       setInk(null);
       return;
@@ -459,7 +486,7 @@ export function StartPage({
     return () => {
       alive = false;
     };
-  }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper]);
+  }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper, bingSelection]);
 
 
 
@@ -469,6 +496,35 @@ export function StartPage({
     const close = () => setShortcutMenu(null);
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
+  }, [shortcutMenu]);
+
+  useEffect(() => {
+    if (!shortcutMenu) return;
+    const menu = menuRef.current;
+    menu?.querySelector<HTMLButtonElement>('button')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      const buttons = menu
+        ? [...menu.querySelectorAll<HTMLButtonElement>('button')]
+        : [];
+      if (!buttons.length) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setShortcutMenu(null);
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const next =
+        event.key === 'ArrowDown'
+          ? (index + 1) % buttons.length
+          : index <= 0
+            ? buttons.length - 1
+            : index - 1;
+      buttons[next].focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [shortcutMenu]);
 
   useEffect(() => {
@@ -505,6 +561,31 @@ export function StartPage({
         setEditMode((value) => !value);
         setShortcutMenu(null);
       }
+      if (!typing && !meta && event.key === '?') {
+        event.preventDefault();
+        setOnboarding(true);
+        return;
+      }
+      if (
+        !typing &&
+        !meta &&
+        !event.altKey &&
+        event.key.length === 1 &&
+        event.key !== '/' &&
+        event.key !== ' ' &&
+        event.key.toLowerCase() !== 'e' &&
+        !editMode &&
+        !paletteOpen &&
+        !wallpaperOpen &&
+        !shortcutMenu &&
+        !editing
+      ) {
+        event.preventDefault();
+        setQuery(event.key);
+        setSearchOpen(true);
+        searchRef.current?.focus();
+        return;
+      }
       if (event.key === 'Escape') {
         setWallpaperOpen(false);
         setShortcutMenu(null);
@@ -522,7 +603,7 @@ export function StartPage({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [paletteOpen, minimal]);
+  }, [paletteOpen, minimal, editMode, wallpaperOpen, shortcutMenu, editing]);
 
   const engineLabel = searchEngineLabel(engine);
 
@@ -639,21 +720,21 @@ export function StartPage({
     showNotice('便签已清空', () => setNotes(previous));
   };
 
-  const refreshWeather = async () => {
-    const response = await window.bsub.startWeather(city, true);
-    if (response.ok) {
-      setWeather(response.data);
-      setWeatherAt(Date.now());
-    } else {
-      showNotice('天气刷新失败');
-    }
-  };
-
   const saveCity = () => {
     const next = cityDraft.trim() || city;
     setCity(next);
     setCityEditing(false);
     void patchGeneral({ startCity: next });
+  };
+
+  const toggleWeatherUnit = () => {
+    const next: TemperatureUnit = weatherUnit === 'c' ? 'f' : 'c';
+    setWeatherUnit(next);
+    try {
+      localStorage.setItem(UNIT_KEY, next);
+    } catch {
+      // ignore
+    }
   };
 
   const changeInkMode = (next: 'auto' | InkMode) => {
@@ -720,6 +801,14 @@ export function StartPage({
   }, [shortcuts]);
 
   const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
+  const dockShortcuts = useMemo(() => {
+    if (dockIds.length) {
+      return dockIds
+        .map((id) => shortcuts.find((item) => item.id === id))
+        .filter((item): item is StartShortcut => Boolean(item));
+    }
+    return frequent.length ? frequent : shortcuts.slice(0, 6);
+  }, [dockIds, shortcuts, frequent]);
   const tags = useMemo(() => topTags(shortcuts, 12), [shortcuts]);
 
   const visibleGroups = useMemo(() => {
@@ -755,6 +844,26 @@ export function StartPage({
       next.push(moved);
     }
     void persistShortcuts(next);
+  };
+
+  const toggleDockShortcut = (id: string) => {
+    const pinned = dockIds.includes(id);
+    const next = pinned ? dockIds.filter((item) => item !== id) : [...dockIds, id].slice(0, 8);
+    setDockIds(next);
+    void patchGeneral({ startDockIds: next });
+    showNotice(pinned ? '已从 Dock 移除' : '已固定到 Dock');
+  };
+
+  const reorderDock = (fromId: string, toId: string) => {
+    const base = dockIds.length ? dockIds : dockShortcuts.map((item) => item.id);
+    const from = base.indexOf(fromId);
+    const to = base.indexOf(toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...base];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setDockIds(next);
+    void patchGeneral({ startDockIds: next });
   };
 
   const removeShortcut = (id: string) => {
@@ -980,6 +1089,31 @@ export function StartPage({
     showNotice('壁纸已应用');
   };
 
+  const pickBingImage = (image: BingGalleryItem) => {
+    setWallpaper('bing');
+    setBingSelection({ url: image.url, copyright: image.copyright });
+    setWallpaperImage('');
+    setWallpaperMedia(null);
+    setMediaUrl('');
+    setInk(null);
+    setWallpaperOpen(false);
+    void clearWallpaperBlob().catch(() => undefined);
+    void patchGeneral({
+      startWallpaper: 'bing',
+      startWallpaperImage: '',
+      startWallpaperMedia: undefined,
+      startBingImage: image.url,
+      startBingCopyright: image.copyright
+    });
+    showNotice('已应用必应图库壁纸');
+  };
+
+  const resetBingImage = () => {
+    setBingSelection(null);
+    void patchGeneral({ startBingImage: undefined, startBingCopyright: undefined });
+    showNotice('已恢复每日一图');
+  };
+
   const clearCustomWallpaper = () => {
     setWallpaperMedia(null);
     setWallpaperImage('');
@@ -1053,7 +1187,12 @@ export function StartPage({
       hotOn,
       notes,
       usage,
-      pomodoroRounds: pomodoro.rounds
+      pomodoroRounds: pomodoro.rounds,
+      bingImage: bingSelection?.url,
+      bingCopyright: bingSelection?.copyright,
+      dockIds,
+      clock,
+      weatherUnit
     });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1148,6 +1287,31 @@ export function StartPage({
     if (typeof prefs.pomodoroRounds === 'number') {
       pomodoroActions.setRounds(prefs.pomodoroRounds);
     }
+    if (prefs.bingImage) {
+      setWallpaper('bing');
+      setBingSelection({
+        url: prefs.bingImage,
+        copyright: prefs.bingCopyright || ''
+      });
+      void patchGeneral({
+        startWallpaper: 'bing',
+        startBingImage: prefs.bingImage,
+        startBingCopyright: prefs.bingCopyright || ''
+      });
+    }
+    if (prefs.dockIds) {
+      setDockIds(prefs.dockIds);
+      void patchGeneral({ startDockIds: prefs.dockIds });
+    }
+    if (prefs.clock) changeClock(prefs.clock);
+    if (prefs.weatherUnit) {
+      setWeatherUnit(prefs.weatherUnit);
+      try {
+        localStorage.setItem(UNIT_KEY, prefs.weatherUnit);
+      } catch {
+        // ignore
+      }
+    }
     showNotice(`已合并导入 ${incoming.length} 个快捷方式`);
   };
 
@@ -1159,93 +1323,33 @@ export function StartPage({
     ? wallpaperMedia.kind === 'video'
       ? ''
       : mediaUrl
-    : wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
+    : wallpaperImage ||
+      (wallpaper === 'bing' ? bingSelection?.url || bingWallpaper?.url || '' : '');
 
   const menuItem = shortcutMenu ? shortcuts.find((item) => item.id === shortcutMenu.id) : null;
   const groupNames = groups.map(([group]) => group);
 
   const lunar = lunarDate(now);
-  const widgetIcons: Record<string, LucideIcon> = {
-    weather: CloudSun,
-    todo: ListChecks,
-    pomodoro: Timer,
-    notes: StickyNote,
-    hot: Flame,
-    recent: BookOpen,
-    history: History
-  };
-  const commands: PaletteCommand[] = [
-    {
-      id: 'zen',
-      group: '操作',
-      label: minimal ? '退出禅模式' : '进入禅模式',
-      hint: 'Esc 退出',
-      icon: Sparkles,
-      run: () => toggleMinimal(!minimal)
+  const commands = buildStartCommands({
+    minimal,
+    editMode,
+    toggleMinimal: () => toggleMinimal(!minimal),
+    toggleEdit: () => setEditMode((value) => !value),
+    focusSearch: () => {
+      searchRef.current?.focus();
+      setSearchOpen(true);
     },
-    {
-      id: 'edit',
-      group: '操作',
-      label: editMode ? '退出编辑' : '编辑快捷方式',
-      hint: 'E',
-      icon: Pencil,
-      run: () => setEditMode((value) => !value)
-    },
-    {
-      id: 'focus-search',
-      group: '操作',
-      label: '聚焦搜索框',
-      hint: '/',
-      icon: Search,
-      run: () => {
-        searchRef.current?.focus();
-        setSearchOpen(true);
-      }
-    },
-    {
-      id: 'wallpaper',
-      group: '操作',
-      label: '更换壁纸',
-      icon: Palette,
-      run: () => setWallpaperOpen(true)
-    },
-    {
-      id: 'export',
-      group: '操作',
-      label: '导出起始页数据',
-      icon: Download,
-      run: exportStart
-    },
-    {
-      id: 'import',
-      group: '操作',
-      label: '导入起始页数据',
-      icon: Upload,
-      run: () => importRef.current?.click()
-    },
-    ...builtIn.map((entry) => ({
-      id: `page-${entry.id}`,
-      group: '页面',
-      label: entry.label,
-      icon: entry.icon,
-      run: entry.run
-    })),
-    ...ALL_WIDGETS.map((id) => ({
-      id: `widget-${id}`,
-      group: '小组件',
-      label: `${widgetVisible(id) ? '隐藏' : '显示'}${WIDGET_LABELS[id] || id}`,
-      icon: widgetIcons[id] || Sparkles,
-      run: () => toggleWidget(id)
-    })),
-    ...shortcuts.map((item) => ({
-      id: `open-${item.id}`,
-      group: '快捷方式',
-      label: item.label,
-      hint: hostOf(item.url),
-      icon: Bookmark,
-      run: () => openShortcut(item)
-    }))
-  ];
+    openOnboarding: () => setOnboarding(true),
+    openWallpaper: () => setWallpaperOpen(true),
+    exportStart,
+    importStart: () => importRef.current?.click(),
+    builtIn,
+    widgetVisible,
+    toggleWidget,
+    engineLabel,
+    shortcuts,
+    openShortcut
+  });
 
   return (
     <div
@@ -1324,9 +1428,7 @@ export function StartPage({
 
       <main className="start-main">
         <section className="start-hero">
-          <div className="start-clock">
-            {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-          </div>
+          <div className="start-clock">{formatClock(now, clock)}</div>
           {lunar && <div className="start-lunar">{lunar.text}</div>}
           <div className="start-greeting">
             {greeting(now)}，
@@ -1438,6 +1540,8 @@ export function StartPage({
             onCityCancel={() => setCityEditing(false)}
             onWeatherRefresh={() => void refreshWeather()}
             weatherAt={weatherAt}
+            weatherUnit={weatherUnit}
+            onWeatherUnit={toggleWeatherUnit}
             pomodoro={{
               ...pomodoro,
               onToggle: pomodoroActions.toggle,
@@ -1537,7 +1641,8 @@ export function StartPage({
 
       {!minimal && (
         <Dock
-          shortcuts={frequent.length ? frequent : shortcuts.slice(0, 6)}
+          shortcuts={dockShortcuts}
+          onReorder={reorderDock}
           builtIn={builtIn}
           weather={weather}
           pomodoro={{
@@ -1561,8 +1666,14 @@ export function StartPage({
         wallpaperMedia={wallpaperMedia}
         wallpaperPreview={wallpaperPreview}
         wallpaperPreviewKind={wallpaperPreviewKind}
+        bingGallery={bingGallery}
+        bingSelection={bingSelection}
+        onPickBing={pickBingImage}
+        onResetBing={resetBingImage}
         inkMode={inkMode}
         onInkMode={changeInkMode}
+        clock={clock}
+        onClock={changeClock}
         bingWallpaper={bingWallpaper}
         blur={effect.blur}
         dim={effect.dim}
@@ -1611,22 +1722,7 @@ export function StartPage({
       <CommandPalette
         open={paletteOpen}
         commands={commands}
-        buildQueryCommands={(value) => {
-          const text = value.trim();
-          if (!text) return [];
-          const video = /^(BV[0-9A-Za-z]{10}|av\d+)$/i.test(text);
-          const target = video ? `https://www.bilibili.com/video/${text}` : text;
-          const openable = video || isUrlLike(text);
-          return [
-            {
-              id: 'palette-search',
-              group: '搜索',
-              label: openable ? `打开 ${text}` : `在 ${engineLabel} 搜索“${text}”`,
-              icon: openable ? Globe : Search,
-              run: () => commitSearch(target)
-            }
-          ];
-        }}
+        buildQueryCommands={(value) => buildStartQueryCommands(value, engineLabel, commitSearch)}
         onClose={() => setPaletteOpen(false)}
       />
 
@@ -1684,7 +1780,9 @@ export function StartPage({
 
       {shortcutMenu && menuItem && (
         <div
+          ref={menuRef}
           className="start-menu"
+          role="menu"
           style={{ left: shortcutMenu.x, top: shortcutMenu.y }}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -1703,6 +1801,15 @@ export function StartPage({
             }}
           >
             <Info size={12} /> 详情
+          </button>
+          <button
+            onClick={() => {
+              const id = menuItem.id;
+              setShortcutMenu(null);
+              toggleDockShortcut(id);
+            }}
+          >
+            <Pin size={12} /> {dockIds.includes(menuItem.id) ? '取消固定' : '固定到 Dock'}
           </button>
           <button
             onClick={() => {

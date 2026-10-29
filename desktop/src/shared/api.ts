@@ -477,6 +477,9 @@ export interface BsubApi {
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
+  startBingGallery(): Promise<
+    Result<Array<{ url: string; copyright: string; date: string }>>
+  >;
   /** 设置跨服务商的默认模型（同时切换当前平台） */
   setDefaultModel(
     platformId: string,

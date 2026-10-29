@@ -1307,6 +1307,11 @@ export interface AppSettings {
     startWallpaperImage: string;
     /** 自定义壁纸的文件/直链来源 */
     startWallpaperMedia?: StartWallpaperMedia;
+    /** 从必应图库选中的图片（为空时用当天每日一图） */
+    startBingImage?: string;
+    startBingCopyright?: string;
+    /** 固定在 Dock 的快捷方式 id（最多 8 个，按顺序） */
+    startDockIds?: string[];
     /** 起始页小组件顺序 */
     startWidgets: string[];
     /** 起始页天气小组件 */

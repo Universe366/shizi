@@ -804,6 +804,21 @@ function normalize(input: unknown): AppSettings {
       } else {
         delete base.general.startWallpaperMedia;
       }
+      base.general.startBingImage =
+        typeof raw.general.startBingImage === 'string' &&
+        /^https?:\/\//i.test(raw.general.startBingImage)
+          ? raw.general.startBingImage.slice(0, 2000)
+          : '';
+      base.general.startBingCopyright =
+        typeof raw.general.startBingCopyright === 'string'
+          ? raw.general.startBingCopyright.slice(0, 200)
+          : '';
+      base.general.startDockIds = Array.isArray(raw.general.startDockIds)
+        ? (raw.general.startDockIds as unknown[])
+            .map((item) => String(item || '').trim())
+            .filter((item, index, list) => Boolean(item) && list.indexOf(item) === index)
+            .slice(0, 8)
+        : [];
       const widgetIds = ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history'];
       base.general.startWidgets = Array.isArray(raw.general.startWidgets)
         ? (raw.general.startWidgets as unknown[])

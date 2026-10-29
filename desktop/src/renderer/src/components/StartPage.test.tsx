@@ -14,6 +14,8 @@ vi.mock('./start/wallpaperStore', () => ({
 beforeEach(() => {
   resetPomodoroStore();
   localStorage.removeItem('start-palette-recent');
+  localStorage.removeItem('start-clock');
+  localStorage.removeItem('start-weather-unit');
   localStorage.setItem('start-onboarding-done', '1');
 });
 
@@ -43,6 +45,7 @@ function installBsub() {
     })),
     startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
     startSuggest: vi.fn(async () => ({ ok: true as const, data: [] as string[] })),
+    startBingGallery: vi.fn(async () => ({ ok: true as const, data: [] as never[] })),
     startBingWallpaper: vi.fn(async () => ({
       ok: true as const,
       data: { url: 'https://www.bing.com/bing.jpg', copyright: 'Bing' }
@@ -236,6 +239,35 @@ describe('StartPage v2', () => {
         })
       )
     );
+  });
+
+  it('按 ? 可以再次打开快捷操作提示', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.keyDown(document, { key: '?' });
+    expect(await screen.findByLabelText('起始页提示')).toBeTruthy();
+  });
+
+  it('在空白处直接打字会聚焦搜索框', () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.keyDown(document, { key: 'b' });
+    const input = screen.getByPlaceholderText(/在 必应 搜索/) as HTMLInputElement;
+    expect(input.value).toBe('b');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('搜索引擎菜单可用键盘导航和关闭', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('切换搜索引擎'));
+    await waitFor(() =>
+      expect((document.activeElement as HTMLElement)?.textContent).toBe('必应')
+    );
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    expect((document.activeElement as HTMLElement)?.textContent).toBe('Google');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(document.querySelector('.start-engine-menu')).toBeNull());
   });
 
   it('输入时合并网络联想词', async () => {
@@ -876,6 +908,60 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     );
     fireEvent.click(screen.getByTitle('更换壁纸'));
     expect(document.querySelector('.start-drawer-preview img')).toBeTruthy();
+  });
+
+  it('时钟可以显示秒，天气可以切换华氏度', async () => {
+    installBsub();
+    localStorage.setItem('start-clock', JSON.stringify({ seconds: true, hour12: false }));
+    render(<StartPage {...props()} />);
+    expect(document.querySelector('.start-clock')?.textContent).toMatch(/\d{1,2}:\d{2}:\d{2}/);
+    fireEvent.click(screen.getByText('°C'));
+    await waitFor(() => expect(screen.getByText('°F')).toBeTruthy());
+    expect(screen.getByText('72°')).toBeTruthy();
+  });
+
+  it('必应图库可以选图并写入设置', async () => {
+    const api = installBsub();
+    api.startBingGallery.mockResolvedValue({
+      ok: true as const,
+      data: [
+        { url: 'https://www.bing.com/a.jpg', copyright: 'A', date: '20261029' },
+        { url: 'https://www.bing.com/b.jpg', copyright: 'B', date: '20261028' }
+      ]
+    } as never);
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    const thumbs = await vi.waitFor(() => {
+      const list = document.querySelectorAll('.start-bing-thumb');
+      expect(list.length).toBe(2);
+      return list;
+    });
+    fireEvent.click(thumbs[0]);
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ startBingImage: 'https://www.bing.com/a.jpg' })
+        })
+      )
+    );
+  });
+
+  it('可以把快捷方式固定到 Dock 并继续拖动排序', async () => {
+    const api = withShortcuts();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const tile = document.querySelector('.start-tile[title="https://www.zhihu.com"]') as HTMLElement;
+    fireEvent.contextMenu(tile, { clientX: 300, clientY: 300 });
+    fireEvent.click(screen.getByText('固定到 Dock'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ startDockIds: ['s1'] })
+        })
+      )
+    );
+    await waitFor(() => expect(document.querySelector('.start-dock [title="知乎"]')).toBeTruthy());
+    expect(document.querySelector('.start-dock [title="MDN"]')).toBeNull();
   });
 
   it('天气可以手动刷新并显示更新时间', async () => {

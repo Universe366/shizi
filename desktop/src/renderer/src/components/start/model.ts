@@ -248,6 +248,33 @@ export function forecastLabel(date: string, now = new Date()): string {
   return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][parsed.getDay()];
 }
 
+export interface ClockOptions {
+  seconds: boolean;
+  hour12: boolean;
+}
+
+export function formatClock(date: Date, options: ClockOptions): string {
+  return date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    ...(options.seconds ? { second: '2-digit' as const } : {}),
+    hour12: options.hour12
+  });
+}
+
+/** 必应图库的 startdate（YYYYMMDD）转成「9月20日」。 */
+export function formatBingDate(value: string): string {
+  if (!/^\d{8}$/.test(value)) return '';
+  return `${Number(value.slice(4, 6))}月${Number(value.slice(6, 8))}日`;
+}
+
+export type TemperatureUnit = 'c' | 'f';
+
+export function formatTemperature(celsius: number, unit: TemperatureUnit): string {
+  const value = unit === 'f' ? (celsius * 9) / 5 + 32 : celsius;
+  return `${Math.round(Number.isFinite(value) ? value : 0)}°`;
+}
+
 /** 统一成 https://host 形式，用于比较与取 favicon。 */
 export function originOf(url: string): string {
   try {
@@ -386,6 +413,11 @@ export interface StartBackup {
     notes?: string;
     usage?: StartUsage;
     pomodoroRounds?: number;
+    bingImage?: string;
+    bingCopyright?: string;
+    dockIds?: string[];
+    clock?: ClockOptions;
+    weatherUnit?: TemperatureUnit;
   };
 }
 
@@ -404,6 +436,11 @@ export interface StartBackupInput {
   notes?: string;
   usage?: StartUsage;
   pomodoroRounds?: number;
+  bingImage?: string;
+  bingCopyright?: string;
+  dockIds?: string[];
+  clock?: ClockOptions;
+  weatherUnit?: TemperatureUnit;
 }
 
 const MAX_BACKUP_SHORTCUTS = 500;
@@ -462,7 +499,12 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
       hotOn: input.hotOn,
       notes: input.notes !== undefined ? String(input.notes).slice(0, 20000) : undefined,
       usage: input.usage,
-      pomodoroRounds: input.pomodoroRounds
+      pomodoroRounds: input.pomodoroRounds,
+      bingImage: input.bingImage,
+      bingCopyright: input.bingCopyright,
+      dockIds: input.dockIds,
+      clock: input.clock,
+      weatherUnit: input.weatherUnit
     }
   };
 }
@@ -551,7 +593,28 @@ export function parseStartBackup(text: string): ParsedBackup {
         usage: normalizeUsage(prefsRaw.usage),
         pomodoroRounds: Number.isFinite(Number(prefsRaw.pomodoroRounds))
           ? Math.max(0, Math.min(9999, Math.floor(Number(prefsRaw.pomodoroRounds))))
-          : undefined
+          : undefined,
+        bingImage:
+          typeof prefsRaw.bingImage === 'string' && /^https?:\/\//i.test(prefsRaw.bingImage)
+            ? prefsRaw.bingImage.slice(0, 2000)
+            : undefined,
+        bingCopyright:
+          typeof prefsRaw.bingCopyright === 'string'
+            ? prefsRaw.bingCopyright.slice(0, 200)
+            : undefined,
+        dockIds: Array.isArray(prefsRaw.dockIds)
+          ? prefsRaw.dockIds
+              .filter((item): item is string => typeof item === 'string')
+              .slice(0, 8)
+          : undefined,
+        clock:
+          prefsRaw.clock && typeof prefsRaw.clock === 'object'
+            ? {
+                seconds: (prefsRaw.clock as Record<string, unknown>).seconds === true,
+                hour12: (prefsRaw.clock as Record<string, unknown>).hour12 === true
+              }
+            : undefined,
+        weatherUnit: prefsRaw.weatherUnit === 'f' ? 'f' : prefsRaw.weatherUnit === 'c' ? 'c' : undefined
       }
     }
   };
