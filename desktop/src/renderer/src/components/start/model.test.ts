@@ -246,7 +246,9 @@ describe('起始页数据备份', () => {
       shortcuts: [{ id: 'a', label: 'B 站', url: 'https://www.bilibili.com', group: '常用' }],
       notes: '记一笔',
       usage: { a: 3 },
-      pomodoroRounds: 2
+      pomodoroRounds: 2,
+      bingFavorites: ['https://www.bing.com/a.jpg'],
+      rotateMinutes: 15
     });
     const parsed = parseStartBackup(JSON.stringify(backup));
     expect(parsed.ok).toBe(true);
@@ -254,6 +256,8 @@ describe('起始页数据备份', () => {
       expect(parsed.data.prefs.notes).toBe('记一笔');
       expect(parsed.data.prefs.usage).toEqual({ a: 3 });
       expect(parsed.data.prefs.pomodoroRounds).toBe(2);
+      expect(parsed.data.prefs.bingFavorites).toEqual(['https://www.bing.com/a.jpg']);
+      expect(parsed.data.prefs.rotateMinutes).toBe(15);
     }
   });
 

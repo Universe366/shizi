@@ -334,6 +334,7 @@ export function StartPage({
     changeInkMode,
     clearCustomWallpaper,
     pickWallpaper,
+    applyBackup,
     retryBingGallery
   } = useStartWallpaper({ patchGeneral, showNotice });
 
@@ -1133,7 +1134,9 @@ export function StartPage({
       bingCopyright: bingSelection?.copyright,
       dockIds,
       clock,
-      weatherUnit
+      weatherUnit,
+      bingFavorites,
+      rotateMinutes
     });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1267,6 +1270,10 @@ export function StartPage({
         startBingCopyright: prefs.bingCopyright || ''
       });
     }
+    applyBackup({
+      bingFavorites: prefs.bingFavorites,
+      rotateMinutes: prefs.rotateMinutes
+    });
     if (prefs.dockIds) {
       setDockIds(prefs.dockIds);
       void patchGeneral({ startDockIds: prefs.dockIds });

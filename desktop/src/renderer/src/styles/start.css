@@ -2690,3 +2690,9 @@
   color: var(--start-text);
   border-color: var(--start-border-strong);
 }
+
+/* 浏览器级虚拟化：离屏分组跳过布局与绘制，滚动时再渲染 */
+.start-board .start-group {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}

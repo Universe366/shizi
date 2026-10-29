@@ -321,6 +321,19 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
     }
   };
 
+  const applyBackup = (prefs: { bingFavorites?: string[]; rotateMinutes?: number }) => {
+    if (prefs.bingFavorites) {
+      const list = prefs.bingFavorites.slice(0, 30);
+      setBingFavorites(list);
+      try {
+        localStorage.setItem(BING_FAV_KEY, JSON.stringify(list));
+      } catch {
+        // ignore
+      }
+    }
+    if (typeof prefs.rotateMinutes === 'number') changeRotateMinutes(prefs.rotateMinutes);
+  };
+
   const resetBingImage = () => {
     setBingSelection(null);
     void patchRef.current({ startBingImage: undefined, startBingCopyright: undefined });
@@ -399,6 +412,7 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
     changeInkMode,
     clearCustomWallpaper,
     pickWallpaper,
+    applyBackup,
     retryBingGallery: () => setBingGalleryState('idle')
   };
 }

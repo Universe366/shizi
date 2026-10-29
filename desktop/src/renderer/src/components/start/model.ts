@@ -430,6 +430,8 @@ export interface StartBackup {
     dockIds?: string[];
     clock?: ClockOptions;
     weatherUnit?: TemperatureUnit;
+    bingFavorites?: string[];
+    rotateMinutes?: number;
   };
 }
 
@@ -453,6 +455,8 @@ export interface StartBackupInput {
   dockIds?: string[];
   clock?: ClockOptions;
   weatherUnit?: TemperatureUnit;
+  bingFavorites?: string[];
+  rotateMinutes?: number;
 }
 
 const MAX_BACKUP_SHORTCUTS = 500;
@@ -516,7 +520,9 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
       bingCopyright: input.bingCopyright,
       dockIds: input.dockIds,
       clock: input.clock,
-      weatherUnit: input.weatherUnit
+      weatherUnit: input.weatherUnit,
+      bingFavorites: input.bingFavorites,
+      rotateMinutes: input.rotateMinutes
     }
   };
 }
@@ -626,7 +632,18 @@ export function parseStartBackup(text: string): ParsedBackup {
                 hour12: (prefsRaw.clock as Record<string, unknown>).hour12 === true
               }
             : undefined,
-        weatherUnit: prefsRaw.weatherUnit === 'f' ? 'f' : prefsRaw.weatherUnit === 'c' ? 'c' : undefined
+        weatherUnit: prefsRaw.weatherUnit === 'f' ? 'f' : prefsRaw.weatherUnit === 'c' ? 'c' : undefined,
+        bingFavorites: Array.isArray(prefsRaw.bingFavorites)
+          ? prefsRaw.bingFavorites
+              .filter(
+                (item): item is string =>
+                  typeof item === 'string' && /^https?:\/\//i.test(item)
+              )
+              .slice(0, 30)
+          : undefined,
+        rotateMinutes: [0, 5, 15, 30, 60].includes(Number(prefsRaw.rotateMinutes))
+          ? Number(prefsRaw.rotateMinutes)
+          : undefined
       }
     }
   };
