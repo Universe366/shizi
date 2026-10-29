@@ -4,12 +4,23 @@ import { failure } from './shared';
 
 /** 起始页小组件：天气（Open-Meteo，免 key）与 B 站热搜，都带内存缓存。 */
 
+interface WeatherDay {
+  date: string;
+  high: number;
+  low: number;
+  description: string;
+}
+
 interface WeatherInfo {
   city: string;
   temperature: number;
   description: string;
   high: number;
   low: number;
+  humidity: number;
+  wind: number;
+  apparent: number;
+  forecast: WeatherDay[];
 }
 
 const WEATHER_TTL = 30 * 60 * 1000;
@@ -64,21 +75,43 @@ async function fetchWeather(city: string): Promise<WeatherInfo> {
   const place = geo.results?.[0];
   if (!place) throw new Error('找不到这个城市');
   const forecast = await requestJson<{
-    current?: { temperature_2m?: number; weather_code?: number };
-    daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+    current?: {
+      temperature_2m?: number;
+      weather_code?: number;
+      relative_humidity_2m?: number;
+      wind_speed_10m?: number;
+      apparent_temperature?: number;
+    };
+    daily?: {
+      time?: string[];
+      weather_code?: number[];
+      temperature_2m_max?: number[];
+      temperature_2m_min?: number[];
+    };
   }>(
     `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
-      '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min' +
-      '&timezone=auto&forecast_days=1'
+      '&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,apparent_temperature' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+      '&timezone=auto&forecast_days=4'
   );
   const temperature = Number(forecast.current?.temperature_2m ?? 0);
   const code = Number(forecast.current?.weather_code ?? 0);
+  const days = forecast.daily?.time || [];
   return {
     city: place.name || city,
     temperature,
     description: describe(code),
     high: Number(forecast.daily?.temperature_2m_max?.[0] ?? temperature),
-    low: Number(forecast.daily?.temperature_2m_min?.[0] ?? temperature)
+    low: Number(forecast.daily?.temperature_2m_min?.[0] ?? temperature),
+    humidity: Number(forecast.current?.relative_humidity_2m ?? 0),
+    wind: Number(forecast.current?.wind_speed_10m ?? 0),
+    apparent: Number(forecast.current?.apparent_temperature ?? temperature),
+    forecast: days.slice(0, 4).map((date, index) => ({
+      date,
+      high: Number(forecast.daily?.temperature_2m_max?.[index] ?? temperature),
+      low: Number(forecast.daily?.temperature_2m_min?.[index] ?? temperature),
+      description: describe(Number(forecast.daily?.weather_code?.[index] ?? 0))
+    }))
   };
 }
 

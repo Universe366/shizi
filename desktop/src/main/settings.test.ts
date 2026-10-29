@@ -53,25 +53,12 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.searchEngineCustom).toBe('https://s.example/?q={q}');
   });
 
-  it('总结联网读取篇数与预算可配置', () => {
+  it('对话联网读取篇数可配置', () => {
     const settings = loadSettings();
-    expect(settings.search.summaryReadPages).toBe(2);
-    expect(settings.search.summaryReferenceChars).toBe(6000);
-    expect(settings.search.verifyReadPages).toBe(1);
     expect(settings.search.chatReadPages).toBe(2);
-    settings.search.summaryReadPages = 4;
-    settings.search.summaryReferenceChars = 12000;
-    settings.search.verifyReadPages = 2;
     settings.search.chatReadPages = 6;
     saveSettings(settings);
-    const reloaded = loadSettings();
-    expect(reloaded.search.summaryReadPages).toBe(4);
-    expect(reloaded.search.summaryReferenceChars).toBe(12000);
-    expect(reloaded.search.verifyReadPages).toBe(2);
-    expect(reloaded.search.chatReadPages).toBe(6);
-    settings.search.summaryReadPages = 2;
-    settings.search.summaryReferenceChars = 6000;
-    settings.search.verifyReadPages = 1;
+    expect(loadSettings().search.chatReadPages).toBe(6);
     settings.search.chatReadPages = 2;
     saveSettings(settings);
   });

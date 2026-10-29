@@ -5,7 +5,7 @@
 > 当前发布基线：tag `v0.122.0`
 > 最新 Release：`v0.122.0`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
-> 工作区：clean
+> 工作区：有未提交改动（旧总结链路删除 + 起始页增强）
 
 这份文件回答三个问题：
 
@@ -21,7 +21,7 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 171 个文件 / 980 个用例（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、知识库与索引、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
+| 桌面单测 | 171 个文件 / 994 个用例（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、知识库与索引、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
@@ -35,6 +35,34 @@
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.123.0（2026-10-29，删除旧总结链路 + 起始页借鉴「初始」）
+
+**清理**
+
+- 删除 `main/verify.ts`、`main/verify.test.ts`、`main/summaryCache.ts`；
+  `ai.ts` 的旧 `summarize` / 分段合并 / 核对调用全部移除，只保留 `buildTranscript`
+  与 `buildSummaryChatPrompt`。
+- `devHooks.ts` 的 verify / 长视频 / 格式测试钩子删除，live-ai 与 m4 改用 `summarizeChat`。
+- 移除只服务旧链路的 8 个 search 设置字段（`verifySummary`、`verifyItemCount`、
+  `summarySplitMode`、`summaryReadPages`、`summaryReferenceChars`、`verifyReadPages`、
+  `extraVerifyQueries`、`aiQueryGeneration`）及默认值/归一化/测试夹具。
+- 单测从 171/980 变为 170/970。
+
+**起始页（借鉴 [Start-chushi](https://github.com/LXgssy/Start-chushi)）**
+
+- 新增 `⌘/Ctrl + K` 指令面板：操作 / 页面 / 小组件 / 搜索 / 快捷方式五组，↑↓ 选择、回车执行。
+- 新增底部 Dock：常用站点、内置页面、指令面板与禅模式入口，固定在页面底部。
+- 时钟下增加农历（干支年 + 月日，`Intl` 中文历法，失败自动隐藏）。
+- 新增番茄钟（25/5 自动轮转）与便签（自动存 `localStorage`）小组件。
+- 禅模式（原极简模式）隐藏站点分组、Dock 与底部提示，`Esc` 退出。
+- 已有配置的 `general.startWidgets` 不会自动补新组件：需要番茄钟/便签时在「编辑 → 小组件」勾选。
+- 匹配参考站的动态搜索命令：面板输入任意内容时，第一条即「用当前引擎搜索」。
+- 壁纸支持上传 GIF / 静音视频（存 IndexedDB，不塞 settings.json）与远程直链；按壁纸亮度自动切换深/浅墨色。
+- 番茄钟补齐 15 分钟长休、阶段提示音与 Dock 剩余分钟徽标；天气小组件增加体感/湿度/风与 4 日预报。
+- 备份新增壁纸直链（本地 GIF/视频不随备份导出）。
+- 测试：合计 171 文件 / 994 用例；`npm run smoke` 19/19、`npm run build`、
+  `tools/start-page-check.mjs` 与壁纸/番茄钟探针均通过。
 
 ### 0.122.0（2026-10-29，高级检索设置补充说明）
 

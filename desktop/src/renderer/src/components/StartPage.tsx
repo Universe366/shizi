@@ -1,22 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
+  CloudSun,
+  Command,
   Copy,
   Download,
+  Flame,
+  BookOpen,
   History,
   Library,
   Info,
   ListChecks,
   Palette,
   Pencil,
+  Search,
   Settings,
   Sparkles,
-  Trash2
+  StickyNote,
+  Timer,
+  Trash2,
+  Upload,
+  type LucideIcon
 } from 'lucide-react';
 import { parseReminder } from '../../../shared/reminder';
 import { searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
-import type { HistoryEntry, LibraryVideo, PetTodo, StartShortcut } from '../../../shared/types';
+import type {
+  HistoryEntry,
+  LibraryVideo,
+  PetTodo,
+  StartShortcut,
+  StartWallpaperMedia
+} from '../../../shared/types';
 import { SearchBar, type Suggestion } from './start/SearchBar';
+import { CommandPalette, type PaletteCommand } from './start/CommandPalette';
+import { Dock } from './start/Dock';
 import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
 import { BatchAddDialog } from './start/BatchAddDialog';
@@ -27,11 +44,19 @@ import { WallpaperDrawer } from './start/WallpaperDrawer';
 import {
   ALL_WIDGETS,
   QUICK_LINKS,
+  WIDGET_LABELS,
   WALLPAPERS,
   buildStartBackup,
   bumpUsage,
   greeting,
   hostOf,
+  imageLuminance,
+  inkForLuminance,
+  lunarDate,
+  videoLuminance,
+  wallpaperMediaFromUrl,
+  POMODORO_SECONDS,
+  nextPomodoroPhase,
   isStartDensity,
   isUrlLike,
   matchShortcut,
@@ -42,11 +67,15 @@ import {
   parseStartBackup,
   topTags,
   topUsed,
+  type InkMode,
+  type PomodoroPhase,
   type StartDensity,
   type StartUsage,
   type WallpaperId,
   type Weather
 } from './start/model';
+import { clearWallpaperBlob, loadWallpaperBlob, saveWallpaperBlob } from './start/wallpaperStore';
+import { playChime } from './start/chime';
 
 const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
 const EFFECT_KEY = 'start-wallpaper-effect';
@@ -163,9 +192,18 @@ export function StartPage({
   const [bingWallpaper, setBingWallpaper] = useState<{ url: string; copyright: string } | null>(
     null
   );
+  const [wallpaperMedia, setWallpaperMedia] = useState<StartWallpaperMedia | null>(null);
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [ink, setInk] = useState<InkMode | null>(null);
+  const [pomoPhase, setPomoPhase] = useState<PomodoroPhase>('work');
+  const [pomoLeft, setPomoLeft] = useState(POMODORO_SECONDS.work);
+  const [pomoRunning, setPomoRunning] = useState(false);
+  const [pomoRounds, setPomoRounds] = useState(0);
   const [widgetOrder, setWidgetOrder] = useState<string[]>([
     'weather',
     'todo',
+    'pomodoro',
+    'notes',
     'hot',
     'recent',
     'history'
@@ -208,6 +246,7 @@ export function StartPage({
   const [notice, setNotice] = useState('');
   const [activeTag, setActiveTag] = useState('');
   const [detail, setDetail] = useState<StartShortcut | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -243,6 +282,14 @@ export function StartPage({
     }
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
     setWallpaperImage(String(general.startWallpaperImage || ''));
+    const media = general.startWallpaperMedia as StartWallpaperMedia | undefined;
+    setWallpaperMedia(
+      media &&
+        (media.kind === 'image' || media.kind === 'gif' || media.kind === 'video') &&
+        (media.source === 'file' || media.source === 'url')
+        ? media
+        : null
+    );
     if (Array.isArray(general.startWidgets)) {
       setWidgetOrder(general.startWidgets.map(String));
     }
@@ -311,6 +358,68 @@ export function StartPage({
   }, [wallpaper, wallpaperImage]);
 
   useEffect(() => {
+    let alive = true;
+    let created = '';
+    if (!wallpaperMedia) {
+      setMediaUrl('');
+      return;
+    }
+    if (wallpaperMedia.source === 'url') {
+      setMediaUrl(wallpaperMedia.url || '');
+      return;
+    }
+    void loadWallpaperBlob()
+      .then((blob) => {
+        if (!alive || !blob) return;
+        created = URL.createObjectURL(blob);
+        setMediaUrl(created);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [wallpaperMedia]);
+
+  useEffect(() => {
+    let alive = true;
+    const videoSource = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
+    const imageSource = wallpaperMedia
+      ? mediaUrl
+      : wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
+    if (!videoSource && !imageSource) {
+      setInk(null);
+      return;
+    }
+    const crossOrigin =
+      Boolean(wallpaperMedia && wallpaperMedia.source === 'url') || wallpaper === 'bing';
+    const task = videoSource ? videoLuminance(videoSource) : imageLuminance(imageSource, crossOrigin);
+    void task.then((value) => {
+      if (alive) setInk(inkForLuminance(value));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper]);
+
+  useEffect(() => {
+    if (!pomoRunning) return;
+    const timer = window.setInterval(() => setPomoLeft((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [pomoRunning]);
+
+  useEffect(() => {
+    if (pomoLeft > 0) return;
+    const completed = pomoPhase === 'work' ? pomoRounds + 1 : pomoRounds;
+    if (pomoPhase === 'work') setPomoRounds(completed);
+    const next = nextPomodoroPhase(pomoPhase, completed);
+    setPomoPhase(next);
+    setPomoLeft(POMODORO_SECONDS[next]);
+    if (pomoRunning) playChime();
+  }, [pomoLeft, pomoPhase, pomoRounds, pomoRunning]);
+
+
+  useEffect(() => {
     if (!shortcutMenu) return;
     const close = () => setShortcutMenu(null);
     document.addEventListener('mousedown', close);
@@ -336,9 +445,11 @@ export function StartPage({
         (/^(INPUT|TEXTAREA|SELECT)$/.test(target!.tagName) || target!.isContentEditable);
       if (meta && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        searchRef.current?.focus();
-        setSearchOpen(true);
+        setPaletteOpen((value) => !value);
+        setSearchOpen(false);
+        return;
       }
+      if (paletteOpen) return;
       if (!typing && !meta && event.key === '/') {
         event.preventDefault();
         searchRef.current?.focus();
@@ -353,11 +464,20 @@ export function StartPage({
         setWallpaperOpen(false);
         setShortcutMenu(null);
         setEditing(null);
+        setSearchOpen(false);
+        if (minimal) {
+          setMinimal(false);
+          try {
+            localStorage.setItem(MINIMAL_KEY, '0');
+          } catch {
+            // ignore
+          }
+        }
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  }, [paletteOpen, minimal]);
 
   const engineLabel = searchEngineLabel(engine);
 
@@ -671,6 +791,25 @@ export function StartPage({
   };
 
   const applyWallpaperFile = (file: File) => {
+    const isVideo = file.type.startsWith('video/');
+    const isGif = file.type === 'image/gif';
+    if (isVideo || isGif) {
+      if (file.size > 60 * 1024 * 1024) {
+        showNotice('文件超过 60MB，换个小一点的');
+        return;
+      }
+      void saveWallpaperBlob(file)
+        .then(() => {
+          const media: StartWallpaperMedia = { kind: isVideo ? 'video' : 'gif', source: 'file' };
+          setWallpaperMedia(media);
+          setWallpaperImage('');
+          setWallpaperOpen(false);
+          void patchGeneral({ startWallpaperMedia: media, startWallpaperImage: '' });
+          showNotice(isVideo ? '视频壁纸已应用' : 'GIF 壁纸已应用');
+        })
+        .catch(() => showNotice('壁纸保存失败，换个小一点的文件'));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const image = new Image();
@@ -685,12 +824,49 @@ export function StartPage({
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
         setWallpaperImage(dataUrl);
+        setWallpaperMedia(null);
         setWallpaperOpen(false);
-        void patchGeneral({ startWallpaperImage: dataUrl });
+        void clearWallpaperBlob().catch(() => undefined);
+        void patchGeneral({ startWallpaperImage: dataUrl, startWallpaperMedia: undefined });
       };
       image.src = String(reader.result || '');
     };
     reader.readAsDataURL(file);
+  };
+
+  const applyWallpaperUrl = (raw: string) => {
+    const media = wallpaperMediaFromUrl(raw);
+    if (!media) {
+      showNotice('请输入有效的 http(s) 图片 / GIF / 视频地址');
+      return;
+    }
+    setWallpaperMedia(media);
+    setWallpaperImage('');
+    setWallpaperOpen(false);
+    void clearWallpaperBlob().catch(() => undefined);
+    void patchGeneral({ startWallpaperMedia: media, startWallpaperImage: '' });
+    showNotice('壁纸已应用');
+  };
+
+  const clearCustomWallpaper = () => {
+    setWallpaperMedia(null);
+    setWallpaperImage('');
+    setMediaUrl('');
+    setInk(null);
+    void clearWallpaperBlob().catch(() => undefined);
+    void patchGeneral({ startWallpaperMedia: undefined, startWallpaperImage: '' });
+  };
+
+  const togglePomodoro = () => setPomoRunning((value) => !value);
+  const resetPomodoro = () => {
+    setPomoRunning(false);
+    setPomoPhase('work');
+    setPomoLeft(POMODORO_SECONDS.work);
+  };
+  const pickPomodoroPhase = (phase: PomodoroPhase) => {
+    setPomoRunning(false);
+    setPomoPhase(phase);
+    setPomoLeft(POMODORO_SECONDS[phase]);
   };
 
   const updateEffect = (next: { blur: number; dim: number }) => {
@@ -744,6 +920,7 @@ export function StartPage({
       shortcuts,
       wallpaper,
       wallpaperImage,
+      wallpaperMedia: wallpaperMedia || undefined,
       effect,
       minimal,
       engine,
@@ -794,6 +971,12 @@ export function StartPage({
       setWallpaperImage(prefs.wallpaperImage);
       void patchGeneral({ startWallpaperImage: prefs.wallpaperImage });
     }
+    if (prefs.wallpaperMedia) {
+      setWallpaperMedia(prefs.wallpaperMedia);
+      setWallpaperImage('');
+      void clearWallpaperBlob().catch(() => undefined);
+      void patchGeneral({ startWallpaperMedia: prefs.wallpaperMedia, startWallpaperImage: '' });
+    }
     if (prefs.effect) {
       const next = {
         blur: Math.min(24, Math.max(0, prefs.effect.blur)),
@@ -824,21 +1007,122 @@ export function StartPage({
     showNotice(`已合并导入 ${incoming.length} 个快捷方式`);
   };
 
-  const backgroundImage =
-    wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
+  const videoBackground = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
+  const backgroundImage = wallpaperMedia
+    ? wallpaperMedia.kind === 'video'
+      ? ''
+      : mediaUrl
+    : wallpaperImage || (wallpaper === 'bing' ? bingWallpaper?.url || '' : '');
 
   const menuItem = shortcutMenu ? shortcuts.find((item) => item.id === shortcutMenu.id) : null;
   const groupNames = groups.map(([group]) => group);
 
+  const lunar = lunarDate(now);
+  const widgetIcons: Record<string, LucideIcon> = {
+    weather: CloudSun,
+    todo: ListChecks,
+    pomodoro: Timer,
+    notes: StickyNote,
+    hot: Flame,
+    recent: BookOpen,
+    history: History
+  };
+  const commands: PaletteCommand[] = [
+    {
+      id: 'zen',
+      group: '操作',
+      label: minimal ? '退出禅模式' : '进入禅模式',
+      hint: 'Esc 退出',
+      icon: Sparkles,
+      run: () => toggleMinimal(!minimal)
+    },
+    {
+      id: 'edit',
+      group: '操作',
+      label: editMode ? '退出编辑' : '编辑快捷方式',
+      hint: 'E',
+      icon: Pencil,
+      run: () => setEditMode((value) => !value)
+    },
+    {
+      id: 'focus-search',
+      group: '操作',
+      label: '聚焦搜索框',
+      hint: '/',
+      icon: Search,
+      run: () => {
+        searchRef.current?.focus();
+        setSearchOpen(true);
+      }
+    },
+    {
+      id: 'wallpaper',
+      group: '操作',
+      label: '更换壁纸',
+      icon: Palette,
+      run: () => setWallpaperOpen(true)
+    },
+    {
+      id: 'export',
+      group: '操作',
+      label: '导出起始页数据',
+      icon: Download,
+      run: exportStart
+    },
+    {
+      id: 'import',
+      group: '操作',
+      label: '导入起始页数据',
+      icon: Upload,
+      run: () => importRef.current?.click()
+    },
+    ...builtIn.map((entry) => ({
+      id: `page-${entry.id}`,
+      group: '页面',
+      label: entry.label,
+      icon: entry.icon,
+      run: entry.run
+    })),
+    ...ALL_WIDGETS.map((id) => ({
+      id: `widget-${id}`,
+      group: '小组件',
+      label: `${widgetVisible(id) ? '隐藏' : '显示'}${WIDGET_LABELS[id] || id}`,
+      icon: widgetIcons[id] || Sparkles,
+      run: () => toggleWidget(id)
+    })),
+    ...shortcuts.map((item) => ({
+      id: `open-${item.id}`,
+      group: '快捷方式',
+      label: item.label,
+      hint: hostOf(item.url),
+      icon: Bookmark,
+      run: () => openShortcut(item)
+    }))
+  ];
+
   return (
     <div
-      className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}`}
+      className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
+        ink ? ` is-ink-${ink}` : ''
+      }`}
       style={
         backgroundImage
           ? { backgroundImage: `url(${backgroundImage})` }
           : undefined
       }
     >
+      {videoBackground && (
+        <video
+          className="start-wallpaper-video"
+          src={videoBackground}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        />
+      )}
+
       <div
         className="start-veil"
         aria-hidden="true"
@@ -854,6 +1138,13 @@ export function StartPage({
           拾字
         </div>
         <div className="start-topbar-actions">
+          <button
+            className="start-ghost-btn"
+            title="指令面板"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <Command size={14} />
+          </button>
           <button
             className={`start-ghost-btn${minimal ? ' is-active' : ''}`}
             title="极简模式"
@@ -885,6 +1176,7 @@ export function StartPage({
           <div className="start-clock">
             {now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </div>
+          {lunar && <div className="start-lunar">{lunar.text}</div>}
           <div className="start-greeting">
             {greeting(now)}，
             {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
@@ -991,6 +1283,15 @@ export function StartPage({
             }}
             onCitySave={saveCity}
             onCityCancel={() => setCityEditing(false)}
+            pomodoro={{
+              phase: pomoPhase,
+              left: pomoLeft,
+              running: pomoRunning,
+              rounds: pomoRounds,
+              onToggle: togglePomodoro,
+              onReset: resetPomodoro,
+              onPhase: pickPomodoroPhase
+            }}
             todos={todos}
             todoDraft={todoDraft}
             onTodoDraft={setTodoDraft}
@@ -1026,7 +1327,7 @@ export function StartPage({
           <span className="start-footnote-text">
             {editMode
               ? '编辑中：拖动卡片可排序或换组，✎ 改名，× 删除'
-              : 'Ctrl/⌘+K 或 / 搜索 · E 编辑 · 右键卡片更多'}
+              : 'Ctrl/⌘+K 指令面板 · / 搜索 · E 编辑 · 右键卡片更多'}
           </span>
           {editMode && shortcutBackup.length > shortcuts.length && (
             <button className="start-foot-link" onClick={() => void persistShortcuts(shortcutBackup)}>
@@ -1066,10 +1367,30 @@ export function StartPage({
         </footer>
       </main>
 
+      {!minimal && (
+        <Dock
+          shortcuts={frequent.length ? frequent : shortcuts.slice(0, 6)}
+          builtIn={builtIn}
+          weather={weather}
+          pomodoro={{
+            phase: pomoPhase,
+            left: pomoLeft,
+            running: pomoRunning,
+            onToggle: togglePomodoro
+          }}
+          zen={minimal}
+          onOpenShortcut={openShortcut}
+          onBuiltIn={(entry) => entry.run()}
+          onPalette={() => setPaletteOpen(true)}
+          onZen={() => toggleMinimal(!minimal)}
+        />
+      )}
+
       <WallpaperDrawer
         open={wallpaperOpen}
         wallpaper={wallpaper}
         wallpaperImage={wallpaperImage}
+        wallpaperMedia={wallpaperMedia}
         bingWallpaper={bingWallpaper}
         blur={effect.blur}
         dim={effect.dim}
@@ -1077,18 +1398,44 @@ export function StartPage({
         onPick={(next) => {
           setWallpaper(next);
           setWallpaperImage('');
+          setWallpaperMedia(null);
+          setMediaUrl('');
+          setInk(null);
           setWallpaperOpen(false);
-          void patchGeneral({ startWallpaper: next, startWallpaperImage: '' });
+          void clearWallpaperBlob().catch(() => undefined);
+          void patchGeneral({
+            startWallpaper: next,
+            startWallpaperImage: '',
+            startWallpaperMedia: undefined
+          });
         }}
         onUpload={applyWallpaperFile}
-        onClear={() => {
-          setWallpaperImage('');
-          void patchGeneral({ startWallpaperImage: '' });
-        }}
+        onUploadUrl={applyWallpaperUrl}
+        onClear={clearCustomWallpaper}
         onBlur={(value) => updateEffect({ ...effect, blur: value })}
         onDim={(value) => updateEffect({ ...effect, dim: value })}
         onMinimal={toggleMinimal}
         onClose={() => setWallpaperOpen(false)}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        commands={commands}
+        buildQueryCommands={(value) => {
+          const text = value.trim();
+          return text
+            ? [
+                {
+                  id: 'palette-search',
+                  group: '搜索',
+                  label: `在 ${engineLabel} 搜索“${text}”`,
+                  icon: Search,
+                  run: () => commitSearch(text)
+                }
+              ]
+            : [];
+        }}
+        onClose={() => setPaletteOpen(false)}
       />
 
       <input

@@ -1,16 +1,25 @@
-import { Check, ImagePlus, Sparkles, Trash2, X } from 'lucide-react';
-import { WALLPAPERS, type WallpaperId } from './model';
+import { useState } from 'react';
+import { Check, ImagePlus, Link2, Sparkles, Trash2, X } from 'lucide-react';
+import { WALLPAPERS, type StartWallpaperMedia, type WallpaperId } from './model';
+
+const MEDIA_LABELS: Record<StartWallpaperMedia['kind'], string> = {
+  image: '图片',
+  gif: 'GIF 动图',
+  video: '视频'
+};
 
 interface WallpaperDrawerProps {
   open: boolean;
   wallpaper: WallpaperId;
   wallpaperImage: string;
+  wallpaperMedia: StartWallpaperMedia | null;
   bingWallpaper: { url: string; copyright: string } | null;
   blur: number;
   dim: number;
   minimal: boolean;
   onPick: (id: WallpaperId) => void;
   onUpload: (file: File) => void;
+  onUploadUrl: (url: string) => void;
   onClear: () => void;
   onBlur: (value: number) => void;
   onDim: (value: number) => void;
@@ -23,19 +32,29 @@ export function WallpaperDrawer({
   open,
   wallpaper,
   wallpaperImage,
+  wallpaperMedia,
   bingWallpaper,
   blur,
   dim,
   minimal,
   onPick,
   onUpload,
+  onUploadUrl,
   onClear,
   onBlur,
   onDim,
   onMinimal,
   onClose
 }: WallpaperDrawerProps) {
+  const [urlDraft, setUrlDraft] = useState('');
+
   if (!open) return null;
+
+  const applyUrl = () => {
+    if (!urlDraft.trim()) return;
+    onUploadUrl(urlDraft.trim());
+    setUrlDraft('');
+  };
 
   return (
     <div className="start-drawer-backdrop" onMouseDown={onClose}>
@@ -51,7 +70,7 @@ export function WallpaperDrawer({
           <div className="start-drawer-label">壁纸</div>
           <div className="start-wallpaper-grid">
             {WALLPAPERS.map((item) => {
-              const active = !wallpaperImage && wallpaper === item.id;
+              const active = !wallpaperImage && !wallpaperMedia && wallpaper === item.id;
               return (
                 <button
                   key={item.id}
@@ -75,10 +94,10 @@ export function WallpaperDrawer({
 
           <div className="start-drawer-row">
             <label className="start-upload">
-              <ImagePlus size={14} /> 上传图片
+              <ImagePlus size={14} /> 上传图片 / GIF / 视频
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/mp4,video/webm,video/*"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) onUpload(file);
@@ -86,11 +105,35 @@ export function WallpaperDrawer({
                 }}
               />
             </label>
-            {wallpaperImage && (
+            {(wallpaperImage || wallpaperMedia) && (
               <button className="start-link-btn is-danger" onClick={onClear}>
                 <Trash2 size={13} /> 清除自定义壁纸
               </button>
             )}
+          </div>
+
+          <div className="start-drawer-url">
+            <Link2 size={13} />
+            <input
+              value={urlDraft}
+              placeholder="或粘贴图片 / GIF / 视频直链"
+              aria-label="壁纸直链"
+              onChange={(event) => setUrlDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') applyUrl();
+              }}
+            />
+            <button onClick={applyUrl} disabled={!urlDraft.trim()}>
+              应用
+            </button>
+          </div>
+
+          <div className="start-drawer-hint">
+            {wallpaperMedia
+              ? `当前：${MEDIA_LABELS[wallpaperMedia.kind]} · ${
+                  wallpaperMedia.source === 'url' ? '直链' : '本地文件'
+                }`
+              : 'GIF / 视频会保存在本机，不上传；直链需要允许跨域才能自动配色。'}
           </div>
         </section>
 

@@ -1,6 +1,6 @@
 # 质量现状与后续重构建议
 
-> 更新：2026-10-29，桌面端 0.122.0 / 插件 2.18.8。
+> 更新：2026-10-29，桌面端 0.123.0 / 插件 2.18.8。
 > 这不是路线图承诺，是对当前代码的真实评估。
 
 ## 当前基线
@@ -9,7 +9,7 @@
 |---|---|
 | Git 跟踪文件 | 701 |
 | 当前树体积 | 约 36 MB（FFmpeg.wasm 占 31 MB） |
-| 桌面单测 | 171 个文件 / 980 个用例（含本地 ASR、AI 协议与用量、本地模型与向量服务、助手档案、工具审批、对话库/分支、知识库、官方分段、模型能力、配色、轮盘、文件转换、听写、TTS、OCR、外观、搜索引擎、长视频合并、成片流水线） |
+| 桌面单测 | 171 个文件 / 994 个用例（含本地 ASR、AI 协议与用量、本地模型与向量服务、助手档案、工具审批、对话库/分支、知识库、官方分段、模型能力、配色、轮盘、文件转换、听写、TTS、OCR、外观、搜索引擎、长视频合并、成片流水线） |
 | 插件测试 | 520 项 |
 | ESLint | **0 error / 0 warning** |
 | 桌面冒烟 | `npm run smoke`（真实 Electron + CDP，19 条 E2E，含设置页/起始页、桌宠窗口与框选截图） |
@@ -29,13 +29,18 @@
 - 新增 IPC channel 清单与漂移测试（`scripts/ipc-channels.json` + `src/main/ipcChannels.test.ts`）；
 - `ipc.ts` 按域拆到 `src/main/ipc/`：library / browser / page / settings / media / jobs / tools / records，`ipc.ts` 从 2.8k 降到 43 行（只保留注册入口）。
 
-## 0.122 总结重构后的遗留
+## 旧总结链路已删除（0.122 之后）
 
-- 生产总结统一到 `summaryChat.ts` + `chat()` 工具循环，旧的前置核对/分段入口已删除。
-- `ai.ts` 的旧 `summarize`、`verify.ts`、`buildVerifyBlock` 只被 `devHooks.ts` 和兼容测试调用；
-  生产路径不再使用。等总结流程稳定后，可整块删除并同步移除相关设置项与测试。
-- 旧设置字段 `summarySplitMode` / `summaryReadPages` / `summaryReferenceChars` /
-  `verifySummary` / `verifyItemCount` 目前只服务上述兼容代码，设置页已不再展示。
+- 生产总结统一到 `summaryChat.ts` + `chat()` 工具循环。
+- 已删除 `main/verify.ts`、`main/verify.test.ts`、`main/summaryCache.ts`，以及 `ai.ts` 里的旧
+  `summarize` / 分段合并 / 核对调用；`ai.ts` 现在只保留 `buildTranscript` 与
+  `buildSummaryChatPrompt`。
+- 同步移除只服务旧链路的 8 个设置字段：`verifySummary` / `verifyItemCount` /
+  `summarySplitMode` / `summaryReadPages` / `summaryReferenceChars` / `verifyReadPages` /
+  `extraVerifyQueries` / `aiQueryGeneration`，以及 6 个开发钩子。
+- 单测从 171 文件 / 980 用例降到 170 文件 / 970 用例；随后起始页新增命令面板、Dock、
+  番茄钟、便签与相关测试；随后补壁纸视频/墨色自适应、天气预报与番茄钟徽标，
+  当前 171 文件 / 994 用例。
 
 ## 仍然值得做的（按优先级）
 

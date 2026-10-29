@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import { formatReminder } from '../../../../shared/reminder';
 import type { HistoryEntry, LibraryVideo, PetTodo } from '../../../../shared/types';
-import { ALL_WIDGETS, WIDGET_LABELS, type Weather } from './model';
+import { ALL_WIDGETS, WIDGET_LABELS, forecastLabel, type Weather } from './model';
+import { PomodoroWidget, type PomodoroState } from './PomodoroWidget';
+import { NotesWidget } from './NotesWidget';
 
 interface WidgetPanelProps {
   order: string[];
@@ -28,6 +30,8 @@ interface WidgetPanelProps {
   onCityStart: () => void;
   onCitySave: () => void;
   onCityCancel: () => void;
+
+  pomodoro: PomodoroState;
 
   todos: PetTodo[];
   todoDraft: string;
@@ -64,6 +68,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onCityStart,
     onCitySave,
     onCityCancel,
+    pomodoro,
     todos,
     todoDraft,
     onTodoDraft,
@@ -164,6 +169,35 @@ export function WidgetPanel(props: WidgetPanelProps) {
             ) : (
               <div className="start-widget-empty">天气获取失败，稍后重试</div>
             )}
+            {weather?.forecast && weather.forecast.length > 1 && (
+              <div className="start-weather-days">
+                {weather.forecast.slice(0, 4).map((day) => (
+                  <div key={day.date} className="start-weather-day">
+                    <span className="start-weather-day-label">{forecastLabel(day.date)}</span>
+                    <span className="start-weather-day-desc">{day.description}</span>
+                    <span className="start-weather-day-temp">
+                      {Math.round(day.low)}° / {Math.round(day.high)}°
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {weather &&
+              (typeof weather.apparent === 'number' ||
+                typeof weather.humidity === 'number' ||
+                typeof weather.wind === 'number') && (
+                <div className="start-weather-facts">
+                  {typeof weather.apparent === 'number' && (
+                    <span>体感 {Math.round(weather.apparent)}°</span>
+                  )}
+                  {typeof weather.humidity === 'number' && (
+                    <span>湿度 {Math.round(weather.humidity)}%</span>
+                  )}
+                  {typeof weather.wind === 'number' && (
+                    <span>风 {Math.round(weather.wind)} km/h</span>
+                  )}
+                </div>
+              )}
           </article>
         )}
 
@@ -221,6 +255,12 @@ export function WidgetPanel(props: WidgetPanelProps) {
             )}
           </article>
         )}
+
+        {isVisible('pomodoro') && (
+          <PomodoroWidget style={{ order: orderOf('pomodoro') }} {...pomodoro} />
+        )}
+
+        {isVisible('notes') && <NotesWidget style={{ order: orderOf('notes') }} />}
 
         {isVisible('hot') && (
           <article className="start-widget" style={{ order: orderOf('hot') }}>

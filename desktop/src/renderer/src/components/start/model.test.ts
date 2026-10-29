@@ -153,3 +153,88 @@ describe('批量自动补全', () => {
     expect(result.items[2].label).toBe('c.com');
   });
 });
+import { lunarDate } from './model';
+
+describe('lunarDate', () => {
+  it('把农历日期转成干支年 + 月日', () => {
+    const value = lunarDate(new Date(2026, 9, 29));
+    expect(value).not.toBeNull();
+    expect(value?.text).toContain('九月');
+    if (value) expect(value.text).toContain('丙午');
+  });
+});
+import {
+  forecastLabel,
+  formatPomodoro,
+  inkForLuminance,
+  nextPomodoroPhase,
+  wallpaperMediaFromUrl
+} from './model';
+
+describe('番茄钟阶段', () => {
+  it('每完成 4 个专注进入长休，休息后回到专注', () => {
+    expect(nextPomodoroPhase('work', 0)).toBe('short');
+    expect(nextPomodoroPhase('work', 3)).toBe('short');
+    expect(nextPomodoroPhase('work', 4)).toBe('long');
+    expect(nextPomodoroPhase('short', 4)).toBe('work');
+    expect(nextPomodoroPhase('long', 4)).toBe('work');
+  });
+
+  it('时间格式化补零', () => {
+    expect(formatPomodoro(25 * 60)).toBe('25:00');
+    expect(formatPomodoro(59)).toBe('00:59');
+    expect(formatPomodoro(0)).toBe('00:00');
+  });
+});
+
+describe('壁纸直链', () => {
+  it('按扩展名推断图片 / GIF / 视频', () => {
+    expect(wallpaperMediaFromUrl('https://a.com/b.jpg')?.kind).toBe('image');
+    expect(wallpaperMediaFromUrl('https://a.com/b.gif')?.kind).toBe('gif');
+    expect(wallpaperMediaFromUrl('https://a.com/b.mp4?x=1')?.kind).toBe('video');
+    expect(wallpaperMediaFromUrl('https://a.com/b.webm')).toMatchObject({
+      kind: 'video',
+      source: 'url'
+    });
+  });
+
+  it('拒绝非 http(s) 地址', () => {
+    expect(wallpaperMediaFromUrl('javascript:alert(1)')).toBeNull();
+    expect(wallpaperMediaFromUrl('')).toBeNull();
+  });
+});
+
+describe('壁纸墨色', () => {
+  it('暗壁纸用浅色字，亮壁纸用深色字', () => {
+    expect(inkForLuminance(0.2)).toBe('light');
+    expect(inkForLuminance(0.8)).toBe('dark');
+    expect(inkForLuminance(null)).toBeNull();
+  });
+});
+
+describe('预报日期标签', () => {
+  it('今天 / 明天 / 后天 / 周几', () => {
+    const now = new Date(2026, 9, 29);
+    expect(forecastLabel('2026-10-29', now)).toBe('今天');
+    expect(forecastLabel('2026-10-30', now)).toBe('明天');
+    expect(forecastLabel('2026-10-31', now)).toBe('后天');
+    expect(forecastLabel('2026-11-01', now)).toBe('周日');
+  });
+});
+describe('壁纸备份', () => {
+  it('直链壁纸会随备份导出并还原', () => {
+    const backup = buildStartBackup({
+      shortcuts: [{ id: 'a', label: 'B 站', url: 'https://www.bilibili.com', group: '常用' }],
+      wallpaperMedia: { kind: 'video', source: 'url', url: 'https://a.com/loop.mp4' }
+    });
+    const parsed = parseStartBackup(JSON.stringify(backup));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.data.prefs.wallpaperMedia).toEqual({
+        kind: 'video',
+        source: 'url',
+        url: 'https://a.com/loop.mp4'
+      });
+    }
+  });
+});

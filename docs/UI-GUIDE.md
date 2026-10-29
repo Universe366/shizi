@@ -202,9 +202,14 @@ StartPage.tsx          状态、IPC、设置读写（唯一持有 shortcut/widge
 start/SearchBar.tsx    引擎切换 + 站内直达 + 历史 + 搜索建议
 start/ShortcutBoard.tsx 分组标签、站点卡片、拖拽、右键菜单、添加入口
 start/ShortcutDialog.tsx 新增/编辑弹窗
-start/WidgetPanel.tsx  天气 / 待办 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
+start/WidgetPanel.tsx  天气 / 待办 / 番茄钟 / 便签 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
+start/PomodoroWidget.tsx 25 分钟专注 / 5 分钟休息，结束自动换阶段
+start/NotesWidget.tsx  便签，输入自动写 localStorage
+start/CommandPalette.tsx 指令面板（⌘/Ctrl+K）：操作 / 页面 / 小组件 / 搜索 / 快捷方式
+start/Dock.tsx         底部 Dock：常用站点 + 内置页面 + 指令面板 / 禅模式
+start/SiteIcon.tsx     站点 favicon，失败回退字母色块
 start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
-start/model.ts         类型、壁纸清单、favicon 与配色工具
+start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
 styles/start.css       起始页全部样式（只作用于 .start-page 子树）
 ```
 
@@ -219,26 +224,31 @@ styles/start.css       起始页全部样式（只作用于 .start-page 子树�
 ### 布局
 
 ```
-start-topbar     品牌 + 极简模式 / 编辑 / 壁纸
-start-hero       时钟 / 问候 / 搜索 / 常去站点
+start-topbar     品牌 + 指令面板 / 禅模式 / 编辑 / 壁纸
+start-hero       时钟 / 农历 / 问候 / 搜索 / 常去站点
 start-board      分组标签 + 常用标签 + 标签筛选 + 密度切换 + 导入/导出 + 内置入口 + 站点卡片网格
-start-widget-area 天气 / 待办 / 热搜 / 最近入库 / 最近访问（可开关、可排序）
+start-widget-area 天气（体感/湿度/风/4 日预报）/ 待办 / 番茄钟 / 便签 / 热搜 / 最近入库 / 最近访问（可开关、可排序）
+start-dock       底部 Dock（sticky）：常用站点、内置页面、指令面板、禅模式
 start-footnote   操作提示、导入导出设置
 ```
 
 ### 交互约定
 
-- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；`Ctrl/⌘ + K` 聚焦，`Esc` 先清空再关闭。
+- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；`/` 聚焦搜索框，`Esc` 先清空再关闭。
+- 指令面板：`Ctrl/⌘ + K` 打开，输入过滤，`↑`/`↓` 选择、`Enter` 执行、`Esc` 关闭；命令由 StartPage 组装（操作 / 页面 / 小组件 / 搜索 / 快捷方式），没有匹配时显示空态。
 - 卡片：左键打开，右键菜单「打开 / 详情 / 复制链接 / 编辑 / 删除」，编辑模式下可拖拽排序与换组；卡片右上角 ⓘ 打开详情。
 - 标签：编辑弹窗可填描述与标签（≤6，逗号/空格分隔）；标签行按标签筛选，可与分组、常用叠加。
 - 分组：标题前的箭头可折叠/展开；编辑态可重命名（分组标题旁 ✎），删除分组会把站点移到「常用」。
 - 密度：标签栏右侧「舒适 / 紧凑 / 大图标」，紧凑模式隐藏域名、只留图标与名称。
 - 常用：按打开次数排序的虚拟标签（最多 8 个），次数存在本地。
-- 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式与外观偏好；导入走 `parseStartBackup()` 校验并 askConfirm 合并。
+- 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式、外观偏好与壁纸直链；导入走 `parseStartBackup()` 校验并 askConfirm 合并。本地 GIF/视频在 IndexedDB，不随备份导出。
 - 自动获取：编辑弹窗「自动获取」调用 `start:probe-site` 填标题/描述；批量导入时名称仍是域名的条目会自动补全（最多 8 个、3 并发），失败保留原值。
 - 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
-- 壁纸：右侧抽屉，含 6 套壁纸、本地上传、模糊与遮罩滑杆。
-- 极简模式：隐藏小组件与分组标签，只留时钟、搜索和站点。
+- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。
+- 墨色自适应：对自定义壁纸与必应每日图采样平均亮度，给 `.start-page` 加 `is-ink-light` / `is-ink-dark`；远程图/视频无 CORS 时保持主题默认。
+- 禅模式（极简模式）：隐藏小组件、站点分组、常去站点、Dock 与底部提示，只留时钟、农历与搜索；`Esc` 直接退出。
+- 番茄钟：专注 25 分钟与休息 5 分钟两档，开始/暂停/重置，阶段结束自动切换并累计轮数。
+- 便签：直接写在卡片里，停止输入约 350ms 后写入 `localStorage: start-notes`。
 
 ### 状态与持久化
 
@@ -249,17 +259,20 @@ start-footnote   操作提示、导入导出设置
 | 组件顺序/可见性 | `general.startWidgets`：**数组同时表示「显示」与「顺序」**，不在数组里即隐藏 |
 | 天气/热搜开关 | `general.startWeather`、`general.startHotSearch`（兼容旧配置） |
 | 壁纸 | `general.startWallpaper` / `startWallpaperImage` |
+| 壁纸文件 | `IndexedDB: shizi-start-wallpaper/files/current`（GIF / 视频） |
+| 壁纸直链 | `general.startWallpaperMedia = { kind, source: 'url', url }` |
 | 搜索历史 | `localStorage: start-search-history`（最多 8 条） |
 | 极简模式 | `localStorage: start-minimal`（`1`/`0`） |
 | 壁纸模糊/遮罩 | `localStorage: start-wallpaper-effect`（`{ blur, dim }`） |
 | 卡片密度 | `localStorage: start-density`（comfortable/compact/large） |
 | 折叠的分组 | `localStorage: start-collapsed-groups`（数组） |
 | 打开次数 | `localStorage: start-usage`（`{ [id]: count }`） |
+| 便签 | `localStorage: start-notes`（纯文本） |
 
 **加组件**：
 
-1. 在 `WIDGET_LABELS` 与 `ALL_WIDGETS` 加 id；
-2. 在 `settings.ts` 的 `startWidgets` 默认值里加 id；
+1. 在 `WIDGET_LABELS` 与 `ALL_WIDGETS` 加 id（番茄钟 / 便签是现成参考）；
+2. 在 `settings.ts` 的 `startWidgets` 默认值与白名单 `widgetIds` 里加 id；
 3. 渲染一个 `.start-widget`，条件用 `widgetVisible(id)`；
 4. 需要后端数据时加 IPC，并处理失败空态。
 

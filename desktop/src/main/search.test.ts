@@ -38,17 +38,13 @@ function searchSettings(): AppSettings {
       includeContent: false,
       timeRange: 'any',
       verify: false,
-      verifySummary: true,
-      verifyItemCount: 8,
       keylessFallback: false,
       keylessOrder: [],
       cacheMinutes: 0,
       autoSearchOnChat: false,
       alwaysSearchOnChat: false,
       useVideoMeta: true,
-      useComments: true,
-      aiQueryGeneration: true,
-      extraVerifyQueries: ''
+      useComments: true
     }
   } as unknown as AppSettings;
 }

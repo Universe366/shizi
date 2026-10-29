@@ -188,7 +188,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ],
     startWallpaper: 'aurora',
     startWallpaperImage: '',
-    startWidgets: ['weather', 'todo', 'hot', 'recent', 'history'],
+    startWidgets: ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history'],
     startWeather: true,
     startCity: '上海',
     startHotSearch: true,
@@ -415,8 +415,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     includeContent: true,
     timeRange: 'any',
     verify: false,
-    verifySummary: true,
-    verifyItemCount: 8,
     keylessFallback: true,
     keylessOrder: ['exa', 'anysearch'],
     cacheMinutes: 5,
@@ -426,18 +424,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     useVideoMeta: true,
     useComments: true,
     hotCommentCount: 12,
-    aiQueryGeneration: true,
-    extraVerifyQueries: '',
     fetchPages: false,
     snippetChars: 2000,
     snippetMode: 'truncate',
     blacklist: [],
     planQueries: 3,
-    chatReadPages: 2,
-    summarySplitMode: 'auto',
-    summaryReadPages: 2,
-    summaryReferenceChars: 6000,
-    verifyReadPages: 1
+    chatReadPages: 2
   },
   correction: {
     enabled: true,
@@ -792,7 +784,27 @@ function normalize(input: unknown): AppSettings {
         typeof raw.general.startWallpaperImage === 'string'
           ? raw.general.startWallpaperImage.slice(0, 2_500_000)
           : '';
-      const widgetIds = ['weather', 'todo', 'hot', 'recent', 'history'];
+      const mediaRaw = raw.general.startWallpaperMedia;
+      const mediaKind = mediaRaw?.kind;
+      const mediaSource = mediaRaw?.source;
+      const mediaUrl =
+        mediaSource === 'url' && typeof mediaRaw?.url === 'string'
+          ? mediaRaw.url.trim().slice(0, 2000)
+          : '';
+      if (
+        (mediaKind === 'image' || mediaKind === 'gif' || mediaKind === 'video') &&
+        (mediaSource === 'file' || mediaSource === 'url') &&
+        (mediaSource === 'file' || /^https?:\/\//i.test(mediaUrl))
+      ) {
+        base.general.startWallpaperMedia = {
+          kind: mediaKind,
+          source: mediaSource,
+          ...(mediaSource === 'url' ? { url: mediaUrl } : {})
+        };
+      } else {
+        delete base.general.startWallpaperMedia;
+      }
+      const widgetIds = ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history'];
       base.general.startWidgets = Array.isArray(raw.general.startWidgets)
         ? (raw.general.startWidgets as unknown[])
             .map(String)
@@ -1482,31 +1494,10 @@ function normalize(input: unknown): AppSettings {
       const ranges = ['any', 'year', 'month', 'week'];
       base.search.timeRange = ranges.includes(raw.search.timeRange) ? raw.search.timeRange : 'any';
       base.search.verify = raw.search.verify === true;
-      base.search.verifySummary = raw.search.verifySummary !== false;
       base.search.planQueries = Math.max(1, Math.min(4, Number(raw.search.planQueries) || 3));
       base.search.chatReadPages = Math.max(
         1,
         Math.min(10, Number(raw.search.chatReadPages) || 2)
-      );
-      base.search.summarySplitMode =
-        raw.search.summarySplitMode === 'fixed' || raw.search.summarySplitMode === 'never'
-          ? raw.search.summarySplitMode
-          : 'auto';
-      base.search.summaryReadPages = Math.max(
-        1,
-        Math.min(10, Number(raw.search.summaryReadPages) || 2)
-      );
-      base.search.summaryReferenceChars = Math.max(
-        2000,
-        Math.min(20000, Number(raw.search.summaryReferenceChars) || 6000)
-      );
-      base.search.verifyReadPages = Math.max(
-        1,
-        Math.min(5, Number(raw.search.verifyReadPages) || 1)
-      );
-      base.search.verifyItemCount = Math.max(
-        1,
-        Math.min(20, Number(raw.search.verifyItemCount) || 12)
       );
       base.search.keylessFallback = raw.search.keylessFallback !== false;
       const keylessOrder = Array.isArray(raw.search.keylessOrder)
@@ -1535,10 +1526,6 @@ function normalize(input: unknown): AppSettings {
         1,
         Math.min(30, Number(raw.search.hotCommentCount) || 12)
       );
-      base.search.aiQueryGeneration = raw.search.aiQueryGeneration !== false;
-      if (typeof raw.search.extraVerifyQueries === 'string') {
-        base.search.extraVerifyQueries = raw.search.extraVerifyQueries.slice(0, 4000);
-      }
       base.search.fetchPages = raw.search.fetchPages === true;
       const snippetChars = Number(raw.search.snippetChars);
       if (Number.isFinite(snippetChars)) {

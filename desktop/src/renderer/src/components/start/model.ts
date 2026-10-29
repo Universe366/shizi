@@ -1,6 +1,15 @@
-import type { StartShortcut } from '../../../../shared/types';
+import type { StartShortcut, StartWallpaperMedia } from '../../../../shared/types';
 
 export type WallpaperId = 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach' | 'bing';
+
+export type { StartWallpaperMedia };
+
+export interface WeatherDay {
+  date: string;
+  high: number;
+  low: number;
+  description: string;
+}
 
 export interface Weather {
   city: string;
@@ -8,17 +17,31 @@ export interface Weather {
   description: string;
   high: number;
   low: number;
+  humidity?: number;
+  wind?: number;
+  apparent?: number;
+  forecast?: WeatherDay[];
 }
 
 export const WIDGET_LABELS: Record<string, string> = {
   weather: '天气',
   todo: '待办',
+  pomodoro: '番茄钟',
+  notes: '便签',
   hot: '热搜',
   recent: '最近入库',
   history: '最近访问'
 };
 
-export const ALL_WIDGETS = ['weather', 'todo', 'hot', 'recent', 'history'] as const;
+export const ALL_WIDGETS = [
+  'weather',
+  'todo',
+  'pomodoro',
+  'notes',
+  'hot',
+  'recent',
+  'history'
+] as const;
 
 export const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [
   { id: 'aurora', label: '极光' },
@@ -43,6 +66,186 @@ export function greeting(now: Date): string {
   if (hour < 14) return '中午好';
   if (hour < 18) return '下午好';
   return '晚上好';
+}
+
+export interface LunarDate {
+  /** 干支年名，如「丙午」 */
+  yearName: string;
+  /** 农历月，如「九月」 */
+  month: string;
+  /** 农历日，如「二十」 */
+  day: string;
+  /** 展示文本：丙午年 九月二十 */
+  text: string;
+}
+
+const LUNAR_DAYS = [
+  '初一',
+  '初二',
+  '初三',
+  '初四',
+  '初五',
+  '初六',
+  '初七',
+  '初八',
+  '初九',
+  '初十',
+  '十一',
+  '十二',
+  '十三',
+  '十四',
+  '十五',
+  '十六',
+  '十七',
+  '十八',
+  '十九',
+  '二十',
+  '廿一',
+  '廿二',
+  '廿三',
+  '廿四',
+  '廿五',
+  '廿六',
+  '廿七',
+  '廿八',
+  '廿九',
+  '三十'
+] as const;
+
+/**
+ * 农历日期：用 Intl 的中文历法取出干支年与月日。
+ * 某些精简 ICU 构建不带 chinese 历法，此时返回 null，由调用方回退到公历。
+ */
+export function lunarDate(date: Date): LunarDate | null {
+  try {
+    const formatter = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const parts = formatter.formatToParts(date);
+    const yearName = parts.find((part) => String(part.type) === 'yearName')?.value || '';
+    const month = parts.find((part) => part.type === 'month')?.value || '';
+    const dayNumber = Number(parts.find((part) => part.type === 'day')?.value || '');
+    if (!month || !Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 30) return null;
+    const day = LUNAR_DAYS[dayNumber - 1];
+    return {
+      yearName,
+      month,
+      day,
+      text: `${yearName ? `${yearName}年 ` : ''}${month}${day}`
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 壁纸平均亮度采样：0 全黑，1 全白；读不到（CORS / 无 canvas）返回 null。 */
+function sampleLuminance(source: CanvasImageSource): number | null {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(source, 0, 0, 32, 32);
+    const data = context.getImageData(0, 0, 32, 32).data;
+    let total = 0;
+    let weight = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const alpha = data[index + 3] / 255;
+      const luminance =
+        (0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2]) / 255;
+      total += luminance * alpha;
+      weight += alpha;
+    }
+    return weight > 0 ? total / weight : null;
+  } catch {
+    return null;
+  }
+}
+
+export function imageLuminance(src: string, crossOrigin = false): Promise<number | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    if (crossOrigin) image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(sampleLuminance(image));
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+/** 取视频第一帧做亮度采样；远程视频没有 CORS 时返回 null。 */
+export function videoLuminance(src: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.onloadeddata = () => resolve(sampleLuminance(video));
+    video.onerror = () => resolve(null);
+    video.src = src;
+  });
+}
+
+export type InkMode = 'light' | 'dark';
+
+/** 亮壁纸配深色字，暗壁纸配浅色字；无法判断时保持主题默认。 */
+export function inkForLuminance(luminance: number | null): InkMode | null {
+  if (luminance === null || !Number.isFinite(luminance)) return null;
+  return luminance < 0.55 ? 'light' : 'dark';
+}
+
+/** 远程壁纸直链：按扩展名推断类型，校验失败返回 null。 */
+export function wallpaperMediaFromUrl(value: string): StartWallpaperMedia | null {
+  const url = String(value || '').trim();
+  if (!/^https?:\/\/\S+$/i.test(url)) return null;
+  const kind = /\.(mp4|webm|ogv)(?:[?#]|$)/i.test(url)
+    ? 'video'
+    : /\.gif(?:[?#]|$)/i.test(url)
+      ? 'gif'
+      : 'image';
+  return { kind, source: 'url', url };
+}
+
+export type PomodoroPhase = 'work' | 'short' | 'long';
+
+export const POMODORO_SECONDS: Record<PomodoroPhase, number> = {
+  work: 25 * 60,
+  short: 5 * 60,
+  long: 15 * 60
+};
+
+export const POMODORO_LABELS: Record<PomodoroPhase, string> = {
+  work: '专注',
+  short: '短休',
+  long: '长休'
+};
+
+/** 每完成 4 个专注进入长休；休息结束回到专注。 */
+export function nextPomodoroPhase(
+  phase: PomodoroPhase,
+  completedRounds: number
+): PomodoroPhase {
+  if (phase !== 'work') return 'work';
+  return completedRounds > 0 && completedRounds % 4 === 0 ? 'long' : 'short';
+}
+
+export function formatPomodoro(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** 预报日期标签：今天 / 明天 / 后天 / 周几。 */
+export function forecastLabel(date: string, now = new Date()): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((parsed.getTime() - start.getTime()) / 86_400_000);
+  if (diff === 0) return '今天';
+  if (diff === 1) return '明天';
+  if (diff === 2) return '后天';
+  return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][parsed.getDay()];
 }
 
 /** 统一成 https://host 形式，用于比较与取 favicon。 */
@@ -172,6 +375,7 @@ export interface StartBackup {
   prefs: {
     wallpaper?: string;
     wallpaperImage?: string;
+    wallpaperMedia?: StartWallpaperMedia;
     effect?: { blur: number; dim: number };
     minimal?: boolean;
     engine?: string;
@@ -186,6 +390,7 @@ export interface StartBackupInput {
   shortcuts: StartShortcut[];
   wallpaper?: string;
   wallpaperImage?: string;
+  wallpaperMedia?: StartWallpaperMedia;
   effect?: { blur: number; dim: number };
   minimal?: boolean;
   engine?: string;
@@ -237,6 +442,11 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
     prefs: {
       wallpaper: input.wallpaper,
       wallpaperImage: input.wallpaperImage,
+      // 本地 GIF/视频在 IndexedDB 里，导出时无法带走，只备份直链。
+      wallpaperMedia:
+        input.wallpaperMedia && input.wallpaperMedia.source === 'url'
+          ? input.wallpaperMedia
+          : undefined,
       effect: input.effect,
       minimal: input.minimal,
       engine: input.engine,
@@ -251,6 +461,22 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
 export type ParsedBackup =
   | { ok: true; data: StartBackup }
   | { ok: false; error: string };
+
+function parseBackupMedia(value: unknown): StartWallpaperMedia | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const row = value as Record<string, unknown>;
+  const kind = row.kind;
+  const source = row.source;
+  if (
+    (kind !== 'image' && kind !== 'gif' && kind !== 'video') ||
+    (source !== 'file' && source !== 'url')
+  ) {
+    return undefined;
+  }
+  const url = typeof row.url === 'string' ? row.url.trim().slice(0, 2000) : '';
+  if (source === 'url' && !/^https?:\/\//i.test(url)) return undefined;
+  return { kind, source, ...(source === 'url' ? { url } : {}) };
+}
 
 /** 解析导入文件：只接受本应用的格式，网址无效的条目会被跳过。 */
 export function parseStartBackup(text: string): ParsedBackup {
@@ -299,6 +525,7 @@ export function parseStartBackup(text: string): ParsedBackup {
         wallpaper: typeof prefsRaw.wallpaper === 'string' ? prefsRaw.wallpaper : undefined,
         wallpaperImage:
           typeof prefsRaw.wallpaperImage === 'string' ? prefsRaw.wallpaperImage : undefined,
+        wallpaperMedia: parseBackupMedia(prefsRaw.wallpaperMedia),
         effect:
           effect && Number.isFinite(Number(effect.blur)) && Number.isFinite(Number(effect.dim))
             ? { blur: Number(effect.blur), dim: Number(effect.dim) }

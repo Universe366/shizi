@@ -1772,3 +1772,489 @@
   text-decoration: none;
   cursor: default;
 }
+
+/* ---------- 农历 / 禅模式 ---------- */
+.start-lunar {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  color: var(--start-faint);
+}
+
+.start-page.is-minimal .start-board,
+.start-page.is-minimal .start-chips,
+.start-page.is-minimal .start-footnote {
+  display: none;
+}
+
+.start-page.is-minimal .start-main {
+  justify-content: center;
+  padding-bottom: 0;
+}
+
+.start-page:not(.is-minimal) .start-main {
+  padding-bottom: 96px;
+}
+
+.start-page.is-minimal .start-hero {
+  padding-top: 0;
+}
+
+/* ---------- Dock ---------- */
+.start-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: fit-content;
+  max-width: calc(100% - 40px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 18px;
+  background: var(--start-surface);
+  border: 1px solid var(--start-border);
+  box-shadow: var(--start-shadow-lg);
+  backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.start-dock-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--start-muted);
+  transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.start-dock-item:hover {
+  background: var(--start-soft);
+  color: var(--start-text);
+  transform: translateY(-1px);
+}
+
+.start-dock-item.is-active {
+  color: var(--accent);
+  background: var(--start-soft);
+}
+
+.start-dock-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--start-border);
+}
+
+.start-dock-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--start-soft);
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.start-dock-primary {
+  color: var(--accent);
+}
+
+.start-dock-kbd {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 8px;
+  opacity: 0.7;
+}
+
+.start-dock .start-tile-icon.is-small {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+/* ---------- 指令面板 ---------- */
+.start-palette-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 20px 20px;
+  background: rgba(8, 12, 20, 0.32);
+  backdrop-filter: blur(3px);
+}
+
+.start-palette {
+  width: min(560px, 100%);
+  max-height: 64vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface-solid);
+  box-shadow: var(--start-shadow-lg);
+  animation: start-palette-pop 0.16s ease;
+}
+
+@keyframes start-palette-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.start-palette-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--start-border);
+  color: var(--start-faint);
+}
+
+.start-palette-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--start-text);
+  font: inherit;
+  font-size: var(--fs-base);
+}
+
+.start-palette-search kbd {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--start-soft);
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
+}
+
+.start-palette-list {
+  overflow-y: auto;
+  padding: 6px 8px 8px;
+}
+
+.start-palette-group-label {
+  padding: 8px 8px 4px;
+  font-size: var(--fs-xs);
+  color: var(--start-faint);
+}
+
+.start-palette-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--start-muted);
+  text-align: left;
+}
+
+.start-palette-item.is-active {
+  background: var(--start-soft);
+  color: var(--start-text);
+}
+
+.start-palette-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-base);
+}
+
+.start-palette-hint {
+  flex: 0 0 auto;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--start-faint);
+}
+
+.start-palette-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--start-border-strong);
+}
+
+.start-palette-empty {
+  padding: 26px 12px;
+  text-align: center;
+  color: var(--start-faint);
+  font-size: var(--fs-sm);
+}
+
+.start-palette-foot {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--start-border);
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
+}
+
+/* ---------- 番茄钟 / 便签 ---------- */
+.start-pomo-phases {
+  display: flex;
+  gap: 6px;
+}
+
+.start-pomo-phases button {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--start-border);
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+}
+
+.start-pomo-phases button.is-active {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--start-accent-ink);
+}
+
+.start-pomo-time {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-pomo-time.is-running {
+  color: var(--accent);
+}
+
+.start-pomo-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--start-soft);
+}
+
+.start-pomo-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.start-pomo-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.start-pomo-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface-solid);
+  color: var(--start-muted);
+  font-size: var(--fs-sm);
+}
+
+.start-pomo-actions button:hover {
+  color: var(--start-text);
+  border-color: var(--start-border-strong);
+}
+
+.start-pomo-primary {
+  background: var(--accent) !important;
+  border-color: transparent !important;
+  color: var(--start-accent-ink) !important;
+}
+
+.start-notes-input {
+  flex: 1;
+  min-height: 92px;
+  resize: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface-solid);
+  color: var(--start-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  outline: none;
+}
+
+.start-notes-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+}
+
+/* ---------- 视频壁纸 / 墨色自适应 ---------- */
+.start-wallpaper-video {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.start-page.is-ink-light {
+  --start-text: #eef1f5;
+  --start-muted: #c3cad5;
+  --start-faint: #9aa3b1;
+  --start-surface: rgba(20, 24, 32, 0.62);
+  --start-surface-solid: #161a22;
+  --start-soft: rgba(255, 255, 255, 0.08);
+  --start-border: rgba(255, 255, 255, 0.12);
+  --start-border-strong: rgba(255, 255, 255, 0.22);
+  --start-accent-ink: #0b0f15;
+  --start-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --start-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.start-page.is-ink-dark {
+  --start-text: #10131a;
+  --start-muted: #4b5462;
+  --start-faint: #6b7381;
+  --start-surface: rgba(255, 255, 255, 0.74);
+  --start-surface-solid: #ffffff;
+  --start-soft: rgba(17, 24, 39, 0.06);
+  --start-border: rgba(17, 24, 39, 0.1);
+  --start-border-strong: rgba(17, 24, 39, 0.2);
+  --start-accent-ink: #ffffff;
+  --start-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.07);
+  --start-shadow-lg: 0 18px 48px rgba(16, 24, 40, 0.16);
+}
+
+/* ---------- Dock 番茄钟徽标 ---------- */
+.start-dock-pomo-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--start-soft);
+  color: var(--start-muted);
+  font-size: 9px;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.start-dock-pomo.is-running .start-dock-pomo-badge {
+  background: var(--accent);
+  color: var(--start-accent-ink);
+}
+
+/* ---------- 天气详情 ---------- */
+.start-weather-days {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--start-border);
+}
+
+.start-weather-day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: var(--start-muted);
+}
+
+.start-weather-day-label {
+  width: 30px;
+  color: var(--start-faint);
+}
+
+.start-weather-day-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-weather-day-temp {
+  font-variant-numeric: tabular-nums;
+}
+
+.start-weather-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  color: var(--start-faint);
+}
+
+/* ---------- 壁纸直链 ---------- */
+.start-drawer-url {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-top: 8px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface-solid);
+  color: var(--start-faint);
+}
+
+.start-drawer-url input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--start-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.start-drawer-url button {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--start-accent-ink);
+  font-size: var(--fs-xs);
+}
+
+.start-drawer-url button:disabled {
+  opacity: 0.45;
+}
+
+.start-drawer-hint {
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--start-faint);
+}

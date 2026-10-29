@@ -1,8 +1,7 @@
 import { fetchAudioRange, getAudioCandidates, getPageInfo, getSubtitles, getTrackBody } from './page';
 import { loadSettings, saveSettings, settingsSnapshot } from './settings';
 import { chat } from './chat';
-import { verifySummary } from './verify';
-import { summarize } from './ai';
+import { summarizeChat } from './summaryChat';
 import { batchUrls } from './urlbatch';
 import { rankReferences, searchWeb } from './search';
 import { callMcpTool, listMcpTools } from './mcp';
@@ -17,7 +16,7 @@ import { optimizeLines } from './optimize';
 import { translateLines } from './translate';
 import { transcribe, transcribeFile } from './asr';
 import { writeLog } from './log';
-import { probePlatformModels, testPlatformConnection } from './platform';
+import { testPlatformConnection } from './platform';
 import { applyCorrectionToText } from './correction';
 import { backupData, restoreData } from './backup';
 import { getSummaryFor, saveSummary } from './library/summaries';
@@ -239,87 +238,6 @@ if (process.env.BSUB_CHAT_NOSUB_TEST === '1') {
   }, 4000);
 }
 
-if (process.env.BSUB_VERIFY_TEST === '1') {
-  setTimeout(async () => {
-    try {
-      const settings = loadSettings();
-      settings.ai.platforms = [
-        {
-          id: 'verify-mock',
-          name: 'Verify Mock',
-          baseUrl: process.env.BSUB_MOCK_VERIFY_AI || 'http://127.0.0.1:8888/v1',
-          apiKey: 'mock',
-          model: 'mock-verify'
-        }
-      ];
-      settings.ai.activeId = 'verify-mock';
-      settings.search.enabled = true;
-      settings.search.activeId = 'verify-search';
-      settings.search.platforms = [
-        {
-          id: 'verify-search',
-          name: 'Verify Search',
-          kind: 'custom',
-          baseUrl: process.env.BSUB_MOCK_VERIFY_SEARCH || 'http://127.0.0.1:8892/search',
-          apiKey: ''
-        }
-      ];
-      settings.search.verifySummary = true;
-      settings.search.verifyItemCount = 4;
-      settings.search.aiQueryGeneration = true;
-      settings.search.extraVerifyQueries = '额外查询 测试';
-      settings.search.keylessFallback = false;
-      settings.search.includeContent = false;
-      settings.search.maxResults = 3;
-      saveSettings(settings);
-
-      const info = {
-        kind: 'video' as const,
-        bvid: 'BV1',
-        aid: 1,
-        cid: 1,
-        epId: null,
-        seasonId: null,
-        page: 1,
-        partTitle: '',
-        parts: [],
-        title: '测试视频 2026 发布',
-        owner: '测试UP',
-        desc: '',
-        duration: 60,
-        url: '',
-        signature: 'test'
-      };
-      const lines = [
-        { start: 0, end: 5, text: '测试视频在 2026 年发布。' },
-        { start: 5, end: 10, text: 'DeepSeek V4 参数量达到 6710 亿。' },
-        { start: 10, end: 15, text: '这是第三句普通字幕。' },
-        { start: 15, end: 20, text: '这是第四句普通字幕。' }
-      ];
-      const result = await verifySummary(
-        settings,
-        info,
-        lines,
-        undefined,
-        (done, total, label) => console.log('[verify-test] progress', done, total, label)
-      );
-      console.log(
-        '[verify-test]',
-        JSON.stringify({
-          attempted: result.attempted,
-          queries: result.items.map((item) => item.label || item.query),
-          itemRefs: result.items.map((item) => item.references.length),
-          references: result.references.length,
-          judged: result.judged,
-          dropped: result.dropped,
-          supplements: result.supplements
-        })
-      );
-    } catch (error) {
-      console.warn('[verify-test] failed', (error as Error).message);
-    }
-  }, 4000);
-}
 
 if (process.env.BSUB_WIZARD_TEST === '1') {
   setTimeout(async () => {
@@ -402,71 +320,6 @@ if (process.env.BSUB_UI_STATE_TEST === '1') {
   }, 6000);
 }
 
-if (process.env.BSUB_SUMMARY_LONG_TEST === '1') {
-  setTimeout(async () => {
-    try {
-      const settings = loadSettings();
-      settings.ai.platforms = [
-        {
-          id: 'mock',
-          name: 'Mock',
-          baseUrl: process.env.BSUB_MOCK_AI || 'http://127.0.0.1:8787/v1',
-          apiKey: 'mock',
-          model: 'mock'
-        }
-      ];
-      settings.ai.activeId = 'mock';
-      settings.ai.preProofread = false;
-      settings.search.enabled = false;
-      settings.ai.stream = true;
-      saveSettings(settings);
-
-      const lines = Array.from({ length: 5000 }, (_, index) => ({
-        start: index * 2,
-        end: index * 2 + 2,
-        text: `这是第 ${index + 1} 句用于验证长视频分段总结的字幕内容。`
-      }));
-      const statuses: string[] = [];
-      let deltas = 0;
-      const result = await summarize({
-        info: {
-          kind: 'video',
-          bvid: 'BV1',
-          aid: 1,
-          cid: 1,
-          epId: null,
-          seasonId: null,
-          page: 1,
-          partTitle: '',
-          parts: [],
-          title: '长视频测试',
-          owner: '测试UP',
-          desc: '',
-          duration: 10000,
-          url: '',
-          signature: 'test'
-        },
-        lines,
-        onStatus: (status) => statuses.push(status),
-        onDelta: () => {
-          deltas += 1;
-        }
-      });
-      console.log(
-        '[summary-long-test]',
-        JSON.stringify({
-          chars: result.text.length,
-          deltas,
-          chunkStatus: statuses.filter((item) => item.includes('长视频分段总结')).length,
-          mergeStatus: statuses.filter((item) => item.includes('正在合并')).length,
-          last: statuses[statuses.length - 1]
-        })
-      );
-    } catch (error) {
-      console.warn('[summary-long-test] failed', (error as Error).message);
-    }
-  }, 5000);
-}
 
 if (process.env.BSUB_PANEL_PERSIST_TEST === '1') {
   setTimeout(async () => {
@@ -510,52 +363,6 @@ if (process.env.BSUB_PANEL_PERSIST_TEST === '1') {
   }, 6000);
 }
 
-if (process.env.BSUB_SUMMARY_FORMAT_TEST === '1') {
-  setTimeout(async () => {
-    try {
-      const settings = loadSettings();
-      settings.ai.platforms = [
-        {
-          id: 'mock',
-          name: 'Mock',
-          baseUrl: process.env.BSUB_MOCK_AI || 'http://127.0.0.1:8787/v1',
-          apiKey: 'mock',
-          model: 'mock'
-        }
-      ];
-      settings.ai.activeId = 'mock';
-      settings.ai.preProofread = false;
-      settings.search.enabled = false;
-      saveSettings(settings);
-      const result = await summarize({
-        info: {
-          kind: 'video',
-          bvid: 'BV1',
-          aid: 1,
-          cid: 1,
-          epId: null,
-          seasonId: null,
-          page: 1,
-          partTitle: '',
-          parts: [],
-          title: '格式测试',
-          owner: '测试UP',
-          desc: '',
-          duration: 20,
-          url: '',
-          signature: 'test'
-        },
-        lines: [
-          { start: 0, end: 4, text: '这是第一句字幕。' },
-          { start: 4, end: 8, text: '这是第二句字幕。' }
-        ]
-      });
-      console.log('[summary-format-test]', JSON.stringify({ chars: result.text.length }));
-    } catch (error) {
-      console.warn('[summary-format-test] failed', (error as Error).message);
-    }
-  }, 5000);
-}
 
 if (process.env.BSUB_URLBATCH_TEST === '1') {
   setTimeout(async () => {
@@ -1028,82 +835,6 @@ if (process.env.BSUB_CHAT_TEST === '1') {
   }, 5000);
 }
 
-if (process.env.BSUB_ANTHROPIC_TEST === '1') {
-  setTimeout(async () => {
-    try {
-      const settings = loadSettings();
-      settings.ai.platforms = [
-        {
-          id: 'anthropic-mock',
-          name: 'Anthropic Mock',
-          baseUrl: process.env.BSUB_MOCK_ANTHROPIC || 'http://127.0.0.1:8891/v1',
-          apiKey: 'mock',
-          model: 'claude-mock',
-          kind: 'anthropic'
-        }
-      ];
-      settings.ai.activeId = 'anthropic-mock';
-      settings.ai.preProofread = false;
-      settings.ai.stream = true;
-      settings.search.enabled = false;
-      saveSettings(settings);
-
-      const info = {
-        title: '测试视频',
-        owner: '测试UP',
-        duration: 60,
-        bvid: 'BV1',
-        cid: 1,
-        url: '',
-        kind: 'video' as const,
-        aid: 1,
-        epId: null,
-        seasonId: null,
-        page: 1,
-        partTitle: '',
-        parts: [],
-        desc: '',
-        signature: 'test'
-      };
-      const lines = [
-        { start: 0, end: 5, text: '这是第一句字幕。' },
-        { start: 5, end: 10, text: '这是第二句字幕。' }
-      ];
-      let streamed = '';
-      const summary = await summarize({
-        info,
-        lines,
-        onDelta: (delta) => {
-          streamed += delta;
-        }
-      });
-      const translated = await translateLines(lines, 'English', () => undefined);
-
-      const models = await probePlatformModels('ai', settings.ai.platforms[0]);
-      const connection = await testPlatformConnection('ai', settings.ai.platforms[0]);
-
-      // 非流式路径（chatOnce）也要走同一套协议。
-      settings.ai.stream = false;
-      saveSettings(settings);
-      const quick = await summarize({ info, lines });
-
-      console.log(
-        '[anthropic-test]',
-        JSON.stringify({
-          ok: true,
-          summary: summary.text.slice(0, 40),
-          streamed: streamed.length,
-          quick: quick.text.slice(0, 40),
-          translated: translated.lines.map((line) => line.text),
-          models: models.models,
-          connection: connection.sample
-        })
-      );
-    } catch (error) {
-      console.log('[anthropic-test] failed', (error as Error).message);
-    }
-  }, 5000);
-}
 
 if (process.env.BSUB_CORRECTION_TEST === '1') {
   setTimeout(() => {
@@ -1298,10 +1029,10 @@ if (process.env.BSUB_LIVE_AI_TEST === '1') {
       if (!lines.length) throw new Error('字幕正文为空');
       console.log('[live-ai] lines', lines.length, 'track', track.lanDoc || track.lan);
 
-      const summary = await summarize({
+      const summary = await summarizeChat({
         info,
         lines,
-        signal: undefined,
+        web: false,
         onStatus: (status) => console.log('[live-ai] status', status)
       });
       console.log(
@@ -1950,19 +1681,11 @@ if (process.env.BSUB_M4_TEST === '1') {
       }
       const body = await getTrackBody(track.url);
 
-      const platform = {
-        id: 'mock',
-        name: 'Mock',
-        baseUrl: 'http://127.0.0.1:8787/v1',
-        apiKey: 'test',
-        model: 'mock-summary'
-      };
       let streamed = '';
-      const result = await summarize({
+      const result = await summarizeChat({
         info,
         lines: body.lines,
-        platform,
-        prompt: '请总结以下字幕。',
+        web: false,
         onDelta: (delta) => {
           streamed += delta;
         }

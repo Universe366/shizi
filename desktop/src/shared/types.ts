@@ -971,8 +971,6 @@ export interface SearchSettings {
   includeContent: boolean;
   timeRange: SearchTimeRange;
   verify: boolean;
-  verifySummary: boolean;
-  verifyItemCount: number;
   keylessFallback: boolean;
   /** 无 Key 兜底引擎顺序：exa / anysearch / searxng */
   keylessOrder: string[];
@@ -983,10 +981,6 @@ export interface SearchSettings {
   alwaysSearchOnChat: boolean;
   useVideoMeta: boolean;
   useComments: boolean;
-  /** 总结前让 AI 从字幕里挑「实体 + 具体说法」生成检索词 */
-  aiQueryGeneration: boolean;
-  /** 用户补充的核实查询，每行一条 */
-  extraVerifyQueries: string;
   /** 抓取网页正文替换摘要（慢一些，但证据更完整） */
   fetchPages: boolean;
   /** 每条结果保留的字符数（截断，避免撑爆 token） */
@@ -1001,14 +995,6 @@ export interface SearchSettings {
   chatReadPages?: number;
   /** 热门评论条数（1-30，默认 12） */
   hotCommentCount?: number;
-  /** 总结分段策略：auto 按模型上下文，fixed 固定 18000 字符，never 尽量一次 */
-  summarySplitMode?: 'auto' | 'fixed' | 'never';
-  /** 总结时读取几篇正文（1-10，默认 2） */
-  summaryReadPages?: number;
-  /** 总结参考资料总字符预算（2000-20000，默认 6000） */
-  summaryReferenceChars?: number;
-  /** 总结前逐项核对时每项读几篇正文（1-5，默认 1） */
-  verifyReadPages?: number;
 }
 
 export type AsrTransport = 'auto' | 'multipart' | 'base64-json' | 'chat-audio';
@@ -1168,6 +1154,13 @@ export interface StartShortcut {
   tags?: string[];
 }
 
+/** 起始页自定义壁纸来源：file 存 IndexedDB，url 走远程直链。 */
+export interface StartWallpaperMedia {
+  kind: 'image' | 'gif' | 'video';
+  source: 'file' | 'url';
+  url?: string;
+}
+
 export interface PetTodo {
   id: number;
   text: string;
@@ -1310,8 +1303,10 @@ export interface AppSettings {
     startShortcuts: StartShortcut[];
     /** 起始页壁纸主题 */
     startWallpaper: 'aurora' | 'midnight' | 'paper' | 'mint' | 'peach' | 'bing';
-    /** 自定义壁纸（压缩后的 dataURL） */
+    /** 自定义壁纸（压缩后的 dataURL；旧字段，GIF/视频改用 startWallpaperMedia） */
     startWallpaperImage: string;
+    /** 自定义壁纸的文件/直链来源 */
+    startWallpaperMedia?: StartWallpaperMedia;
     /** 起始页小组件顺序 */
     startWidgets: string[];
     /** 起始页天气小组件 */

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '../ui/EmptyState';
 import type { StartShortcut } from '../../../../shared/types';
-import { DENSITIES, faviconOf, hostOf, originOf, tileColor, type StartDensity } from './model';
+import { DENSITIES, hostOf, type StartDensity } from './model';
+import { SiteIcon } from './SiteIcon';
 
 export interface BuiltInEntry {
   id: string;
@@ -51,27 +52,6 @@ interface ShortcutBoardProps {
   activeTag: string;
   onTag: (tag: string) => void;
   onDetail: (item: StartShortcut) => void;
-}
-
-/** 站点图标：优先站点自己的 /favicon.ico，失败时回退到域名生成的字母色块。 */
-function Favicon({ item }: { item: StartShortcut }) {
-  const [failed, setFailed] = useState(false);
-  const origin = originOf(item.url);
-  const color = tileColor(hostOf(item.url) || item.label);
-  return (
-    <span className="start-tile-icon" style={{ background: color.bg, color: color.fg }}>
-      <span className="start-tile-letter">{item.label.slice(0, 1).toUpperCase()}</span>
-      {origin && !failed && (
-        <img
-          src={faviconOf(item.url)}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-        />
-      )}
-    </span>
-  );
 }
 
 export function ShortcutBoard({
@@ -315,7 +295,7 @@ export function ShortcutBoard({
                   }
                 }}
               >
-                <Favicon item={item} />
+                <SiteIcon item={item} />
                 <span className="start-tile-label">{item.label}</span>
                 <span className="start-tile-sub">{hostOf(item.url)}</span>
                 <span className="start-tile-actions">

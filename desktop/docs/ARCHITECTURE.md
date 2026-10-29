@@ -16,8 +16,7 @@ desktop/
 │  ├─ settings.ts     设置读写、迁移、预设、Skills
 │  ├─ library.ts      SQLite 字幕/总结库
 │  ├─ aiClient.ts     OpenAI 兼容 + Anthropic 协议
-│  ├─ ai.ts           总结、章节、校对、长视频 map-reduce
-│  ├─ verify.ts       旧核对/兼容测试（生产总结不再调用）
+│  ├─ ai.ts           字幕转写文本、总结系统提示词（旧 summarize 已删除）
 │  ├─ bridge.ts       扩展 ↔ 桌面本地 HTTP 桥
 │  ├─ extension-install.ts  安装浏览器扩展的引导
 │  └─ ipc.ts          IPC 注册与任务事件
@@ -165,8 +164,8 @@ SPA 切页瞬间拿到上一个视频的预取轨。
 
 - 生产总结入口是 `summaryChat.ts`：`buildSummaryChatPrompt` 生成原总结系统提示词，
   再交给 `chat()` 的对话式工具循环；长字幕不再分段；
-- `ai.ts` 的旧 `summarize` / `verify.ts` 只保留给开发钩子和兼容测试，生产路径不要
-  再调用；
+- 旧 `summarize` / `verify.ts` / `summaryCache.ts` 已删除（2026-10-29），`ai.ts` 只剩
+  `buildTranscript` 与 `buildSummaryChatPrompt`，不要恢复旧链路；
 - 总结提示词 = 用户模板 + 术语表 + `prompt.summaryFormatRules`（设置里可编辑）；
 - 总结每保存一次就追加一条 `summary_versions`（每个视频保留最近 20 条）；老库启动时
   会把现有总结补成一条版本记录。恢复版本只更新 `summaries`，不会伪造新版本；

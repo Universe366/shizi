@@ -460,7 +460,17 @@ export interface BsubApi {
   closeDecision(choice: 'tray' | 'quit' | 'cancel', remember: boolean): void;
   /** 起始页天气（Open-Meteo） */
   startWeather(city: string): Promise<
-    Result<{ city: string; temperature: number; description: string; high: number; low: number }>
+    Result<{
+      city: string;
+      temperature: number;
+      description: string;
+      high: number;
+      low: number;
+      humidity?: number;
+      wind?: number;
+      apparent?: number;
+      forecast?: Array<{ date: string; high: number; low: number; description: string }>;
+    }>
   >;
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
