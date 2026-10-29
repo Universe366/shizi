@@ -9,9 +9,11 @@ import { openOverlay, closeOverlays, canDismissOverlay } from './modules/ui.js';
 import * as subtitlesPanel from './modules/panel-subtitles.js';
 import * as aiPanel from './modules/panel-ai.js';
 import * as settingsPanel from './modules/panel-settings.js';
+import * as libraryPanel from './modules/panel-library.js';
 import * as actionsPanel from './modules/panel-actions.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../shared/constants.js';
 import { initWizard } from './modules/wizard.js';
+import { initDesktopLink, onLinkChange } from './modules/desktop-link.js';
 
 // 页面内嵌时 (?embed=1) 由内容脚本的外框显示标题与收起按钮，
 // 面板自己的品牌行可以隐藏，避免出现两遍标题。
@@ -64,6 +66,9 @@ async function boot() {
   usePanel('subtitles', subtitlesPanel.init(document.getElementById('subtitles-pane')));
   usePanel('ai', aiPanel.init(document.getElementById('ai-pane')));
   usePanel('settings', settingsPanel.init(document.getElementById('settings-pane')));
+  // 老测试夹具没有 #library-pane；没有宿主时给一个空实现。
+  const libraryHost = document.getElementById('library-pane');
+  usePanel('library', libraryHost ? libraryPanel.init(libraryHost) : { render: () => {} });
   usePanel('actions', actionsPanel.init(document.getElementById('actionbar')));
   usePanel('wizard', initWizard());
 
@@ -90,10 +95,37 @@ async function boot() {
   wireKeys();
   checkUpdateBadge();
 
+  // 桌面端连接：自动发现 + 自动上报 + 下行长轮询。
+  // 不阻塞首屏；没有桌面端时只会安静地变成「未连接」。
+  onLinkChange(renderDesktopStatus);
+  void initDesktopLink()
+    .then((status) => renderDesktopStatus(status))
+    .catch(() => renderDesktopStatus({ state: 'offline' }));
+
   // 首次使用向导（必须能随时跳过，跳过入口常驻可见）
   const s = store.get().settings;
   if (s && s.general.firstRun && !s.general.wizardDone) {
     setTimeout(() => app.panels.wizard && app.panels.wizard.open(), 400);
+  }
+}
+
+// 顶部品牌旁的小圆点：绿=已连接，灰=未连接，黄=正在连接。
+function renderDesktopStatus(status) {
+  const el = document.getElementById('desktop-status');
+  if (!el) return;
+  const state = (status && status.state) || 'idle';
+  el.dataset.state = state;
+  const version = status && status.version ? ` ${status.version}` : '';
+  const base =
+    state === 'connected'
+      ? `桌面端已连接${version}（字幕/总结会自动同步）`
+      : state === 'connecting'
+        ? '正在连接桌面端…'
+        : '未连接桌面端（插件可独立使用；启动桌面端后会自动连接）';
+  el.title = base;
+  const lib = status && status.library;
+  if (state === 'connected' && lib) {
+    el.title = `${base} · 库内 ${lib.videos || 0} 个视频 / ${lib.segments || 0} 行`;
   }
 }
 
@@ -216,6 +248,7 @@ function switchTab(tab) {
   if (tab === 'settings') settingsPanel.render();
   if (tab === 'ai') aiPanel.render();
   if (tab === 'subtitles') subtitlesPanel.render();
+  if (tab === 'library' && app.panels.library) app.panels.library.render();
 }
 
 function renderTabs() {
@@ -305,7 +338,10 @@ function renderReadiness(extra) {
   if (!el) return;
   const st = store.get();
   clear(el);
-  const issues = (st.readiness && st.readiness.issues) || [];
+  // 桌面端 AI 可用时，插件自己没配 Key 不算「不可用」。
+  const issues = ((st.readiness && st.readiness.issues) || []).filter(
+    (issue) => !(st.desktopAiReady && issue.area === 'ai')
+  );
   const list = extra ? [{ level: 'error', text: `${extra.title}：${extra.detail || ''}`, area: 'ai' }, ...issues] : issues;
   if (!list.length) {
     setBoolAttr(el, 'data-visible', false);

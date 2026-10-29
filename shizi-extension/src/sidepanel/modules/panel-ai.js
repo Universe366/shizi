@@ -12,9 +12,11 @@ import { buildVerifyClaims, verifyItems, isQueryGroundedIn, contextWindowForQuer
 import { cleanSearchQuery } from '../../shared/search-router.js';
 import { wrapUntrusted } from '../../shared/untrusted.js';
 import { Stream, call } from './bridge.js';
+import { DesktopStream, probeDesktopAi, desktopAiState, speakViaDesktop } from './desktop-ai.js';
+import { watchChatPersistence, clearChatForVideo } from './chat-store.js';
 import * as jobs from './jobs.js';
 import { TASK_LABEL } from '../../shared/constants.js';
-import { promptDialog, popoverMenu } from './ui.js';
+import { promptDialog, popoverMenu, openOverlay, closeOverlays } from './ui.js';
 
 const SUGGESTIONS = [
   '用 5 句话总结这期视频',
@@ -66,6 +68,12 @@ export function init(container) {
   container.appendChild(root);
 
   state.root = root;
+  // 对话历史落盘：面板关闭/刷新后按视频恢复。
+  watchChatPersistence();
+  // 后台预热：面板打开时先问一次桌面端能力，首次总结/对话就不用等。
+  void probeDesktopAi()
+    .then(() => render())
+    .catch(() => {});
   state.summaryHost = h('div', { id: 'summary-host' });
   state.chatHost = h('div', { class: 'chat-list', id: 'chat-host' });
   body.appendChild(h('div', { class: 'section-title', text: 'AI 总结' }));
@@ -254,22 +262,37 @@ function renderToolbar() {
   // 多花一轮 AI + 若干次检索。现在按当前设置直接写在按钮上。
   const searchCfg = (st.settings && st.settings.search) || {};
   const proofreadReady = searchCfg.verifyOnSummary !== false && searchCapabilityOf(st.settings || {}).webCapable;
-  const willProofread = hasLines && proofreadReady;
+  const viaDesktop =
+    !(st.settings && st.settings.desktop && st.settings.desktop.useDesktopAi === false) &&
+    desktopAiState().ready === true;
+  const willProofread = hasLines && proofreadReady && !viaDesktop;
   const cost = estimateSummaryCost(st.settings || {}, {
     webCapable: proofreadReady,
     subtitleChars: subtitleCharCount(st.subtitles)
   });
   bar.appendChild(
-    button(state.summaryStreaming ? '生成中…' : willProofread ? '生成总结（先校对）' : '生成总结', () => generateSummary(), {
-      small: true,
-      primary: true,
-      disabled: !hasLines || state.streaming,
-      title: hasLines
-        ? willProofread
-          ? `先联网校对字幕（术语/逻辑/时间/事实），再用更正后的字幕生成总结；${cost.label}（不含长视频分段合并）。想跳过请点「⚡ 快速总结」`
-          : '直接用现有字幕生成总结（未开启联网校对，或检索不可用）'
-        : '需要先有字幕'
-    })
+    button(
+      state.summaryStreaming
+        ? '生成中…'
+        : viaDesktop
+          ? '生成总结（桌面端）'
+          : willProofread
+            ? '生成总结（先校对）'
+            : '生成总结',
+      () => generateSummary(),
+      {
+        small: true,
+        primary: true,
+        disabled: !hasLines || state.streaming,
+        title: hasLines
+          ? viaDesktop
+            ? '由桌面端生成：提示词、官方分段与联网工具和桌面端一致；插件不再本地校对/分段'
+            : willProofread
+              ? `先联网校对字幕（术语/逻辑/时间/事实），再用更正后的字幕生成总结；${cost.label}（不含长视频分段合并）。想跳过请点「⚡ 快速总结」`
+              : '直接用现有字幕生成总结（未开启联网校对，或检索不可用）'
+          : '需要先有字幕'
+      }
+    )
   );
   if (state.streaming || state.summaryStreaming) {
     bar.appendChild(button('停止', () => stopStream(), { small: true, danger: true }));
@@ -277,12 +300,27 @@ function renderToolbar() {
   bar.appendChild(button('复制总结', () => copySummary(), { small: true, disabled: !st.summary, title: '复制总结全文（Markdown）' }));
   bar.appendChild(button('导出总结', () => exportSummary(), { small: true, disabled: !st.summary, title: '下载为 Markdown 文件' }));
   bar.appendChild(
-    button('⚡ 快速总结', () => generateSummary({ skipProofread: true }), {
-      small: true,
-      disabled: !hasLines || state.streaming,
-      title: '跳过联网校对，直接用现有字幕生成总结（更快，但不会修正字幕里的术语/时间/事实错误）'
-    })
+    button(
+      readingAudio ? '停止朗读' : '朗读',
+      () => void readSummary(),
+      {
+        small: true,
+        disabled: !st.summary,
+        title: desktopAiState().connected
+          ? '用桌面端 TTS 朗读总结；失败会用浏览器语音'
+          : '用浏览器语音朗读总结'
+      }
+    )
   );
+  if (!viaDesktop) {
+    bar.appendChild(
+      button('⚡ 快速总结', () => generateSummary({ skipProofread: true }), {
+        small: true,
+        disabled: !hasLines || state.streaming,
+        title: '跳过联网校对，直接用现有字幕生成总结（更快，但不会修正字幕里的术语/时间/事实错误）'
+      })
+    );
+  }
   bar.appendChild(button('重置对话', () => resetChat(), { small: true, title: '清空对话历史（不影响字幕与总结）' }));
   bar.appendChild(
     popoverMenu(
@@ -380,6 +418,26 @@ function renderSummary() {
     host.appendChild(chapBox);
   }
   host.appendChild(box);
+
+  // 桌面端生成总结时带回的外部资料（本地总结仍用 verifyEvidence）。
+  const refs = Array.isArray(st.summaryReferences) ? st.summaryReferences : [];
+  if (refs.length) {
+    const refBox = h('details', { class: 'verify-queries' });
+    refBox.appendChild(h('summary', { text: `外部资料（${refs.length}）` }));
+    for (const ref of refs.slice(0, 12)) {
+      const url = /^https?:/i.test(String((ref && ref.url) || '')) ? String(ref.url) : '';
+      if (!url) continue;
+      const row = h('div', { class: 'verify-query' });
+      row.appendChild(
+        button(String((ref && ref.title) || url), () => {
+          call('tab.open', { url }).catch(() => {});
+        }, { small: true })
+      );
+      if (ref.site) row.appendChild(h('span', { class: 'muted', text: String(ref.site) }));
+      refBox.appendChild(row);
+    }
+    host.appendChild(refBox);
+  }
 
   const evidence = Array.isArray(st.verifyEvidence) ? st.verifyEvidence : [];
   const failures = Array.isArray(st.verifyFailures) ? st.verifyFailures : [];
@@ -2190,6 +2248,37 @@ export async function generateSummary(opts = {}) {
   }
   const settings = st.settings;
   const promptText = activePromptText();
+  // 官方分段：桌面端总结会优先按它组织；插件本地总结也带上，并在没有 AI 章节时
+  // 直接作为可点击章节展示（独立使用时与桌面端体验一致）。
+  const officialPoints = Array.isArray(st.video && st.video.viewPoints)
+    ? st.video.viewPoints
+        .map((point) => ({
+          from: Number(point.from != null ? point.from : point.start) || 0,
+          to: Number(point.to != null ? point.to : point.end) || 0,
+          content: String(point.content || point.title || '').trim()
+        }))
+        .filter((point) => point.content && point.to > point.from)
+    : [];
+  if (officialPoints.length && !(Array.isArray(st.video.chapters) && st.video.chapters.length)) {
+    store.set({
+      video: {
+        ...st.video,
+        chapters: officialPoints.map((point) => ({
+          title: point.content,
+          start: point.from,
+          end: point.to,
+          summary: ''
+        }))
+      }
+    });
+  }
+  // 桌面端可用时把总结整条链路交给它：提示词、官方分段、联网工具与桌面端一致。
+  // 连不上/没配置 AI 时回退本地；forceLocal 用于失败后重试。
+  const desktopAi =
+    opts.forceLocal === true || (settings && settings.desktop && settings.desktop.useDesktopAi === false)
+      ? { ready: false }
+      : await probeDesktopAi();
+  const useDesktop = desktopAi.ready === true;
 
   // 整个总结流程挂一个可取消的任务，进度显示在全局进度条上。
   // 之前总结时界面只有「生成中…」，用户不知道卡在哪一步、还剩多久。
@@ -2200,7 +2289,14 @@ export async function generateSummary(opts = {}) {
   state.summaryRid = '';
   state.summaryStreaming = true;
   state.streaming = true;
-  store.set({ summaryStream: '', verifyQueries: [], verifyEvidence: [], verifyFailures: [], verifyJudged: false });
+  store.set({
+    summaryStream: '',
+    summaryReferences: [],
+    verifyQueries: [],
+    verifyEvidence: [],
+    verifyFailures: [],
+    verifyJudged: false
+  });
   render();
 
   // ---- 阶段 1：校对字幕（联网核对术语/逻辑/时间/事实），并**实际更正字幕** ----
@@ -2216,6 +2312,7 @@ export async function generateSummary(opts = {}) {
   // 以前这里还要求 capSearch.searchOn（即「对话时自动联网」），
   // 于是用户一关对话自动联网，总结的校对也跟着停了 —— 两个无关的开关被串在一起。
   const willProofread =
+    !useDesktop &&
     !skipProofread &&
     settings.search.verifyOnSummary !== false &&
     capSearch.webCapable &&
@@ -2268,7 +2365,11 @@ export async function generateSummary(opts = {}) {
       toast({ title: '字幕校对失败，将用原字幕生成总结', detail }, 'warn', 4000);
     }
   } else {
-    const why = settings.search.verifyOnSummary === false ? '设置里已关闭「总结前联网核对」' : '检索能力未就绪';
+    const why = useDesktop
+      ? '使用桌面端生成'
+      : settings.search.verifyOnSummary === false
+        ? '设置里已关闭「总结前联网核对」'
+        : '检索能力未就绪';
     task.set(5, `第 1/${totalSteps} 步：跳过联网校对（${why}）`);
   }
 
@@ -2327,12 +2428,13 @@ export async function generateSummary(opts = {}) {
       ].join('\n\n')
     : '';
 
-  let ctx = selectContext(correctedLines, '', 40000);
+  // 桌面端会用自己的提示词与字幕处理；本地 context/messages 只用于本地 Stream。
+  let ctx = useDesktop ? { text: '', truncated: false } : selectContext(correctedLines, '', 40000);
   // 若在对话区选过技能，总结也按该技能的指令走
   const activeSkill = ((settings.skills && settings.skills.items) || []).find((x) => x.id === state.activeSkillId);
   // ---- 视频简介 + 热门评论（用户希望总结时结合）----
   let extraContext = '';
-  if (st.video && settings.summary && settings.summary.useVideoMeta !== false) {
+  if (!useDesktop && st.video && settings.summary && settings.summary.useVideoMeta !== false) {
     const bits = [];
     const desc = String(st.video.desc || '').trim();
     if (desc) bits.push(`【视频简介】\n${desc.slice(0, 2000)}`);
@@ -2364,6 +2466,13 @@ export async function generateSummary(opts = {}) {
       }
     }
     if (bits.length) extraContext = bits.join('\n\n');
+  }
+  if (!useDesktop && officialPoints.length) {
+    const officialBlock = [
+      '【官方分段（优先按这些章节组织总结）】',
+      ...officialPoints.map((point) => `${fmtTime(point.from)} · ${point.content}`)
+    ].join('\n');
+    extraContext = [officialBlock, extraContext].filter(Boolean).join('\n\n');
   }
 
   const messages = [
@@ -2398,7 +2507,7 @@ export async function generateSummary(opts = {}) {
   //
   // 这是用户报的「2 小时视频总结到某个时间点就没有了」的修复点。
   // 字幕是完整的，但之前只把前 40000 字符喂给 AI。
-  if (ctx.truncated) {
+  if (ctx.truncated && !useDesktop) {
     try {
       const result = await summarizeInChunks({
         lines: correctedLines,
@@ -2475,15 +2584,24 @@ export async function generateSummary(opts = {}) {
     }
   }
 
-  task.set(60, `第 ${totalSteps}/${totalSteps} 步：正在生成总结…`);
-  const stream = new Stream();
+  task.set(60, `第 ${totalSteps}/${totalSteps} 步：${useDesktop ? '桌面端生成中' : '正在生成总结'}…`);
+  const stream = useDesktop ? new DesktopStream() : new Stream();
   state.stream = stream;
   // 生成阶段无法预知总长度，所以用「已输出 N 字」做温和推进：
   // 60% → 95%，永不假装到 100%（收尾时才置满）。
   let streamedChars = 0;
   stream.start(
     'ai.summarize',
-    { messages, platformId: settings.ai.activeId, temperature: settings.ai.temperature, maxTokens: settings.ai.maxTokens },
+    {
+      messages,
+      platformId: settings.ai.activeId,
+      temperature: settings.ai.temperature,
+      maxTokens: settings.ai.maxTokens,
+      // 桌面端需要原始视频与字幕来跑它自己的总结提示词；本地 Stream 会忽略这些字段。
+      video: st.video,
+      lines: correctedLines,
+      web: true
+    },
     {
       onDelta: (text) => {
         const cur = store.get();
@@ -2493,7 +2611,7 @@ export async function generateSummary(opts = {}) {
         renderSummary();
         scrollAiBottom();
       },
-      onEnd: async () => {
+      onEnd: async (event) => {
         const bodyText = store.get().summaryStream || '';
         const finalText = bodyText;
         state.summaryStreaming = false;
@@ -2501,7 +2619,11 @@ export async function generateSummary(opts = {}) {
         state.stream = null;
         state.summaryRid = '';
         state.summaryAbortRequested = false;
-        store.set({ summary: finalText, summaryStream: '' });
+        store.set({
+          summary: finalText,
+          summaryStream: '',
+          summaryReferences: Array.isArray(event && event.references) ? event.references : []
+        });
         recountCitations(bodyText);
         await saveHistory();
         task.set(100, `完成（${bodyText.length} 字）`);
@@ -2510,6 +2632,7 @@ export async function generateSummary(opts = {}) {
         toast({ title: '总结完成', detail: `已按 Markdown 渲染（${bodyText.length} 字）` }, 'ok');
       },
       onError: (payload) => {
+        const aborted = state.summaryAbortRequested || (payload && payload.kind === 'aborted');
         state.summaryStreaming = false;
         state.streaming = false;
         state.stream = null;
@@ -2520,9 +2643,25 @@ export async function generateSummary(opts = {}) {
         if (partial) {
           store.set({ summary: partial, summaryStream: '' });
           toast({ title: '总结中断，已保留已生成的部分', detail: payload.detail }, 'warn', 5000);
-        } else {
-          showError(Object.assign(new Error(payload.title), { payload }));
+          render();
+          return;
         }
+        // 桌面端在「还没输出任何字」时失败：自动回退到插件本地 AI，
+        // 不让一次桥接故障把总结能力整体打掉。
+        if (useDesktop && !aborted) {
+          toast(
+            {
+              title: '桌面端生成失败，改用插件本地 AI',
+              detail: (payload && payload.detail) || '桌面端不可用'
+            },
+            'warn',
+            4500
+          );
+          render();
+          void generateSummary({ ...opts, forceLocal: true });
+          return;
+        }
+        showError(Object.assign(new Error(payload.title), { payload }));
         render();
       }
     }
@@ -2566,8 +2705,85 @@ async function exportSummary() {
 // 对话
 // ---------------------------------------------------------------------------
 
+let readingAudio = null;
+
+function stopReading() {
+  if (readingAudio) {
+    try {
+      readingAudio.pause();
+      readingAudio.currentTime = 0;
+    } catch (err) {
+      /* ignore */
+    }
+    readingAudio = null;
+  }
+  try {
+    if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+  } catch (err) {
+    /* ignore */
+  }
+  renderToolbar();
+}
+
+async function readSummary() {
+  const text = String(store.get().summary || '').trim();
+  if (!text) return;
+  if (readingAudio) {
+    stopReading();
+    return;
+  }
+  let desktopError = '';
+  if (desktopAiState().connected) {
+    try {
+      const out = await speakViaDesktop(text);
+      if (out && out.dataUrl) {
+        const audio = new Audio(out.dataUrl);
+        readingAudio = audio;
+        audio.onended = () => {
+          readingAudio = null;
+          renderToolbar();
+        };
+        audio.onerror = () => {
+          readingAudio = null;
+          renderToolbar();
+        };
+        await audio.play();
+        renderToolbar();
+        return;
+      }
+    } catch (err) {
+      readingAudio = null;
+      desktopError = (err && err.message) || String(err);
+    }
+  }
+  try {
+    if (typeof speechSynthesis === 'undefined') throw new Error('当前浏览器不支持语音朗读');
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.onend = () => {
+      readingAudio = null;
+      renderToolbar();
+    };
+    readingAudio = { pause: () => speechSynthesis.cancel(), currentTime: 0 };
+    speechSynthesis.speak(utterance);
+    if (desktopError) toast({ title: '桌面端朗读失败，已改用浏览器语音', detail: desktopError }, 'warn', 3200);
+    renderToolbar();
+  } catch (err) {
+    toast(
+      {
+        title: '朗读失败',
+        detail: desktopError || (err && err.message) || '当前环境不支持语音朗读'
+      },
+      'warn',
+      3200
+    );
+  }
+}
+
 export function resetChat() {
   if (state.streaming) stopStream();
+  void clearChatForVideo();
   store.set({ chat: [] });
   render();
   toast({ title: '会话已重置', detail: '字幕与总结不受影响。' }, 'ok');
@@ -2577,7 +2793,13 @@ export async function sendMessage(text, opts = {}) {
   const question = String(text || '').trim();
   if (!question) return;
   const st = store.get();
-  if (!st.readiness?.ok?.ai) {
+  // 桌面端 AI 可用时，即使插件自己没配 Key 也能对话/总结。
+  const desktopAi =
+    st.settings && st.settings.desktop && st.settings.desktop.useDesktopAi === false
+      ? { ready: false }
+      : await probeDesktopAi();
+  const useDesktop = desktopAi.ready === true;
+  if (!st.readiness?.ok?.ai && !useDesktop) {
     const issue = (st.readiness?.issues || []).find((i) => i.area === 'ai');
     showError(
       Object.assign(new Error('AI 未配置'), {
@@ -2608,6 +2830,8 @@ export async function sendMessage(text, opts = {}) {
   scrollAiBottom();
 
   const settings = st.settings;
+  const webOn =
+    settings.search.autoSearchOnChat !== false || settings.search.alwaysSearchOnChat === true;
   const ctx = selectContext(st.subtitles, question, 30000);
 
   // 「联网到底能不能用」的真实判断：
@@ -2626,7 +2850,7 @@ export async function sendMessage(text, opts = {}) {
   let searchUsed = false;
   let searchFailNote = '';
   let relevanceQuery = '';
-  if (settings.search.autoSearchOnChat !== false && question) {
+  if (!useDesktop && settings.search.autoSearchOnChat !== false && question) {
     const needsWeb = needsWebSearch(question);
     // 问题里有明显的外部信息需求时，或用户希望每轮都搜时，才真正发起检索
     const shouldSearch = needsWeb || settings.search.alwaysSearchOnChat === true;
@@ -2724,13 +2948,22 @@ export async function sendMessage(text, opts = {}) {
     }
   }
 
-  const stream = new Stream();
+  const stream = useDesktop ? new DesktopStream() : new Stream();
   state.stream = stream;
   touchStream();
   const streamedTools = [];
   stream.start(
     'ai.chat',
-    { messages, platformId: settings.ai.activeId, temperature: settings.ai.temperature, maxTokens: settings.ai.maxTokens },
+    {
+      messages,
+      platformId: settings.ai.activeId,
+      temperature: settings.ai.temperature,
+      maxTokens: settings.ai.maxTokens,
+      // 桌面端自己取字幕/页面并按它的系统提示词回答；本地 Stream 忽略这些字段。
+      video: st.video,
+      lines: st.subtitles,
+      web: webOn
+    },
     {
       // MCP 工具运行时，服务端会先推来一段「工具调用过程」文本；这里把它
       // 折叠成一行留痕，而不是混进正文 —— 用户能看到「模型动了手」，
@@ -2738,6 +2971,39 @@ export async function sendMessage(text, opts = {}) {
       onTool: (ev) => {
         streamedTools.push(ev);
       },
+      onApproval: (request) =>
+        new Promise((resolve) => {
+          const body = h('div');
+          body.appendChild(h('div', { text: `工具：${request.name || 'MCP 工具'}` }));
+          body.appendChild(
+            h('div', {
+              class: 'note muted',
+              text: String(request.detail || '').slice(0, 800)
+            })
+          );
+          openOverlay(
+            '允许调用这个工具？',
+            body,
+            [
+              {
+                label: '拒绝',
+                onClick: () => {
+                  closeOverlays();
+                  resolve(false);
+                }
+              },
+              {
+                label: '允许',
+                primary: true,
+                onClick: () => {
+                  closeOverlays();
+                  resolve(true);
+                }
+              }
+            ],
+            { width: '420px' }
+          );
+        }),
       onDelta: (text2) => {
         touchStream();
         const cur = store.get();

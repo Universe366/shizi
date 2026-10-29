@@ -3,10 +3,17 @@ import * as CFG from './settings.js';
 
 const SETTINGS_KEY = 'bsub.settings.v1';
 const DB_NAME = 'bsub-db';
-const DB_VERSION = 1;
+const DB_VERSION = 4;
 const STORE_CACHE = 'subtitleCache';
 const STORE_AUDIO = 'audioChunks';
 const STORE_HISTORY = 'history';
+// 桌面端离线队列：每个视频只保留最新一份快照（按 uid 覆盖），
+// 不用「每次保存追加一条」，否则断网时会迅速撑大 IndexedDB。
+const STORE_OUTBOX = 'desktopOutbox';
+// 桌面库的本地镜像：只存列表投影（uid/标题/总结摘要等），不含字幕正文。
+const STORE_LIBRARY = 'desktopLibrary';
+// 按视频保存的对话历史：关掉侧边栏/刷新后还能接着聊。
+const STORE_CHAT = 'chatHistory';
 
 let dbPromise = null;
 
@@ -25,6 +32,18 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains(STORE_HISTORY)) {
         const s = db.createObjectStore(STORE_HISTORY, { keyPath: 'key' });
+        s.createIndex('savedAt', 'savedAt');
+      }
+      if (!db.objectStoreNames.contains(STORE_OUTBOX)) {
+        const s = db.createObjectStore(STORE_OUTBOX, { keyPath: 'key' });
+        s.createIndex('queuedAt', 'queuedAt');
+      }
+      if (!db.objectStoreNames.contains(STORE_LIBRARY)) {
+        const s = db.createObjectStore(STORE_LIBRARY, { keyPath: 'uid' });
+        s.createIndex('updatedAt', 'updatedAt');
+      }
+      if (!db.objectStoreNames.contains(STORE_CHAT)) {
+        const s = db.createObjectStore(STORE_CHAT, { keyPath: 'key' });
         s.createIndex('savedAt', 'savedAt');
       }
     };
@@ -75,10 +94,25 @@ export const db = {
   },
   async count(store) {
     return tx(store, 'readonly', (s) => reqPromise(s.count()));
+  },
+  async putAll(store, rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return 0;
+    await tx(store, 'readwrite', (s) => {
+      for (const row of list) s.put(row);
+    });
+    return list.length;
   }
 };
 
-export const STORES = { STORE_CACHE, STORE_AUDIO, STORE_HISTORY };
+export const STORES = {
+  STORE_CACHE,
+  STORE_AUDIO,
+  STORE_HISTORY,
+  STORE_OUTBOX,
+  STORE_LIBRARY,
+  STORE_CHAT
+};
 
 // ---------------------------------------------------------------------------
 // 配置
@@ -267,4 +301,84 @@ export async function historyRemove(key) {
 
 export async function historyClear() {
   await db.clear(STORE_HISTORY);
+}
+
+// ---------------------------------------------------------------------------
+// 桌面端离线队列
+// ---------------------------------------------------------------------------
+
+/** 写入/覆盖某个视频的待同步快照。 */
+export async function outboxPut(row) {
+  await db.put(STORE_OUTBOX, row);
+  return row;
+}
+
+export async function outboxAll() {
+  const rows = await db.all(STORE_OUTBOX);
+  rows.sort((a, b) => (a.queuedAt || 0) - (b.queuedAt || 0));
+  return rows;
+}
+
+export async function outboxDel(key) {
+  await db.del(STORE_OUTBOX, key);
+}
+
+export async function outboxCount() {
+  return db.count(STORE_OUTBOX);
+}
+
+export async function outboxClear() {
+  await db.clear(STORE_OUTBOX);
+}
+
+// ---------------------------------------------------------------------------
+// 桌面库镜像
+// ---------------------------------------------------------------------------
+
+export async function libraryPutAll(items) {
+  return db.putAll(STORE_LIBRARY, items);
+}
+
+export async function libraryAll() {
+  const rows = await db.all(STORE_LIBRARY);
+  rows.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return rows;
+}
+
+export async function libraryCount() {
+  return db.count(STORE_LIBRARY);
+}
+
+export async function libraryClear() {
+  await db.clear(STORE_LIBRARY);
+}
+
+export async function libraryDeleteMany(uids) {
+  const list = Array.isArray(uids) ? uids : [];
+  for (const uid of list) {
+    if (uid) await db.del(STORE_LIBRARY, uid);
+  }
+  return list.length;
+}
+
+/** 全量快照未被截断时用：先清空再写入，顺带同步桌面端的删除。 */
+export async function libraryReplaceAll(items) {
+  await db.clear(STORE_LIBRARY);
+  return db.putAll(STORE_LIBRARY, items);
+}
+
+// ---------------------------------------------------------------------------
+// 对话历史（按视频）
+// ---------------------------------------------------------------------------
+
+export async function chatHistoryPut(key, messages, meta = {}) {
+  await db.put(STORE_CHAT, { key, savedAt: Date.now(), messages, meta });
+}
+
+export async function chatHistoryGet(key) {
+  return db.get(STORE_CHAT, key);
+}
+
+export async function chatHistoryClear(key) {
+  await db.del(STORE_CHAT, key);
 }

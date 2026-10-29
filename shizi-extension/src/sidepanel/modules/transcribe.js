@@ -2,6 +2,7 @@
 // 逐片识别 → 合并去重。支持终止、超时、并发可配置、按平台上限自适应分片。
 
 import { call, backgroundVersion } from './bridge.js';
+import { probeDesktopAi, desktopAsrReady, transcribeViaDesktop } from './desktop-ai.js';
 import { ASR_LIMITS, CONTENT_VERSION } from '../../shared/constants.js';
 // 重试判定与后台共用同一份策略
 import { isRetriableAsrError } from '../../background/providers.js';
@@ -596,9 +597,18 @@ export async function transcribeVideo({ video, settings, hooks = {} }) {
 
   // --- 6. 逐片识别 ---
   const timeoutSeconds = Number(asr.timeoutSeconds) || ASR_LIMITS.defaultTimeoutSeconds;
+  // 桌面端本地 Whisper 可用时优先交给它：省在线额度，且完全离线。
+  // 本地模型串行更稳（并发会抢 CPU），失败一次后整轮回退在线 ASR。
+  await probeDesktopAi();
+  const desktopAsr = desktopAsrReady();
+  const useDesktopAsr = desktopAsr.ready && settings.desktop && settings.desktop.useDesktopAsr !== false;
+  let desktopAsrBroken = false;
+  if (useDesktopAsr && onLog) onLog('将使用桌面端本地 Whisper 识别（失败自动回退在线 ASR）');
   // 并发切片数：以前是 1（等于完全串行，是转录慢的主因）。
   // 分片互相独立，提高并发近乎线性提速；上限 8，默认 4（保守，避免限流）。
-  const concurrency = Math.max(1, Math.min(8, Number(asr.concurrency) || ASR_LIMITS.defaultConcurrency));
+  const concurrency = useDesktopAsr
+    ? 1
+    : Math.max(1, Math.min(8, Number(asr.concurrency) || ASR_LIMITS.defaultConcurrency));
 
   // 该平台是否偏好 M4A（硅基流动对 WAV 会 500）。MediaRecorder 是实时编码，
   // 因此**单片的编码耗时 ≈ 该片音频时长**。
@@ -736,17 +746,44 @@ export async function transcribeVideo({ video, settings, hooks = {} }) {
         );
       }
       try {
-        const res = await callAsr(platform, payload, {
-          timeoutMs: timeoutSeconds * 1000,
-          signal,
-          filename,
-          onRetry: (attempt, err) => {
+        let res = null;
+        if (useDesktopAsr && !desktopAsrBroken) {
+          try {
+            res = await transcribeViaDesktop(payload, {
+              duration: slice.seconds,
+              format: filename.endsWith('.m4a') ? 'm4a' : 'wav',
+              language: asr.language || 'zh',
+              title: (video && video.title) || '',
+              url: (video && video.url) || '',
+              // 本地 Whisper 在 CPU 上可能比在线慢；按音频时长放宽。
+              timeoutMs: Math.max(
+                timeoutSeconds * 1000,
+                Math.round(slice.seconds * 1500 + 60000)
+              )
+            });
+          } catch (err) {
+            if (err && err.name === 'AbortError') throw err;
+            desktopAsrBroken = true;
             if (onLog) {
-              const title = (err && err.payload && err.payload.title) || '请求失败';
-              onLog(`第 ${idx + 1} 片${title}，正在重试（第 ${attempt} 次）`);
+              onLog(
+                `第 ${idx + 1} 片桌面端识别失败（${(err && err.message) || err}），本轮改用在线 ASR`
+              );
             }
           }
-        });
+        }
+        if (!res) {
+          res = await callAsr(platform, payload, {
+            timeoutMs: timeoutSeconds * 1000,
+            signal,
+            filename,
+            onRetry: (attempt, err) => {
+              if (onLog) {
+                const title = (err && err.payload && err.payload.title) || '请求失败';
+                onLog(`第 ${idx + 1} 片${title}，正在重试（第 ${attempt} 次）`);
+              }
+            }
+          });
+        }
         sliceOutcomes.push({ idx: idx + 1, ok: true, status: 200 });
         done += 1;
         report(65 + (done / plan.slices.length) * 30, `识别中 ${done}/${plan.slices.length}`);

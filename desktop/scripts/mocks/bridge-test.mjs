@@ -66,3 +66,58 @@ console.log('[bridge-test] ingest', response.status, await response.text());
 
 const unauthorized = await fetch(`${base}/v1/health`);
 console.log('[bridge-test] unauthorized', unauthorized.status);
+
+// v2：批量事件 + 幂等 + 下行拉取
+const eventId = `bridge-test-${Date.now()}`;
+const v2Payload = {
+  protocol: 2,
+  client: { id: 'bridge-test', browser: 'chrome', version: '2.19.0' },
+  events: [
+    {
+      id: eventId,
+      type: 'history.upsert',
+      payload: {
+        video: {
+          bvid: 'BV1TEST00002',
+          cid: 999000002,
+          title: '桥协议 v2 测试视频',
+          owner: '测试 UP',
+          duration: 60,
+          url: 'https://www.bilibili.com/video/BV1TEST00002'
+        },
+        track: { lan: 'zh-CN', lanDoc: '中文', source: 'extension-test', isAi: false },
+        lines: [
+          { start: 0, end: 1, text: 'v2 第一句。' },
+          { start: 1, end: 2, text: 'v2 第二句。' }
+        ],
+        summary: '## v2\n- events 接口可用。'
+      }
+    }
+  ]
+};
+const eventsRes = await fetch(`${base}/v1/events`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify(v2Payload)
+});
+console.log('[bridge-test] events', eventsRes.status, await eventsRes.text());
+
+const duplicateRes = await fetch(`${base}/v1/events`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify(v2Payload)
+});
+console.log('[bridge-test] events-duplicate', duplicateRes.status, await duplicateRes.text());
+
+const pullRes = await fetch(`${base}/v1/pull?since=0&wait=0`, { headers });
+console.log('[bridge-test] pull', pullRes.status, await pullRes.text());
+
+const badType = await fetch(`${base}/v1/events`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    protocol: 2,
+    events: [{ id: 'bad', type: 'nope', payload: { video: {} } }]
+  })
+});
+console.log('[bridge-test] bad-event', badType.status, await badType.text());

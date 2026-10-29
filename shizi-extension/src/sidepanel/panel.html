@@ -18,6 +18,7 @@
           <div class="brand">
             <span class="brand-mark">字幕</span>
             <span class="brand-title">拾字</span>
+            <span id="desktop-status" class="desktop-status" data-state="idle" title="桌面端未连接"></span>
           </div>
           <div class="topbar-actions">
             <button id="btn-embed" class="btn icon-btn" type="button" title="打开 / 关闭页面内面板（Alt+Shift+B）">▣</button>
@@ -32,6 +33,7 @@
         <div class="tabs" id="tabs">
           <button class="tab" type="button" data-tab-btn="subtitles">字幕</button>
           <button class="tab" type="button" data-tab-btn="ai">总结 / AI</button>
+          <button class="tab" type="button" data-tab-btn="library">库</button>
           <button class="tab" type="button" data-tab-btn="settings">设置</button>
         </div>
         <div id="fingerprint" class="fingerprint" title="构建指纹：版本 + 模块数 + 构建时间">构建信息加载中…</div>
@@ -64,6 +66,7 @@
             </section>
           </div>
           <section id="settings-pane" class="pane settings"></section>
+          <section id="library-pane" class="pane library"></section>
         </div>
       </main>
 

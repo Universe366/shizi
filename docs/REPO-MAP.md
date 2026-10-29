@@ -1,6 +1,6 @@
 # 仓库地图（给人看的）
 
-> 当前产品名：**拾字 / Shizi**。桌面端 0.160.0，插件 2.18.8。
+> 当前产品名：**拾字 / Shizi**。桌面端 0.161.0，插件 2.19.0。
 > 先看这一页，再决定去读哪份文档，不要从 5 万行历史记录开始。
 
 ## 顶层目录
@@ -60,7 +60,7 @@ shizi-extension/
 | 设置页 / 对话输入区怎么改 | `docs/UI-GUIDE.md` |
 | 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |
-| 插件和桌面怎么通信 | `desktop/docs/BRIDGE.md` |
+| 插件和桌面怎么通信 / 怎么对齐 | `desktop/docs/BRIDGE.md`、`docs/EXTENSION-DESKTOP-ALIGNMENT.md` |
 | 发布/更新/安装器 | `docs/MAINTAINERS.md` |
 | 代码质量与重构建议 | `docs/QUALITY.md` |
 | 品牌与路径迁移历史 | `desktop/docs/archive/REBRAND.md` |

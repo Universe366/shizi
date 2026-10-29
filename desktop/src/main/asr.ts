@@ -65,6 +65,29 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
+/** 桌面端本地 Whisper 是否可用；给插件桥判断是否值得委托。 */
+export function localAsrReadiness(settings: AppSettings = loadSettings()): {
+  ready: boolean;
+  reason: string;
+  model: string;
+} {
+  let platform: AsrPlatform;
+  try {
+    platform = activeAsr(settings);
+  } catch (error) {
+    return { ready: false, reason: (error as Error)?.message || '桌面端 ASR 未配置', model: '' };
+  }
+  if (platform.kind !== 'local-whisper') {
+    return { ready: false, reason: '桌面端当前 ASR 不是本地 Whisper', model: '' };
+  }
+  try {
+    const { model } = resolveLocalWhisperPaths(platform);
+    return { ready: true, reason: '', model: path.basename(model) };
+  } catch (error) {
+    return { ready: false, reason: (error as Error)?.message || '本地 Whisper 不可用', model: '' };
+  }
+}
+
 function activeAsr(settings: AppSettings): AsrPlatform {
   const platform =
     settings.asr.platforms.find((item) => item.id === settings.asr.activeId) ||

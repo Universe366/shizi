@@ -27,6 +27,8 @@ import { exportRuleGroups, parseRuleGroups } from './optimize.js';
 import { downloadFile } from './dom.js';
 import { batchAdd, batchRemove, batchCancel, batchPause, batchClearDone, expandCollectionsFromText } from './context.js';
 import { discoverDesktop } from './desktop-bridge.js';
+import { linkStatus, probeDesktop } from './desktop-link.js';
+import { probeDesktopAi } from './desktop-ai.js';
 import * as SKILLS from '../../shared/skills.js';
 import { TIME_PRESETS, normalizeTimeRange } from '../../shared/time-range.js';
 import { RELEASES_URL } from '../../shared/release.js';
@@ -2045,82 +2047,190 @@ function pageGroup(d) {
 }
 
 function desktopGroup(d) {
-  const cfg = d.desktop || (d.desktop = { enabled: true, port: 47821, token: '' });
-  return groupWrap('desktop', '桌面端（本地字幕库）', false, (body) => {
+  const cfg = d.desktop || (d.desktop = { enabled: true, autoSync: true, port: 47821, token: '' });
+  return groupWrap('desktop', '桌面端（自动同步与能力增强）', false, (body) => {
     body.appendChild(
       h('div', {
         class: 'note',
-        text: '把当前视频的字幕与总结推送到本机桌面端。桌面端运行时会自动发现，端口与 Token 都不用填；下面的「连接」按钮可以立即检测一次。'
+        text: '桌面端运行时会自动发现并连接：保存字幕/总结后自动同步，不需要点按钮。关闭桌面端期间的数据会留在本机，下次连接自动补传。没有桌面端时插件仍可独立使用。'
       })
     );
+
     const desktopStatus = h('div', { class: 'note muted', text: '正在检测桌面端…' });
     body.appendChild(desktopStatus);
-    discoverDesktop(cfg.port).then((found) => {
-      if (found) {
-        desktopStatus.textContent = `已发现桌面端 ${found.version || ''} · 127.0.0.1:${found.port}`;
+    const aiStatus = h('div', { class: 'note muted', text: '' });
+    body.appendChild(aiStatus);
+    probeDesktopAi()
+      .then((ai) => {
+        const asr = ai.asr || {};
+        const asrText = asr.ready
+          ? `本地 Whisper 可用（${asr.model || '已配置'}）`
+          : '本地 Whisper 不可用';
+        if (ai.ready) {
+          aiStatus.textContent = `桌面 AI 可用：${(ai.platform && ai.platform.model) || '已配置'}（总结/对话优先走桌面端）· ${asrText}`;
+        } else if (linkStatus().state === 'connected') {
+          aiStatus.textContent = `桌面 AI 不可用：${ai.reason || '未配置'}。插件继续用本地 AI 配置 · ${asrText}`;
+        }
+      })
+      .catch(() => {});
+
+    const refreshStatus = (status) => {
+      const s = status || linkStatus();
+      if (s.state === 'connected') {
+        const lib = s.library;
+        desktopStatus.textContent = `已连接桌面端 ${s.version || ''} · 127.0.0.1:${s.port}${
+          lib ? ` · 库内 ${lib.videos || 0} 个视频 / ${lib.segments || 0} 行` : ''
+        }${s.pending ? ` · 待同步 ${s.pending} 条` : ''}`;
+        desktopStatus.style.color = '';
+      } else if (s.state === 'connecting') {
+        desktopStatus.textContent = '正在连接桌面端…';
         desktopStatus.style.color = '';
       } else {
-        desktopStatus.textContent = '未检测到桌面端（启动桌面端后会自动连接，不需要填写端口/Token）';
+        desktopStatus.textContent = s.error
+          ? `未连接桌面端（${s.error}）。数据会留在本机，启动桌面端后自动补传。`
+          : '未连接桌面端。启动桌面端后会自动连接，不需要填写端口/Token。';
+        desktopStatus.style.color = '';
       }
-    });
-    body.appendChild(checkbox(cfg.enabled !== false, (v) => { cfg.enabled = v; markDirty(); }, '启用「发送到桌面」'));
+    };
+    refreshStatus();
+
     body.appendChild(
-      field(
-        '端口（可选）',
-        numberInput(cfg.port || 47821, (v) => {
-          cfg.port = Math.max(1024, Math.min(65535, Math.round(Number(v) || 47821)));
+      checkbox(
+        cfg.enabled !== false,
+        (v) => {
+          cfg.enabled = v;
           markDirty();
-        }, { min: 1024, max: 65535, step: 1 })
+        },
+        '启用桌面端联动'
       )
     );
     body.appendChild(
-      field(
-        'Token（可选）',
-        textInput(cfg.token || '', (v) => {
-          cfg.token = String(v || '').trim();
+      checkbox(
+        cfg.autoSync !== false,
+        (v) => {
+          cfg.autoSync = v;
           markDirty();
-        }, { placeholder: '留空即可，会自动发现桌面端' })
+        },
+        '保存后自动同步字幕与总结'
       )
     );
+    body.appendChild(
+      checkbox(
+        cfg.useDesktopAi !== false,
+        (v) => {
+          cfg.useDesktopAi = v;
+          markDirty();
+        },
+        '桌面端 AI 可用时优先使用（总结 / 对话）'
+      )
+    );
+    body.appendChild(
+      checkbox(
+        cfg.useDesktopAsr !== false,
+        (v) => {
+          cfg.useDesktopAsr = v;
+          markDirty();
+        },
+        '桌面端本地 Whisper 可用时优先转录（失败回退在线）'
+      )
+    );
+
     body.appendChild(
       field(
         '连接',
-        button('自动检测并保存', async () => {
-          try {
-            const found = await discoverDesktop(cfg.port);
-            if (found) {
-              cfg.port = found.port;
-              cfg.token = found.token;
-              markDirty();
-            } else if (!String(cfg.token || '').trim()) {
-              throw new Error('没有检测到桌面端。请先启动桌面端，再点一次。');
+        button(
+          '立即检测',
+          async () => {
+            desktopStatus.textContent = '正在检测桌面端…';
+            try {
+              await save();
+              const status = await probeDesktop();
+              if (!status) throw new Error('没有检测到桌面端，请确认桌面端正在运行');
+              const saved = (store.get().settings && store.get().settings.desktop) || {};
+              if (saved.port !== status.port || saved.token !== status.token) {
+                cfg.port = status.port;
+                cfg.token = status.token;
+                markDirty();
+                await save();
+              }
+              refreshStatus(status);
+              toast(
+                {
+                  title: '桌面端已连接',
+                  detail: `127.0.0.1:${status.port} · 库内 ${status.library?.videos || 0} 个视频`
+                },
+                'ok',
+                2600
+              );
+            } catch (e) {
+              refreshStatus();
+              toast({ title: '连接失败', detail: String((e && e.message) || e) }, 'error', 4200);
             }
+          },
+          { small: true }
+        ),
+        '正常情况下不用点：发现与同步都是自动的。'
+      )
+    );
 
-            // 先保存：测试成功必须代表「已保存的配置」可用。
-            await save();
-            if (state.dirty) throw new Error('设置保存失败，请查看提示');
-
-            const saved = (store.get().settings && store.get().settings.desktop) || {};
-            const port = Number(saved.port) || 47821;
-            const token = String(saved.token || '').trim();
-            const res = await fetch(`http://127.0.0.1:${port}/v1/health`, {
-              headers: { authorization: `Bearer ${token}` }
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-            toast(
-              {
-                title: '桌面端连接成功（配置已保存）',
-                detail: `127.0.0.1:${port} · 库内 ${data.library?.videos || 0} 个视频 · ${data.library?.segments || 0} 行`
+    body.appendChild(
+      collapsible(
+        '高级：端口与 Token',
+        false,
+        (box) => {
+          box.appendChild(
+            h('div', {
+              class: 'note muted',
+              text: '只有自动发现失败（改了端口/被安全软件拦截）时才需要手填。Token 只保存在本机。'
+            })
+          );
+          box.appendChild(
+            field(
+              '端口（可选）',
+              numberInput(
+                cfg.port || 47821,
+                (v) => {
+                  cfg.port = Math.max(1024, Math.min(65535, Math.round(Number(v) || 47821)));
+                  markDirty();
+                },
+                { min: 1024, max: 65535, step: 1 }
+              )
+            )
+          );
+          box.appendChild(
+            field(
+              'Token（可选）',
+              textInput(
+                cfg.token || '',
+                (v) => {
+                  cfg.token = String(v || '').trim();
+                  markDirty();
+                },
+                { placeholder: '留空即可，会自动发现桌面端' }
+              )
+            )
+          );
+          box.appendChild(
+            button(
+              '按上面的端口重新检测',
+              async () => {
+                try {
+                  const found = await discoverDesktop(cfg.port);
+                  if (!found) throw new Error('没有检测到桌面端');
+                  cfg.port = found.port;
+                  cfg.token = found.token;
+                  markDirty();
+                  await save();
+                  refreshStatus(await probeDesktop());
+                  toast({ title: '已连接并保存' }, 'ok', 2200);
+                } catch (e) {
+                  toast({ title: '连接失败', detail: String((e && e.message) || e) }, 'error', 4200);
+                }
               },
-              'ok',
-              3200
-            );
-          } catch (e) {
-            toast({ title: '连接失败', detail: String((e && e.message) || e) }, 'error', 4200);
-          }
-        }, { small: true }),
-        '需要桌面端正在运行；自动发现失败时才需要手动填上面的端口/Token。'
+              { small: true }
+            )
+          );
+        }
       )
     );
   });

@@ -20,6 +20,16 @@ export {
   removeVideo
 } from './library/videos';
 
+export { librarySyncChanges, librarySyncCount, librarySyncItem, librarySyncItems } from './library/sync';
+export type {
+  SyncLibraryDetail,
+  SyncLibraryItem,
+  SyncLibraryNote,
+  SyncLibrarySummary,
+  SyncLibraryTrack,
+  SyncChangeSet
+} from './library/sync';
+
 // 兼容旧 import：下载/任务/导出记录拆出后仍按原路径导出。
 export {
   addDownload,

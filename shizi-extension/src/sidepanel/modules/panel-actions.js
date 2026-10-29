@@ -32,8 +32,8 @@ async function pushToDesktop() {
     const result = await sendToDesktop();
     toast(
       {
-        title: '已发送到桌面',
-        detail: `入库 ${result.lineCount} 行${result.summarySaved ? '，含总结' : ''}`
+        title: '已同步到桌面',
+        detail: `入库 ${result.lineCount} 行${result.summarySaved ? '，含总结' : ''}${result.pending ? `，还有 ${result.pending} 条待补传` : ''}`
       },
       'ok',
       3200
@@ -227,11 +227,11 @@ export function render() {
     { heading: '同步' },
     {
       icon: '💻',
-      label: '发送到桌面',
+      label: '立即同步到桌面',
       title:
         st.settings && st.settings.desktop && st.settings.desktop.enabled === false
-          ? '桌面端推送已在 设置 → 桌面端 关闭'
-          : '把当前字幕与总结写入桌面端本地库',
+          ? '桌面端联动已在 设置 → 桌面端 关闭'
+          : '默认会自动同步；这里只用于手动补一次（跳过内容去重）',
       disabled: !hasLines || Boolean(st.settings && st.settings.desktop && st.settings.desktop.enabled === false),
       onClick: () => void pushToDesktop()
     },

@@ -207,6 +207,7 @@ function filenameFor(payload: ExportPayload): string {
   const date = new Date().toISOString().slice(0, 10);
   const raw = (payload.filenamePattern || '{title}')
     .replace(/\{title\}/g, payload.info.title || '视频')
+    .replace(/\{part\}/g, payload.info.partTitle || '')
     .replace(/\{bvid\}/g, payload.info.bvid || '')
     .replace(/\{lang\}/g, payload.translationLanguage || '')
     .replace(/\{date\}/g, date);

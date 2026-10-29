@@ -680,6 +680,12 @@ export function defaultSettings() {
     // 桌面端本地库：把当前字幕/总结推到本机桌面程序（插件 ↔ 桌面桥）
     desktop: {
       enabled: true,
+      // 自动把保存的字幕/总结同步到桌面端；关闭后只能手动「立即同步」。
+      autoSync: true,
+      // 桌面端 AI 可用时优先用它；关闭后始终使用插件本地 AI。
+      useDesktopAi: true,
+      // 桌面端本地 Whisper 可用时优先用它；失败自动回退在线 ASR。
+      useDesktopAsr: true,
       port: 47821,
       token: ''
     },

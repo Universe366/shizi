@@ -18,6 +18,8 @@ function emptyState() {
     timeline: [],
     subtitleMeta: null,
     summary: '',
+    // 桌面端生成总结时带回的外部资料（本地总结用 verifyEvidence）
+    summaryReferences: [],
     chat: [],
     suggestions: [],
     search: { results: [], counts: {}, query: '', lastAt: 0 },
@@ -35,7 +37,10 @@ function emptyState() {
     },
     diagnostics: null,
     build: null,
-    contentTabs: []
+    contentTabs: [],
+    // 桌面库只读镜像（连接桌面端后自动拉取；离线时显示上次缓存）
+    desktopLibrary: { items: [], total: 0, syncedAt: 0, offline: false, error: '' },
+    desktopAiReady: false
   };
 }
 

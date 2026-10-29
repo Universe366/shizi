@@ -1,4 +1,5 @@
 import { requireDb, toNumber } from './db';
+import { touchVideo } from './core';
 import type { LibraryNote, NoteVersion, NoteVersionMeta } from '../../shared/types';
 
 /** 条目笔记与笔记版本。 */
@@ -25,6 +26,7 @@ export function saveNote(videoId: number, content: string): LibraryNote | null {
   if (!text.trim()) {
     database.prepare('DELETE FROM notes WHERE video_id = ?').run(id);
     database.prepare('DELETE FROM note_versions WHERE video_id = ?').run(id);
+    touchVideo(database, id);
     return null;
   }
   const now = Date.now();
@@ -38,6 +40,7 @@ export function saveNote(videoId: number, content: string): LibraryNote | null {
     )
     .run(id, text, now, now);
 
+  touchVideo(database, id, now);
   const latest = database
     .prepare(
       'SELECT content_md FROM note_versions WHERE video_id = ? ORDER BY created_at DESC, id DESC LIMIT 1'

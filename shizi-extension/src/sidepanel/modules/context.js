@@ -12,6 +12,15 @@ import * as SEARCH from './search.js';
 import { buildExport, safeFilename } from './exporter.js';
 import { DEFAULT_SYSTEM_PROMPT, TASK_LABEL, METHOD_TIMEOUT } from '../../shared/constants.js';
 import { buildVerifyClaims, verifyItems, contextWindowForQuery, annotateEvidenceAgreement } from '../../shared/verify.js';
+import { scheduleSnapshot, linkStatus } from './desktop-link.js';
+import {
+  exportViaDesktop,
+  probeDesktopAi,
+  desktopAiState,
+  translateViaDesktop,
+  optimizeViaDesktop
+} from './desktop-ai.js';
+import { loadChatForVideo } from './chat-store.js';
 
 export const app = {
   panels: {},
@@ -145,6 +154,8 @@ export async function loadVideo(opts = {}) {
     }
 
     store.set({ video, ...cleared });
+    // 换视频：恢复该视频上次的对话（没有就保持空）。
+    if (changed) await loadChatForVideo(video);
     // 换视频后重开一条留痕时间线 —— 旧视频的步骤混进来会让人困惑
     if (changed) store.set({ timeline: [] });
     recordTimeline(changed ? '读取视频' : '重新读取视频', video.title || '');
@@ -260,11 +271,32 @@ export async function translateSubtitles(targetLang, opts = {}) {
   if (!target) throw new Error('请选择目标语言');
   const task = jobs.beginTask('翻译字幕', { detail: `目标语言：${target}` });
   const next = lines.map((l) => ({ ...l }));
+  // 桌面 AI 可用时用桌面翻译链路（与桌面端提示词/分批一致）；失败回退本地。
+  await probeDesktopAi();
+  let useDesktop = desktopAiState().ready === true;
+  let desktopBroken = false;
   try {
     const BATCH = 30;
     for (let start = 0; start < lines.length; start += BATCH) {
       const slice = lines.slice(start, start + BATCH);
       task.set(Math.round((start / lines.length) * 100), `翻译第 ${start + 1}-${Math.min(lines.length, start + BATCH)} 句`);
+      if (useDesktop && !desktopBroken) {
+        try {
+          const out = await translateViaDesktop(slice, target);
+          if (!out || !Array.isArray(out.lines) || out.lines.length !== slice.length) {
+            throw new Error('桌面端返回的翻译行数不一致');
+          }
+          out.lines.forEach((line, i) => {
+            const idx = start + i;
+            const value = String((line && line.text) || '').trim();
+            if (value) next[idx].text = value;
+          });
+          continue;
+        } catch (err) {
+          desktopBroken = true;
+          console.warn('[拾字] 桌面端翻译失败，回退本地', err && err.message);
+        }
+      }
       const payload = slice.map((l, i) => ({ i: start + i, text: String(l.text || '') }));
       const res = await call(
         'ai.chat',
@@ -585,13 +617,16 @@ export async function optimizeWithAi(opts = {}) {
   }
   const video = store.get().video;
   const task = jobs.beginTask(TASK_LABEL.optimize, { detail: '向 AI 提交字幕全文' });
+  // 桌面端 AI 可用时走桌面校对（提示词/术语表/联网核对与桌面一致）。
+  await probeDesktopAi();
+  const useDesktop = desktopAiState().ready === true;
   try {
     // 联网核对：**逐条**查字幕里的术语/事实/时间/数据，而不是整篇搜。
     // 整篇搜会把上万字网页灌进上下文，模型就开始把字幕改写成网页内容
     // （总结那边已经踩过这个坑）。
     let verify = [];
     let evidence = { results: [] };
-    if (s.optimize.useSearch) {
+    if (!useDesktop && s.optimize.useSearch) {
       task.detail('联网核对字幕里的术语与事实…');
       try {
         const items = buildVerifyClaims(lines, s.optimize.verifyItemCount || 8);
@@ -619,18 +654,45 @@ export async function optimizeWithAi(opts = {}) {
         evidence = await OPT.gatherSearchEvidence(s, `${video?.title || ''} 专有名词 术语`);
       }
     }
-    const messages = OPT.buildOptimizeMessages({
-      lines,
-      glossary: s.optimize.glossary,
-      verify,
-      searchResults: evidence.results,
-      useSearch: !!s.optimize.useSearch,
-      videoTitle: (video && video.title) || ''
-    });
-    task.set(20, '等待 AI 返回修正建议');
-    const res = await call('ai.chat', { messages, temperature: 0.1, maxTokens: 3000 }, { timeoutMs: 300000 });
-    const corrections = OPT.parseOptimizeResult(res.text);
-    store.set({ optimize: { ...(store.get().optimize || {}), corrections, raw: res.text } });
+    let rawText = '';
+    if (useDesktop) {
+      task.set(20, '桌面端校对中…');
+      try {
+        const out = await optimizeViaDesktop(lines);
+        const mapped = (out && out.suggestions ? out.suggestions : [])
+          .map((item) => {
+            const idx = Number(item.index);
+            const source = Number.isInteger(idx) && lines[idx] ? lines[idx] : null;
+            const lineNo = source && Number.isInteger(source.i) ? source.i : undefined;
+            return {
+              wrong: String(item.original || ''),
+              right: String(item.suggestion || ''),
+              reason: '桌面端校对',
+              kind: '校对',
+              line: lineNo
+            };
+          })
+          .filter((item) => item.wrong && item.right && item.wrong !== item.right);
+        rawText = JSON.stringify({ corrections: mapped });
+      } catch (err) {
+        console.warn('[拾字] 桌面端校对失败，回退本地', err && err.message);
+      }
+    }
+    if (!rawText) {
+      const messages = OPT.buildOptimizeMessages({
+        lines,
+        glossary: s.optimize.glossary,
+        verify,
+        searchResults: evidence.results,
+        useSearch: !!s.optimize.useSearch,
+        videoTitle: (video && video.title) || ''
+      });
+      task.set(20, '等待 AI 返回修正建议');
+      const res = await call('ai.chat', { messages, temperature: 0.1, maxTokens: 3000 }, { timeoutMs: 300000 });
+      rawText = res.text;
+    }
+    const corrections = OPT.parseOptimizeResult(rawText);
+    store.set({ optimize: { ...(store.get().optimize || {}), corrections, raw: rawText } });
     if (!corrections.length) {
       toast({ title: 'AI 没有发现需要修正的地方' }, 'ok');
       return { corrections: [] };
@@ -840,11 +902,54 @@ export async function exportSubtitles(overrides = {}) {
   }
   const cfg = { ...st.settings.exportCfg, ...overrides };
   const video = { ...st.video, summary: st.summary, stats: st.video?.stats };
-  const text = buildExport(lines, video, cfg);
-  const filename = safeFilename(video, cfg);
-  downloadFile(filename, text, cfg.format === 'json' ? 'application/json' : 'text/plain;charset=utf-8');
-  toast({ title: `已导出 ${filename}`, detail: `格式 ${cfg.format.toUpperCase()} · 模板 ${cfg.template}` }, 'ok');
-  return { filename, text };
+  const templateMap = { plain: 'plain', timed: 'timestamped', study: 'notes', meeting: 'meeting' };
+  let text = '';
+  let filename = '';
+  let mime = cfg.format === 'json' ? 'application/json' : 'text/plain;charset=utf-8';
+  let viaDesktop = false;
+
+  if (linkStatus().state === 'connected') {
+    try {
+      const built = await exportViaDesktop({
+        video,
+        lines,
+        summary: st.summary || '',
+        format: cfg.format,
+        template: templateMap[cfg.template] || 'timestamped',
+        includeTimestamps: cfg.includeTimestamps !== false,
+        filenamePattern: cfg.filenamePattern || '{title}',
+        assFontSize: cfg.assFontSize,
+        estimateTimestamps: cfg.estimateTimestamps !== false,
+        translatedLines: cfg.translatedLines || null,
+        translationLanguage: cfg.translationLanguage || ''
+      });
+      if (built && built.content) {
+        text = built.content;
+        const ext = built.ext ? `.${built.ext}` : '';
+        const base = String(built.filename || 'export');
+        filename = ext && !base.endsWith(ext) ? base + ext : base;
+        mime = built.mime || mime;
+        viaDesktop = true;
+      }
+    } catch (err) {
+      // 桌面端导出失败不能让用户拿不到文件：静默回退本地实现。
+      console.warn('[拾字] 桌面端导出失败，回退本地', err && err.message);
+    }
+  }
+
+  if (!viaDesktop) {
+    text = buildExport(lines, video, cfg);
+    filename = safeFilename(video, cfg);
+  }
+  downloadFile(filename, text, mime);
+  toast(
+    {
+      title: `已导出 ${filename}`,
+      detail: `${viaDesktop ? '桌面端引擎' : '本地引擎'} · 格式 ${cfg.format.toUpperCase()} · 模板 ${cfg.template}`
+    },
+    'ok'
+  );
+  return { filename, text, viaDesktop };
 }
 
 export async function copyAllSubtitles(overrides = {}) {
@@ -894,6 +999,9 @@ export async function saveHistory() {
       }
     }
     await call('history.put', { video: st.video, entry });
+    // 保存成功后自动同步到桌面端：防抖 + 内容去重，桌面端不在时进离线队列。
+    // 用户不需要再点「发送到桌面」。
+    scheduleSnapshot(store.get());
   } catch (err) {
     /* 历史保存失败不打断主流程 */
   }

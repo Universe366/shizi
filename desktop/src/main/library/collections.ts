@@ -1,4 +1,5 @@
 import { requireDb, toNumber } from './db';
+import { touchVideo } from './core';
 import type {
   CollectionSummary,
   CollectionSummaryVersion,
@@ -79,6 +80,7 @@ export function removeVideoFromCollection(videoId: number, name: string): string
            SELECT 1 FROM collection_items WHERE collection_id = ?)`
       )
       .run(collectionId, collectionId);
+    touchVideo(database, id);
   }
   return getVideoCollections(id);
 }
@@ -384,6 +386,7 @@ export function addVideoToCollection(videoId: number, name: string): string[] {
         )
         .run(Number(row.id), id, now);
     }
+    touchVideo(database, id, now);
     database.exec('COMMIT');
   } catch (error) {
     try {

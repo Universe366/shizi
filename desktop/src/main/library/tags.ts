@@ -1,4 +1,5 @@
 import { requireDb, toNumber } from './db';
+import { touchVideo } from './core';
 import type { LibraryTag } from '../../shared/types';
 
 /** 标签：列表、改名、删除、批量打标。 */
@@ -51,6 +52,7 @@ export function setVideoTags(videoId: number, names: string[]): string[] {
     database
       .prepare('DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM video_tags)')
       .run();
+    touchVideo(database, id);
     database.exec('COMMIT');
   } catch (error) {
     try {

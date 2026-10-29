@@ -59,6 +59,10 @@ async function main() {
         title: '【测试】这是一个 B 站视频标题',
         duration: 754,
         owner: { name: '测试UP主' },
+        view_points: [
+          { from: 0, to: 120, content: '开场' },
+          { from: 120, to: 754, content: '正片' }
+        ],
         pages: [
           { page: 1, cid: 999000, part: 'P1 开场', duration: 600 },
           { page: 2, cid: 999001, part: 'P2 正片', duration: 754 },
@@ -153,6 +157,11 @@ async function main() {
   check('导航签名用「视频 ID + 分 P」而不是整串 URL', res.ok && res.data.signature.indexOf('BV1xx411c7mD@p2') === 0 && !res.data.signature.includes('spm_id_from'), res.data.signature);
   check('签名包含分 P 的 cid（区分同视频不同分 P）', res.ok && String(res.data.signature).includes('@c' + res.data.cid), `${res.data.signature} | cid=${res.data.cid} | len=${String(res.data.signature).length}`);
   check('协议相对地址补全为页面协议', res.ok && res.data.protocol === 'https:');
+  check(
+    '读取官方分段（view_points）',
+    res.ok && Array.isArray(res.data.viewPoints) && res.data.viewPoints.length === 2 && res.data.viewPoints[1].content === '正片',
+    JSON.stringify(res.data.viewPoints)
+  );
 
   res = await rpc('getSubtitles');
   const subs = (res.data && res.data.subtitles) || [];

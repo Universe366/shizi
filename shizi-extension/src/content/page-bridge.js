@@ -458,6 +458,47 @@
     return null;
   }
 
+  // 官方分段（view_points）：桌面端总结会优先按它组织章节。
+  // 只在能明确读到当前视频时返回；不主动请求接口，避免与字幕抓取抢风控。
+  function officialViewPoints() {
+    const st = window.__INITIAL_STATE__;
+    let ownCid = null;
+    try {
+      ownCid = pageIdentity().cid;
+    } catch (err) {
+      /* 身份未就绪时后面按「无 cid」处理 */
+    }
+    const sameCid = (node) => !ownCid || !node || !node.cid || Number(node.cid) === Number(ownCid);
+    const vd = st && st.videoData;
+    const lists = [
+      vd && sameCid(vd) && vd.view_points,
+      vd && sameCid(vd) && vd.viewPoints,
+      st && st.videoInfo && sameCid(st.videoInfo) && st.videoInfo.view_points,
+      st && st.view_points
+    ];
+    try {
+      const player = getPlayer();
+      const info = player && typeof player.getVideoInfo === 'function' ? player.getVideoInfo() : null;
+      if (info) lists.push(info.view_points, info.viewPoints);
+    } catch (err) {
+      /* 播放器 API 不稳定，忽略 */
+    }
+    for (const list of lists) {
+      if (!Array.isArray(list) || !list.length) continue;
+      const rows = list
+        .map((item) => {
+          const row = item || {};
+          const from = Number(row.from != null ? row.from : row.start) || 0;
+          const to = Number(row.to != null ? row.to : row.end) || 0;
+          const content = String(row.content || row.title || '').trim();
+          return { from, to, content };
+        })
+        .filter((row) => row.content && row.to > row.from);
+      if (rows.length) return rows.slice(0, 50);
+    }
+    return [];
+  }
+
   function getInfo() {
     const vd = initialVideoData();
     const season = seasonData();
@@ -510,6 +551,7 @@
       duration,
       url: location.href,
       signature,
+      viewPoints: officialViewPoints(),
       protocol: location.protocol,
       host: location.host,
       hasPlayer: !!getPlayer(),
@@ -2305,7 +2347,7 @@
     reconnect,
     handleRequest,
     publish,
-    version: '2.18.8',
+    version: '2.19.0',
     // 自检用：当前桥支持哪些方法（用于判断页面里的注入脚本是不是旧版本。
     // 主环境脚本无法在扩展更新后热替换，旧页面只能靠刷新拿到新版本）
     supportedMethods() {

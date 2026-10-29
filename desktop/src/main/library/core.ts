@@ -82,6 +82,11 @@ export function mapVideoRow(row: Record<string, unknown>): LibraryVideo {
   };
 }
 
+/** 笔记/标签/合集等不经过 videos 表的写入也要让增量同步看到变化。 */
+export function touchVideo(database: DatabaseSync, videoId: number, now = Date.now()): void {
+  database.prepare('UPDATE videos SET updated_at = ? WHERE id = ?').run(now, Number(videoId));
+}
+
 export function pruneOrphans(database: DatabaseSync): void {
   database
     .prepare('DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM video_tags)')

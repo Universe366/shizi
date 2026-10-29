@@ -312,12 +312,15 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win nsis --publish neve
 ## 7. 扩展桥
 
 - 本地 HTTP `127.0.0.1:47821`，Bearer Token；
-- `GET /v1/hello` 提供端口/Token 发现，网页来源 `https://` 会被拒绝；
-- 扩展侧 `desktop-bridge.js` 自动扫描 47821–47830；
+- `GET /v1/hello` 提供端口/Token/协议/能力发现，网页来源 `https://` 会被拒绝；
+- v1：`/v1/ingest` 单条推送；v2：`/v1/events` 批量事件 + `/v1/pull` 长轮询 +
+  `/v1/rpc`（AI 总结/对话，NDJSON 流） + `/v1/library/*`（只读库投影）；
+- 事件去重、环形缓冲（最近 500 条）在进程内，重启后靠 `instanceId` 让插件重置游标；
+- 扩展侧 `desktop-link.js` 自动扫描 47821–47830，默认保存后自动同步，离线进队列；
 - 修改桥 API 后同步：
-  - `desktop/src/main/bridge.ts`
-  - `shizi-extension/src/sidepanel/modules/desktop-bridge.js`
-  - `docs/BRIDGE.md`
+  - `desktop/src/main/bridge.ts` / `bridgeProtocol.ts`
+  - `shizi-extension/src/sidepanel/modules/desktop-link.js`
+  - `docs/BRIDGE.md` / `docs/EXTENSION-DESKTOP-ALIGNMENT.md`
 
 ## 8. 构建与测试
 
@@ -419,9 +422,9 @@ SettingsPage.tsx            左导航 8 组、页头、TOC
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.160.0）；
-  - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.160.0`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - 桌面端 `desktop/package.json`（例如 0.161.0）；
+  - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.19.0）；
+  - **tag 用桌面版本号**（例如 `v0.161.0`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；

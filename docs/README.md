@@ -1,6 +1,6 @@
 # 文档索引
 
-> 适用版本：桌面 0.160.0 / 插件 2.18.8。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
+> 适用版本：桌面 0.161.0 / 插件 2.19.0。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
 
 ## 当前文档
 
@@ -15,6 +15,7 @@
 | [../desktop/docs/ARCHITECTURE.md](../desktop/docs/ARCHITECTURE.md) | 桌面端模块边界与数据流 |
 | [../desktop/docs/SUMMARY-FLOW.md](../desktop/docs/SUMMARY-FLOW.md) | 字幕总结全流程 |
 | [../desktop/docs/BRIDGE.md](../desktop/docs/BRIDGE.md) | 插件 ↔ 桌面桥协议 |
+| [EXTENSION-DESKTOP-ALIGNMENT.md](EXTENSION-DESKTOP-ALIGNMENT.md) | 插件与桌面端对齐：连接/数据/能力三层与分阶段计划 |
 | [../desktop/docs/PLATFORMS.md](../desktop/docs/PLATFORMS.md) | AI / 检索 / ASR 平台目录 |
 
 ## 历史归档

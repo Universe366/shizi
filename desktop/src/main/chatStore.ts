@@ -56,6 +56,11 @@ function db(): DatabaseSync | null {
       );
       CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id);
       CREATE INDEX IF NOT EXISTS conversations_video ON conversations(video_key);
+      CREATE TABLE IF NOT EXISTS bridge_conversations (
+        conversation_key TEXT PRIMARY KEY,
+        conversation_id INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
     `);
     // 老库没有 tools_json：补列，历史消息按空数组读。
     const columns = database.prepare('PRAGMA table_info(messages)').all() as Array<{
@@ -185,6 +190,58 @@ export function createConversation(input: {
     updatedAt: now,
     messageCount: 0
   };
+}
+
+/**
+ * 插件对话同步：按 conversationKey 建一个专用会话，每次整段替换消息。
+ * 只覆盖 bridge_conversations 映射到的会话，不碰桌面端自己的会话。
+ */
+export function syncBridgeConversation(input: {
+  key: string;
+  videoKey?: string;
+  videoTitle?: string;
+  messages: Array<{ role: 'user' | 'assistant'; content: string; reasoning?: string }>;
+}): { conversationId: number; count: number } {
+  const store = db();
+  if (!store) throw new Error('对话库不可用');
+  const key = String(input.key || '').trim();
+  if (!key) throw new Error('缺少 conversationKey');
+  const now = Date.now();
+  const existing = store
+    .prepare('SELECT conversation_id FROM bridge_conversations WHERE conversation_key = ?')
+    .get(key) as { conversation_id: number } | undefined;
+  let conversationId = existing ? Number(existing.conversation_id) : 0;
+  if (!conversationId) {
+    const conversation = createConversation({
+      title: String(input.videoTitle || '插件对话').slice(0, 80),
+      videoKey: String(input.videoKey || ''),
+      videoTitle: String(input.videoTitle || '')
+    });
+    conversationId = conversation.id;
+    store
+      .prepare(
+        'INSERT OR REPLACE INTO bridge_conversations (conversation_key, conversation_id, updated_at) VALUES (?, ?, ?)'
+      )
+      .run(key, conversationId, now);
+  }
+  store.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+  const messages = Array.isArray(input.messages) ? input.messages.slice(-60) : [];
+  for (const message of messages) {
+    const content = String(message.content || '').trim();
+    if (!content) continue;
+    appendMessage(conversationId, {
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content,
+      reasoning: String(message.reasoning || '')
+    });
+  }
+  store
+    .prepare('UPDATE conversations SET updated_at = ? WHERE id = ?')
+    .run(now, conversationId);
+  store
+    .prepare('UPDATE bridge_conversations SET updated_at = ? WHERE conversation_key = ?')
+    .run(now, key);
+  return { conversationId, count: messages.length };
 }
 
 export function setConversationModel(
