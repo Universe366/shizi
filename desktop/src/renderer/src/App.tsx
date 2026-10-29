@@ -23,7 +23,7 @@ const LibraryPage = lazy(() =>
   import('./components/LibraryPage').then((module) => ({ default: module.LibraryPage }))
 );
 import { nextTabId, tabIdByNumber } from './lib/tabs';
-import { useDropImport } from './lib/dropImport';
+
 import { overlayVisible, useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { CloseDialog } from './components/CloseDialog';
@@ -496,14 +496,6 @@ export default function App() {
     await window.bsub.saveSettings(settings);
   };
 
-  const drop = useDropImport((payload) => {
-    if (payload.kind === 'files') {
-      setSection('library');
-      return;
-    }
-    void window.bsub.newTab(payload.value);
-  });
-
   const finishWizard = (openSettings: boolean) => {
     setWizard(null);
     if (openSettings) setSettingsOpen(true);
@@ -675,7 +667,6 @@ export default function App() {
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
       }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
-      {...drop.handlers}
     >
       {!settingsOpen && (
         <TabStrip
@@ -862,12 +853,6 @@ export default function App() {
           );
         }}
       />
-
-      {drop.dragging && (
-        <div className="drop-overlay">
-          <div className="drop-card">松手打开链接或 BV 号</div>
-        </div>
-      )}
 
       {assistantEnabled && (
         <button

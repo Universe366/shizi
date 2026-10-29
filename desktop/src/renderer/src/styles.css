@@ -5241,6 +5241,11 @@ html[data-density='compact'] .chat-history-row {
   backdrop-filter: blur(16px) saturate(1.12);
 }
 
+:root[data-ui-glass='on'] .start-tile,
+:root[data-ui-glass='on'] .start-widget {
+  backdrop-filter: blur(26px) saturate(1.4);
+}
+
 :root[data-ui-glass='off'] .settings-section,
 :root[data-ui-glass='off'] .settings-guide,
 :root[data-ui-glass='off'] .start-widget,
@@ -7504,25 +7509,6 @@ html[data-density='compact'] .chat-history-row {
   padding: 12px;
   color: var(--faint);
   font-size: var(--fs-xs);
-}
-
-.drop-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 55;
-  background: rgba(0, 0, 0, 0.22);
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-}
-
-.drop-card {
-  padding: 18px 26px;
-  border-radius: 12px;
-  border: 2px dashed var(--accent);
-  background: var(--surface);
-  color: var(--text);
-  font-size: var(--fs-base);
 }
 
 

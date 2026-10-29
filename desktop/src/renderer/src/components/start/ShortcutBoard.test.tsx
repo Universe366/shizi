@@ -79,6 +79,19 @@ describe('ShortcutBoard', () => {
     expect(document.querySelectorAll('.start-tile').length).toBe(70);
   });
 
+  it('非编辑模式也能拖动排序', () => {
+    const props = setup();
+    const tiles = document.querySelectorAll('.start-tile');
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => 'a',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(tiles[0], { dataTransfer: transfer });
+    fireEvent.drop(tiles[1], { dataTransfer: transfer });
+    expect(props.onMove).toHaveBeenCalledWith('a', '常用', 'b');
+  });
+
   it('分组可以折叠，卡片从 DOM 移除', () => {
     const props = setup();
     expect(screen.getByText('B 站')).toBeTruthy();

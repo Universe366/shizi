@@ -2719,3 +2719,143 @@
   color: var(--start-text);
   box-shadow: var(--start-shadow);
 }
+
+/* ---------- 现代玻璃质感 ---------- */
+.start-search,
+.start-tile,
+.start-widget,
+.start-dock,
+.start-drawer,
+.start-palette,
+.start-engine-menu,
+.start-menu,
+.start-suggest,
+.start-dialog,
+.start-batch,
+.start-toast,
+.start-onboarding {
+  backdrop-filter: blur(30px) saturate(1.45);
+  -webkit-backdrop-filter: blur(30px) saturate(1.45);
+}
+
+.start-search {
+  background: color-mix(in srgb, var(--start-surface) 68%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 50%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    0 16px 44px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.start-tile {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--start-surface) 82%, white 18%),
+    color-mix(in srgb, var(--start-surface) 70%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--start-border-strong) 45%, transparent);
+  border-radius: 18px;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.start-tile:hover {
+  box-shadow:
+    0 20px 48px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transform: translateY(-3px);
+}
+
+.start-tile[draggable='true'] {
+  cursor: grab;
+}
+
+.start-tile[draggable='true']:active {
+  cursor: grabbing;
+}
+
+.start-widget {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--start-surface) 80%, white 20%),
+    color-mix(in srgb, var(--start-surface) 66%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--start-border-strong) 42%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    0 12px 36px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.start-dock {
+  background: color-mix(in srgb, var(--start-surface) 62%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 55%, transparent);
+  border-radius: 22px;
+  box-shadow:
+    0 24px 60px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.start-drawer {
+  background: color-mix(in srgb, var(--start-surface-solid) 82%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 45%, transparent);
+  border-radius: 24px 0 0 24px;
+  box-shadow: -24px 0 70px rgba(15, 23, 42, 0.22);
+}
+
+.start-palette {
+  background: color-mix(in srgb, var(--start-surface-solid) 82%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 45%, transparent);
+  border-radius: 20px;
+  box-shadow:
+    0 30px 90px rgba(15, 23, 42, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.start-engine-menu,
+.start-menu,
+.start-suggest {
+  background: color-mix(in srgb, var(--start-surface-solid) 84%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 45%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+}
+
+.start-ghost-btn,
+.start-icon-btn,
+.start-pill {
+  background: color-mix(in srgb, var(--start-surface) 45%, transparent);
+  border-color: color-mix(in srgb, var(--start-border) 55%, transparent);
+}
+
+.start-ghost-btn:hover,
+.start-icon-btn:hover {
+  background: color-mix(in srgb, var(--start-surface) 75%, transparent);
+}
+
+.start-clock {
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-shadow: 0 10px 36px rgba(15, 23, 42, 0.14);
+}
+
+.start-greeting {
+  letter-spacing: 0.01em;
+}
+
+.start-chip {
+  backdrop-filter: blur(18px) saturate(1.3);
+  background: color-mix(in srgb, var(--start-surface) 55%, transparent);
+  border-color: color-mix(in srgb, var(--start-border-strong) 35%, transparent);
+}
+
+.start-footnote {
+  color: var(--start-muted);
+}
+
+:root[data-ui-glass='on'] .start-tile,
+:root[data-ui-glass='on'] .start-widget {
+  backdrop-filter: blur(26px) saturate(1.4);
+  -webkit-backdrop-filter: blur(26px) saturate(1.4);
+}

@@ -17,6 +17,7 @@ interface DockProps {
   zen: boolean;
   onOpenShortcut: (item: StartShortcut) => void;
   onReorder: (fromId: string, toId: string) => void;
+  onMenu: (item: StartShortcut, x: number, y: number) => void;
   onBuiltIn: (entry: BuiltInEntry) => void;
   onPalette: () => void;
   onZen: () => void;
@@ -31,6 +32,7 @@ export function Dock({
   zen,
   onOpenShortcut,
   onReorder,
+  onMenu,
   onBuiltIn,
   onPalette,
   onZen
@@ -53,6 +55,10 @@ export function Dock({
             event.preventDefault();
             const raw = event.dataTransfer.getData('text/plain');
             if (raw.startsWith('dock:')) onReorder(raw.slice(5), item.id);
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            onMenu(item, event.clientX, event.clientY);
           }}
           onClick={() => onOpenShortcut(item)}
         >

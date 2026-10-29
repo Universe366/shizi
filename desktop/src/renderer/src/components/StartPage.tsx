@@ -862,12 +862,15 @@ export function StartPage({
   const moveShortcutTo = (fromId: string, group: string, targetId?: string) => {
     const fromIndex = shortcuts.findIndex((item) => item.id === fromId);
     if (fromIndex < 0) return;
+    const toIndex = targetId ? shortcuts.findIndex((item) => item.id === targetId) : -1;
     const next = [...shortcuts];
     const [moved] = next.splice(fromIndex, 1);
     moved.group = group;
-    if (targetId) {
+    if (toIndex >= 0) {
       const targetIndex = next.findIndex((item) => item.id === targetId);
-      next.splice(targetIndex < 0 ? next.length : targetIndex, 0, moved);
+      // 向后拖时插到目标之后，避免「拖到下一张却回到原位」。
+      const insertAt = fromIndex < toIndex ? targetIndex + 1 : targetIndex;
+      next.splice(Math.max(0, insertAt), 0, moved);
     } else {
       next.push(moved);
     }
@@ -1654,7 +1657,7 @@ export function StartPage({
           <span className="start-footnote-text">
             {editMode
               ? '编辑中：拖动卡片可排序或换组，✎ 改名，× 删除'
-              : 'Ctrl/⌘+K 指令面板 · / 搜索 · E 编辑 · 右键卡片更多'}
+              : '拖动卡片排序 · 右键更多 · Ctrl/⌘+K 指令面板 · / 搜索'}
           </span>
           {editMode && shortcutBackup.length > shortcuts.length && (
             <button className="start-foot-link" onClick={() => void persistShortcuts(shortcutBackup)}>
@@ -1714,6 +1717,7 @@ export function StartPage({
         <Dock
           shortcuts={dockShortcuts}
           onReorder={reorderDock}
+          onMenu={(item, x, y) => setShortcutMenu({ x, y, id: item.id })}
           builtIn={builtIn}
           weather={weather}
           pomodoro={{

@@ -730,6 +730,32 @@ describe('StartPage 批量导入与分组管理', () => {
     );
   });
 
+  it('不点编辑也能拖动卡片排序', async () => {
+    const api = withGroups();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const tiles = document.querySelectorAll('.start-tile');
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => 's1',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(tiles[0], { dataTransfer: transfer });
+    fireEvent.drop(tiles[1], { dataTransfer: transfer });
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: [
+              expect.objectContaining({ label: 'MDN' }),
+              expect.objectContaining({ label: '知乎' })
+            ]
+          })
+        })
+      )
+    );
+  });
+
   it('编辑模式可以多选删除', async () => {
     const api = withGroups();
     render(<StartPage {...props()} />);

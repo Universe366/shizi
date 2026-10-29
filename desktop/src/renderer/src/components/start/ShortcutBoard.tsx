@@ -260,9 +260,7 @@ export function ShortcutBoard({
         <div
           className="start-group"
           key={group}
-          onDragOver={(event) => {
-            if (editMode) event.preventDefault();
-          }}
+          onDragOver={(event) => event.preventDefault()}
           onDrop={dropOn(group)}
         >
           <div className="start-group-head">
@@ -318,21 +316,20 @@ export function ShortcutBoard({
             {shown.map((item) => (
               <div
                 key={item.id}
+                data-shortcut-id={item.id}
                 className={`start-tile${editMode ? ' is-editing' : ''}${
                   selected.includes(item.id) ? ' is-selected' : ''
                 }`}
                 title={item.desc ? `${item.desc}\n${item.url}` : item.url}
                 role="button"
                 tabIndex={0}
-                draggable={editMode}
+                draggable
                 onDragStart={(event) => {
                   onDragStart();
                   event.dataTransfer.setData('text/plain', item.id);
                   event.dataTransfer.effectAllowed = 'move';
                 }}
-                onDragOver={(event) => {
-                  if (editMode) event.preventDefault();
-                }}
+                onDragOver={(event) => event.preventDefault()}
                 onDrop={dropOn(group, item.id)}
                 onContextMenu={(event) => {
                   event.preventDefault();
