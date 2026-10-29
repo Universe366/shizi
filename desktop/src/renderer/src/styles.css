@@ -14377,3 +14377,64 @@ sup:has(> .cite-ref) {
   color: var(--faint);
   font-size: var(--fs-xs);
 }
+
+.studio-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-url-row input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.studio-url-row input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.studio-table-head,
+.studio-table-row {
+  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr) 68px;
+}
+
+.studio-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.studio-table-row:hover .studio-row-actions,
+.studio-table-row:focus-within .studio-row-actions {
+  opacity: 1;
+}
+
+.studio-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--faint);
+  background: var(--surface-soft);
+}
+
+.studio-row-actions button:hover {
+  color: var(--text);
+}
+
+.studio-row-actions button.is-danger:hover {
+  color: #e5484d;
+}

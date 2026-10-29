@@ -62,10 +62,14 @@ function toOptions(settings: DownloadSettings, extra: OnlineDownloadOptions = {}
 /** 下载视频：解析链接（分P/合集/单视频）或从资料库批量选择，再交给 yt-dlp。 */
 export function DownloadVideoDialog({
   open,
-  onClose
+  onClose,
+  initialUrl,
+  onDownloaded
 }: {
   open: boolean;
   onClose: () => void;
+  initialUrl?: string;
+  onDownloaded?: (path: string) => void;
 }) {
   const [source, setSource] = useState<'url' | 'library'>('url');
   const [url, setUrl] = useState('');
@@ -92,6 +96,7 @@ export function DownloadVideoDialog({
     setProbe(null);
     setPicked([]);
     setSource('url');
+    setUrl(initialUrl || '');
     setQuery('');
     setSelectedLibrary([]);
     pendingRef.current = [];
@@ -111,7 +116,7 @@ export function DownloadVideoDialog({
         }
       })
       .finally(() => setLoading(false));
-  }, [open]);
+  }, [open, initialUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -158,6 +163,7 @@ export function DownloadVideoDialog({
         path: event.path,
         message: '下载完成'
       });
+      onDownloaded?.(event.path);
       runningRef.current = false;
       activeKeyRef.current = '';
       void window.bsub.listExports?.().then((response) => {

@@ -82,6 +82,10 @@ describe('StudioPanel', () => {
     expect(input.value).toBe('第一行');
     fireEvent.change(input, { target: { value: '改过' } });
     expect(input.value).toBe('改过');
+    const remove = document.querySelector('.studio-row-actions .is-danger') as HTMLElement;
+    expect(remove).toBeTruthy();
+    fireEvent.click(remove);
+    expect(document.querySelectorAll('.studio-table-row')).toHaveLength(1);
   });
 
   it('切到样式页显示预览与保存按钮', () => {

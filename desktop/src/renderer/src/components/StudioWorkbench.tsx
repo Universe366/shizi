@@ -10,11 +10,14 @@ import {
   Library,
   ListVideo,
   Loader2,
+  Merge,
   Mic,
   Palette,
   Save,
   Scissors,
   Sparkles,
+  Split,
+  Trash2,
   Wand2
 } from 'lucide-react';
 import type {
@@ -77,6 +80,7 @@ export function StudioWorkbench() {
   const [synthOpen, setSynthOpen] = useState(false);
   const [dubOpen, setDubOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [taskUrl, setTaskUrl] = useState('');
   const [translating, setTranslating] = useState(false);
   const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_SUBTITLE_STYLE);
   const [presets, setPresets] = useState<Array<{ name: string; style: SubtitleStyle }>>([]);
@@ -101,6 +105,16 @@ export function StudioWorkbench() {
     const offDone = window.bsub.onLocalTransDone?.((event) => {
       setBusy(false);
       setProgress(100);
+      setFile((current) =>
+        current
+          ? {
+              ...current,
+              path: event.path || current.path,
+              name: event.name || current.name,
+              duration: event.duration || current.duration
+            }
+          : current
+      );
       setLines(event.lines);
       setTranslated(null);
       setMessage(`转写完成 · ${event.lines.length} 行`);
@@ -204,7 +218,7 @@ export function StudioWorkbench() {
     if (!ids.length || batchBusy) return;
     setBatchBusy(true);
     try {
-      const response = await window.bsub.batchSynthesize?.({ ids });
+      const response = await window.bsub.batchSynthesize?.({ ids, style });
       if (!response) {
         setMessage('当前版本不支持批量成片');
         return;
@@ -327,6 +341,42 @@ export function StudioWorkbench() {
     setMessage(response?.ok ? '已存入资料库' : response?.error || '保存失败');
   };
 
+  const removeLine = (index: number) => {
+    setLines((current) => current.filter((_, i) => i !== index));
+    setTranslated(null);
+  };
+
+  const mergeNext = (index: number) => {
+    setLines((current) => {
+      if (index < 0 || index >= current.length - 1) return current;
+      const first = current[index];
+      const second = current[index + 1];
+      const merged = {
+        ...first,
+        end: second.end,
+        text: `${first.text}${first.text.endsWith(' ') || !first.text ? '' : ' '}${second.text}`
+      };
+      return [...current.slice(0, index), merged, ...current.slice(index + 2)];
+    });
+    setTranslated(null);
+  };
+
+  const splitLine = (index: number) => {
+    setLines((current) => {
+      const line = current[index];
+      if (!line || line.text.trim().length < 2) return current;
+      const cut = Math.max(1, Math.floor(line.text.length / 2));
+      const middle = (line.start + line.end) / 2;
+      return [
+        ...current.slice(0, index),
+        { ...line, end: middle, text: line.text.slice(0, cut).trim() },
+        { ...line, start: middle, text: line.text.slice(cut).trim() },
+        ...current.slice(index + 1)
+      ];
+    });
+    setTranslated(null);
+  };
+
   const updateLine = (index: number, text: string) => {
     setLines((current) => current.map((line, i) => (i === index ? { ...line, text } : line)));
   };
@@ -347,7 +397,9 @@ export function StudioWorkbench() {
     settings.general.subtitleStyle = style;
     if (asPreset && presetName.trim()) {
       const next = [
-        ...(settings.general.subtitlePresets || []),
+        ...(settings.general.subtitlePresets || []).filter(
+          (preset) => preset.name !== presetName.trim()
+        ),
         { name: presetName.trim(), style }
       ].slice(-12);
       settings.general.subtitlePresets = next;
@@ -467,6 +519,24 @@ export function StudioWorkbench() {
               </div>
             </div>
 
+            <div className="studio-url-row">
+              <input
+                value={taskUrl}
+                placeholder="粘贴 B 站 / YouTube 链接，或直接选择下方本地文件"
+                onChange={(event) => setTaskUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && taskUrl.trim()) setDownloadOpen(true);
+                }}
+              />
+              <button
+                className="mini-btn"
+                onClick={() => setDownloadOpen(true)}
+                disabled={!taskUrl.trim()}
+              >
+                <Download size={12} /> 下载
+              </button>
+            </div>
+
             <div className="studio-grid-2">
               <label className="studio-field">
                 <span>识别语言</span>
@@ -559,7 +629,7 @@ export function StudioWorkbench() {
                 {optimizeMessage && <div className="studio-message">{optimizeMessage}</div>}
                 <div className="studio-table" role="table" aria-label="字幕编辑">
                   <div className="studio-table-head" role="row">
-                    <span>时间</span><span>原文</span><span>译文</span>
+                    <span>时间</span><span>原文</span><span>译文</span><span />
                   </div>
                   {lines.slice(0, 300).map((line, index) => (
                     <div className="studio-table-row" role="row" key={`${line.start}-${index}`}>
@@ -572,6 +642,17 @@ export function StudioWorkbench() {
                         placeholder="译文"
                         onChange={(event) => updateTranslation(index, event.target.value)}
                       />
+                      <span className="studio-row-actions">
+                        <button title="与下一行合并" onClick={() => mergeNext(index)} disabled={index >= lines.length - 1}>
+                          <Merge size={11} />
+                        </button>
+                        <button title="拆成两行" onClick={() => splitLine(index)}>
+                          <Split size={11} />
+                        </button>
+                        <button title="删除本行" className="is-danger" onClick={() => removeLine(index)}>
+                          <Trash2 size={11} />
+                        </button>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -779,7 +860,19 @@ export function StudioWorkbench() {
         onClose={() => { setSynthOpen(false); setSynthStyle(null); }}
       />
       <DubDialog open={dubOpen} videoPath={file?.path || ''} title={file?.name || importedName || '字幕视频'} lines={lines} onClose={() => setDubOpen(false)} />
-      <DownloadVideoDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
+      <DownloadVideoDialog
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
+        initialUrl={taskUrl}
+        onDownloaded={(path) => {
+          const name = path.split(/[\\/]/).pop() || '下载的视频';
+          setFile({ path, name, duration: 0 });
+          setLines([]);
+          setTranslated(null);
+          setTab('task');
+          setMessage(`下载完成 · ${name}，可以开始转录`);
+        }}
+      />
     </div>
   );
 }
