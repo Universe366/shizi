@@ -17,6 +17,10 @@ beforeEach(() => {
   localStorage.removeItem('start-clock');
   localStorage.removeItem('start-weather-unit');
   localStorage.removeItem('start-search-suggest');
+  localStorage.removeItem('start-bing-favorites');
+  localStorage.removeItem('start-bing-rotate');
+  localStorage.removeItem('start-widget-collapsed');
+  localStorage.removeItem('start-search-history');
   localStorage.setItem('start-onboarding-done', '1');
 });
 
@@ -720,6 +724,24 @@ describe('StartPage 批量导入与分组管理', () => {
     );
   });
 
+  it('编辑模式可以多选删除', async () => {
+    const api = withGroups();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    fireEvent.click(screen.getByText('编辑'));
+    fireEvent.click(document.querySelector('.start-tile[title="https://www.zhihu.com"]') as HTMLElement);
+    fireEvent.click(
+      document.querySelector('.start-tile[title="https://developer.mozilla.org"]') as HTMLElement
+    );
+    expect(screen.getByText('已选 2')).toBeTruthy();
+    fireEvent.click(screen.getByText('删除'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ general: expect.objectContaining({ startShortcuts: [] }) })
+      )
+    );
+  });
+
   it('编辑态可以重命名分组', async () => {
     const api = withGroups();
     render(<StartPage {...props()} />);
@@ -952,6 +974,49 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     fireEvent.click(screen.getByText('°C'));
     await waitFor(() => expect(screen.getByText('°F')).toBeTruthy());
     expect(screen.getByText('72°')).toBeTruthy();
+  });
+
+  it('必应图库可以收藏并设置轮播', async () => {
+    const api = installBsub();
+    api.startBingGallery.mockResolvedValue({
+      ok: true as const,
+      data: [
+        { url: 'https://www.bing.com/a.jpg', copyright: 'A', date: '20261029' },
+        { url: 'https://www.bing.com/b.jpg', copyright: 'B', date: '20261028' }
+      ]
+    } as never);
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    await vi.waitFor(() => expect(document.querySelectorAll('.start-bing-star').length).toBe(2));
+    fireEvent.click(document.querySelectorAll('.start-bing-star')[0]);
+    expect(JSON.parse(localStorage.getItem('start-bing-favorites') || '[]')).toContain(
+      'https://www.bing.com/a.jpg'
+    );
+    const select = document.querySelector('.start-rotate-row select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: '15' } });
+    expect(localStorage.getItem('start-bing-rotate')).toBe('15');
+  });
+
+  it('小组件可以折叠并记住状态', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    const button = document.querySelector(
+      '.start-weather-widget [title="折叠"]'
+    ) as HTMLElement;
+    fireEvent.click(button);
+    expect(document.querySelector('.start-weather-widget.is-collapsed')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem('start-widget-collapsed') || '[]')).toContain(
+      'weather'
+    );
+  });
+
+  it('可以清空搜索历史', async () => {
+    installBsub();
+    localStorage.setItem('start-search-history', JSON.stringify(['一', '二']));
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    fireEvent.click(screen.getByText('清空搜索历史（2）'));
+    expect(localStorage.getItem('start-search-history')).toBeNull();
   });
 
   it('必应图库可以选图并写入设置', async () => {

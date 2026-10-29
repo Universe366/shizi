@@ -3,6 +3,7 @@ import { POMODORO_SECONDS, nextPomodoroPhase, type PomodoroPhase } from './model
 import { playChime } from './chime';
 
 const STORAGE_KEY = 'start-pomodoro';
+const STATS_KEY = 'start-pomodoro-stats';
 
 interface Persisted {
   phase: PomodoroPhase;
@@ -17,6 +18,8 @@ export interface PomodoroSnapshot {
   left: number;
   running: boolean;
   rounds: number;
+  /** 当天已完成的专注分钟数 */
+  todayMinutes: number;
 }
 
 function isPhase(value: unknown): value is PomodoroPhase {
@@ -68,6 +71,32 @@ function read(): Persisted {
   }
 }
 
+function todayKey(): string {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+}
+
+function readStats(): { date: string; minutes: number } {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STATS_KEY) || 'null') as {
+      date?: string;
+      minutes?: number;
+    } | null;
+    if (raw?.date === todayKey()) {
+      return {
+        date: raw.date,
+        minutes: Math.max(0, Math.min(24 * 60, Math.floor(Number(raw.minutes) || 0)))
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return { date: todayKey(), minutes: 0 };
+}
+
+let stats = readStats();
 let state = read();
 let snapshot: PomodoroSnapshot = toSnapshot(state, Date.now());
 let ticker: number | null = null;
@@ -83,7 +112,8 @@ function toSnapshot(value: Persisted, at: number): PomodoroSnapshot {
     phase: value.phase,
     left: remainingAt(value, at),
     running: value.running,
-    rounds: value.rounds
+    rounds: value.rounds,
+    todayMinutes: stats.minutes
   };
 }
 
@@ -113,6 +143,18 @@ function startTicker(): void {
 }
 
 function advance(autoStart: boolean): void {
+  if (state.phase === 'work') {
+    if (stats.date !== todayKey()) stats = { date: todayKey(), minutes: 0 };
+    stats = {
+      ...stats,
+      minutes: Math.min(24 * 60, stats.minutes + POMODORO_SECONDS.work / 60)
+    };
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    } catch {
+      // ignore
+    }
+  }
   const completed = state.phase === 'work' ? state.rounds + 1 : state.rounds;
   const next = nextPomodoroPhase(state.phase, completed);
   state = {
@@ -194,8 +236,10 @@ export const pomodoroActions = {
 export function resetPomodoroStore(): void {
   stopTicker();
   state = fallback();
+  stats = { date: todayKey(), minutes: 0 };
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STATS_KEY);
   } catch {
     // ignore
   }

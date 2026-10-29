@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Pause, Play, RotateCcw, Timer } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 import {
   POMODORO_LABELS,
   POMODORO_SECONDS,
@@ -12,25 +12,53 @@ export interface PomodoroState {
   left: number;
   running: boolean;
   rounds: number;
+  todayMinutes: number;
   onToggle: () => void;
   onReset: () => void;
   onPhase: (phase: PomodoroPhase) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const PHASES: PomodoroPhase[] = ['work', 'short', 'long'];
 
 /** 番茄钟：25 分钟专注、5 分钟短休、15 分钟长休，结束后自动切换。 */
 export function PomodoroWidget({ style, ...state }: { style?: CSSProperties } & PomodoroState) {
-  const { phase, left, running, rounds, onToggle, onReset, onPhase } = state;
+  const {
+    phase,
+    left,
+    running,
+    rounds,
+    todayMinutes,
+    onToggle,
+    onReset,
+    onPhase,
+    collapsed = false,
+    onToggleCollapse
+  } = state;
   const total = POMODORO_SECONDS[phase];
   const progress = Math.min(100, Math.max(0, ((total - left) / total) * 100));
 
   return (
-    <article className="start-widget start-pomodoro-widget" style={style}>
+    <article
+      className={`start-widget start-pomodoro-widget${collapsed ? ' is-collapsed' : ''}`}
+      style={style}
+    >
       <header className="start-widget-head">
         <Timer size={15} />
         <span>番茄钟</span>
-        <span className="start-widget-meta">完成 {rounds} 轮</span>
+        <span className="start-widget-meta">
+          完成 {rounds} 轮 · 今日 {todayMinutes} 分
+        </span>
+        {onToggleCollapse && (
+          <button
+            className="start-widget-icon"
+            title={collapsed ? '展开' : '折叠'}
+            onClick={onToggleCollapse}
+          >
+            {collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+          </button>
+        )}
       </header>
 
       <div className="start-pomo-phases">

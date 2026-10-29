@@ -27,12 +27,18 @@ interface WallpaperDrawerProps {
   bingSelection: { url: string; copyright: string } | null;
   onPickBing: (image: { url: string; copyright: string; date: string }) => void;
   onResetBing: () => void;
+  bingFavorites: string[];
+  onToggleBingFavorite: (url: string) => void;
+  rotateMinutes: number;
+  onRotateMinutes: (minutes: number) => void;
   inkMode: 'auto' | 'light' | 'dark';
   onInkMode: (mode: 'auto' | 'light' | 'dark') => void;
   clock: ClockOptions;
   onClock: (patch: Partial<ClockOptions>) => void;
   searchSuggest: boolean;
   onSearchSuggest: (value: boolean) => void;
+  searchHistoryCount: number;
+  onClearSearchHistory: () => void;
   bingWallpaper: { url: string; copyright: string } | null;
   blur: number;
   dim: number;
@@ -61,12 +67,18 @@ export function WallpaperDrawer({
   bingSelection,
   onPickBing,
   onResetBing,
+  bingFavorites,
+  onToggleBingFavorite,
+  rotateMinutes,
+  onRotateMinutes,
   inkMode,
   onInkMode,
   clock,
   onClock,
   searchSuggest,
   onSearchSuggest,
+  searchHistoryCount,
+  onClearSearchHistory,
   bingWallpaper,
   blur,
   dim,
@@ -178,17 +190,27 @@ export function WallpaperDrawer({
           {bingGallery.length ? (
             <div className="start-bing-grid">
               {bingGallery.map((image) => (
-                <button
-                  key={image.url}
-                  className={`start-bing-thumb${
-                    bingSelection?.url === image.url ? ' is-active' : ''
-                  }`}
-                  title={image.copyright}
-                  onClick={() => onPickBing(image)}
-                >
-                  <img src={image.url} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                  <span>{formatBingDate(image.date)}</span>
-                </button>
+                <div key={image.url} className="start-bing-item">
+                  <button
+                    className={`start-bing-thumb${
+                      bingSelection?.url === image.url ? ' is-active' : ''
+                    }`}
+                    title={image.copyright}
+                    onClick={() => onPickBing(image)}
+                  >
+                    <img src={image.url} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                    <span>{formatBingDate(image.date)}</span>
+                  </button>
+                  <button
+                    className={`start-bing-star${
+                      bingFavorites.includes(image.url) ? ' is-active' : ''
+                    }`}
+                    title={bingFavorites.includes(image.url) ? '取消收藏' : '收藏这张'}
+                    onClick={() => onToggleBingFavorite(image.url)}
+                  >
+                    ★
+                  </button>
+                </div>
               ))}
             </div>
           ) : bingGalleryState === 'error' ? (
@@ -206,6 +228,24 @@ export function WallpaperDrawer({
               恢复每日一图
             </button>
           )}
+          <label className="start-rotate-row">
+            <span>收藏轮播</span>
+            <select
+              value={rotateMinutes}
+              onChange={(event) => onRotateMinutes(Number(event.target.value))}
+            >
+              <option value={0}>关闭</option>
+              <option value={5}>5 分钟</option>
+              <option value={15}>15 分钟</option>
+              <option value={30}>30 分钟</option>
+              <option value={60}>60 分钟</option>
+            </select>
+          </label>
+          <div className="start-drawer-hint">
+            {bingFavorites.length
+              ? `收藏 ${bingFavorites.length} 张，轮播只在收藏里切换。`
+              : '没有收藏时，轮播会在最近 8 天图库里切换。'}
+          </div>
 
           {wallpaper === 'bing' && bingWallpaper?.copyright && (
             <div className="start-drawer-hint">{bingWallpaper.copyright}</div>
@@ -354,6 +394,11 @@ export function WallpaperDrawer({
             />
             联网联想词（发送到 Bing）
           </label>
+          {searchHistoryCount > 0 && (
+            <button className="start-link-btn" onClick={onClearSearchHistory}>
+              清空搜索历史（{searchHistoryCount}）
+            </button>
+          )}
         </section>
 
         <section className="start-drawer-section">

@@ -20,10 +20,15 @@ describe('pomodoroStore', () => {
     expect(getPomodoroSnapshot()).toMatchObject({ running: true, left: 1495 });
   });
 
-  it('专注结束进入短休并累计轮数', () => {
+  it('专注结束进入短休并累计轮数与今日分钟', () => {
     pomodoroActions.toggle();
     vi.advanceTimersByTime(25 * 60 * 1000);
-    expect(getPomodoroSnapshot()).toMatchObject({ phase: 'short', rounds: 1, running: true });
+    expect(getPomodoroSnapshot()).toMatchObject({
+      phase: 'short',
+      rounds: 1,
+      running: true,
+      todayMinutes: 25
+    });
   });
 
   it('每 4 轮进入长休', () => {

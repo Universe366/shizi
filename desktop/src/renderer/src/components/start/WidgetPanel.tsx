@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
   BookOpen,
+  ChevronDown,
+  ChevronUp,
   CloudSun,
   Flame,
   History,
@@ -30,6 +32,8 @@ interface WidgetPanelProps {
   onToggle: (id: string) => void;
   onMove: (id: string, delta: number) => void;
   onMoveTo: (fromId: string, toId: string) => void;
+  collapsedWidgets: string[];
+  onToggleCollapse: (id: string) => void;
 
   weather: Weather | null;
   city: string;
@@ -79,6 +83,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onToggle,
     onMove,
     onMoveTo,
+    collapsedWidgets,
+    onToggleCollapse,
     weather,
     city,
     cityEditing,
@@ -114,6 +120,18 @@ export function WidgetPanel(props: WidgetPanelProps) {
   } = props;
 
   const [todoExpanded, setTodoExpanded] = useState(false);
+  const Fold = ({ id }: { id: string }) => {
+    const folded = collapsedWidgets.includes(id);
+    return (
+      <button
+        className="start-widget-icon start-widget-fold"
+        title={folded ? '展开' : '折叠'}
+        onClick={() => onToggleCollapse(id)}
+      >
+        {folded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+      </button>
+    );
+  };
   const orderOf = (id: string) => {
     const index = order.indexOf(id);
     return index < 0 ? 99 : index;
@@ -172,7 +190,9 @@ export function WidgetPanel(props: WidgetPanelProps) {
       <section className="start-widget-grid">
         {isVisible('weather') && (
           <article
-            className="start-widget start-weather-widget"
+            className={`start-widget start-weather-widget${
+              collapsedWidgets.includes('weather') ? ' is-collapsed' : ''
+            }`}
             style={{ order: orderOf('weather') }}
           >
             <header className="start-widget-head">
@@ -208,6 +228,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
               <button className="start-widget-icon" title="刷新天气" onClick={onWeatherRefresh}>
                 <RefreshCw size={12} />
               </button>
+              <Fold id="weather" />
             </header>
             {weather ? (
               <div className="start-weather-body">
@@ -274,7 +295,10 @@ export function WidgetPanel(props: WidgetPanelProps) {
         )}
 
         {isVisible('todo') && (
-          <article className="start-widget" style={{ order: orderOf('todo') }}>
+          <article
+            className={`start-widget${collapsedWidgets.includes('todo') ? ' is-collapsed' : ''}`}
+            style={{ order: orderOf('todo') }}
+          >
             <header className="start-widget-head">
               <ListChecks size={15} />
               <span>待办</span>
@@ -291,6 +315,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   {doneCount}/{todos.length}
                 </span>
               )}
+              <Fold id="todo" />
             </header>
             <div className={`start-todo-list${todoExpanded ? ' is-expanded' : ''}`}>
               {visibleTodos.map((todo) => {
@@ -356,7 +381,12 @@ export function WidgetPanel(props: WidgetPanelProps) {
         )}
 
         {isVisible('pomodoro') && (
-          <PomodoroWidget style={{ order: orderOf('pomodoro') }} {...pomodoro} />
+          <PomodoroWidget
+            style={{ order: orderOf('pomodoro') }}
+            {...pomodoro}
+            collapsed={collapsedWidgets.includes('pomodoro')}
+            onToggleCollapse={() => onToggleCollapse('pomodoro')}
+          />
         )}
 
         {isVisible('notes') && (
@@ -365,11 +395,16 @@ export function WidgetPanel(props: WidgetPanelProps) {
             text={notes}
             onChange={onNotes}
             onClear={onNotesClear}
+            collapsed={collapsedWidgets.includes('notes')}
+            onToggleCollapse={() => onToggleCollapse('notes')}
           />
         )}
 
         {isVisible('hot') && (
-          <article className="start-widget" style={{ order: orderOf('hot') }}>
+          <article
+            className={`start-widget${collapsedWidgets.includes('hot') ? ' is-collapsed' : ''}`}
+            style={{ order: orderOf('hot') }}
+          >
             <header className="start-widget-head">
               <Flame size={15} />
               <span>B 站热搜</span>
@@ -384,6 +419,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
               <button className="start-widget-link" onClick={() => onNavigate('https://www.bilibili.com')}>
                 去 B 站
               </button>
+              <Fold id="hot" />
             </header>
             <div className="start-list">
               {hot.map((word, index) => (
@@ -407,13 +443,17 @@ export function WidgetPanel(props: WidgetPanelProps) {
         )}
 
         {isVisible('recent') && (
-          <article className="start-widget" style={{ order: orderOf('recent') }}>
+          <article
+            className={`start-widget${collapsedWidgets.includes('recent') ? ' is-collapsed' : ''}`}
+            style={{ order: orderOf('recent') }}
+          >
             <header className="start-widget-head">
               <BookOpen size={15} />
               <span>最近入库</span>
               <button className="start-widget-link" onClick={onOpenLibrary}>
                 全部
               </button>
+              <Fold id="recent" />
             </header>
             <div className="start-list">
               {recent.map((video) => (
@@ -433,13 +473,17 @@ export function WidgetPanel(props: WidgetPanelProps) {
         )}
 
         {isVisible('history') && (
-          <article className="start-widget" style={{ order: orderOf('history') }}>
+          <article
+            className={`start-widget${collapsedWidgets.includes('history') ? ' is-collapsed' : ''}`}
+            style={{ order: orderOf('history') }}
+          >
             <header className="start-widget-head">
               <History size={15} />
               <span>最近访问</span>
               <button className="start-widget-link" onClick={onOpenHistory}>
                 全部
               </button>
+              <Fold id="history" />
             </header>
             <div className="start-list">
               {history.map((entry, index) => (

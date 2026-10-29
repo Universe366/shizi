@@ -250,13 +250,16 @@ start-footnote   操作提示、导入导出设置
 - 书签导入：工具栏书签按钮选择 Chrome/Edge 导出的 `bookmarks.html`，`parseBookmarksHtml()` 按文件夹映射分组、URL 去重，确认后合并。
 - 撤销：删除快捷方式、删除待办、清除已完成、清空便签都会弹 6 秒 toast，点「撤销」恢复上一步。
 - 待办与小组件：待办超过 4 条可展开/收起，条目可拖动排序；逾期待办显示红色时间；编辑态的小组件开关可拖动调整顺序（也保留 ↑↓）。
+- 批量操作：编辑态点击卡片多选，顶部出现「已选 N」，可批量移动到分组或删除（删除可撤销）。
+- 小组件折叠：每个组件标题右侧的箭头可折叠/展开，状态存 `localStorage: start-widget-collapsed`。
 - Dock：右键卡片「固定到 Dock / 取消固定」，固定项按 `general.startDockIds` 顺序展示并可拖动排序；没有固定项时回退到「常用」或前 6 个；删除快捷方式会同步清掉固定 id。
 - 指令面板的「搜索字幕库 / 总结」直接打开全局搜索（App 的 GlobalSearch）。
 - 菜单键盘：搜索引擎菜单、卡片右键菜单都支持 `↑`/`↓` 与 `Esc`；`?` 随时重新打开快捷操作提示。
 - 自动获取：编辑弹窗「自动获取」调用 `start:probe-site` 填标题/描述；批量导入时名称仍是域名的条目会自动补全（最多 8 个、3 并发），失败保留原值。
 - 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
-- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。抽屉会预览当前自定义壁纸，并列出最近 8 天必应每日一图（选中后写 `startBingImage`，可恢复每日一图；加载失败可重试）。URL 壁纸 404 或视频播放失败会自动回退到每日一图。壁纸在独立 `.start-wallpaper-layer` 图层里淡入，不再直接写页面背景。
-- 时钟与天气：抽屉可切换「显示秒 / 12 小时制」；天气卡片右上角可在 °C / °F 间切换。
+- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。抽屉会预览当前自定义壁纸，并列出最近 8 天必应每日一图（选中后写 `startBingImage`，可恢复每日一图；加载失败可重试）。图库可收藏，并按 5 / 15 / 30 / 60 分钟轮播；没有收藏时在最近 8 天里轮播。URL 壁纸 404 或视频播放失败会自动回退到每日一图。壁纸在独立 `.start-wallpaper-layer` 图层里淡入，不再直接写页面背景。
+- 时钟与天气：抽屉可切换「显示秒 / 12 小时制」；天气卡片右上角可在 °C / °F 间切换；抽屉可清空搜索历史。
+- 番茄钟：标题显示「完成 N 轮 · 今日 M 分」，今日分钟按本地日期累计。
 - 墨色自适应：对自定义壁纸与必应每日图采样平均亮度，给 `.start-page` 加 `is-ink-light` / `is-ink-dark`；抽屉可手动选「自动 / 浅色字 / 深色字」（`localStorage: start-ink-mode`）。远程图/视频无 CORS 时保持主题默认。
 - 动态降级：`prefers-reduced-motion` 下动画/过渡近似关闭，壁纸视频不自动播放。
 - 禅模式（极简模式）：隐藏小组件、站点分组、常去站点、Dock 与底部提示，顶栏只留禅模式按钮，显示「按 Esc 退出禅模式」与轻微的呼吸动画；`Esc` 直接退出。
@@ -292,6 +295,10 @@ start-footnote   操作提示、导入导出设置
 | 时钟格式 | `localStorage: start-clock`（`{ seconds, hour12 }`） |
 | 温度单位 | `localStorage: start-weather-unit`（`c` / `f`） |
 | 联网联想 | `localStorage: start-search-suggest`（`0` 关闭） |
+| 壁纸收藏 | `localStorage: start-bing-favorites`（URL 数组，最多 30） |
+| 壁纸轮播 | `localStorage: start-bing-rotate`（0 / 5 / 15 / 30 / 60 分钟） |
+| 组件折叠 | `localStorage: start-widget-collapsed`（id 数组） |
+| 番茄统计 | `localStorage: start-pomodoro-stats`（`{ date, minutes }`） |
 
 **加组件**：
 

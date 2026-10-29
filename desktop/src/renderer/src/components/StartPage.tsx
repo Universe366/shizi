@@ -83,6 +83,9 @@ const NOTES_KEY = 'start-notes';
 const INK_KEY = 'start-ink-mode';
 const UNIT_KEY = 'start-weather-unit';
 const SUGGEST_KEY = 'start-search-suggest';
+const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
+const BING_FAV_KEY = 'start-bing-favorites';
+const ROTATE_KEY = 'start-bing-rotate';
 
 interface BingGalleryItem {
   url: string;
@@ -173,6 +176,35 @@ function readNotes(): string {
   }
 }
 
+function readBingFavorites(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BING_FAV_KEY) || '[]');
+    return Array.isArray(raw)
+      ? raw.filter((item): item is string => typeof item === 'string').slice(0, 30)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function readRotateMinutes(): number {
+  try {
+    const value = Number(localStorage.getItem(ROTATE_KEY));
+    return [0, 5, 15, 30, 60].includes(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function readWidgetCollapsed(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WIDGET_COLLAPSED_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 function readSearchSuggest(): boolean {
   try {
     return localStorage.getItem(SUGGEST_KEY) !== '0';
@@ -220,6 +252,7 @@ export function StartPage({
   const [todoDraft, setTodoDraft] = useState('');
   const [shortcuts, setShortcuts] = useState<StartShortcut[]>([]);
   const [shortcutBackup, setShortcutBackup] = useState<StartShortcut[]>([]);
+  const [selectedShortcuts, setSelectedShortcuts] = useState<string[]>([]);
   const [activeGroup, setActiveGroup] = useState('全部');
   const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
   const [wallpaperImage, setWallpaperImage] = useState('');
@@ -285,6 +318,10 @@ export function StartPage({
   });
   const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
   const [searchSuggestOn, setSearchSuggestOn] = useState(readSearchSuggest);
+  const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>(readWidgetCollapsed);
+  const [bingFavorites, setBingFavorites] = useState<string[]>(readBingFavorites);
+  const [rotateMinutes, setRotateMinutes] = useState(readRotateMinutes);
+  const applyBingRef = useRef<(image: BingGalleryItem, silent: boolean) => void>(() => undefined);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchActive, setSearchActive] = useState(-1);
   const [cityEditing, setCityEditing] = useState(false);
@@ -427,6 +464,10 @@ export function StartPage({
   }, [query, searchSuggestOn]);
 
   useEffect(() => {
+    if (!editMode) setSelectedShortcuts([]);
+  }, [editMode]);
+
+  useEffect(() => {
     if (!searchOpen) return;
     const close = (event: MouseEvent) => {
       if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
@@ -457,6 +498,34 @@ export function StartPage({
       alive = false;
     };
   }, [wallpaperOpen, bingGallery.length, bingGalleryState]);
+
+  useEffect(() => {
+    if (!rotateMinutes || wallpaper !== 'bing' || wallpaperMedia || wallpaperImage) return;
+    const pool: BingGalleryItem[] = bingFavorites.length
+      ? bingFavorites.map(
+          (url) =>
+            bingGallery.find((item) => item.url === url) || {
+              url,
+              copyright: '',
+              date: ''
+            }
+        )
+      : bingGallery;
+    if (pool.length < 2) return;
+    const timer = window.setInterval(() => {
+      const index = pool.findIndex((item) => item.url === bingSelection?.url);
+      applyBingRef.current(pool[(index + 1) % pool.length], true);
+    }, rotateMinutes * 60_000);
+    return () => window.clearInterval(timer);
+  }, [
+    rotateMinutes,
+    wallpaper,
+    wallpaperMedia,
+    wallpaperImage,
+    bingFavorites,
+    bingGallery,
+    bingSelection
+  ]);
 
   useEffect(() => {
     if (wallpaper !== 'bing' || wallpaperImage) return;
@@ -760,6 +829,16 @@ export function StartPage({
     void patchGeneral({ startCity: next });
   };
 
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    try {
+      localStorage.removeItem('start-search-history');
+    } catch {
+      // ignore
+    }
+    showNotice('搜索历史已清空');
+  };
+
   const changeSearchSuggest = (value: boolean) => {
     setSearchSuggestOn(value);
     try {
@@ -909,6 +988,37 @@ export function StartPage({
     next.splice(to, 0, moved);
     setDockIds(next);
     void patchGeneral({ startDockIds: next });
+  };
+
+  const toggleShortcutSelection = (id: string) => {
+    setSelectedShortcuts((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  };
+
+  const batchDeleteShortcuts = () => {
+    const ids = new Set(selectedShortcuts);
+    if (!ids.size) return;
+    const previous = shortcuts;
+    const previousDock = dockIds;
+    const next = shortcuts.filter((item) => !ids.has(item.id));
+    const nextDock = dockIds.filter((id) => !ids.has(id));
+    setDockIds(nextDock);
+    setSelectedShortcuts([]);
+    void persistShortcuts(next, { startDockIds: nextDock });
+    showNotice(`已删除 ${ids.size} 个快捷方式`, () => {
+      setDockIds(previousDock);
+      void persistShortcuts(previous, { startDockIds: previousDock });
+    });
+  };
+
+  const batchMoveShortcuts = (group: string) => {
+    const ids = new Set(selectedShortcuts);
+    if (!ids.size) return;
+    const next = shortcuts.map((item) => (ids.has(item.id) ? { ...item, group } : item));
+    setSelectedShortcuts([]);
+    void persistShortcuts(next);
+    showNotice(`已移动 ${ids.size} 个到「${group}」`);
   };
 
   const removeShortcut = (id: string) => {
@@ -1062,6 +1172,20 @@ export function StartPage({
     void patchGeneral(patch);
   };
 
+  const toggleWidgetCollapsed = (id: string) => {
+    setCollapsedWidgets((current) => {
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id];
+      try {
+        localStorage.setItem(WIDGET_COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   const moveWidgetTo = (fromId: string, toId: string) => {
     const from = widgetOrder.indexOf(fromId);
     const to = widgetOrder.indexOf(toId);
@@ -1141,14 +1265,14 @@ export function StartPage({
     showNotice('壁纸已应用');
   };
 
-  const pickBingImage = (image: BingGalleryItem) => {
+  const applyBingImage = (image: BingGalleryItem, silent = false) => {
     setWallpaper('bing');
     setBingSelection({ url: image.url, copyright: image.copyright });
     setWallpaperImage('');
     setWallpaperMedia(null);
     setMediaUrl('');
     setInk(null);
-    setWallpaperOpen(false);
+    if (!silent) setWallpaperOpen(false);
     void clearWallpaperBlob().catch(() => undefined);
     void patchGeneral({
       startWallpaper: 'bing',
@@ -1157,7 +1281,34 @@ export function StartPage({
       startBingImage: image.url,
       startBingCopyright: image.copyright
     });
-    showNotice('已应用必应图库壁纸');
+    if (!silent) showNotice('已应用必应图库壁纸');
+  };
+  applyBingRef.current = applyBingImage;
+
+  const pickBingImage = (image: BingGalleryItem) => applyBingImage(image, false);
+
+  const toggleBingFavorite = (url: string) => {
+    setBingFavorites((current) => {
+      const next = current.includes(url)
+        ? current.filter((item) => item !== url)
+        : [...current, url].slice(0, 30);
+      try {
+        localStorage.setItem(BING_FAV_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const changeRotateMinutes = (minutes: number) => {
+    const next = [0, 5, 15, 30, 60].includes(minutes) ? minutes : 0;
+    setRotateMinutes(next);
+    try {
+      localStorage.setItem(ROTATE_KEY, String(next));
+    } catch {
+      // ignore
+    }
   };
 
   const resetBingImage = () => {
@@ -1621,6 +1772,11 @@ export function StartPage({
           onExport={exportStart}
           onImport={() => importRef.current?.click()}
           onImportBookmarks={() => bookmarkRef.current?.click()}
+          selected={selectedShortcuts}
+          onSelect={toggleShortcutSelection}
+          onClearSelection={() => setSelectedShortcuts([])}
+          onBatchDelete={batchDeleteShortcuts}
+          onBatchMove={batchMoveShortcuts}
           tags={tags}
           activeTag={activeTag}
           onTag={setActiveTag}
@@ -1635,6 +1791,8 @@ export function StartPage({
             onToggle={toggleWidget}
             onMove={moveWidget}
             onMoveTo={moveWidgetTo}
+            collapsedWidgets={collapsedWidgets}
+            onToggleCollapse={toggleWidgetCollapsed}
             weather={weather}
             city={city}
             cityEditing={cityEditing}
@@ -1780,12 +1938,18 @@ export function StartPage({
         bingSelection={bingSelection}
         onPickBing={pickBingImage}
         onResetBing={resetBingImage}
+        bingFavorites={bingFavorites}
+        onToggleBingFavorite={toggleBingFavorite}
+        rotateMinutes={rotateMinutes}
+        onRotateMinutes={changeRotateMinutes}
         inkMode={inkMode}
         onInkMode={changeInkMode}
         clock={clock}
         onClock={changeClock}
         searchSuggest={searchSuggestOn}
         onSearchSuggest={changeSearchSuggest}
+        searchHistoryCount={searchHistory.length}
+        onClearSearchHistory={clearSearchHistory}
         bingWallpaper={bingWallpaper}
         blur={effect.blur}
         dim={effect.dim}

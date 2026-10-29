@@ -50,6 +50,11 @@ interface ShortcutBoardProps {
   onExport: () => void;
   onImport: () => void;
   onImportBookmarks: () => void;
+  selected: string[];
+  onSelect: (id: string) => void;
+  onClearSelection: () => void;
+  onBatchDelete: () => void;
+  onBatchMove: (group: string) => void;
   tags: Array<{ tag: string; count: number }>;
   activeTag: string;
   onTag: (tag: string) => void;
@@ -82,6 +87,11 @@ export function ShortcutBoard({
   onExport,
   onImport,
   onImportBookmarks,
+  selected,
+  onSelect,
+  onClearSelection,
+  onBatchDelete,
+  onBatchMove,
   tags,
   activeTag,
   onTag,
@@ -152,6 +162,30 @@ export function ShortcutBoard({
               </button>
             ))}
           </span>
+          {selected.length > 0 && (
+            <span className="start-selection">
+              <span className="start-selection-count">已选 {selected.length}</span>
+              <select
+                value=""
+                title="移动到分组"
+                onChange={(event) => {
+                  const group = event.target.value;
+                  if (group) onBatchMove(group);
+                }}
+              >
+                <option value="">移动到…</option>
+                {groups.map(([group]) => (
+                  <option key={group} value={group}>
+                    {group}
+                  </option>
+                ))}
+              </select>
+              <button className="is-danger" onClick={onBatchDelete}>
+                删除
+              </button>
+              <button onClick={onClearSelection}>取消</button>
+            </span>
+          )}
           <button className="start-tab start-tab-add" title="导出起始页" onClick={onExport}>
             <Download size={13} />
           </button>
@@ -279,7 +313,9 @@ export function ShortcutBoard({
             {items.map((item) => (
               <div
                 key={item.id}
-                className={`start-tile${editMode ? ' is-editing' : ''}`}
+                className={`start-tile${editMode ? ' is-editing' : ''}${
+                  selected.includes(item.id) ? ' is-selected' : ''
+                }`}
                 title={item.desc ? `${item.desc}\n${item.url}` : item.url}
                 role="button"
                 tabIndex={0}
@@ -297,14 +333,20 @@ export function ShortcutBoard({
                   event.preventDefault();
                   onMenu(item, event.clientX, event.clientY);
                 }}
-                onClick={() => onOpen(item)}
+                onClick={() => (editMode ? onSelect(item.id) : onOpen(item))}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    onOpen(item);
+                    if (editMode) onSelect(item.id);
+                    else onOpen(item);
                   }
                 }}
               >
+                {editMode && (
+                  <span className="start-tile-select">
+                    {selected.includes(item.id) ? '✓' : ''}
+                  </span>
+                )}
                 <SiteIcon item={item} />
                 <span className="start-tile-label">{item.label}</span>
                 <span className="start-tile-sub">{hostOf(item.url)}</span>
