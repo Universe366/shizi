@@ -3874,3 +3874,119 @@
   font-weight: 600;
   letter-spacing: 0.16em;
 }
+
+/* ---------- 居中画布 / 分组栏左右 / 工具区 ---------- */
+.start-body {
+  padding: 0;
+}
+
+.start-main {
+  align-items: center;
+  padding: 18px 34px 24px;
+}
+
+.start-board,
+.start-widget-area,
+.start-hero,
+.start-footnote {
+  width: min(1120px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.start-hero {
+  align-items: center;
+  text-align: center;
+}
+
+.start-meta,
+.start-chips {
+  justify-content: center;
+}
+
+.start-search {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.start-page.is-sidebar-right .start-sidebar {
+  left: auto;
+  right: 0;
+  transform: translateX(calc(100% - 12px));
+}
+
+.start-page.is-sidebar-right .start-sidebar:hover,
+.start-page.is-sidebar-right .start-sidebar:focus-within {
+  transform: translateX(0);
+}
+
+.start-page.is-sidebar-right .start-sidebar::after {
+  right: auto;
+  left: 4px;
+}
+
+.start-sidebar .start-tab-actions,
+.start-sidebar .start-tab-actions .start-tab,
+.start-sidebar .start-density,
+.start-sidebar .start-selection {
+  width: 100%;
+}
+
+.start-sidebar .start-selection select {
+  flex: 1;
+  min-width: 0;
+}
+
+.start-tile-icon img {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  padding: 4px;
+  background: var(--start-surface-solid);
+}
+
+.start-tile:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--start-text) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.start-drawer,
+.start-palette,
+.start-dialog,
+.start-batch,
+.start-menu,
+.start-engine-menu,
+.start-suggest,
+.start-toast {
+  background-color: color-mix(in srgb, var(--start-surface-solid) 92%, transparent);
+}
+
+@media (max-width: 1080px) {
+  .start-main {
+    padding: 12px 20px 24px;
+  }
+
+  .start-page.is-sidebar-right .start-sidebar {
+    left: auto;
+    right: auto;
+    transform: none;
+  }
+}
+
+.start-tile-icon.has-image {
+  background: transparent !important;
+}
+
+.start-tile-icon.has-image img {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  padding: 4px;
+  background: var(--start-surface-solid);
+}
+
+.start-drawer {
+  font-size: 14px;
+}

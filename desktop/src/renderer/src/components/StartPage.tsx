@@ -84,6 +84,7 @@ const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
 const AUTO_SYNC_KEY = 'start-auto-sync';
 const EXTRA_GROUPS_KEY = 'start-extra-groups';
 const GLASS_KEY = 'start-glass';
+const SIDEBAR_SIDE_KEY = 'start-sidebar-side';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -289,6 +290,13 @@ export function StartPage({
       return Number.isFinite(value) && value >= 10 && value <= 100 ? value : 58;
     } catch {
       return 58;
+    }
+  });
+  const [sidebarSide, setSidebarSide] = useState<'left' | 'right'>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_SIDE_KEY) === 'right' ? 'right' : 'left';
+    } catch {
+      return 'left';
     }
   });
   const [autoSync, setAutoSync] = useState(() => {
@@ -778,6 +786,15 @@ export function StartPage({
     setGlass(next);
     try {
       localStorage.setItem(GLASS_KEY, String(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const changeSidebarSide = (value: 'left' | 'right') => {
+    setSidebarSide(value);
+    try {
+      localStorage.setItem(SIDEBAR_SIDE_KEY, value);
     } catch {
       // ignore
     }
@@ -1486,7 +1503,7 @@ export function StartPage({
     <div
       className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
-      }`}
+      }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}`}
       style={
         {
           '--glass-strong': `${glass}%`,
@@ -1890,6 +1907,8 @@ export function StartPage({
         onAutoSync={changeAutoSync}
         glass={glass}
         onGlass={changeGlass}
+        sidebarSide={sidebarSide}
+        onSidebarSide={changeSidebarSide}
         searchHistoryCount={searchHistory.length}
         onClearSearchHistory={clearSearchHistory}
         bingWallpaper={bingWallpaper}

@@ -44,6 +44,8 @@ interface WallpaperDrawerProps {
   onAutoSync: (value: boolean) => void;
   glass: number;
   onGlass: (value: number) => void;
+  sidebarSide: 'left' | 'right';
+  onSidebarSide: (value: 'left' | 'right') => void;
   searchHistoryCount: number;
   onClearSearchHistory: () => void;
   bingWallpaper: { url: string; copyright: string } | null;
@@ -90,6 +92,8 @@ export function WallpaperDrawer({
   onAutoSync,
   glass,
   onGlass,
+  sidebarSide,
+  onSidebarSide,
   searchHistoryCount,
   onClearSearchHistory,
   bingWallpaper,
@@ -384,6 +388,23 @@ export function WallpaperDrawer({
               onChange={(event) => onGlass(Number(event.target.value))}
             />
           </label>
+          <div className="start-ink-row">
+            <span className="start-ink-label">分组栏位置</span>
+            <div className="start-ink-toggle">
+              <button
+                className={sidebarSide === 'left' ? 'is-active' : ''}
+                onClick={() => onSidebarSide('left')}
+              >
+                左侧
+              </button>
+              <button
+                className={sidebarSide === 'right' ? 'is-active' : ''}
+                onClick={() => onSidebarSide('right')}
+              >
+                右侧
+              </button>
+            </div>
+          </div>
           <div className="start-ink-row">
             <span className="start-ink-label">文字配色</span>
             <div className="start-ink-toggle">
