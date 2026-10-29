@@ -29,6 +29,11 @@ import { batchAdd, batchRemove, batchCancel, batchPause, batchClearDone, expandC
 import { discoverDesktop } from './desktop-bridge.js';
 import { linkStatus, probeDesktop } from './desktop-link.js';
 import { probeDesktopAi } from './desktop-ai.js';
+import {
+  confirmUndoMigration,
+  migrateFromDesktop,
+  migrateToDesktop
+} from './settings-migrate.js';
 import * as SKILLS from '../../shared/skills.js';
 import { TIME_PRESETS, normalizeTimeRange } from '../../shared/time-range.js';
 import { RELEASES_URL } from '../../shared/release.js';
@@ -2130,6 +2135,55 @@ function desktopGroup(d) {
           }
         ),
         '总结/对话在桌面端连接时优先交给桌面执行；失败会自动回退插件本地。'
+      )
+    );
+    body.appendChild(
+      checkbox(
+        cfg.migrateKeys !== false,
+        (v) => {
+          cfg.migrateKeys = v;
+          markDirty();
+        },
+        '迁移设置时同步 API Key（默认开启）'
+      )
+    );
+    body.appendChild(
+      field(
+        '设置主端',
+        h('div', { class: 'row tight', style: { gap: '6px', flexWrap: 'wrap' } }, [
+          h('span', {
+            class: 'note',
+            text:
+              cfg.settingsAuthority === 'desktop'
+                ? '桌面端'
+                : cfg.settingsAuthority === 'plugin'
+                  ? '插件端'
+                  : cfg.settingsAuthority === 'none'
+                    ? '未选择（两端都没有配置）'
+                    : '未选择'
+          }),
+          button('以桌面端为准', async () => {
+            try {
+              await migrateFromDesktop();
+              render();
+            } catch (err) {
+              toast({ title: '同步失败', detail: String((err && err.message) || err) }, 'error', 4200);
+            }
+          }, { small: true }),
+          button('以插件端为准', async () => {
+            try {
+              await migrateToDesktop();
+              render();
+            } catch (err) {
+              toast({ title: '同步失败', detail: String((err && err.message) || err) }, 'error', 4200);
+            }
+          }, { small: true }),
+          button('撤销上次迁移', async () => {
+            await confirmUndoMigration();
+            render();
+          }, { small: true })
+        ]),
+        '首次连接会弹窗选择；这里可以随时重新以某一端为准。'
       )
     );
     body.appendChild(

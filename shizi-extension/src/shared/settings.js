@@ -690,6 +690,12 @@ export function defaultSettings() {
       useDesktopAi: true,
       // 桌面端本地 Whisper 可用时优先用它；失败自动回退在线 ASR。
       useDesktopAsr: true,
+      // 设置主端：desktop | plugin | ''（未选择）。由首次连接迁移决定。
+      settingsAuthority: '',
+      // 迁移时是否同步 API Key；默认是。用户可以在设置里取消勾选。
+      migrateKeys: true,
+      // 用户点过「稍后」后不再主动弹窗。
+      migrationDismissed: false,
       port: 47821,
       token: ''
     },

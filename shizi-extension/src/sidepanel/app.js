@@ -14,6 +14,7 @@ import * as actionsPanel from './modules/panel-actions.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../shared/constants.js';
 import { initWizard } from './modules/wizard.js';
 import { initDesktopLink, onLinkChange } from './modules/desktop-link.js';
+import { maybeOfferSettingsMigration } from './modules/settings-migrate.js';
 
 // 页面内嵌时 (?embed=1) 由内容脚本的外框显示标题与收起按钮，
 // 面板自己的品牌行可以隐藏，避免出现两遍标题。
@@ -99,9 +100,17 @@ async function boot() {
 
   // 桌面端连接：自动发现 + 自动上报 + 下行长轮询。
   // 不阻塞首屏；没有桌面端时只会安静地变成「未连接」。
-  onLinkChange(renderDesktopStatus);
+  onLinkChange((status) => {
+    renderDesktopStatus(status);
+    if (status && status.state === 'connected') void maybeOfferSettingsMigration();
+  });
   void initDesktopLink()
-    .then((status) => renderDesktopStatus(status))
+    .then((status) => {
+      renderDesktopStatus(status);
+      if (status && status.state === 'connected') {
+        void maybeOfferSettingsMigration();
+      }
+    })
     .catch(() => renderDesktopStatus({ state: 'offline' }));
 
   // 首次使用向导（必须能随时跳过，跳过入口常驻可见）
