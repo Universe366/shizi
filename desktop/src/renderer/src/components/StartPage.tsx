@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Bookmark,
   Command,
   Copy,
   Download,
+  FolderPlus,
   History,
   Library,
   Info,
@@ -32,6 +33,7 @@ import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
 import { BatchAddDialog } from './start/BatchAddDialog';
 import { GroupNameDialog } from './start/GroupNameDialog';
+import { FolderDialog } from './start/FolderDialog';
 import { StartSidebar } from './start/StartSidebar';
 import { ShortcutDetail } from './start/ShortcutDetail';
 import { askConfirm } from './ui/confirm';
@@ -248,6 +250,11 @@ export function StartPage({
   const [activeGroup, setActiveGroup] = useState('全部');
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupSeed, setGroupSeed] = useState<string | null>(null);
+  const [folderNameDialog, setFolderNameDialog] = useState<{
+    ids: string[];
+    group: string;
+  } | null>(null);
+  const [folderView, setFolderView] = useState<{ group: string; folder: string } | null>(null);
   const [extraGroups, setExtraGroups] = useState<string[]>(readExtraGroups);
   const [groupOrder, setGroupOrder] = useState<string[]>(readGroupOrder);
   const [sidebarPinned, setSidebarPinned] = useState(false);
@@ -323,6 +330,7 @@ export function StartPage({
       return 'left';
     }
   });
+  const [syncFolder, setSyncFolder] = useState('');
   const [autoSync, setAutoSync] = useState(() => {
     try {
       return localStorage.getItem(AUTO_SYNC_KEY) === '1';
@@ -427,6 +435,7 @@ export function StartPage({
       setShortcuts(fromSettings);
       if (fromSettings.length >= backup.length) writeShortcutBackup(fromSettings);
     }
+    setSyncFolder(String(general.syncFolder || ''));
     setWallpaper((general.startWallpaper as WallpaperId) || 'aurora');
     setWallpaperImage(String(general.startWallpaperImage || ''));
     const bingImage = String(general.startBingImage || '');
@@ -531,6 +540,16 @@ export function StartPage({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [searchOpen]);
+
+  useLayoutEffect(() => {
+    if (!shortcutMenu || !menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const x = Math.max(8, Math.min(shortcutMenu.x, window.innerWidth - rect.width - 8));
+    const y = Math.max(8, Math.min(shortcutMenu.y, window.innerHeight - rect.height - 8));
+    if (x !== shortcutMenu.x || y !== shortcutMenu.y) {
+      setShortcutMenu({ ...shortcutMenu, x, y });
+    }
+  }, [shortcutMenu]);
 
   useEffect(() => {
     if (!shortcutMenu) return;
@@ -924,7 +943,21 @@ export function StartPage({
     }
     return frequent.length ? frequent : shortcuts.slice(0, 6);
   }, [dockIds, shortcuts, frequent]);
+  const dockCandidates = useMemo(() => {
+    const used = new Set(dockShortcuts.map((item) => item.id));
+    return shortcuts.filter((item) => !used.has(item.id));
+  }, [dockShortcuts, shortcuts]);
   const tags = useMemo(() => topTags(shortcuts, 12), [shortcuts]);
+
+  const folderItems = useMemo(
+    () =>
+      folderView
+        ? shortcuts.filter(
+            (item) => item.group === folderView.group && item.folder === folderView.folder
+          )
+        : [],
+    [folderView, shortcuts]
+  );
 
   const visibleGroups = useMemo(() => {
     const base: Array<[string, StartShortcut[]]> =
@@ -996,6 +1029,15 @@ export function StartPage({
     showNotice(pinned ? '已从 Dock 移除' : '已固定到 Dock');
   };
 
+  const addToDock = (id: string) => {
+    const base = dockIds.length ? dockIds : dockShortcuts.map((item) => item.id);
+    if (base.includes(id)) return;
+    const next = [...base, id].slice(0, 8);
+    setDockIds(next);
+    void patchGeneral({ startDockIds: next });
+    showNotice('已添加到 Dock');
+  };
+
   const reorderDock = (fromId: string, toId: string) => {
     const known = new Set(shortcuts.map((item) => item.id));
     const base = (dockIds.length ? dockIds : dockShortcuts.map((item) => item.id)).filter(
@@ -1007,6 +1049,20 @@ export function StartPage({
     const next = [...base];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
+    setDockIds(next);
+    void patchGeneral({ startDockIds: next });
+  };
+
+  const shiftDock = (id: string, delta: -1 | 1) => {
+    const known = new Set(shortcuts.map((item) => item.id));
+    const base = (dockIds.length ? dockIds : dockShortcuts.map((item) => item.id)).filter(
+      (item) => known.has(item)
+    );
+    const from = base.indexOf(id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= base.length) return;
+    const next = [...base];
+    [next[from], next[to]] = [next[to], next[from]];
     setDockIds(next);
     void patchGeneral({ startDockIds: next });
   };
@@ -1053,6 +1109,44 @@ export function StartPage({
     }
     setActiveGroup(trimmed);
     showNotice(`已创建分组「${trimmed}」`);
+  };
+
+  const requestNewFolder = (ids: string[], group: string) => {
+    if (!ids.length) return;
+    setFolderNameDialog({ ids, group });
+  };
+
+  const createFolder = (name: string) => {
+    const trimmed = name.trim().slice(0, 24);
+    if (!trimmed || !folderNameDialog) return;
+    const ids = new Set(folderNameDialog.ids);
+    const next = shortcuts.map((item) =>
+      ids.has(item.id) ? { ...item, folder: trimmed, group: folderNameDialog.group } : item
+    );
+    setFolderNameDialog(null);
+    setSelectedShortcuts([]);
+    void persistShortcuts(next);
+    showNotice(`已创建文件夹「${trimmed}」`);
+  };
+
+  const moveToFolder = (fromId: string, group: string, folder: string) => {
+    const next = shortcuts.map((item) =>
+      item.id === fromId ? { ...item, group, folder } : item
+    );
+    void persistShortcuts(next);
+    showNotice(`已移入文件夹「${folder}」`);
+  };
+
+  const removeFromFolder = (id: string) => {
+    const next = shortcuts.map((item) =>
+      item.id === id ? { ...item, folder: undefined } : item
+    );
+    void persistShortcuts(next);
+  };
+
+  const batchFolder = () => {
+    const first = shortcuts.find((item) => selectedShortcuts.includes(item.id));
+    requestNewFolder(selectedShortcuts, first?.group || '常用');
   };
 
   const batchMoveShortcuts = (group: string) => {
@@ -1396,10 +1490,10 @@ export function StartPage({
   const backupGetter = useRef(buildBackup);
   backupGetter.current = buildBackup;
   const autoSyncPrimed = useRef(false);
-  const autoSyncSignature = autoSync ? JSON.stringify(buildBackup()) : '';
+  const autoSyncSignature = autoSync && syncFolder ? JSON.stringify(buildBackup()) : '';
 
   useEffect(() => {
-    if (!autoSync) {
+    if (!autoSync || !syncFolder) {
       autoSyncPrimed.current = false;
       return;
     }
@@ -1408,10 +1502,12 @@ export function StartPage({
       return;
     }
     const timer = window.setTimeout(() => {
-      void window.bsub.startSync?.('push', backupGetter.current());
+      void window.bsub.startSync?.('push', backupGetter.current()).then((result) => {
+        if (!result?.ok) showNotice(result?.error || '自动同步失败');
+      });
     }, 2000);
     return () => window.clearTimeout(timer);
-  }, [autoSync, autoSyncSignature]);
+  }, [autoSync, autoSyncSignature, syncFolder]);
 
   const importBookmarks = async (file: File) => {
     let text = '';
@@ -1694,6 +1790,7 @@ export function StartPage({
           onClearSelection={() => setSelectedShortcuts([])}
           onBatchDelete={batchDeleteShortcuts}
           onBatchMove={batchMoveShortcuts}
+          onBatchFolder={batchFolder}
           onNewGroupFrom={requestNewGroup}
           onExport={exportStart}
           onImport={() => importRef.current?.click()}
@@ -1789,6 +1886,8 @@ export function StartPage({
           onRenameGroup={renameGroup}
           onRemoveGroup={(group) => void removeGroup(group)}
           onMove={moveShortcutTo}
+          onMoveToFolder={moveToFolder}
+          onOpenFolder={(group, folder) => setFolderView({ group, folder })}
           onMenu={(item, x, y) => setShortcutMenu({ x, y, id: item.id })}
           onDragStart={() => setSearchOpen(false)}
           density={density}
@@ -1961,6 +2060,15 @@ export function StartPage({
           editing={dockEditing}
           onEdit={() => setDockEditing((value) => !value)}
           onRemove={removeFromDock}
+          candidates={dockCandidates}
+          onAdd={(id) => {
+            if (dockShortcuts.some((item) => item.id === id)) return;
+            if (dockShortcuts.length >= 8) {
+              showNotice('Dock 最多放 8 个站点');
+              return;
+            }
+            addToDock(id);
+          }}
           weather={weather}
           pomodoro={{
             phase: pomodoro.phase,
@@ -2002,6 +2110,7 @@ export function StartPage({
         searchSuggest={searchSuggestOn}
         onSearchSuggest={changeSearchSuggest}
         autoSync={autoSync}
+        syncFolder={syncFolder}
         onAutoSync={changeAutoSync}
         glass={glass}
         onGlass={changeGlass}
@@ -2080,6 +2189,29 @@ export function StartPage({
           setGroupSeed(null);
         }}
         onSubmit={createGroup}
+      />
+
+      <GroupNameDialog
+        open={Boolean(folderNameDialog)}
+        title="新建文件夹"
+        hint="选中的快捷方式会收进同一个文件夹，点文件夹即可展开。"
+        placeholder="如 设计 / 学习 / 工具"
+        submitLabel="创建文件夹"
+        onCancel={() => setFolderNameDialog(null)}
+        onSubmit={createFolder}
+      />
+
+      <FolderDialog
+        open={Boolean(folderView)}
+        name={folderView?.folder || ''}
+        items={folderItems}
+        editMode={editMode}
+        onClose={() => setFolderView(null)}
+        onOpen={(item) => {
+          openShortcut(item);
+          setFolderView(null);
+        }}
+        onRemoveFromFolder={removeFromFolder}
       />
 
       <BatchAddDialog
@@ -2169,11 +2301,39 @@ export function StartPage({
           <button
             onClick={() => {
               setShortcutMenu(null);
+              requestNewFolder([menuItem.id], menuItem.group || '常用');
+            }}
+          >
+            <FolderPlus size={12} /> 新建文件夹…
+          </button>
+          <button
+            onClick={() => {
+              setShortcutMenu(null);
               openEditor(menuItem);
             }}
           >
             <Pencil size={12} /> 编辑
           </button>
+          {dockShortcuts.some((item) => item.id === menuItem.id) && (
+            <>
+              <button
+                onClick={() => {
+                  shiftDock(menuItem.id, -1);
+                  setShortcutMenu(null);
+                }}
+              >
+                Dock 左移
+              </button>
+              <button
+                onClick={() => {
+                  shiftDock(menuItem.id, 1);
+                  setShortcutMenu(null);
+                }}
+              >
+                Dock 右移
+              </button>
+            </>
+          )}
           <button
             className="is-danger"
             onClick={() => {

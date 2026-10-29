@@ -1080,10 +1080,26 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
   });
 
   it('可以开启自动同步', async () => {
-    installBsub();
+    const api = installBsub();
+    const original = await api.getSettings();
+    api.getSettings.mockResolvedValue({
+      ...original,
+      data: {
+        ...original.data,
+        settings: {
+          ...original.data.settings,
+          general: {
+            ...original.data.settings.general,
+            syncFolder: 'C:/sync'
+          }
+        }
+      }
+    } as never);
     render(<StartPage {...props()} />);
     fireEvent.click(screen.getByTitle('更换壁纸'));
-    fireEvent.click(screen.getByText('自动同步到文件夹（2 秒防抖）'));
+    const checkbox = screen.getByRole('checkbox', { name: /自动同步到文件夹/ }) as HTMLInputElement;
+    await waitFor(() => expect(checkbox.disabled).toBe(false));
+    fireEvent.click(checkbox);
     expect(localStorage.getItem('start-auto-sync')).toBe('1');
   });
 

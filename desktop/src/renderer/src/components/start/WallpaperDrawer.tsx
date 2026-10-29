@@ -41,6 +41,7 @@ interface WallpaperDrawerProps {
   searchSuggest: boolean;
   onSearchSuggest: (value: boolean) => void;
   autoSync: boolean;
+  syncFolder?: string;
   onAutoSync: (value: boolean) => void;
   glass: number;
   onGlass: (value: number) => void;
@@ -91,6 +92,7 @@ export function WallpaperDrawer({
   searchSuggest,
   onSearchSuggest,
   autoSync,
+  syncFolder = '',
   onAutoSync,
   glass,
   onGlass,
@@ -490,13 +492,16 @@ export function WallpaperDrawer({
           <label className="start-check-row">
             <input
               type="checkbox"
-              checked={autoSync}
+              checked={autoSync && Boolean(syncFolder)}
+              disabled={!syncFolder}
               onChange={(event) => onAutoSync(event.target.checked)}
             />
             自动同步到文件夹（2 秒防抖）
           </label>
           <div className="start-drawer-hint">
-            需要先在 设置 → 数据与备份 选择同步文件夹。
+            {syncFolder
+              ? `同步目录：${syncFolder}`
+              : '需要先在 设置 → 数据与备份 选择同步文件夹；未选择时此开关不可用。'}
           </div>
         </section>
 

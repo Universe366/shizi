@@ -28,6 +28,8 @@ interface ShortcutBoardProps {
   onRenameGroup: (from: string, to: string) => void;
   onRemoveGroup: (group: string) => void;
   onMove: (fromId: string, group: string, targetId?: string) => void;
+  onMoveToFolder?: (fromId: string, group: string, folder: string) => void;
+  onOpenFolder?: (group: string, folder: string) => void;
   onMenu: (item: StartShortcut, x: number, y: number) => void;
   onDragStart: () => void;
   density: StartDensity;
@@ -64,6 +66,8 @@ export function ShortcutBoard({
   onRenameGroup,
   onRemoveGroup,
   onMove,
+  onMoveToFolder,
+  onOpenFolder,
   onMenu,
   onDragStart,
   density,
@@ -146,6 +150,14 @@ export function ShortcutBoard({
       {visibleGroups.map(([group, items]) => {
         const limit = limits[group] ?? 60;
         const shown = items.slice(0, limit);
+        const direct = shown.filter((item) => !item.folder);
+        const folderMap = new Map<string, StartShortcut[]>();
+        for (const item of shown) {
+          if (!item.folder) continue;
+          const list = folderMap.get(item.folder) || [];
+          list.push(item);
+          folderMap.set(item.folder, list);
+        }
         return (
         <div
           className="start-group"
@@ -203,7 +215,7 @@ export function ShortcutBoard({
           {!collapsed.includes(group) && (
           <>
           <div className="start-grid">
-            {shown.map((item) => (
+            {direct.map((item) => (
               <div
                 key={item.id}
                 data-shortcut-id={item.id}
@@ -217,6 +229,7 @@ export function ShortcutBoard({
                 onDragStart={(event) => {
                   onDragStart();
                   event.dataTransfer.setData('text/plain', item.id);
+                  event.dataTransfer.setData('application/x-shizi-shortcut', item.id);
                   event.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragOver={(event) => event.preventDefault()}
@@ -276,6 +289,39 @@ export function ShortcutBoard({
                     </button>
                   )}
                 </span>
+              </div>
+            ))}
+            {Array.from(folderMap.entries()).map(([folder, folderItems]) => (
+              <div
+                key={`folder:${group}:${folder}`}
+                className="start-folder-tile"
+                role="button"
+                tabIndex={0}
+                title={`${folder} · ${folderItems.length} 个快捷方式`}
+                onClick={() => onOpenFolder?.(group, folder)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpenFolder?.(group, folder);
+                  }
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const from = event.dataTransfer.getData('text/plain');
+                  if (from) onMoveToFolder?.(from, group, folder);
+                }}
+              >
+                <span className="start-folder-icons">
+                  {folderItems.slice(0, 3).map((item) => (
+                    <span key={item.id} className="start-folder-icon">
+                      <SiteIcon item={item} small />
+                    </span>
+                  ))}
+                </span>
+                <span className="start-tile-label">{folder}</span>
+                <span className="start-tile-sub">{folderItems.length} 个</span>
               </div>
             ))}
           </div>

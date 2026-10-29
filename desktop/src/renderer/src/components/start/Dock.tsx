@@ -1,4 +1,5 @@
-import { Check, CloudSun, Command, Pencil, Sparkles, Timer, X } from 'lucide-react';
+import { useState } from 'react';
+import { Check, CloudSun, Command, Pencil, Plus, Sparkles, Timer, X } from 'lucide-react';
 import type { StartShortcut } from '../../../../shared/types';
 import { SiteIcon } from './SiteIcon';
 import type { BuiltInEntry } from './ShortcutBoard';
@@ -24,6 +25,8 @@ interface DockProps {
   editing: boolean;
   onEdit: () => void;
   onRemove: (id: string) => void;
+  candidates: StartShortcut[];
+  onAdd: (id: string) => void;
 }
 
 /** 底部 Dock：常用站点 + 内置页面 + 指令面板 / 禅模式入口。 */
@@ -41,8 +44,11 @@ export function Dock({
   onZen,
   editing,
   onEdit,
-  onRemove
+  onRemove,
+  candidates,
+  onAdd
 }: DockProps) {
+  const [addOpen, setAddOpen] = useState(false);
   return (
     <nav className={`start-dock${editing ? ' is-editing' : ''}`} aria-label="起始页 Dock">
       {shortcuts.map((item) => (
@@ -60,7 +66,12 @@ export function Dock({
           onDrop={(event) => {
             event.preventDefault();
             const raw = event.dataTransfer.getData('text/plain');
-            if (raw.startsWith('dock:')) onReorder(raw.slice(5), item.id);
+            if (raw.startsWith('dock:')) {
+              onReorder(raw.slice(5), item.id);
+              return;
+            }
+            const shortcutId = event.dataTransfer.getData('application/x-shizi-shortcut') || raw;
+            if (shortcutId) onAdd(shortcutId);
           }}
           onContextMenu={(event) => {
             event.preventDefault();
@@ -87,6 +98,40 @@ export function Dock({
           )}
         </button>
       ))}
+
+      {editing && (
+        <div className="start-dock-add-wrap">
+          <button
+            className="start-dock-item start-dock-add"
+            title="添加常用站点到 Dock"
+            aria-label="添加常用站点到 Dock"
+            onClick={() => setAddOpen((value) => !value)}
+          >
+            <Plus size={16} />
+          </button>
+          {addOpen && (
+            <div className="start-dock-add-menu" role="menu">
+              {candidates.length === 0 ? (
+                <span className="start-dock-add-empty">没有可添加的站点</span>
+              ) : (
+                candidates.slice(0, 12).map((item) => (
+                  <button
+                    key={item.id}
+                    className="start-dock-add-item"
+                    onClick={() => {
+                      onAdd(item.id);
+                      setAddOpen(false);
+                    }}
+                  >
+                    <SiteIcon item={item} small />
+                    <span>{item.label}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {shortcuts.length > 0 && builtIn.length > 0 && (
         <span className="start-dock-sep" aria-hidden="true" />

@@ -497,6 +497,7 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
         label: cleanText(item.label, 40),
         url: normalizeShortcutUrl(item.url),
         group: cleanText(item.group || '常用', 24),
+        ...(cleanText(item.folder, 24) ? { folder: cleanText(item.folder, 24) } : {}),
         ...(cleanText(item.desc, 120) ? { desc: cleanText(item.desc, 120) } : {}),
         ...(item.tags?.length ? { tags: normalizeTags(item.tags).slice(0, 6) } : {})
       }))
@@ -580,6 +581,7 @@ export function parseStartBackup(text: string): ParsedBackup {
       label,
       url,
       group: cleanText(row.group || '常用', 24) || '常用',
+      ...(cleanText(row.folder, 24) ? { folder: cleanText(row.folder, 24) } : {}),
       ...(cleanText(row.desc, 120) ? { desc: cleanText(row.desc, 120) } : {}),
       ...(Array.isArray(row.tags) ? { tags: normalizeTags(row.tags as unknown[]) } : {})
     });

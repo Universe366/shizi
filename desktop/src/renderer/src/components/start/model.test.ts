@@ -46,7 +46,7 @@ describe('起始页备份', () => {
   it('导出后可以原样解析，且过滤无效网址', () => {
     const backup = buildStartBackup({
       shortcuts: [
-        { id: 'a', label: 'B 站', url: 'bilibili.com', group: '常用' },
+        { id: 'a', label: 'B 站', url: 'bilibili.com', group: '常用', folder: '视频' },
         { id: 'b', label: '坏链接', url: 'javascript:alert(1)', group: '常用' }
       ],
       wallpaper: 'mint',
@@ -61,6 +61,7 @@ describe('起始页备份', () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.data.shortcuts[0].label).toBe('B 站');
+    expect(parsed.data.shortcuts[0].folder).toBe('视频');
     expect(parsed.data.prefs.city).toBe('杭州');
     expect(parsed.data.prefs.minimal).toBe(true);
   });

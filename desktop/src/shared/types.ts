@@ -1168,6 +1168,8 @@ export interface StartShortcut {
   desc?: string;
   /** 标签，用于筛选（最多 6 个） */
   tags?: string[];
+  /** 所属文件夹；同一分组内同名文件夹会合并 */
+  folder?: string;
 }
 
 /** 起始页自定义壁纸来源：file 存 IndexedDB，url 走远程直链。 */

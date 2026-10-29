@@ -15025,3 +15025,173 @@ sup:has(> .cite-ref) {
   gap: 4px 14px;
   margin: 6px 0;
 }
+
+/* 起始页文件夹：多个网络图标收进一个文件夹卡片 */
+.start-folder-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.start-folder-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--surface);
+}
+
+.start-folder-icons {
+  position: relative;
+  width: 46px;
+  height: 38px;
+}
+
+.start-folder-icon {
+  position: absolute;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.start-folder-icon:nth-child(1) {
+  left: 0;
+  z-index: 3;
+}
+
+.start-folder-icon:nth-child(2) {
+  left: 9px;
+  top: 2px;
+  z-index: 2;
+}
+
+.start-folder-icon:nth-child(3) {
+  left: 18px;
+  top: 4px;
+  z-index: 1;
+}
+
+.start-folder-tile .start-tile-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dock 编辑：添加站点 */
+.start-dock-add-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.start-dock-add-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 40;
+  width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.start-dock-add-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.start-dock-add-item:hover {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.start-dock-add-empty {
+  display: block;
+  padding: 10px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
+/* 起始页文件夹弹窗 */
+.start-folder-dialog {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.start-folder-dialog-count {
+  margin-left: 6px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.start-folder-dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 4px 0 10px;
+}
+
+.start-folder-dialog-item {
+  position: relative;
+}
+
+.start-folder-dialog-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.start-folder-dialog-open:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.start-folder-dialog-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--faint);
+}
+
+.start-folder-dialog-remove:hover {
+  color: var(--danger);
+}

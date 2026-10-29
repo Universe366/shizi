@@ -23,6 +23,7 @@ interface StartSidebarProps {
   onClearSelection: () => void;
   onBatchDelete: () => void;
   onBatchMove: (group: string) => void;
+  onBatchFolder?: () => void;
   onNewGroupFrom: (id: string) => void;
   onExport: () => void;
   onImport: () => void;
@@ -46,6 +47,7 @@ export function StartSidebar({
   onClearSelection,
   onBatchDelete,
   onBatchMove,
+  onBatchFolder,
   onNewGroupFrom,
   onExport,
   onImport,
@@ -161,6 +163,9 @@ export function StartSidebar({
                   </option>
                 ))}
               </select>
+              <button onClick={onBatchFolder}>
+                文件夹
+              </button>
               <button className="is-danger" onClick={onBatchDelete}>
                 删除
               </button>
