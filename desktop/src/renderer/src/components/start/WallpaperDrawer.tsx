@@ -42,6 +42,8 @@ interface WallpaperDrawerProps {
   onSearchSuggest: (value: boolean) => void;
   autoSync: boolean;
   onAutoSync: (value: boolean) => void;
+  glass: number;
+  onGlass: (value: number) => void;
   searchHistoryCount: number;
   onClearSearchHistory: () => void;
   bingWallpaper: { url: string; copyright: string } | null;
@@ -86,6 +88,8 @@ export function WallpaperDrawer({
   onSearchSuggest,
   autoSync,
   onAutoSync,
+  glass,
+  onGlass,
   searchHistoryCount,
   onClearSearchHistory,
   bingWallpaper,
@@ -344,7 +348,7 @@ export function WallpaperDrawer({
           <div className="start-drawer-label">
             背景效果
             <span className="start-drawer-value">
-              {blur}px · {Math.round(dim * 100)}%
+              {blur}px · 遮罩 {Math.round(dim * 100)}% · 玻璃 {glass}%
             </span>
           </div>
           <label className="start-range">
@@ -367,6 +371,17 @@ export function WallpaperDrawer({
               step={5}
               value={Math.round(dim * 100)}
               onChange={(event) => onDim(Number(event.target.value) / 100)}
+            />
+          </label>
+          <label className="start-range">
+            <span>玻璃</span>
+            <input
+              type="range"
+              min={10}
+              max={100}
+              step={2}
+              value={glass}
+              onChange={(event) => onGlass(Number(event.target.value))}
             />
           </label>
           <div className="start-ink-row">

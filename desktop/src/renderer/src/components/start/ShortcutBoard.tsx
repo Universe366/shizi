@@ -1,22 +1,8 @@
 import { useRef, useState, type DragEvent } from 'react';
-import {
-  Bookmark,
-  ChevronDown,
-  ChevronRight,
-  Download,
-  Folder,
-  FolderPlus,
-  Info,
-  Plus,
-  Star,
-  Tags,
-  Upload,
-  X,
-  type LucideIcon
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Info, Plus, X, type LucideIcon } from 'lucide-react';
 import { EmptyState } from '../ui/EmptyState';
 import type { StartShortcut } from '../../../../shared/types';
-import { DENSITIES, hostOf, type StartDensity } from './model';
+import { hostOf, type StartDensity } from './model';
 import { SiteIcon } from './SiteIcon';
 
 export interface BuiltInEntry {
@@ -65,13 +51,11 @@ interface ShortcutBoardProps {
 }
 
 export function ShortcutBoard({
-  groups,
   visibleGroups,
   total,
   activeGroup,
   editMode,
   builtIn,
-  onGroup,
   onOpen,
   onEdit,
   onRemove,
@@ -83,19 +67,10 @@ export function ShortcutBoard({
   onMenu,
   onDragStart,
   density,
-  onDensity,
   collapsed,
   onToggleGroup,
-  frequent,
-  onExport,
-  onImport,
-  onImportBookmarks,
   selected,
   onSelect,
-  onClearSelection,
-  onBatchDelete,
-  onBatchMove,
-  onNewGroupFrom,
   tags,
   activeTag,
   onTag,
@@ -104,7 +79,6 @@ export function ShortcutBoard({
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [limits, setLimits] = useState<Record<string, number>>({});
-  const [dropGroup, setDropGroup] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
   const startRename = (group: string) => {
@@ -127,126 +101,6 @@ export function ShortcutBoard({
 
   return (
     <section className={`start-board is-density-${density}`} aria-label="快捷方式">
-      <div className="start-tabs">
-        <button
-          className={`start-tab${activeGroup === '全部' ? ' is-active' : ''}`}
-          onClick={() => onGroup('全部')}
-        >
-          全部
-          <span className="start-tab-count">{total}</span>
-        </button>
-        {frequent.length > 0 && (
-          <button
-            className={`start-tab${activeGroup === '常用' ? ' is-active' : ''}`}
-            onClick={() => onGroup('常用')}
-            title="按打开次数排序"
-          >
-            <Star size={12} /> 常用
-            <span className="start-tab-count">{frequent.length}</span>
-          </button>
-        )}
-        {groups.map(([group, items]) => (
-          <button
-            key={group}
-            className={`start-tab${activeGroup === group ? ' is-active' : ''}${
-              dropGroup === group ? ' is-drop' : ''
-            }`}
-            title="点击切换；拖入快捷方式可移到该分组"
-            onClick={() => onGroup(group)}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDropGroup(group);
-            }}
-            onDragLeave={() => setDropGroup((current) => (current === group ? null : current))}
-            onDrop={(event) => {
-              dropOn(group)(event);
-              setDropGroup(null);
-            }}
-          >
-            <Folder size={12} />
-            {group}
-            <span className="start-tab-count">{items.length}</span>
-          </button>
-        ))}
-        <button
-          className={`start-tab start-tab-new${dropGroup === '__new__' ? ' is-drop' : ''}`}
-          title="拖一个快捷方式到这里新建分组"
-          onClick={() => onNewGroupFrom('')}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDropGroup('__new__');
-          }}
-          onDragLeave={() => setDropGroup((current) => (current === '__new__' ? null : current))}
-          onDrop={(event) => {
-            event.preventDefault();
-            const id = event.dataTransfer.getData('text/plain');
-            setDropGroup(null);
-            if (id) onNewGroupFrom(id);
-          }}
-        >
-          <FolderPlus size={12} /> 新分组
-        </button>
-        <span className="start-tab-actions">
-          <span className="start-density" role="group" aria-label="卡片密度">
-            {DENSITIES.map((item) => (
-              <button
-                key={item.id}
-                className={`start-density-btn${density === item.id ? ' is-active' : ''}`}
-                title={item.hint}
-                onClick={() => onDensity(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </span>
-          {selected.length > 0 && (
-            <span className="start-selection">
-              <span className="start-selection-count">已选 {selected.length}</span>
-              <select
-                value=""
-                title="移动到分组"
-                onChange={(event) => {
-                  const group = event.target.value;
-                  if (group) onBatchMove(group);
-                }}
-              >
-                <option value="">移动到…</option>
-                {groups.map(([group]) => (
-                  <option key={group} value={group}>
-                    {group}
-                  </option>
-                ))}
-              </select>
-              <button className="is-danger" onClick={onBatchDelete}>
-                删除
-              </button>
-              <button onClick={onClearSelection}>取消</button>
-            </span>
-          )}
-          <button className="start-tab start-tab-add" title="导出起始页" onClick={onExport}>
-            <Download size={13} />
-          </button>
-          <button className="start-tab start-tab-add" title="导入起始页" onClick={onImport}>
-            <Upload size={13} />
-          </button>
-          <button
-            className="start-tab start-tab-add"
-            title="导入浏览器书签"
-            onClick={onImportBookmarks}
-          >
-            <Bookmark size={13} />
-          </button>
-          <button className="start-tab start-tab-add" title="批量导入网址" onClick={onBatchAdd}>
-            <Tags size={13} />
-            批量
-          </button>
-          <button className="start-tab start-tab-add" title="添加快捷方式" onClick={onAdd}>
-            <Plus size={13} />
-            添加
-          </button>
-        </span>
-      </div>
-
       {tags.length > 0 && (
         <div className="start-tag-row" aria-label="按标签筛选">
           <span className="start-tag-label">标签</span>

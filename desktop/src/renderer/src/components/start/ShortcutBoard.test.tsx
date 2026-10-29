@@ -59,11 +59,9 @@ function setup(overrides: Partial<React.ComponentProps<typeof ShortcutBoard>> = 
 describe('ShortcutBoard', () => {
   afterEach(() => cleanup());
 
-  it('按密度渲染类名，密度按钮回调', () => {
-    const props = setup({ density: 'compact' });
+  it('按密度渲染类名', () => {
+    setup({ density: 'compact' });
     expect(document.querySelector('.start-board')?.className).toContain('is-density-compact');
-    fireEvent.click(screen.getByText('大图标'));
-    expect(props.onDensity).toHaveBeenCalledWith('large');
   });
 
   it('大分组先渲染 60 个，点击后显示更多', () => {
@@ -98,10 +96,6 @@ describe('ShortcutBoard', () => {
     expect(screen.getByText('B 站')).toBeTruthy();
     fireEvent.click(screen.getByTitle('折叠分组'));
     expect(props.onToggleGroup).toHaveBeenCalledWith('常用');
-    fireEvent.click(screen.getByTitle('导出起始页'));
-    expect(props.onExport).toHaveBeenCalled();
-    fireEvent.click(screen.getByTitle('导入起始页'));
-    expect(props.onImport).toHaveBeenCalled();
   });
 
   it('折叠状态隐藏卡片', () => {
@@ -124,12 +118,4 @@ describe('ShortcutBoard', () => {
     expect(props.onDetail).toHaveBeenCalled();
   });
 
-  it('有常用数据时显示常用标签', () => {
-    const props = setup({ frequent: groups[0][1] });
-    const tab = [...document.querySelectorAll('.start-tab')].find((el) =>
-      el.textContent?.includes('常用')
-    ) as HTMLElement;
-    fireEvent.click(tab);
-    expect(props.onGroup).toHaveBeenCalledWith('常用');
-  });
 });

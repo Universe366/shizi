@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Bookmark,
   Command,
@@ -31,6 +31,7 @@ import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
 import { BatchAddDialog } from './start/BatchAddDialog';
 import { GroupNameDialog } from './start/GroupNameDialog';
+import { StartSidebar } from './start/StartSidebar';
 import { ShortcutDetail } from './start/ShortcutDetail';
 import { askConfirm } from './ui/confirm';
 import { WidgetPanel } from './start/WidgetPanel';
@@ -82,6 +83,7 @@ const SUGGEST_KEY = 'start-search-suggest';
 const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
 const AUTO_SYNC_KEY = 'start-auto-sync';
 const EXTRA_GROUPS_KEY = 'start-extra-groups';
+const GLASS_KEY = 'start-glass';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -281,6 +283,14 @@ export function StartPage({
   });
   const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
   const [searchSuggestOn, setSearchSuggestOn] = useState(readSearchSuggest);
+  const [glass, setGlass] = useState(() => {
+    try {
+      const value = Number(localStorage.getItem(GLASS_KEY));
+      return Number.isFinite(value) && value >= 10 && value <= 100 ? value : 58;
+    } catch {
+      return 58;
+    }
+  });
   const [autoSync, setAutoSync] = useState(() => {
     try {
       return localStorage.getItem(AUTO_SYNC_KEY) === '1';
@@ -761,6 +771,16 @@ export function StartPage({
       // ignore
     }
     showNotice('搜索历史已清空');
+  };
+
+  const changeGlass = (value: number) => {
+    const next = Math.min(100, Math.max(10, Math.round(value)));
+    setGlass(next);
+    try {
+      localStorage.setItem(GLASS_KEY, String(next));
+    } catch {
+      // ignore
+    }
   };
 
   const changeAutoSync = (value: boolean) => {
@@ -1467,6 +1487,13 @@ export function StartPage({
       className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
       }`}
+      style={
+        {
+          '--glass-strong': `${glass}%`,
+          '--glass-mid': `${Math.round(glass * 0.45)}%`,
+          '--glass-soft': `${Math.round(glass * 0.72)}%`
+        } as CSSProperties
+      }
     >
       {!displayVideo && displayBackground && (
         <div
@@ -1544,8 +1571,30 @@ export function StartPage({
         </div>
       </header>
 
-      <main className="start-main">
-        <section className="start-hero">
+      <div className="start-body">
+        <StartSidebar
+          groups={groups}
+          total={shortcuts.length}
+          activeGroup={activeGroup}
+          onGroup={setActiveGroup}
+          density={density}
+          onDensity={changeDensity}
+          selected={selectedShortcuts}
+          onClearSelection={() => setSelectedShortcuts([])}
+          onBatchDelete={batchDeleteShortcuts}
+          onBatchMove={batchMoveShortcuts}
+          onNewGroupFrom={requestNewGroup}
+          onExport={exportStart}
+          onImport={() => importRef.current?.click()}
+          onImportBookmarks={() => bookmarkRef.current?.click()}
+          onBatchAdd={() => setBatchOpen(true)}
+          onAdd={() => openEditor()}
+          frequent={frequent}
+          onMove={moveShortcutTo}
+        />
+
+        <main className="start-main">
+          <section className="start-hero">
           <div className="start-clock">{formatClock(now, clock)}</div>
           <div className="start-meta">
             {lunar && <span className="start-lunar">{lunar.text}</span>}
@@ -1787,8 +1836,9 @@ export function StartPage({
           >
             导入设置
           </button>
-        </footer>
-      </main>
+          </footer>
+        </main>
+      </div>
 
       {!minimal && (
         <Dock
@@ -1838,6 +1888,8 @@ export function StartPage({
         onSearchSuggest={changeSearchSuggest}
         autoSync={autoSync}
         onAutoSync={changeAutoSync}
+        glass={glass}
+        onGlass={changeGlass}
         searchHistoryCount={searchHistory.length}
         onClearSearchHistory={clearSearchHistory}
         bingWallpaper={bingWallpaper}

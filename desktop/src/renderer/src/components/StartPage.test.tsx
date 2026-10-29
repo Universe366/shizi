@@ -678,10 +678,12 @@ describe('StartPage 壁纸抽屉与极简模式', () => {
     render(<StartPage {...props()} />);
     fireEvent.click(screen.getByTitle('更换壁纸'));
     const ranges = document.querySelectorAll('.start-range input');
-    expect(ranges.length).toBe(2);
+    expect(ranges.length).toBe(3);
     fireEvent.change(ranges[0], { target: { value: '12' } });
     const saved = JSON.parse(localStorage.getItem('start-wallpaper-effect') || '{}');
     expect(saved.blur).toBe(12);
+    fireEvent.change(ranges[2], { target: { value: '40' } });
+    expect(localStorage.getItem('start-glass')).toBe('40');
   });
 
   it('极简模式隐藏小组件，再点恢复', async () => {

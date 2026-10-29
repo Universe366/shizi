@@ -3052,7 +3052,7 @@
     gap: 4px;
     overflow-y: auto;
     border-radius: 24px;
-    background: color-mix(in srgb, var(--start-surface) 58%, transparent);
+    background: color-mix(in srgb, var(--start-surface) var(--glass-strong, 58%), transparent);
     border: 1px solid color-mix(in srgb, var(--start-border-strong) 45%, transparent);
     box-shadow:
       0 24px 70px rgba(15, 23, 42, 0.18),
@@ -3332,9 +3332,9 @@
     radial-gradient(120% 90% at 14% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--start-surface) 58%, transparent),
-      color-mix(in srgb, var(--start-surface) 26%, transparent) 58%,
-      color-mix(in srgb, var(--start-surface) 44%, transparent)
+      color-mix(in srgb, var(--start-surface) var(--glass-strong, 58%), transparent),
+      color-mix(in srgb, var(--start-surface) var(--glass-mid, 26%), transparent) 58%,
+      color-mix(in srgb, var(--start-surface) var(--glass-soft, 44%), transparent)
     );
   border-color: color-mix(in srgb, var(--start-border-strong) 42%, rgba(255, 255, 255, 0.6));
   backdrop-filter: blur(34px) saturate(1.8) brightness(1.04);
@@ -3355,9 +3355,9 @@
     radial-gradient(120% 90% at 14% -10%, rgba(255, 255, 255, 0.62), transparent 55%),
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--start-surface) 64%, transparent),
-      color-mix(in srgb, var(--start-surface) 30%, transparent) 58%,
-      color-mix(in srgb, var(--start-surface) 50%, transparent)
+      color-mix(in srgb, var(--start-surface) var(--glass-strong, 64%), transparent),
+      color-mix(in srgb, var(--start-surface) var(--glass-mid, 30%), transparent) 58%,
+      color-mix(in srgb, var(--start-surface) var(--glass-soft, 50%), transparent)
     );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
@@ -3419,4 +3419,232 @@
     opacity: 0.5;
   }
 
+}
+
+/* ---------- 导航进入布局流：不再遮挡内容 ---------- */
+.start-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 18px;
+  padding: 0 34px 0 22px;
+}
+
+.start-sidebar {
+  flex: 0 0 236px;
+  width: 236px;
+  min-height: 0;
+  display: flex;
+}
+
+.start-sidebar .start-tabs {
+  position: static;
+  left: auto;
+  top: auto;
+  bottom: auto;
+  z-index: auto;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 4px;
+  overflow-y: auto;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--start-border-strong) 42%, rgba(255, 255, 255, 0.6));
+  background:
+    radial-gradient(120% 90% at 14% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--start-surface) var(--glass-strong, 58%), transparent),
+      color-mix(in srgb, var(--start-surface) var(--glass-mid, 26%), transparent) 58%,
+      color-mix(in srgb, var(--start-surface) var(--glass-soft, 44%), transparent)
+    );
+  backdrop-filter: blur(34px) saturate(1.8) brightness(1.04);
+  -webkit-backdrop-filter: blur(34px) saturate(1.8) brightness(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
+    0 22px 60px rgba(15, 23, 42, 0.16);
+  scrollbar-width: none;
+}
+
+.start-sidebar .start-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.start-sidebar .start-tabs::before {
+  content: '拾字 · SPACE';
+  padding: 4px 10px 12px;
+  color: var(--start-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+
+.start-sidebar .start-tab {
+  position: relative;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  justify-content: flex-start;
+  gap: 8px;
+  border-radius: 12px;
+  border-bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+.start-sidebar .start-tab-count {
+  margin-left: auto;
+}
+
+.start-sidebar .start-tab.is-active {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 26%, transparent),
+      color-mix(in srgb, var(--accent) 10%, transparent)
+    );
+  color: var(--start-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.start-sidebar .start-tab-new {
+  margin-top: 4px;
+  border: 1px dashed color-mix(in srgb, var(--start-border-strong) 50%, transparent);
+}
+
+.start-sidebar .start-tab-actions {
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--start-border) 55%, transparent);
+}
+
+.start-sidebar .start-tab-actions .start-tab {
+  height: 34px;
+  font-size: var(--fs-xs);
+}
+
+.start-sidebar .start-density {
+  display: flex;
+  width: 100%;
+  gap: 4px;
+}
+
+.start-sidebar .start-density-btn {
+  flex: 1;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.start-sidebar .start-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.start-main {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0 24px;
+}
+
+.start-topbar-brand {
+  display: none;
+}
+
+.start-topbar {
+  justify-content: flex-end;
+  padding-right: 34px;
+}
+
+.start-page.is-minimal .start-sidebar {
+  display: none;
+}
+
+.start-page.is-minimal .start-body {
+  padding: 0 34px;
+}
+
+.start-page.is-minimal .start-main {
+  padding-left: 0;
+}
+
+@media (max-width: 1080px) {
+  .start-body {
+    flex-direction: column;
+    padding: 0 20px;
+    gap: 10px;
+  }
+
+  .start-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 118px;
+  }
+
+  .start-sidebar .start-tabs {
+    height: auto;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 8px;
+    border-radius: 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .start-sidebar .start-tabs::before {
+    display: none;
+  }
+
+  .start-sidebar .start-tab {
+    width: auto;
+    flex: 0 0 auto;
+    height: 34px;
+  }
+
+  .start-sidebar .start-tab-count {
+    margin-left: 4px;
+  }
+
+  .start-sidebar .start-tab-actions {
+    margin-top: 0;
+    padding-top: 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    border-top: 0;
+  }
+
+  .start-sidebar .start-density {
+    width: auto;
+  }
+
+  .start-sidebar .start-density-btn {
+    width: 34px;
+    flex: 0 0 auto;
+  }
+
+  .start-sidebar .start-selection {
+    flex-wrap: nowrap;
+  }
+
+  .start-topbar-brand {
+    display: inline-flex;
+  }
+}
+
+
+
+:root[data-ui-glass='on'] .start-page .start-tile,
+:root[data-ui-glass='on'] .start-page .start-widget {
+  backdrop-filter: blur(34px) saturate(1.8) brightness(1.04);
+  -webkit-backdrop-filter: blur(34px) saturate(1.8) brightness(1.04);
 }
