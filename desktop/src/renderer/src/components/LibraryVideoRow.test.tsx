@@ -35,6 +35,7 @@ function props(overrides: Partial<Parameters<typeof LibraryVideoRow>[0]> = {}) {
     selected: false,
     onToggleSelect: vi.fn(),
     onOpen: vi.fn(),
+    onDetail: vi.fn(),
     onDelete: vi.fn(),
     ...overrides
   };
@@ -68,6 +69,14 @@ describe('LibraryVideoRow', () => {
     render(<LibraryVideoRow {...p} />);
     fireEvent.click(screen.getByTitle('从库中删除'));
     expect(p.onDelete).toHaveBeenCalledWith(video);
+    expect(p.onOpen).not.toHaveBeenCalled();
+  });
+
+  it('详情按钮打开二级页，不触发整行打开', () => {
+    const p = props();
+    render(<LibraryVideoRow {...p} />);
+    fireEvent.click(screen.getByTitle('查看字幕 / 总结 / 笔记'));
+    expect(p.onDetail).toHaveBeenCalledWith(video);
     expect(p.onOpen).not.toHaveBeenCalled();
   });
 

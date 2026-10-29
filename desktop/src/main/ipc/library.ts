@@ -44,6 +44,7 @@ import {
   getSummaryFor,
   getSummaryVersion,
   globalSearch,
+  ingestLocalFile,
   ingestVideo,
   listCollectionSummaryVersions,
   listCollections,
@@ -90,6 +91,29 @@ export function registerLibraryIpc(ctx: IpcContext): void {
       } catch (error) {
         console.warn('[m3] ingest failed:', (error as Error).message);
         return failure<LibraryIngestResult>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'library:ingest-file',
+    async (
+      _event,
+      payload: {
+        path: string;
+        title?: string;
+        owner?: string;
+        cover?: string;
+        sourceUrl?: string;
+        duration?: number;
+      }
+    ): Promise<Result<{ videoId: number; created: boolean }>> => {
+      try {
+        const result = await ingestLocalFile(payload);
+        if (!ctx.win.isDestroyed()) ctx.win.webContents.send('library:changed');
+        return { ok: true, data: result };
+      } catch (error) {
+        return failure<{ videoId: number; created: boolean }>(error);
       }
     }
   );

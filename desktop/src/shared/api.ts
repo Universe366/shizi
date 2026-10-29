@@ -279,6 +279,15 @@ export interface BsubApi {
   importLocalMedia(): Promise<
     Result<{ canceled: boolean; requestId?: string; filename?: string }>
   >;
+  /** 把已下载到本地的文件加入资料库；不跑 ASR。 */
+  ingestLocalFile(payload: {
+    path: string;
+    title?: string;
+    owner?: string;
+    cover?: string;
+    sourceUrl?: string;
+    duration?: number;
+  }): Promise<Result<{ videoId: number; created: boolean }>>;
   previewPodcast(url: string): Promise<Result<PodcastFeed>>;
   importPodcast(payload: {
     audioUrl: string;

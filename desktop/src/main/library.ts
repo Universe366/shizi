@@ -13,6 +13,7 @@ export {
 
 export {
   getLibraryDetail,
+  ingestLocalFile,
   ingestVideo,
   libraryVideoBundle,
   listLibrary,

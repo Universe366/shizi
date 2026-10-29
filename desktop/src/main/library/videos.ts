@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { isFtsEnabled, libraryFilePath, requireDb, toNumber } from './db';
 import { VIDEO_COLUMNS, ensureVideo, mapVideoRow } from './core';
 import { getNote } from './notes';
@@ -14,6 +16,42 @@ import type {
   LibraryStats,
   PageInfo
 } from '../../shared/types';
+
+/** 把已下载到本地的文件加入资料库；不跑 ASR，字幕后续再补。 */
+export async function ingestLocalFile(payload: {
+  path: string;
+  title?: string;
+  owner?: string;
+  cover?: string;
+  sourceUrl?: string;
+  duration?: number;
+}): Promise<{ videoId: number; created: boolean }> {
+  const file = String(payload?.path || '').trim();
+  if (!file || !fs.existsSync(file)) throw new Error('文件不存在');
+  if (!fs.statSync(file).isFile()) throw new Error('下载结果不是单个文件');
+  const database = requireDb();
+  const duration = Number(payload.duration) || 0;
+  const info: PageInfo = {
+    kind: 'local',
+    bvid: null,
+    aid: null,
+    cid: null,
+    epId: null,
+    seasonId: null,
+    page: 1,
+    partTitle: '',
+    parts: [],
+    title: String(payload.title || path.basename(file)).slice(0, 300),
+    owner: String(payload.owner || '本地文件'),
+    desc: payload.sourceUrl ? `下载自 ${payload.sourceUrl}` : '',
+    duration,
+    url: pathToFileURL(file).toString(),
+    signature: `local:${file}`,
+    cover: payload.cover || undefined
+  };
+  const result = ensureVideo(database, info, Date.now());
+  return { videoId: result.videoId, created: result.created };
+}
 
 /** 入库、列表、详情（把字幕/总结/笔记组装成渲染进程要的视图）。 */
 export function ingestVideo(payload: LibraryIngestPayload): LibraryIngestResult {

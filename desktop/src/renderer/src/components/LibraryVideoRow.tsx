@@ -1,4 +1,4 @@
-import { Download, Trash2 } from 'lucide-react';
+import { Download, Info, Trash2 } from 'lucide-react';
 import type { LibraryVideo } from '../../../shared/types';
 import { formatDate } from '../lib/format';
 import { metaLine } from '../lib/libraryView';
@@ -20,6 +20,7 @@ interface LibraryVideoRowProps {
   downloadProgress?: DownloadProgress;
   onToggleSelect: (id: number, shift?: boolean) => void;
   onOpen: (video: LibraryVideo) => void;
+  onDetail: (video: LibraryVideo) => void;
   onDelete: (video: LibraryVideo) => void;
   onDownload?: (video: LibraryVideo) => void;
 }
@@ -34,6 +35,7 @@ export function LibraryVideoRow({
   downloading = false,
   downloadProgress,
   onOpen,
+  onDetail,
   onDelete,
   onDownload
 }: LibraryVideoRowProps) {
@@ -99,6 +101,16 @@ export function LibraryVideoRow({
       </div>
       {!selectMode && (
         <>
+          <button
+            className="lib-delete"
+            title="查看字幕 / 总结 / 笔记"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDetail(video);
+            }}
+          >
+            <Info size={13} />
+          </button>
           {onDownload && (
             <button
               className="lib-delete lib-download"

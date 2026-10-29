@@ -139,6 +139,7 @@ export function LibraryPanel() {
   const searchSeq = useRef(0);
   const detailSeq = useRef(0);
   const noteDraftRef = useRef('');
+  const downloadMetaRef = useRef<Record<string, LibraryVideo>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,6 +155,35 @@ export function LibraryPanel() {
       setLoading(false);
     }
   }, [sort]);
+
+  useEffect(() => {
+    const offError = window.bsub.onDownloadError?.((event) => {
+      delete downloadMetaRef.current[event.requestId];
+    });
+    const off = window.bsub.onDownloadDone?.(async (event) => {
+      const meta = downloadMetaRef.current[event.requestId];
+      if (!meta) return;
+      delete downloadMetaRef.current[event.requestId];
+      const response = await window.bsub.ingestLocalFile?.({
+        path: event.path,
+        title: meta.title,
+        owner: meta.owner,
+        cover: meta.cover || undefined,
+        sourceUrl: meta.url
+      });
+      if (response?.ok) {
+        setNotice(`下载完成，已存入资料库：${meta.title}`);
+        await load();
+      } else {
+        setNotice(response?.error || '下载完成，但保存到资料库失败');
+      }
+      window.setTimeout(() => setNotice(''), 5000);
+    });
+    return () => {
+      off?.();
+      offError?.();
+    };
+  }, [load]);
 
   const loadTags = useCallback(async () => {
     const response = await window.bsub.listTags();
@@ -1181,9 +1211,9 @@ export function LibraryPanel() {
                   className="lib-video"
                   role="button"
                   tabIndex={0}
-                  onClick={() => openDetail(video)}
+                  onClick={() => openInBrowser(video)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') openDetail(video);
+                    if (event.key === 'Enter') openInBrowser(video);
                   }}
                 >
                   {video.cover ? (
@@ -1281,7 +1311,8 @@ export function LibraryPanel() {
               downloading={downloadBusyId === video.id}
               downloadProgress={activeDownloadFor(downloads, video.id)}
               onToggleSelect={toggleSelect}
-              onOpen={openDetail}
+              onOpen={openInBrowser}
+              onDetail={openDetail}
               onDelete={(item) => setPendingDelete(item)}
               onDownload={(item) => {
                 void (async () => {
@@ -1293,6 +1324,7 @@ export function LibraryPanel() {
                     options: snapshot.ok ? snapshot.data.settings.general.download : undefined
                   });
                   if (response?.ok && response.data?.requestId) {
+                    downloadMetaRef.current[response.data.requestId] = item;
                     trackDownload(response.data.requestId, item.id, item.title);
                   }
                   setDownloadBusyId(null);

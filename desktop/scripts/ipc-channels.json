@@ -133,6 +133,7 @@
   "library:get",
   "library:get-summary",
   "library:ingest",
+  "library:ingest-file",
   "library:list",
   "library:note",
   "library:note-save",

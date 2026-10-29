@@ -72,8 +72,10 @@ const detail: LibraryDetail = {
 function installBsub() {
   const getLibraryItem = vi.fn(async () => ({ ok: true as const, data: detail }));
   const listLibrary = vi.fn(async () => ({ ok: true as const, data: list }));
+  const openUrl = vi.fn(async () => ({ ok: true as const, data: true }));
   const api = {
     listLibrary,
+    openUrl,
     listTags: vi.fn(async () => ({ ok: true as const, data: [] })),
     listCollections: vi.fn(async () => ({ ok: true as const, data: [] })),
     listTrash: vi.fn(async () => ({ ok: true as const, data: [] })),
@@ -93,7 +95,7 @@ function installBsub() {
       }
     })
   });
-  return { getLibraryItem, listLibrary };
+  return { getLibraryItem, listLibrary, openUrl };
 }
 
 describe('LibraryPanel', () => {
@@ -112,10 +114,18 @@ describe('LibraryPanel', () => {
     expect(screen.getByText(/自检 UP/)).toBeTruthy();
   });
 
-  it('点击条目后打开详情并展示字幕', async () => {
-    const { getLibraryItem } = installBsub();
+  it('点击条目直接打开网页', async () => {
+    const { openUrl, getLibraryItem } = installBsub();
     render(<LibraryPanel />);
     fireEvent.click(await screen.findByText('组件测试视频'));
+    await waitFor(() => expect(openUrl).toHaveBeenCalledWith(video.url, undefined));
+    expect(getLibraryItem).not.toHaveBeenCalled();
+  });
+
+  it('详情按钮打开二级页并展示字幕', async () => {
+    const { getLibraryItem } = installBsub();
+    render(<LibraryPanel />);
+    fireEvent.click(await screen.findByTitle('查看字幕 / 总结 / 笔记'));
 
     await waitFor(() => expect(getLibraryItem).toHaveBeenCalledWith(7));
     expect(await screen.findByText(/第一句/)).toBeTruthy();

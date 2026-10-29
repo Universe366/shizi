@@ -385,6 +385,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('library:bulk-remove', { videoIds }) as Promise<
       Result<{ removed: number }>
     >,
+  ingestLocalFile: (payload) =>
+    ipcRenderer.invoke('library:ingest-file', payload) as Promise<
+      Result<{ videoId: number; created: boolean }>
+    >,
   importLocalMedia: () =>
     ipcRenderer.invoke('local:import') as Promise<
       Result<{ canceled: boolean; requestId?: string; filename?: string }>
