@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import {
   Captions,
+  Check,
   Clapperboard,
   Download,
   FileText,
@@ -27,6 +28,7 @@ import type {
   LibraryVideo,
   OptimizeSuggestion,
   PageInfo,
+  QualityReport,
   SubtitleLine,
   SubtitleStyle,
   SubtitleTrack
@@ -40,7 +42,7 @@ import { SynthesizeDialog } from './SynthesizeDialog';
 import { DubDialog } from './DubDialog';
 import { DownloadVideoDialog } from './DownloadVideoDialog';
 import { RendersPanel } from './RendersPanel';
-import { SubtitleOptimizePanel } from './SubtitleOptimizePanel';
+import { SubtitleOptimizePanel, SubtitleQualityCard } from './SubtitleOptimizePanel';
 
 const LANGUAGES = [
   { value: 'auto', label: '自动检测' },
@@ -107,6 +109,7 @@ export function StudioWorkbench() {
   const [suggestions, setSuggestions] = useState<OptimizeSuggestion[] | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
   const [optimizeMessage, setOptimizeMessage] = useState('');
+  const [quality, setQuality] = useState<QualityReport | null>(null);
   const [library, setLibrary] = useState<LibraryVideo[]>([]);
   const [batchSelected, setBatchSelected] = useState<Set<number>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
@@ -358,19 +361,21 @@ export function StudioWorkbench() {
           row.id === item.id ? { ...row, status: 'running', percent: 0, error: undefined } : row
         )
       );
+      const waiter = new Promise<void>((resolve) => {
+        batchResolve.current = resolve;
+      });
       const response = await window.bsub.transcribeLocalVideo?.(item.path, language);
       if (!response?.ok) {
+        batchResolve.current = null;
+        batchActive.current = '';
         setLocalBatch((current) =>
           current.map((row) =>
             row.id === item.id ? { ...row, status: 'failed', error: response?.error } : row
           )
         );
-        batchActive.current = '';
         continue;
       }
-      await new Promise<void>((resolve) => {
-        batchResolve.current = resolve;
-      });
+      await waiter;
       const saved = await window.bsub.saveLocalTranscript?.({
         path: item.path,
         name: batchMeta.current.name || item.name,
@@ -517,6 +522,21 @@ export function StudioWorkbench() {
     }
   };
 
+  const checkQuality = async () => {
+    if (!info || !lines.length) return;
+    const response = await window.bsub.checkQuality(info, lines);
+    if (response.ok) {
+      setQuality(response.data);
+      setOptimizeMessage(
+        response.data.issues.length
+          ? `质检发现 ${response.data.issues.length} 个问题`
+          : '质检通过，未发现明显问题'
+      );
+    } else {
+      setOptimizeMessage(response.error);
+    }
+  };
+
   const applySuggestions = (all = false) => {
     if (!suggestions) return;
     const chosen = all ? suggestions : suggestions.filter((item) => selectedSuggestions.has(item.index));
@@ -591,6 +611,17 @@ export function StudioWorkbench() {
       base[index] = { ...base[index], text };
       return base;
     });
+  };
+
+  const deletePreset = async (name: string) => {
+    const response = await window.bsub.getSettings?.();
+    if (!response?.ok) return;
+    const settings = response.data.settings;
+    const next = (settings.general.subtitlePresets || []).filter((preset) => preset.name !== name);
+    settings.general.subtitlePresets = next;
+    await window.bsub.saveSettings(settings);
+    setPresets(next);
+    setMessage(`已删除预设「${name}」`);
   };
 
   const persistStyle = async (asPreset: boolean) => {
@@ -834,6 +865,9 @@ export function StudioWorkbench() {
                   <button className="mini-btn" onClick={() => setResegmentOpen(true)}>
                     <Scissors size={12} /> 断句
                   </button>
+                  <button className="mini-btn" onClick={() => void checkQuality()}>
+                    <Check size={12} /> 质检
+                  </button>
                   <select className="mini-select" value={target} onChange={(event) => setTarget(event.target.value)}>
                     {TARGETS.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
@@ -851,7 +885,12 @@ export function StudioWorkbench() {
                     <span>时间</span><span>原文</span><span>译文</span><span />
                   </div>
                   {lines.slice(0, 300).map((line, index) => (
-                    <div className="studio-table-row" role="row" key={`${line.start}-${index}`}>
+                    <div
+                      className="studio-table-row"
+                      role="row"
+                      data-line-index={index}
+                      key={`${line.start}-${index}`}
+                    >
                       <span className="studio-time">
                         {Math.floor(line.start / 60)}:{String(Math.floor(line.start % 60)).padStart(2, '0')}
                       </span>
@@ -875,6 +914,19 @@ export function StudioWorkbench() {
                     </div>
                   ))}
                 </div>
+                <SubtitleQualityCard
+                  quality={quality}
+                  onClose={() => setQuality(null)}
+                  onJumpIssue={(issue) => {
+                    if (typeof issue.lineIndex !== 'number') return;
+                    const row = document.querySelector(
+                      `[data-line-index="${issue.lineIndex}"]`
+                    );
+                    if (typeof row?.scrollIntoView === 'function') {
+                      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    }
+                  }}
+                />
                 <SubtitleOptimizePanel
                   suggestions={suggestions}
                   selected={selectedSuggestions}
@@ -935,9 +987,21 @@ export function StudioWorkbench() {
               {presets.length > 0 && (
                 <div className="studio-preset-list">
                   {presets.map((preset) => (
-                    <button key={preset.name} className="mini-btn" onClick={() => setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...preset.style })}>
-                      {preset.name}
-                    </button>
+                    <span className="studio-preset-chip" key={preset.name}>
+                      <button
+                        className="mini-btn"
+                        onClick={() => setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...preset.style })}
+                      >
+                        {preset.name}
+                      </button>
+                      <button
+                        className="studio-preset-remove"
+                        title="删除预设"
+                        onClick={() => void deletePreset(preset.name)}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
                   ))}
                 </div>
               )}
@@ -972,9 +1036,17 @@ export function StudioWorkbench() {
             {!lines.length ? (
               <div className="studio-empty">
                 <Film size={24} />
-                <b>先有字幕才能出成片</b>
-                <span>去「字幕」生成或导入字幕后回来。</span>
-                <button className="mini-btn primary" onClick={() => setTab('subtitle')}>去字幕</button>
+                <b>先有视频和字幕才能出成片</b>
+                <span>可以直接在这里选视频、导入字幕，或去「字幕」生成。</span>
+                <div className="studio-inline">
+                  <button className="mini-btn primary" onClick={() => void pick()}>
+                    <FileVideo size={12} /> 选择视频
+                  </button>
+                  <button className="mini-btn" onClick={() => void importSubtitle()}>
+                    <FileText size={12} /> 导入字幕
+                  </button>
+                  <button className="mini-btn" onClick={() => setTab('subtitle')}>去字幕</button>
+                </div>
               </div>
             ) : (
               <>
@@ -1000,6 +1072,12 @@ export function StudioWorkbench() {
                 <div className="studio-card studio-export-row">
                   <span>{file?.name || importedName || '未选择视频'} · {lines.length} 行</span>
                   <div className="studio-inline">
+                    <button className="mini-btn" onClick={() => void pick()}>
+                      <FileVideo size={12} /> 视频
+                    </button>
+                    <button className="mini-btn" onClick={() => void importSubtitle()}>
+                      <FileText size={12} /> 字幕
+                    </button>
                     <ExportMenu info={info} track={track} lines={lines} translated={translated} onSynthesize={() => { setSynthStyle(null); setSynthOpen(true); }} onDub={() => setDubOpen(true)} />
                     <button className="mini-btn" onClick={() => setTab('style')}><Palette size={12} /> 调整样式</button>
                   </div>

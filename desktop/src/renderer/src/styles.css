@@ -14509,3 +14509,33 @@ sup:has(> .cite-ref) {
     grid-template-columns: 1fr;
   }
 }
+
+.studio-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.studio-preset-chip .mini-btn {
+  border: 0;
+  background: transparent;
+}
+
+.studio-preset-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  color: var(--faint);
+}
+
+.studio-preset-remove:hover {
+  color: #e5484d;
+  background: var(--surface);
+}
