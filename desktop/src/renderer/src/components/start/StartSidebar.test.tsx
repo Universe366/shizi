@@ -28,6 +28,7 @@ function setup(overrides: Partial<Parameters<typeof StartSidebar>[0]> = {}) {
     onAdd: vi.fn(),
     frequent: groups[0][1],
     onMove: vi.fn(),
+    onReorderGroup: vi.fn(),
     ...overrides
   };
   render(<StartSidebar {...props} />);
@@ -54,6 +55,20 @@ describe('StartSidebar', () => {
     ) as HTMLElement;
     fireEvent.click(tab);
     expect(props.onGroup).toHaveBeenCalledWith('常用');
+  });
+
+  it('拖动分组标签会重排分组', () => {
+    const props = setup();
+    const tab = [...document.querySelectorAll('.start-tab')].find((el) =>
+      el.textContent?.includes('学习')
+    ) as HTMLElement;
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => 'group:常用',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.drop(tab, { dataTransfer: transfer });
+    expect(props.onReorderGroup).toHaveBeenCalledWith('常用', '学习');
   });
 
   it('拖入分组标签会移动卡片', () => {

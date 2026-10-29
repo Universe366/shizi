@@ -9,6 +9,7 @@ import {
   Info,
   ListChecks,
   Palette,
+  PanelLeft,
   Pencil,
   Pin,
   Settings,
@@ -85,6 +86,7 @@ const AUTO_SYNC_KEY = 'start-auto-sync';
 const EXTRA_GROUPS_KEY = 'start-extra-groups';
 const GLASS_KEY = 'start-glass';
 const SIDEBAR_SIDE_KEY = 'start-sidebar-side';
+const GROUP_ORDER_KEY = 'start-group-order';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -178,6 +180,17 @@ function readWidgetCollapsed(): string[] {
   }
 }
 
+function readGroupOrder(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GROUP_ORDER_KEY) || '[]');
+    return Array.isArray(raw)
+      ? raw.map(String).filter((item) => Boolean(item.trim())).slice(0, 50)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function readExtraGroups(): string[] {
   try {
     const raw = JSON.parse(localStorage.getItem(EXTRA_GROUPS_KEY) || '[]');
@@ -235,6 +248,8 @@ export function StartPage({
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupSeed, setGroupSeed] = useState<string | null>(null);
   const [extraGroups, setExtraGroups] = useState<string[]>(readExtraGroups);
+  const [groupOrder, setGroupOrder] = useState<string[]>(readGroupOrder);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
   const [dockIds, setDockIds] = useState<string[]>([]);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
@@ -885,8 +900,11 @@ export function StartPage({
     for (const group of extraGroups) {
       if (!map.has(group)) map.set(group, []);
     }
-    return Array.from(map.entries());
-  }, [shortcuts, extraGroups]);
+    const rank = new Map(groupOrder.map((group, index) => [group, index]));
+    return Array.from(map.entries()).sort(
+      ([a], [b]) => (rank.get(a) ?? 999) - (rank.get(b) ?? 999)
+    );
+  }, [shortcuts, extraGroups, groupOrder]);
 
   const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
   const dockShortcuts = useMemo(() => {
@@ -991,6 +1009,7 @@ export function StartPage({
     setGroupDialogOpen(false);
     setGroupSeed(null);
     saveExtraGroups([...extraGroups, trimmed]);
+    saveGroupOrder([...groups.map(([group]) => group), trimmed]);
     if (seed) {
       void persistShortcuts(
         shortcuts.map((item) => (item.id === seed ? { ...item, group: trimmed } : item))
@@ -1057,12 +1076,37 @@ export function StartPage({
     }
   };
 
+  const saveGroupOrder = (next: string[]) => {
+    const unique = Array.from(new Set(next.filter(Boolean))).slice(0, 50);
+    setGroupOrder(unique);
+    try {
+      localStorage.setItem(GROUP_ORDER_KEY, JSON.stringify(unique));
+    } catch {
+      // ignore
+    }
+  };
+
+  const reorderGroup = (from: string, to: string) => {
+    if (from === to) return;
+    const names = groups.map(([group]) => group);
+    const fromIndex = names.indexOf(from);
+    const toIndex = names.indexOf(to);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const next = [...names];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    saveGroupOrder(next);
+  };
+
   const renameGroup = (from: string, to: string) => {
     const next = shortcuts.map((item) =>
       (item.group || '常用') === from ? { ...item, group: to } : item
     );
     if (extraGroups.includes(from)) {
       saveExtraGroups(extraGroups.map((group) => (group === from ? to : group)));
+    }
+    if (groupOrder.includes(from)) {
+      saveGroupOrder(groupOrder.map((group) => (group === from ? to : group)));
     }
     if (activeGroup === from) setActiveGroup(to);
     void persistShortcuts(next);
@@ -1072,6 +1116,7 @@ export function StartPage({
     const items = shortcuts.filter((item) => (item.group || '常用') === group);
     if (!items.length) {
       saveExtraGroups(extraGroups.filter((item) => item !== group));
+      saveGroupOrder(groupOrder.filter((item) => item !== group));
       if (activeGroup === group) setActiveGroup('全部');
       return;
     }
@@ -1278,7 +1323,8 @@ export function StartPage({
       clock,
       weatherUnit,
       bingFavorites,
-      rotateMinutes
+      rotateMinutes,
+      groups: extraGroups
     });
 
   const exportStart = () => {
@@ -1453,6 +1499,9 @@ export function StartPage({
         startBingCopyright: prefs.bingCopyright || ''
       });
     }
+    if (prefs.groups?.length) {
+      saveExtraGroups([...extraGroups, ...prefs.groups]);
+    }
     applyBackup({
       bingFavorites: prefs.bingFavorites,
       rotateMinutes: prefs.rotateMinutes
@@ -1503,7 +1552,7 @@ export function StartPage({
     <div
       className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
-      }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}`}
+      }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}${sidebarPinned ? ' is-sidebar-pinned' : ''}`}
       style={
         {
           '--glass-strong': `${glass}%`,
@@ -1555,6 +1604,13 @@ export function StartPage({
           拾字
         </div>
         <div className="start-topbar-actions">
+          <button
+            className={`start-ghost-btn${sidebarPinned ? ' is-active' : ''}`}
+            title={sidebarPinned ? '收起分组栏' : '固定分组栏'}
+            onClick={() => setSidebarPinned((value) => !value)}
+          >
+            <PanelLeft size={14} />
+          </button>
           <button
             className="start-ghost-btn"
             title="指令面板"
@@ -1608,6 +1664,7 @@ export function StartPage({
           onAdd={() => openEditor()}
           frequent={frequent}
           onMove={moveShortcutTo}
+          onReorderGroup={reorderGroup}
         />
 
         <main className="start-main">

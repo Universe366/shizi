@@ -3990,3 +3990,11 @@
 .start-drawer {
   font-size: 14px;
 }
+
+.start-page.is-sidebar-pinned .start-sidebar {
+  transform: translateX(0);
+}
+
+.start-page.is-sidebar-right.is-sidebar-pinned .start-sidebar {
+  transform: translateX(0);
+}

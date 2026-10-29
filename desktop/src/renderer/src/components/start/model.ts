@@ -434,6 +434,7 @@ export interface StartBackup {
     weatherUnit?: TemperatureUnit;
     bingFavorites?: string[];
     rotateMinutes?: number;
+    groups?: string[];
   };
 }
 
@@ -459,6 +460,7 @@ export interface StartBackupInput {
   weatherUnit?: TemperatureUnit;
   bingFavorites?: string[];
   rotateMinutes?: number;
+  groups?: string[];
 }
 
 const MAX_BACKUP_SHORTCUTS = 500;
@@ -524,7 +526,8 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
       clock: input.clock,
       weatherUnit: input.weatherUnit,
       bingFavorites: input.bingFavorites,
-      rotateMinutes: input.rotateMinutes
+      rotateMinutes: input.rotateMinutes,
+      groups: input.groups
     }
   };
 }
@@ -648,6 +651,16 @@ export function parseStartBackup(text: string): ParsedBackup {
           : undefined,
         rotateMinutes: [0, 5, 15, 30, 60].includes(Number(prefsRaw.rotateMinutes))
           ? Number(prefsRaw.rotateMinutes)
+          : undefined,
+        groups: Array.isArray(prefsRaw.groups)
+          ? Array.from(
+              new Set(
+                prefsRaw.groups
+                  .filter((item): item is string => typeof item === 'string')
+                  .map((item) => item.trim())
+                  .filter(Boolean)
+              )
+            ).slice(0, 30)
           : undefined
       }
     }

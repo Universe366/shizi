@@ -31,6 +31,7 @@ interface StartSidebarProps {
   onAdd: () => void;
   frequent: StartShortcut[];
   onMove: (fromId: string, group: string) => void;
+  onReorderGroup: (from: string, to: string) => void;
 }
 
 /** 起始页左侧导航：分组、密度、导入导出、批量与添加。 */
@@ -52,7 +53,8 @@ export function StartSidebar({
   onBatchAdd,
   onAdd,
   frequent,
-  onMove
+  onMove,
+  onReorderGroup
 }: StartSidebarProps) {
   const [dropGroup, setDropGroup] = useState<string | null>(null);
 
@@ -60,7 +62,8 @@ export function StartSidebar({
     event.preventDefault();
     event.stopPropagation();
     const from = event.dataTransfer.getData('text/plain');
-    if (from) onMove(from, group);
+    if (from.startsWith('group:')) onReorderGroup(from.slice(6), group);
+    else if (from) onMove(from, group);
     setDropGroup(null);
   };
 
@@ -90,8 +93,13 @@ export function StartSidebar({
             className={`start-tab${activeGroup === group ? ' is-active' : ''}${
               dropGroup === group ? ' is-drop' : ''
             }`}
-            title="点击切换；拖入快捷方式可移到该分组"
+            title="点击切换；拖动可排序；拖入快捷方式可移到该分组"
+            draggable
             onClick={() => onGroup(group)}
+            onDragStart={(event) => {
+              event.dataTransfer.setData('text/plain', `group:${group}`);
+              event.dataTransfer.effectAllowed = 'move';
+            }}
             onDragOver={(event) => {
               event.preventDefault();
               setDropGroup(group);

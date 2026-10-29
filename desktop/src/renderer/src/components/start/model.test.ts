@@ -248,7 +248,8 @@ describe('起始页数据备份', () => {
       usage: { a: 3 },
       pomodoroRounds: 2,
       bingFavorites: ['https://www.bing.com/a.jpg'],
-      rotateMinutes: 15
+      rotateMinutes: 15,
+      groups: ['灵感']
     });
     const parsed = parseStartBackup(JSON.stringify(backup));
     expect(parsed.ok).toBe(true);
@@ -258,6 +259,7 @@ describe('起始页数据备份', () => {
       expect(parsed.data.prefs.pomodoroRounds).toBe(2);
       expect(parsed.data.prefs.bingFavorites).toEqual(['https://www.bing.com/a.jpg']);
       expect(parsed.data.prefs.rotateMinutes).toBe(15);
+      expect(parsed.data.prefs.groups).toEqual(['灵感']);
     }
   });
 
