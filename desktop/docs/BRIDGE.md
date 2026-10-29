@@ -174,6 +174,34 @@ Content-Type: application/json
 
 按 `key` 建一个专用桥接会话，**整段替换**消息（不碰桌面端自己的会话），重复同步幂等。
 
+### GET /v1/chat/export?all=1（v2，对话导出）
+
+- 不带 `all`：只导出插件写入的桥接会话，沿用插件 `key`；
+- `all=1`：导出桥接会话 + 桌面原生会话；原生会话 key 为 `desktop:<id>`；
+- 返回 `{ conversations: [{ key, videoKey, videoTitle, title, updatedAt, messages }] }`；
+- 插件首次迁移会拉回本地，桌面原生会话只做只读预览。
+
+### GET /v1/settings/shared?includeSecrets=1（v2，共享设置快照）
+
+返回两端都有意义的设置：
+
+- AI 平台 / Key / 模型 / 温度 / maxTokens；
+- 检索平台 / Key / 结果数 / 联网策略；
+- ASR 平台 / Key / 语言 / 并发 / 超时；
+- 提示词模板 / 总结格式规则 / 术语表；
+- 导出格式与模板。
+
+默认 `includeSecrets=0`，只返回 `hasKey` 标记；`includeSecrets=1` 才返回明文 Key，仅供本机首次迁移使用，不写日志。
+
+### POST /v1/settings/shared（v2，导入共享设置）
+
+请求体为 `GET` 返回的 `settings` 对象。按平台 `id` 合并：
+
+- 已存在的平台更新字段；不存在的追加；
+- 空 `apiKey` 不覆盖已有 Key；
+- 当前 activeId 只在对应平台存在时切换；
+- 写完由桌面 `saveSettings` 重新加密 Key。
+
 ### POST /v1/rpc/approval（v2，MCP 审批）
 
 ```json
