@@ -1,8 +1,7 @@
-import { Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
+import { HardDrive, Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import type { AppSettings, AsrDownloadProgress, AsrLocalStatus, AsrPlatform } from '../../../../shared/types';
+import type { AppSettings, AsrLocalStatus, AsrPlatform } from '../../../../shared/types';
 import { ModelChips, SettingsSection } from './SettingsSection';
-import { formatElapsed, useElapsedSeconds } from '../../lib/useElapsed';
 
 interface AsrSectionProps {
   draft: AppSettings;
@@ -20,21 +19,6 @@ interface AsrSectionProps {
   setEditingAsrId: (id: string) => void;
   platformStatus: (kind: 'ai' | 'asr' | 'search') => ReactNode;
 }
-
-const MODEL_LABELS: Record<string, string> = {
-  tiny: 'tiny（74MB）',
-  base: 'base（141MB）',
-  small: 'small（465MB）',
-  medium: 'medium（1.5GB）',
-  'large-v3-turbo': 'large-v3-turbo（1.6GB）'
-};
-
-const BINARY_LABELS: Record<string, string> = {
-  cpu: 'CPU',
-  vulkan: 'Vulkan（AMD/NVIDIA/Intel）',
-  cuda118: 'CUDA 11.8',
-  cuda124: 'CUDA 12.4'
-};
 
 /** 语音识别：平台/协议、Key、模型探测、切片与并发等转录参数。 */
 export function AsrSection({
@@ -54,16 +38,6 @@ export function AsrSection({
   platformStatus
 }: AsrSectionProps) {
   const [localStatus, setLocalStatus] = useState<AsrLocalStatus | null>(null);
-  const [download, setDownload] = useState<AsrDownloadProgress | null>(null);
-  const [modelChoice, setModelChoice] = useState<
-    'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
-  >('base');
-  const [binaryVariant, setBinaryVariant] = useState<
-    'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
-  >('cpu');
-  const [gpuNames, setGpuNames] = useState<string[]>([]);
-  const [localNotice, setLocalNotice] = useState('');
-  const downloadElapsed = useElapsedSeconds(Boolean(download));
 
   const refreshStatus = () => {
     void window.bsub?.localAsrStatus?.().then((response) => {
@@ -73,25 +47,11 @@ export function AsrSection({
 
   useEffect(() => {
     refreshStatus();
-    return window.bsub?.onAsrDownloadProgress?.((progress) => {
-      setDownload(progress);
-      if (progress.percent >= 100) refreshStatus();
-    });
   }, []);
 
   if (!activeAsr) return null;
   const isLocal = activeAsr.kind === 'local-whisper';
   const hasLocal = draft.asr.platforms.some((platform) => platform.kind === 'local-whisper');
-  const pickPath = async (field: 'localExe' | 'localModel') => {
-    const response = await window.bsub.pickFile?.({
-      title: field === 'localExe' ? '选择 whisper-cli.exe' : '选择 ggml 模型文件',
-      filters:
-        field === 'localExe'
-          ? [{ name: '可执行文件', extensions: ['exe'] }]
-          : [{ name: 'whisper.cpp 模型', extensions: ['bin'] }]
-    });
-    if (response?.ok && response.data) updateAsrPlatform({ [field]: response.data });
-  };
   const addLocalPlatform = () => {
     updateAsr({
       activeId: 'local-whisper',
@@ -112,39 +72,6 @@ export function AsrSection({
         }
       ]
     });
-  };
-
-  const startDownload = async (kind: 'model' | 'binary') => {
-    const response =
-      kind === 'model'
-        ? await window.bsub.downloadAsrModel?.(modelChoice)
-        : await window.bsub.downloadAsrBinary?.(binaryVariant);
-    if (!response) return;
-    if (!response.ok) {
-      setDownload({
-        key: kind === 'model' ? `model:${modelChoice}` : `binary:${binaryVariant}`,
-        percent: 0,
-        received: 0,
-        total: 0,
-        message: response.error
-      });
-      return;
-    }
-    if (kind === 'model') updateAsrPlatform({ localModel: response.data.path });
-    else updateAsrPlatform({ localExe: response.data.path });
-    setDownload(null);
-    refreshStatus();
-  };
-
-  const detectGpu = async () => {
-    const response = await window.bsub.detectGpu?.();
-    if (!response?.ok) return;
-    const names = response.data.names;
-    setGpuNames(names);
-    const text = names.join(' ').toLowerCase();
-    if (/nvidia|geforce|rtx|gtx|quadro/.test(text)) setBinaryVariant('cuda124');
-    else if (/amd|radeon|intel|arc/.test(text)) setBinaryVariant('vulkan');
-    else setBinaryVariant('cpu');
   };
 
   useEffect(() => {
@@ -221,11 +148,12 @@ export function AsrSection({
   </div>
 
   <div className="settings-group">
-    <div className="settings-group-title">连接信息</div>
+    <div className="settings-group-title">本地 Whisper 设置</div>
     {isLocal ? (
       <>
         <div className="settings-group-desc">
-          音频只在本机处理，不会上传到任何平台。需要先下载 whisper.cpp 和模型文件。
+          音频只在本机处理，不会上传。模型与 whisper.cpp 的下载、选用、删除统一在下方
+          「本地 Whisper 模型」里管理，这里只保留当前平台的线程数和测试。
         </div>
         <div className="settings-label">平台名称</div>
         <input
@@ -233,129 +161,6 @@ export function AsrSection({
           value={activeAsr.name}
           onChange={(event) => updateAsrPlatform({ name: event.target.value })}
         />
-        <div className="settings-label">whisper.cpp 可执行文件</div>
-        <div className="settings-inline">
-          <input
-            className="settings-input"
-            value={activeAsr.localExe || ''}
-            placeholder="D:\\whisper\\whisper-cli.exe"
-            spellCheck={false}
-            onChange={(event) => updateAsrPlatform({ localExe: event.target.value })}
-          />
-          <button className="mini-btn" onClick={() => void pickPath('localExe')}>
-            选择…
-          </button>
-        </div>
-        <div className="settings-label">模型文件（ggml-*.bin）</div>
-        <div className="settings-inline">
-          <input
-            className="settings-input"
-            value={activeAsr.localModel || ''}
-            placeholder="D:\\whisper\\ggml-base.bin"
-            spellCheck={false}
-            onChange={(event) => updateAsrPlatform({ localModel: event.target.value })}
-          />
-          <button className="mini-btn" onClick={() => void pickPath('localModel')}>
-            选择…
-          </button>
-        </div>
-        <div className="settings-label">一键下载（存到程序数据目录，离线可用）</div>
-        <div className="settings-inline">
-          <select
-            className="settings-input"
-            value={modelChoice}
-            onChange={(event) =>
-              setModelChoice(
-                event.target.value as 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
-              )
-            }
-          >
-            <option value="tiny">tiny（约 74MB，最快）</option>
-            <option value="base">base（约 141MB，推荐）</option>
-            <option value="small">small（约 465MB，更准）</option>
-            <option value="medium">medium（约 1.5GB，高质量）</option>
-            <option value="large-v3-turbo">large-v3-turbo（约 1.6GB，大模型加速版）</option>
-          </select>
-          <button
-            className="mini-btn primary"
-            disabled={Boolean(download)}
-            onClick={() => void startDownload('model')}
-          >
-            下载模型
-          </button>
-          {download && download.percent < 100 && (
-            <button
-              className="mini-btn"
-              onClick={() => {
-                window.bsub.cancelAsrDownload?.(download?.key ?? '');
-                setDownload(null);
-              }}
-            >
-              取消
-            </button>
-          )}
-        </div>
-        <div className="settings-inline">
-          <select
-            className="settings-input"
-            value={binaryVariant}
-            onChange={(event) =>
-              setBinaryVariant(
-                event.target.value as 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
-              )
-            }
-          >
-            <option value="cpu">CPU（通用，约 8MB）</option>
-            <option value="vulkan">Vulkan（AMD / NVIDIA / Intel，约 20MB）</option>
-            <option value="cuda118">NVIDIA CUDA 11.8（约 257MB）</option>
-            <option value="cuda124">NVIDIA CUDA 12.4（约 640MB）</option>
-          </select>
-          <button
-            className="mini-btn primary"
-            disabled={Boolean(download)}
-            onClick={() => void startDownload('binary')}
-          >
-            下载 whisper.cpp
-          </button>
-          <button className="mini-btn" disabled={Boolean(download)} onClick={() => void detectGpu()}>
-            检测显卡
-          </button>
-        </div>
-        {gpuNames.length > 0 && (
-          <div className="settings-hint">检测到显卡：{gpuNames.join(' / ')}</div>
-        )}
-        {download && (
-          <div className="settings-hint">
-            {download.message} · 已用 {formatElapsed(downloadElapsed)}
-            {download.total > 0
-              ? ` · ${Math.round(download.received / 1024 / 1024)} / ${Math.round(
-                  download.total / 1024 / 1024
-                )} MB`
-              : ''}
-          </div>
-        )}
-        <div className="settings-hint">
-          已就绪：
-          {localStatus?.binaries?.cuda124 ? ' CUDA 12.4 ✓' : ''}
-          {localStatus?.binaries?.cuda118 ? ' CUDA 11.8 ✓' : ''}
-          {localStatus?.binaries?.vulkan ? ' Vulkan ✓' : ''}
-          {localStatus?.binaries?.cpu ? ' CPU ✓' : ''}
-          {!localStatus?.binary ? ' whisper.cpp 未下载' : ''}
-          {localStatus?.models?.tiny ? ' · tiny ✓' : ''}
-          {localStatus?.models?.base ? ' · base ✓' : ''}
-          {localStatus?.models?.small ? ' · small ✓' : ''}
-          {localStatus?.models?.medium ? ' · medium ✓' : ''}
-          {localStatus?.models?.['large-v3-turbo'] ? ' · large-v3-turbo ✓' : ''}
-        </div>
-        <div className="settings-hint">
-          保存位置：{localStatus?.dir || '读取中…'}
-          {localStatus?.note ? `（${localStatus.note}）` : ''}
-        </div>
-        {localStatus && !localStatus.binary && (
-          <div className="settings-hint" style={{ color: 'var(--danger)' }}>
-            还没有 whisper.cpp 可执行文件：请在上面选择构建并点「下载 whisper.cpp」，否则转写会提示找不到可执行文件。
-          </div>
-        )}
         <div className="settings-field">
           <div className="settings-label">本地线程数（不超过 CPU 物理核心数）</div>
           <input
@@ -369,79 +174,6 @@ export function AsrSection({
             }
           />
         </div>
-        {localNotice && <div className="settings-hint">{localNotice}</div>}
-        {localStatus && Object.keys(localStatus.models).length > 0 && (
-          <div className="settings-group">
-            <div className="settings-label">已下载模型（直接选用，不用找路径）</div>
-            {Object.entries(localStatus.models).map(([id, modelPath]) => (
-              <div className="settings-inline" key={id}>
-                <span className="settings-hint" style={{ flex: 1 }}>
-                  {MODEL_LABELS[id] || id}
-                </span>
-                <button
-                  className="mini-btn"
-                  disabled={activeAsr.localModel === modelPath}
-                  onClick={() => {
-                    updateAsrPlatform({ localModel: modelPath });
-                    setLocalNotice(`已选用 ${MODEL_LABELS[id] || id}（记得保存设置）`);
-                  }}
-                >
-                  {activeAsr.localModel === modelPath ? '当前' : '使用'}
-                </button>
-                <button
-                  className="mini-btn"
-                  onClick={async () => {
-                    const response = await window.bsub.deleteAsrModel?.(
-                      id as 'tiny' | 'base' | 'small' | 'medium' | 'large-v3-turbo'
-                    );
-                    if (response?.ok) {
-                      setLocalStatus(response.data.status);
-                      if (activeAsr.localModel === modelPath) updateAsrPlatform({ localModel: '' });
-                    }
-                  }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {localStatus && Object.keys(localStatus.binaries).length > 0 && (
-          <div className="settings-group">
-            <div className="settings-label">已下载 whisper.cpp</div>
-            {Object.entries(localStatus.binaries).map(([variant, exePath]) => (
-              <div className="settings-inline" key={variant}>
-                <span className="settings-hint" style={{ flex: 1 }}>
-                  {BINARY_LABELS[variant] || variant}
-                </span>
-                <button
-                  className="mini-btn"
-                  disabled={activeAsr.localExe === exePath}
-                  onClick={() => {
-                    updateAsrPlatform({ localExe: exePath });
-                    setLocalNotice(`已选用 ${BINARY_LABELS[variant] || variant}（记得保存设置）`);
-                  }}
-                >
-                  {activeAsr.localExe === exePath ? '当前' : '使用'}
-                </button>
-                <button
-                  className="mini-btn"
-                  onClick={async () => {
-                    const response = await window.bsub.deleteAsrBinary?.(
-                      variant as 'cpu' | 'vulkan' | 'cuda118' | 'cuda124'
-                    );
-                    if (response?.ok) {
-                      setLocalStatus(response.data.status);
-                      if (activeAsr.localExe === exePath) updateAsrPlatform({ localExe: '' });
-                    }
-                  }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
         <div className="settings-inline">
           <button
             className="mini-btn primary"
@@ -455,27 +187,26 @@ export function AsrSection({
             )}
             测试本地环境
           </button>
-          <button
-            className="mini-btn"
-            onClick={() => void window.bsub.newTab(activeAsr.homepage || 'https://github.com/ggml-org/whisper.cpp/releases')}
-          >
-            手动下载 whisper.cpp
+          <button className="mini-btn" onClick={refreshStatus}>
+            <RefreshCw size={12} /> 刷新状态
           </button>
-          <button
-            className="mini-btn"
-            onClick={() =>
-              void window.bsub.newTab(
-                activeAsr.keyUrl || 'https://huggingface.co/ggerganov/whisper.cpp/tree/main'
-              )
-            }
-          >
-            手动下载模型
+          <button className="mini-btn" onClick={() => void window.bsub.openDataDir?.()}>
+            <HardDrive size={12} /> 打开模型目录
           </button>
         </div>
         {platformStatus('asr')}
         <div className="settings-hint">
-          一键下载会写入程序数据目录，并校验 SHA-256；下载完成后自动填好上面的路径。
-          手动下载时，把 exe 和 bin 解压到同一个目录，再用「选择…」指过来即可。
+          已就绪：
+          {localStatus?.binary ? ' whisper.cpp ✓' : ' whisper.cpp 未下载'}
+          {localStatus?.models?.tiny ? ' · tiny ✓' : ''}
+          {localStatus?.models?.base ? ' · base ✓' : ''}
+          {localStatus?.models?.small ? ' · small ✓' : ''}
+          {localStatus?.models?.medium ? ' · medium ✓' : ''}
+          {localStatus?.models?.['large-v3-turbo'] ? ' · large-v3-turbo ✓' : ''}
+        </div>
+        <div className="settings-hint">
+          保存位置：{localStatus?.dir || '读取中…'}
+          {localStatus?.note ? `（${localStatus.note}）` : ''}
         </div>
       </>
     ) : (

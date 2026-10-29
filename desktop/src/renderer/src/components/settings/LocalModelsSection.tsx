@@ -183,6 +183,28 @@ export function LocalModelsSection({ activeAsr, updateAsrPlatform }: Props) {
         )}
       </div>
 
+      <div className="settings-inline">
+        <span className="settings-hint">手动下载：</span>
+        <button
+          className="mini-btn"
+          onClick={() =>
+            void window.bsub.newTab('https://github.com/ggml-org/whisper.cpp/releases')
+          }
+        >
+          whisper.cpp
+        </button>
+        <button
+          className="mini-btn"
+          onClick={() =>
+            void window.bsub.newTab(
+              'https://huggingface.co/ggerganov/whisper.cpp/tree/main'
+            )
+          }
+        >
+          模型文件
+        </button>
+      </div>
+
       {activeDownload && (
         <div className="local-model-progress">
           <span className="settings-hint">

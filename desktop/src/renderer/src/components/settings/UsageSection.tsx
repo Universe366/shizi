@@ -714,6 +714,7 @@ export function UsageSection({ value, onChange }: Props) {
             )}
           </div>
           {events.length ? (
+            <div className="usage-events-scroll">
             <table className="usage-table">
               <thead>
                 <tr>
@@ -744,6 +745,7 @@ export function UsageSection({ value, onChange }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
             <div className="settings-hint">
               {selectedDay

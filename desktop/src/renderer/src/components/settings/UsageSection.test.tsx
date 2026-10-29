@@ -122,6 +122,14 @@ describe('用量统计面板', () => {
     expect(screen.getByText('近 30 天')).toBeTruthy();
   });
 
+  it('最近请求放在固定高度滚动容器里，不会无限撑长页面', async () => {
+    const { container } = render(<UsageSection value={value} onChange={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText('deepseek-chat').length).toBeGreaterThan(0));
+    const scroll = container.querySelector('.usage-events-scroll') as HTMLElement;
+    expect(scroll).toBeTruthy();
+    expect(scroll.querySelector('table.usage-table')).toBeTruthy();
+  });
+
   it('切换区间重新汇总，并重置已选日期', async () => {
     render(<UsageSection value={value} onChange={vi.fn()} />);
     await waitFor(() => expect(usageSummary).toHaveBeenCalledWith(30));

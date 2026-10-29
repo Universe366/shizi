@@ -109,8 +109,7 @@ describe('AsrSection', () => {
     } as unknown as AppSettings;
     const p = props({ draft: localDraft, activeAsr: local });
     render(<AsrSection {...p} />);
-    expect(screen.getByDisplayValue('D:\\whisper\\whisper-cli.exe')).toBeTruthy();
-    expect(screen.getByDisplayValue('D:\\whisper\\ggml-base.bin')).toBeTruthy();
+    expect(screen.getByText('本地 Whisper 设置')).toBeTruthy();
     expect(screen.getByDisplayValue('6')).toBeTruthy();
     fireEvent.click(button('测试本地环境'));
     expect(p.testConnection).toHaveBeenCalledWith('asr');
