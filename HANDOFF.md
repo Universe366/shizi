@@ -5,7 +5,7 @@
 > 当前发布基线：tag `v0.158.0`
 > 最新 Release：`v0.158.0`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
-> 工作区：有未提交改动（Dock/文件夹 0.158.0）
+> 工作区：clean
 
 这份文件回答三个问题：
 
@@ -26,9 +26,9 @@
 | 插件 `panel-test` | 520 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.155.0` 通过 |
+| 发布 CI | `v0.158.0` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.155.0，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.158.0，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
@@ -1384,9 +1384,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.155.0 测试/冒烟通过
+- [x] 0.158.0 测试/冒烟通过
 - [x] 插件 520 项通过
-- [x] 最新 Release 指向 `v0.155.0`
+- [x] 最新 Release 指向 `v0.158.0`
 - [x] 工作区无遗留应用进程
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
