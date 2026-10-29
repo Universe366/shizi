@@ -1454,70 +1454,7 @@ export function sendPending() {
 // 而不是把剩下的部分丢掉。
 
 // 按行分段，每段不超过 maxChars，尽量在行边界切
-export function chunkTranscript(lines, maxChars = 40000, onProgress) {
-  const chunks = [];
-  let cur = [];
-  let size = 0;
-  for (const l of lines) {
-    const row = `[${fmtClock(l.from)}] ${String(l.text || '')}`;
-    // 单行超长（罕见）：独占一段，硬切
-    if (row.length > maxChars) {
-      if (cur.length) {
-        chunks.push({ text: cur.join('\n'), lines: cur });
-        cur = [];
-        size = 0;
-      }
-      chunks.push({ text: row.slice(0, maxChars), lines: [l] });
-      continue;
-    }
-    if (size + row.length + 1 > maxChars && cur.length) {
-      chunks.push({ text: cur.join('\n') });
-      cur = [];
-      size = 0;
-    }
-    cur.push(row);
-    size += row.length + 1;
-    if (onProgress) onProgress(chunks.length);
-  }
-  if (cur.length) chunks.push({ text: cur.join('\n') });
-  return chunks;
-}
-
-// 每段的提取指令：保留要点与时间线索，供最终合并使用
-const CHUNK_SYSTEM = '你是视频字幕整理助手。用户会给你**一部长视频中的一段**字幕。' +
-  '请只针对这一段做结构化提取，不要臆测其它段落的内容，也不要写“本段/接下来”这类过渡语。';
-
-function chunkUserPrompt({ title, part, index, total, fromLabel, toLabel, background, text }) {
-  return [
-    title ? `视频：${title}${part ? ` · ${part}` : ''}` : '',
-    background ? `【视频背景（辅助理解，不要照抄）】\n${background}` : '',
-    `这是第 ${index}/${total} 段字幕，时间范围约 ${fromLabel} ~ ${toLabel}。`,
-    '请按下面的格式提取这一段的内容（Markdown，用中文）：',
-    '- `### <小标题>`：这一段的主题',
-    '- 要点列表（尽量具体：数字、结论、步骤、例子、人物）',
-    '- 若出现值得原样保留的说法，用 `> 引用` 格式直接摘录',
-    // ⚠ 这里**不要**要求"每条要点都带时间"。
-    // 曾经要求过「在关键处标注时间戳」，结果模型几乎每行都塞一个
-    // [mm:ss]，整篇总结被时间戳淹没（用户反馈：「里面有很多时间，影响阅读」）。
-    // 时间只在**少数真正需要跳转**的位置才有价值。
-    '不要给每条要点都标时间；只有极少数确实需要跳转的位置才写 `[mm:ss]`（整段最多一两处）。',
-    '不要写总结性的收尾语，直接给提取结果。',
-    '下面是这一段字幕原文：',
-    text
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-// 计算「这份字幕实际覆盖的时间范围」。
-//
-// 为什么必须把它显式告诉模型：合并提示词里给了视频总时长，
-// 而各段的时间标签只到最后一句字幕 —— 模型会**自己推断**
-// 「后面那段没有字幕」，于是写出
-//    「字幕覆盖 00:00–1:43:39，之后约 14 分钟字幕未提供」
-// 这种**看起来有据可依、实际是它自己脑补**的句子（我们的代码里
-// 没有任何地方产生这行字）。把真实范围直接给它，并禁止它发表
-// 关于字幕完整性的议论，才能从源头堵住这种编造。
+// 分段提示词已随分段总结一起移除。
 export function subtitleSpan(lines) {
   const arr = Array.isArray(lines) ? lines : [];
   if (!arr.length) return null;
@@ -1557,40 +1494,7 @@ export function describeSpan(span, durationSeconds) {
   return head + tail;
 }
 
-// 把各段摘要合并成最终总结
-function mergeUserPrompt({ title, part, duration, chunkCount, chunkSummaries, extraContext, webSupplement, spanText }) {
-  return [
-    title ? `视频：${title}${part ? ` · ${part}` : ''}` : '',
-    duration ? `时长：${duration}` : '',
-    spanText,
-    extraContext,
-    webSupplement,
-    `下面是这部视频**分成 ${chunkCount} 段**分别提取的内容，请把它们**合并成一篇完整、连贯的总结**。`,
-    '要求：',
-    '- 按时间顺序组织，覆盖**全片**（不要只写开头，也不要遗漏后面的段落）',
-    '- 合并重复内容，保持逻辑连贯；同一主题分散在多段的要归并到一起',
-    '- 保留具体数字、结论、步骤与例子',
-    // 同上：不要命令模型"保留关键时间点"。只在真正需要跳转时给几处。
-    '- **不要**在正文里大量标注时间。时间只保留在**极少数**真正需要跳转的位置（全篇最多 2~3 处），' +
-      '其余一律不写时间，保持正文可读。',
-    // 禁止模型自作主张议论「字幕缺失」——
-    // 它只能看到我们给的文本，看不到字幕源文件，任何关于
-    // 「某段没有字幕 / 字幕未提供」的说法都是它的**推测**，不是事实。
-    '- **不要**写任何关于「字幕是否完整 / 某段字幕未提供 / 字幕只覆盖到某处」的说明。' +
-      '你无法判断字幕来源的完整性，这类结论只会误导用户。',
-    '各段提取结果如下：',
-    chunkSummaries
-  ]
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-// 分段总结（map）→ 合并（reduce）。
-//
-// 为什么不用流式：分段时每一段都要单独拿到完整结果才能进入下一段，
-// 所以这里用普通 `ai.chat` 调用。合并那一步也用普通调用 ——
-// 它可能很长，但比"丢内容"要好。
-// 分段总结已移除：新流程一次把完整字幕交给模型。
+// 插件本地的新总结流程：与桌面端一致，不做前置校对/分段。
 async function generateSummaryLocalNew() {
   const st = store.get();
   const settings = st.settings || {};

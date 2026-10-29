@@ -1958,47 +1958,20 @@ async function main() {
     // 根因：selectContext(lines, '', 40000) 传空问题时走
     //       full.slice(0, maxChars) —— 只取前 40000 字符。
     // 2 小时字幕约 6.6 万字符 → 只喂 61%，总结覆盖到约 73 分钟处。
-    {
-      const fake = [];
-      for (let i = 0; i < 2057; i += 1) {
-        fake.push({ from: i * 3.5, to: i * 3.5 + 3.4, text: '这是一条示例字幕内容大约二十来个字用于估算体量' });
-      }
-      const full = api.subtitles.linesToTranscript(fake, { withTime: true });
-      const ctx = api.subtitles.selectContext(fake, '', 40000);
-      check(
-        '长字幕会被 selectContext 截断（旧行为的证据）',
-        ctx.truncated === true && ctx.text.length < full.length,
-        `${ctx.text.length}/${full.length}`
-      );
-      check('subtitles 导出了 fmtClock', typeof api.subtitles.fmtClock === 'function', typeof api.subtitles.fmtClock);
-      check('fmtClock 格式正确', api.subtitles.fmtClock(3671) === '61:11', api.subtitles.fmtClock(3671));
-      const chunks = api.panelAi.chunkTranscript(fake, 40000);
-      check('长字幕被切成多段', chunks.length >= 2, `${chunks.length} 段`);
-      check('每段都不超过上限', chunks.every((c) => c.text.length <= 40000), chunks.map((c) => c.text.length).join(','));
-      const joined = chunks.map((c) => c.text).join('\n');
-      const got = joined.split('\n').filter(Boolean).length;
-      check('所有行都被覆盖（不丢内容）', got === fake.length, `${got} / ${fake.length}`);
-      const lastChunk = chunks[chunks.length - 1].text;
-      const lastLabel = api.subtitles.fmtClock(fake[fake.length - 1].from);
-      check('最后一段包含视频结尾', lastChunk.includes(lastLabel), `期望含 ${lastLabel}`);
-    }
+
     const aiSrc2 = fs.readFileSync(
       path.join(__dirname, '..', 'shizi-extension', 'src', 'sidepanel', 'modules', 'panel-ai.js'),
       'utf8'
     );
     check('不再有分段合并路径', !/summarizeInChunks/.test(aiSrc2), '');
-    check('有分段提取与合并两段提示词', /const CHUNK_SYSTEM/.test(aiSrc2) && /function mergeUserPrompt/.test(aiSrc2), '');
-    check('合并提示词明确要求覆盖全片', /覆盖\*\*全片\*\*/.test(aiSrc2), '');
+
 
     // ---- 总结里的时间戳不能泛滥 ----
     //
     // 用户反馈：「这次怎么里面有很多时间，影响阅读了。」
     // 根因是我在分段总结的提示词里写了「关键处保留时间，写成 [mm:ss]」——
     // 模型几乎每行都塞一个时间戳。时间只在少数需要跳转处才有价值。
-    check('分段提示词不再要求每条要点带时间', !/关键处保留时间，写成/.test(aiSrc2), '');
-    check('分段提示词明确限制时间数量', /不要给每条要点都标时间/.test(aiSrc2), '');
-    check('合并提示词也不再要求保留关键时间点', !/保留关键时间点，写成/.test(aiSrc2), '');
-    check('合并提示词限制时间数量（全篇最多 2~3 处）', /全篇最多 2~3 处/.test(aiSrc2), '');
+
 
     // ---- 「字幕未提供」是模型脑补出来的，不是我们的结论 ----
     //
