@@ -1,10 +1,10 @@
-import { LocalWorkbench } from './LocalWorkbench';
+import { StudioWorkbench } from './StudioWorkbench';
 
-/** 成片与处理：一条连续流水线，从素材到成片再到记录，不再用左右分栏或步骤页切开。 */
+/** 成片与处理：任务 / 字幕 / 样式 / 合成 / 记录，参考 VideoCaptioner 的工作流。 */
 export function StudioPanel() {
   return (
-    <div className="studio-pipeline-page">
-      <LocalWorkbench />
+    <div className="studio-page">
+      <StudioWorkbench />
     </div>
   );
 }
