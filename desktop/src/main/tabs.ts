@@ -398,12 +398,7 @@ export class TabManager {
           { label: '用 AI 提问选中', click: () => sendAction('ask') },
           { label: '朗读选中', click: () => sendAction('speak') },
           { label: '搜索选中', click: () => sendAction('search') },
-          {
-            label: '复制选中',
-            click: () => {
-              clipboard.writeText(selected);
-            }
-          },
+          { label: '复制选中', click: () => clipboard.writeText(selected) },
           { type: 'separator' }
         );
       }
@@ -412,11 +407,45 @@ export class TabManager {
         { label: '就当前页面提问', click: () => sendAction('ask-page') },
         { label: '复制页面链接', click: () => clipboard.writeText(pageUrl) },
         { type: 'separator' },
-        { label: '后退', enabled: wc.canGoBack(), click: () => wc.goBack() },
-        { label: '前进', enabled: wc.canGoForward(), click: () => wc.goForward() },
+        {
+          label: '后退',
+          enabled: this.httpHistoryIndex(wc, -1) !== null,
+          click: () => this.back()
+        },
+        {
+          label: '前进',
+          enabled: this.httpHistoryIndex(wc, 1) !== null,
+          click: () => this.forward()
+        },
         { label: '刷新', click: () => wc.reload() }
       );
-      Menu.buildFromTemplate(template).popup({ window: ownerWindow() || this.win });
+      if (params.isEditable) {
+        template.push(
+          { type: 'separator' },
+          { label: '粘贴', enabled: params.editFlags.canPaste, click: () => wc.paste() },
+          { label: '全选', click: () => wc.selectAll() }
+        );
+      }
+      if (params.linkURL) {
+        template.push(
+          { type: 'separator' },
+          {
+            label: '在新标签页打开链接',
+            click: () => void this.create(params.linkURL)
+          },
+          { label: '复制链接地址', click: () => clipboard.writeText(params.linkURL) }
+        );
+      }
+      if (params.srcURL) {
+        template.push({ label: '复制图片地址', click: () => clipboard.writeText(params.srcURL) });
+      }
+      if (!app.isPackaged) {
+        template.push(
+          { type: 'separator' },
+          { label: '检查元素', click: () => wc.inspectElement(params.x, params.y) }
+        );
+      }
+      Menu.buildFromTemplate(template).popup({ window: this.win });
     });
     wc.on('did-frame-finish-load', () => {
       void this.pushMediaState(record);
@@ -572,26 +601,6 @@ export class TabManager {
       });
     });
 
-    wc.on('context-menu', (_event, params) => {
-      // 原生菜单在部分页面会被网页自己吞掉；交给渲染层做统一菜单，
-      // 同时利用现有浮层机制暂时隐藏网页视图，避免菜单被盖住。
-      if (this.win.isDestroyed()) return;
-      this.win.webContents.send('page:context-menu', {
-        x: Math.round(this.bounds.x + params.x),
-        y: Math.round(this.bounds.y + params.y),
-        pageX: params.x,
-        pageY: params.y,
-        selectionText: params.selectionText || '',
-        linkURL: params.linkURL || '',
-        srcURL: params.srcURL || '',
-        isEditable: params.isEditable === true,
-        canPaste: params.editFlags.canPaste === true,
-        canCopy: Boolean(params.selectionText) || params.isEditable === true,
-        canGoBack: this.httpHistoryIndex(wc, -1) !== null,
-        canGoForward: this.httpHistoryIndex(wc, 1) !== null,
-        devMode: !app.isPackaged
-      });
-    });
   }
 
   private setActive(id: string): void {

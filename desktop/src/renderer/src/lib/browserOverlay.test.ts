@@ -60,8 +60,6 @@ describe('overlayVisible', () => {
     document.body.innerHTML = '<div class="tab-group-menu"></div>';
     expect(overlayVisible()).toBe(true);
 
-    document.body.innerHTML = '<div class="page-context-backdrop"></div>';
-    expect(overlayVisible()).toBe(true);
   });
 
   it('导出下拉真正打开时算浮层', () => {

@@ -20,7 +20,6 @@ export const OVERLAY_SELECTORS = [
   '.tab-menu',
   '.tab-actions-menu',
   '.tab-group-menu',
-  '.page-context-backdrop',
   '.start-modal-backdrop',
   '.start-shortcut-menu',
   '.wizard-overlay',
