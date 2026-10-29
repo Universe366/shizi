@@ -337,6 +337,39 @@ try {
     JSON.stringify(approvalBody)
   );
 
+  // ---- 共享设置快照 ----
+  const sharedRes = await fetch(`${base}/v1/settings/shared?includeSecrets=0`, { headers });
+  const sharedBody = await sharedRes.json();
+  check(
+    'settings/shared 返回 AI/检索/ASR',
+    sharedBody.ok === true &&
+      Array.isArray(sharedBody.settings?.ai?.platforms) &&
+      Array.isArray(sharedBody.settings?.search?.platforms) &&
+      Array.isArray(sharedBody.settings?.asr?.platforms),
+    JSON.stringify({ ai: sharedBody.settings?.ai?.platforms?.length })
+  );
+  check(
+    '不含 Key 时 apiKey 为空',
+    sharedBody.settings.ai.platforms.every((item) => !item.apiKey)
+  );
+
+  sharedBody.settings.ai.temperature = 0.7;
+  sharedBody.settings.prompt.summaryFormatRules = 'E2E 格式规则';
+  const importRes = await fetch(`${base}/v1/settings/shared`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ settings: sharedBody.settings })
+  });
+  const importBody = await importRes.json();
+  check('导入共享设置成功', importRes.status === 200 && importBody.ok === true, JSON.stringify(importBody));
+  const afterSettings = await fetch(`${base}/v1/settings/shared?includeSecrets=0`, { headers });
+  const afterSettingsBody = await afterSettings.json();
+  check(
+    '导入后读回设置',
+    afterSettingsBody.settings.ai.temperature === 0.7 &&
+      afterSettingsBody.settings.prompt.summaryFormatRules === 'E2E 格式规则'
+  );
+
   // ---- 增量变更 ----
   const changesRes = await fetch(`${base}/v1/library/changes?since=1`, { headers });
   const changesBody = await changesRes.json();

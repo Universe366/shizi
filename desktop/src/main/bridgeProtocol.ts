@@ -18,7 +18,8 @@ export const BRIDGE_CAPABILITIES = [
   'translate',
   'optimize',
   'chat.sync',
-  'settings.read'
+  'settings.read',
+  'settings.shared'
 ] as const;
 
 /** 上行事件类型。新类型必须同时更新插件 desktop-link 与 docs/EXTENSION-DESKTOP-ALIGNMENT.md。 */

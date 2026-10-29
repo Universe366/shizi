@@ -604,6 +604,8 @@ export function defaultSettings() {
     prompt: {
       activeId: 'default',
       templates: defaultPrompts(),
+      // 留空使用 shared core 的内置格式规则；与桌面端同一字段。
+      summaryFormatRules: '',
       chatPrefix: '只依据下面的字幕内容回答，不要编造。'
     },
     optimize: {

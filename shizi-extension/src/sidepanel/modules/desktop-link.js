@@ -754,6 +754,56 @@ export async function saveLibraryNote(uid, content, baseUpdatedAt = 0) {
   return data;
 }
 
+/** 读取桌面端共享设置快照（可含 Key）。 */
+export async function fetchSharedSettings(includeSecrets = true) {
+  const conn = await ensureLink(false);
+  if (!conn) throw new Error('未连接桌面端');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${conn.port}/v1/settings/shared?includeSecrets=${includeSecrets ? '1' : '0'}`,
+      {
+        headers: { authorization: `Bearer ${conn.token}` },
+        cache: 'no-store',
+        signal: controller.signal
+      }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok || !data.settings) {
+      throw new Error(data.error || `桌面端返回 HTTP ${response.status}`);
+    }
+    return data.settings;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 用插件设置覆盖桌面端共享设置。 */
+export async function pushSharedSettings(settings) {
+  const conn = await ensureLink(false);
+  if (!conn) throw new Error('未连接桌面端');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`http://127.0.0.1:${conn.port}/v1/settings/shared`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${conn.token}`
+      },
+      cache: 'no-store',
+      body: JSON.stringify({ settings }),
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 回写标签（整组替换）。 */
 export async function saveLibraryTags(uid, tags) {
   const conn = await ensureLink(false);

@@ -25,6 +25,7 @@ import type { SyncLibraryItem } from './library';
 import { loadSettings, saveSettings } from './settings';
 import { applyCorrectionToLines } from './correction';
 import { runRpc } from './bridgeRpc';
+import { exportSharedSettings, importSharedSettings } from './settingsBridge';
 import { localAsrReadiness, transcribeFile } from './asr';
 import { syncBridgeConversation } from './chatStore';
 import {
@@ -604,6 +605,43 @@ function createHandler(win: BrowserWindow, token: string) {
         const note = saveNote(detail.item.id, typeof payload.content === 'string' ? payload.content : '');
         notifyLibraryChanged(win, uid);
         json(response, 200, { ok: true, note });
+        return;
+      }
+
+      // 共享设置快照：插件首次连接迁移 / 主端权威使用。
+      if (url.pathname === '/v1/settings/shared' && request.method === 'GET') {
+        if (!authorized(request, token)) {
+          json(response, 401, { ok: false, error: 'token 无效' });
+          return;
+        }
+        const includeSecrets = url.searchParams.get('includeSecrets') === '1';
+        const payload = exportSharedSettings(includeSecrets);
+        json(response, 200, { ok: true, settings: payload, includesSecrets: includeSecrets });
+        return;
+      }
+
+      if (url.pathname === '/v1/settings/shared' && request.method === 'POST') {
+        if (!authorized(request, token)) {
+          json(response, 401, { ok: false, error: 'token 无效' });
+          return;
+        }
+        const body = await readBody(request);
+        let payload: Record<string, unknown>;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          json(response, 400, { ok: false, error: '请求体不是合法 JSON' });
+          return;
+        }
+        const settings = payload.settings && typeof payload.settings === 'object'
+          ? (payload.settings as Record<string, unknown>)
+          : payload;
+        try {
+          importSharedSettings(settings as never);
+          json(response, 200, { ok: true });
+        } catch (error) {
+          json(response, 400, { ok: false, error: (error as Error)?.message || '导入失败' });
+        }
         return;
       }
 

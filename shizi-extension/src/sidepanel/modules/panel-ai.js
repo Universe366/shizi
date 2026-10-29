@@ -2270,6 +2270,7 @@ async function generateSummaryLocalNew() {
     const prompt = buildSummaryPrompt({
       info: { ...video, viewPoints: official },
       promptText: activePromptText(),
+      formatRules: (settings.prompt && settings.prompt.summaryFormatRules) || '',
       glossary: ((settings.optimize && settings.optimize.glossary) || []).map((item) => ({
         from: String(item.term || ''),
         to: '',
