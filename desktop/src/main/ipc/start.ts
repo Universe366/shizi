@@ -1,5 +1,7 @@
 import { ipcMain } from 'electron';
 import { probeSiteMeta } from '../startMeta';
+import { loadSettings } from '../settings';
+import { pullStartData, pushStartData, startSyncStatus } from '../startSync';
 import { failure } from './shared';
 
 /** 起始页小组件：天气（Open-Meteo，免 key）与 B 站热搜，都带内存缓存。 */
@@ -241,6 +243,18 @@ export function registerStartIpc(): void {
     } catch {
       // 联想失败静默回退本地建议
       return { ok: true, data: [] };
+    }
+  });
+
+  ipcMain.handle('start:sync', async (_event, action: unknown, payload: unknown) => {
+    const folder = String(loadSettings().general.syncFolder || '').trim();
+    if (!folder) return failure('请先在 设置 → 数据与备份 里选择同步文件夹');
+    try {
+      if (action === 'push') return { ok: true, data: pushStartData(folder, payload) };
+      if (action === 'pull') return { ok: true, data: pullStartData(folder) };
+      return { ok: true, data: startSyncStatus(folder) };
+    } catch (error) {
+      return failure(error);
     }
   });
 

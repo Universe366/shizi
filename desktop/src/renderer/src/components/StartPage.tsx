@@ -1114,8 +1114,8 @@ export function StartPage({
     });
   };
 
-  const exportStart = () => {
-    const backup = buildStartBackup({
+  const buildBackup = () =>
+    buildStartBackup({
       shortcuts,
       wallpaper,
       wallpaperImage,
@@ -1138,6 +1138,9 @@ export function StartPage({
       bingFavorites,
       rotateMinutes
     });
+
+  const exportStart = () => {
+    const backup = buildBackup();
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1146,6 +1149,24 @@ export function StartPage({
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     showNotice(`已导出 ${backup.shortcuts.length} 个快捷方式`);
+  };
+
+  const syncStartToFolder = async () => {
+    const result = await window.bsub.startSync?.('push', buildBackup());
+    if (result?.ok) showNotice(`已同步到 ${result.data.path || '同步文件夹'}`);
+    else showNotice(result?.error || '同步失败');
+  };
+
+  const syncStartFromFolder = async () => {
+    const result = await window.bsub.startSync?.('pull');
+    if (!result?.ok) {
+      showNotice(result?.error || '同步失败');
+      return;
+    }
+    const file = new File([JSON.stringify(result.data.data)], 'shizi-start.json', {
+      type: 'application/json'
+    });
+    await importStart(file);
   };
 
   const importBookmarks = async (file: File) => {
@@ -1580,6 +1601,22 @@ export function StartPage({
               恢复上次备份（{shortcutBackup.length}）
             </button>
           )}
+          <button
+            className="start-foot-link"
+            onClick={() => void syncStartToFolder()}
+            disabled={busy}
+            title="写入设置里的同步文件夹"
+          >
+            同步到文件夹
+          </button>
+          <button
+            className="start-foot-link"
+            onClick={() => void syncStartFromFolder()}
+            disabled={busy}
+            title="从设置里的同步文件夹读取"
+          >
+            从文件夹恢复
+          </button>
           <button
             className="start-foot-link"
             onClick={async () => {

@@ -487,6 +487,13 @@ export interface BsubApi {
   startBingGallery(): Promise<
     Result<Array<{ url: string; copyright: string; date: string }>>
   >;
+  /** 起始页数据同步到设置的同步文件夹 */
+  startSync(
+    action: 'push' | 'pull' | 'status',
+    payload?: unknown
+  ): Promise<
+    Result<{ path?: string; data?: unknown; exists?: boolean; modifiedAt?: number }>
+  >;
   /** 设置跨服务商的默认模型（同时切换当前平台） */
   setDefaultModel(
     platformId: string,

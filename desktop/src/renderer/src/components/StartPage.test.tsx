@@ -51,6 +51,10 @@ function installBsub() {
     startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
     startSuggest: vi.fn(async () => ({ ok: true as const, data: [] as string[] })),
     startBingGallery: vi.fn(async () => ({ ok: true as const, data: [] as never[] })),
+    startSync: vi.fn(async () => ({
+      ok: true as const,
+      data: { path: 'C:/sync/shizi-start.json' }
+    })),
     startBingWallpaper: vi.fn(async () => ({
       ok: true as const,
       data: { url: 'https://www.bing.com/bing.jpg', copyright: 'Bing' }
@@ -1007,6 +1011,18 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     expect(document.querySelector('.start-weather-widget.is-collapsed')).toBeTruthy();
     expect(JSON.parse(localStorage.getItem('start-widget-collapsed') || '[]')).toContain(
       'weather'
+    );
+  });
+
+  it('可以同步到同步文件夹', async () => {
+    const api = installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByText('同步到文件夹'));
+    await vi.waitFor(() =>
+      expect(api.startSync).toHaveBeenCalledWith(
+        'push',
+        expect.objectContaining({ app: 'shizi-start' })
+      )
     );
   });
 

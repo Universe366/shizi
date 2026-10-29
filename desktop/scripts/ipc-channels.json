@@ -247,6 +247,7 @@
   "start:hot",
   "start:probe-site",
   "start:suggest",
+  "start:sync",
   "start:weather",
   "subtitle:pick-file",
   "subtitle:resegment",

@@ -605,6 +605,8 @@ const api: BsubApi = {
   startSuggest: (query: string) => ipcRenderer.invoke('start:suggest', query),
   startBingWallpaper: () => ipcRenderer.invoke('start:bing-wallpaper'),
   startBingGallery: () => ipcRenderer.invoke('start:bing-gallery'),
+  startSync: (action: 'push' | 'pull' | 'status', payload?: unknown) =>
+    ipcRenderer.invoke('start:sync', action, payload),
   setDefaultModel: (platformId: string, model: string) =>
     ipcRenderer.invoke('ai:set-default-model', { platformId, model }) as Promise<
       Result<{ platformId: string; model: string }>

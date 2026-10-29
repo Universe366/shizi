@@ -14,7 +14,7 @@
 
 插件可以独立运行；桌面端复用插件的 `page-bridge.js`，但面板层是两套实现。
 
-当前版本：**桌面 0.130.0 / 插件 2.18.8**
+当前版本：**桌面 0.131.0 / 插件 2.18.8**
 最新 Release：`v0.130.0`
 `appId`：`com.shizi.desktop`  
 仓库：`Universe366/shizi`
@@ -130,7 +130,7 @@ node panel-test.js
 | 改设置页 / 对话输入区 | `docs/UI-GUIDE.md`（分组、说明、菜单结构） |
 | 改数据库 / 备份 | `docs/DATA-MODEL.md` + `migrations.ts` + `backup.ts` |
 | 修插件 | `shizi-extension/AGENTS.md`（环境坑更多，先读） |
-| 发布 | `docs/MAINTAINERS.md`；tag 用当前桌面版本号（如 `v0.130.0`） |
+| 发布 | `docs/MAINTAINERS.md`；tag 用当前桌面版本号（如 `v0.131.0`） |
 
 ## 10. 完成标准
 
