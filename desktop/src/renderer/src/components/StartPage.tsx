@@ -43,11 +43,7 @@ import {
   formatClock,
   greeting,
   hostOf,
-  imageLuminance,
-  inkForLuminance,
   lunarDate,
-  videoLuminance,
-  wallpaperMediaFromUrl,
   isStartDensity,
   isUrlLike,
   matchShortcut,
@@ -59,17 +55,17 @@ import {
   parseStartBackup,
   topTags,
   topUsed,
-  type InkMode,
   type StartDensity,
   type TemperatureUnit,
   type StartUsage,
   type WallpaperId
 } from './start/model';
-import { clearWallpaperBlob, loadWallpaperBlob, saveWallpaperBlob } from './start/wallpaperStore';
+import { clearWallpaperBlob } from './start/wallpaperStore';
 import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 import { useReducedMotion } from './start/useReducedMotion';
 import { useStartClock } from './start/useStartClock';
 import { useStartWeather } from './start/useStartWeather';
+import { useStartWallpaper } from './start/useStartWallpaper';
 import { buildStartCommands, buildStartQueryCommands } from './start/commands';
 import { parseBookmarksHtml } from './start/bookmarks';
 
@@ -80,18 +76,9 @@ const DENSITY_KEY = 'start-density';
 const COLLAPSED_KEY = 'start-collapsed-groups';
 const USAGE_KEY = 'start-usage';
 const NOTES_KEY = 'start-notes';
-const INK_KEY = 'start-ink-mode';
 const UNIT_KEY = 'start-weather-unit';
 const SUGGEST_KEY = 'start-search-suggest';
 const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
-const BING_FAV_KEY = 'start-bing-favorites';
-const ROTATE_KEY = 'start-bing-rotate';
-
-interface BingGalleryItem {
-  url: string;
-  copyright: string;
-  date: string;
-}
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -176,26 +163,6 @@ function readNotes(): string {
   }
 }
 
-function readBingFavorites(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(BING_FAV_KEY) || '[]');
-    return Array.isArray(raw)
-      ? raw.filter((item): item is string => typeof item === 'string').slice(0, 30)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function readRotateMinutes(): number {
-  try {
-    const value = Number(localStorage.getItem(ROTATE_KEY));
-    return [0, 5, 15, 30, 60].includes(value) ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
 function readWidgetCollapsed(): string[] {
   try {
     const raw = JSON.parse(localStorage.getItem(WIDGET_COLLAPSED_KEY) || '[]');
@@ -218,15 +185,6 @@ function readWeatherUnit(): TemperatureUnit {
     return localStorage.getItem(UNIT_KEY) === 'f' ? 'f' : 'c';
   } catch {
     return 'c';
-  }
-}
-
-function readInkMode(): 'auto' | InkMode {
-  try {
-    const value = localStorage.getItem(INK_KEY);
-    return value === 'light' || value === 'dark' ? value : 'auto';
-  } catch {
-    return 'auto';
   }
 }
 
@@ -254,22 +212,7 @@ export function StartPage({
   const [shortcutBackup, setShortcutBackup] = useState<StartShortcut[]>([]);
   const [selectedShortcuts, setSelectedShortcuts] = useState<string[]>([]);
   const [activeGroup, setActiveGroup] = useState('全部');
-  const [wallpaper, setWallpaper] = useState<WallpaperId>('aurora');
-  const [wallpaperImage, setWallpaperImage] = useState('');
-  const [bingWallpaper, setBingWallpaper] = useState<{ url: string; copyright: string } | null>(
-    null
-  );
-  const [bingGallery, setBingGallery] = useState<BingGalleryItem[]>([]);
-  const [bingGalleryState, setBingGalleryState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [bingSelection, setBingSelection] = useState<{ url: string; copyright: string } | null>(
-    null
-  );
   const [dockIds, setDockIds] = useState<string[]>([]);
-  const [wallpaperMedia, setWallpaperMedia] = useState<StartWallpaperMedia | null>(null);
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [ink, setInk] = useState<InkMode | null>(null);
-  const [wallpaperBroken, setWallpaperBroken] = useState(false);
-  const [inkMode, setInkMode] = useState<'auto' | InkMode>(readInkMode);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
   const reducedMotion = useReducedMotion();
@@ -282,7 +225,6 @@ export function StartPage({
     'recent',
     'history'
   ]);
-  const [wallpaperOpen, setWallpaperOpen] = useState(false);
   const {
     weather,
     weatherAt,
@@ -319,9 +261,6 @@ export function StartPage({
   const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
   const [searchSuggestOn, setSearchSuggestOn] = useState(readSearchSuggest);
   const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>(readWidgetCollapsed);
-  const [bingFavorites, setBingFavorites] = useState<string[]>(readBingFavorites);
-  const [rotateMinutes, setRotateMinutes] = useState(readRotateMinutes);
-  const applyBingRef = useRef<(image: BingGalleryItem, silent: boolean) => void>(() => undefined);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchActive, setSearchActive] = useState(-1);
   const [cityEditing, setCityEditing] = useState(false);
@@ -356,6 +295,47 @@ export function StartPage({
     Object.assign(settings.general, patch);
     await window.bsub.saveSettings(settings);
   };
+
+  const showNotice = (text: string, undo?: () => void) => {
+    setNotice({ text, undo });
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), undo ? 6000 : 2600);
+  };
+
+  const {
+    wallpaper,
+    setWallpaper,
+    wallpaperImage,
+    setWallpaperImage,
+    wallpaperMedia,
+    setWallpaperMedia,
+    inkMode,
+    bingWallpaper,
+    bingGallery,
+    bingGalleryState,
+    bingSelection,
+    setBingSelection,
+    bingFavorites,
+    rotateMinutes,
+    wallpaperOpen,
+    setWallpaperOpen,
+    effectiveInk,
+    displayBackground,
+    displayVideo,
+    wallpaperPreview,
+    wallpaperPreviewKind,
+    setWallpaperBroken,
+    applyWallpaperFile,
+    applyWallpaperUrl,
+    pickBingImage,
+    resetBingImage,
+    toggleBingFavorite,
+    changeRotateMinutes,
+    changeInkMode,
+    clearCustomWallpaper,
+    pickWallpaper,
+    retryBingGallery
+  } = useStartWallpaper({ patchGeneral, showNotice });
 
   const applySettings = (general: Record<string, unknown>) => {
     setEngine((general.searchEngine as SearchEngineId) || 'bing');
@@ -477,112 +457,6 @@ export function StartPage({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [searchOpen]);
-
-  useEffect(() => {
-    if (!wallpaperOpen || bingGallery.length || bingGalleryState === 'error') return;
-    let alive = true;
-    void window.bsub
-      .startBingGallery?.()
-      .then((response) => {
-        if (!alive) return;
-        if (response?.ok && response.data.length) {
-          setBingGallery(response.data);
-        } else {
-          setBingGalleryState('error');
-        }
-      })
-      .catch(() => {
-        if (alive) setBingGalleryState('error');
-      });
-    return () => {
-      alive = false;
-    };
-  }, [wallpaperOpen, bingGallery.length, bingGalleryState]);
-
-  useEffect(() => {
-    if (!rotateMinutes || wallpaper !== 'bing' || wallpaperMedia || wallpaperImage) return;
-    const pool: BingGalleryItem[] = bingFavorites.length
-      ? bingFavorites.map(
-          (url) =>
-            bingGallery.find((item) => item.url === url) || {
-              url,
-              copyright: '',
-              date: ''
-            }
-        )
-      : bingGallery;
-    if (pool.length < 2) return;
-    const timer = window.setInterval(() => {
-      const index = pool.findIndex((item) => item.url === bingSelection?.url);
-      applyBingRef.current(pool[(index + 1) % pool.length], true);
-    }, rotateMinutes * 60_000);
-    return () => window.clearInterval(timer);
-  }, [
-    rotateMinutes,
-    wallpaper,
-    wallpaperMedia,
-    wallpaperImage,
-    bingFavorites,
-    bingGallery,
-    bingSelection
-  ]);
-
-  useEffect(() => {
-    if (wallpaper !== 'bing' || wallpaperImage) return;
-    let alive = true;
-    void window.bsub.startBingWallpaper().then((response) => {
-      if (alive && response.ok) setBingWallpaper(response.data);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [wallpaper, wallpaperImage]);
-
-  useEffect(() => {
-    let alive = true;
-    let created = '';
-    if (!wallpaperMedia) {
-      setMediaUrl('');
-      return;
-    }
-    if (wallpaperMedia.source === 'url') {
-      setMediaUrl(wallpaperMedia.url || '');
-      return;
-    }
-    void loadWallpaperBlob()
-      .then((blob) => {
-        if (!alive || !blob) return;
-        created = URL.createObjectURL(blob);
-        setMediaUrl(created);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-      if (created) URL.revokeObjectURL(created);
-    };
-  }, [wallpaperMedia]);
-
-  useEffect(() => {
-    let alive = true;
-    const videoSource = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
-    const imageSource = wallpaperMedia
-      ? mediaUrl
-      : wallpaperImage ||
-        (wallpaper === 'bing' ? bingSelection?.url || bingWallpaper?.url || '' : '');
-    if (!videoSource && !imageSource) {
-      setInk(null);
-      return;
-    }
-    const crossOrigin =
-      Boolean(wallpaperMedia && wallpaperMedia.source === 'url') || wallpaper === 'bing';
-    const task = videoSource ? videoLuminance(videoSource) : imageLuminance(imageSource, crossOrigin);
-    void task.then((value) => {
-      if (alive) setInk(inkForLuminance(value));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper, bingSelection]);
 
   useEffect(() => {
     if (!shortcutMenu) return;
@@ -853,15 +727,6 @@ export function StartPage({
     setWeatherUnit(next);
     try {
       localStorage.setItem(UNIT_KEY, next);
-    } catch {
-      // ignore
-    }
-  };
-
-  const changeInkMode = (next: 'auto' | InkMode) => {
-    setInkMode(next);
-    try {
-      localStorage.setItem(INK_KEY, next);
     } catch {
       // ignore
     }
@@ -1207,127 +1072,6 @@ export function StartPage({
     void patchGeneral({ startWidgets: next });
   };
 
-  const applyWallpaperFile = (file: File) => {
-    const isVideo = file.type.startsWith('video/');
-    const isGif = file.type === 'image/gif';
-    if (isVideo || isGif) {
-      if (file.size > 60 * 1024 * 1024) {
-        showNotice('文件超过 60MB，换个小一点的');
-        return;
-      }
-      void saveWallpaperBlob(file)
-        .then(() => {
-          const media: StartWallpaperMedia = { kind: isVideo ? 'video' : 'gif', source: 'file' };
-          setWallpaperMedia(media);
-          setWallpaperImage('');
-          setWallpaperOpen(false);
-          void patchGeneral({ startWallpaperMedia: media, startWallpaperImage: '' });
-          showNotice(isVideo ? '视频壁纸已应用' : 'GIF 壁纸已应用');
-        })
-        .catch(() => showNotice('壁纸保存失败，换个小一点的文件'));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => {
-        const max = 2560;
-        const scale = Math.min(1, max / Math.max(image.width, image.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(image.width * scale);
-        canvas.height = Math.round(image.height * scale);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-        setWallpaperImage(dataUrl);
-        setWallpaperMedia(null);
-        setWallpaperOpen(false);
-        void clearWallpaperBlob().catch(() => undefined);
-        void patchGeneral({ startWallpaperImage: dataUrl, startWallpaperMedia: undefined });
-      };
-      image.src = String(reader.result || '');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const applyWallpaperUrl = (raw: string) => {
-    const media = wallpaperMediaFromUrl(raw);
-    if (!media) {
-      showNotice('请输入有效的 http(s) 图片 / GIF / 视频地址');
-      return;
-    }
-    setWallpaperMedia(media);
-    setWallpaperImage('');
-    setWallpaperOpen(false);
-    void clearWallpaperBlob().catch(() => undefined);
-    void patchGeneral({ startWallpaperMedia: media, startWallpaperImage: '' });
-    showNotice('壁纸已应用');
-  };
-
-  const applyBingImage = (image: BingGalleryItem, silent = false) => {
-    setWallpaper('bing');
-    setBingSelection({ url: image.url, copyright: image.copyright });
-    setWallpaperImage('');
-    setWallpaperMedia(null);
-    setMediaUrl('');
-    setInk(null);
-    if (!silent) setWallpaperOpen(false);
-    void clearWallpaperBlob().catch(() => undefined);
-    void patchGeneral({
-      startWallpaper: 'bing',
-      startWallpaperImage: '',
-      startWallpaperMedia: undefined,
-      startBingImage: image.url,
-      startBingCopyright: image.copyright
-    });
-    if (!silent) showNotice('已应用必应图库壁纸');
-  };
-  applyBingRef.current = applyBingImage;
-
-  const pickBingImage = (image: BingGalleryItem) => applyBingImage(image, false);
-
-  const toggleBingFavorite = (url: string) => {
-    setBingFavorites((current) => {
-      const next = current.includes(url)
-        ? current.filter((item) => item !== url)
-        : [...current, url].slice(0, 30);
-      try {
-        localStorage.setItem(BING_FAV_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  };
-
-  const changeRotateMinutes = (minutes: number) => {
-    const next = [0, 5, 15, 30, 60].includes(minutes) ? minutes : 0;
-    setRotateMinutes(next);
-    try {
-      localStorage.setItem(ROTATE_KEY, String(next));
-    } catch {
-      // ignore
-    }
-  };
-
-  const resetBingImage = () => {
-    setBingSelection(null);
-    void patchGeneral({ startBingImage: undefined, startBingCopyright: undefined });
-    showNotice('已恢复每日一图');
-  };
-
-  const clearCustomWallpaper = () => {
-    setWallpaperMedia(null);
-    setWallpaperImage('');
-    setMediaUrl('');
-    setInk(null);
-    void clearWallpaperBlob().catch(() => undefined);
-    void patchGeneral({ startWallpaperMedia: undefined, startWallpaperImage: '' });
-  };
-
-
-
   const updateEffect = (next: { blur: number; dim: number }) => {
     setEffect(next);
     try {
@@ -1367,12 +1111,6 @@ export function StartPage({
       }
       return next;
     });
-  };
-
-  const showNotice = (text: string, undo?: () => void) => {
-    setNotice({ text, undo });
-    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setNotice(null), undo ? 6000 : 2600);
   };
 
   const exportStart = () => {
@@ -1544,43 +1282,6 @@ export function StartPage({
     }
     showNotice(`已合并导入 ${incoming.length} 个快捷方式`);
   };
-
-  const effectiveInk = inkMode === 'auto' ? ink : inkMode;
-  const wallpaperPreview = wallpaperMedia ? mediaUrl : wallpaperImage;
-  const wallpaperPreviewKind = wallpaperMedia?.kind || 'image';
-  const videoBackground = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
-  const backgroundImage = wallpaperMedia
-    ? wallpaperMedia.kind === 'video'
-      ? ''
-      : mediaUrl
-    : wallpaperImage ||
-      (wallpaper === 'bing' ? bingSelection?.url || bingWallpaper?.url || '' : '');
-
-  const fallbackBackground =
-    wallpaper === 'bing' && bingSelection ? bingWallpaper?.url || '' : '';
-  const displayBackground = wallpaperBroken ? fallbackBackground : backgroundImage;
-  const displayVideo = wallpaperBroken ? '' : videoBackground;
-
-  useEffect(() => {
-    if (!backgroundImage) {
-      setWallpaperBroken(false);
-      return;
-    }
-    let alive = true;
-    const image = new Image();
-    image.onload = () => {
-      if (alive) setWallpaperBroken(false);
-    };
-    image.onerror = () => {
-      if (alive) setWallpaperBroken(true);
-    };
-    image.src = backgroundImage;
-    return () => {
-      alive = false;
-      image.onload = null;
-      image.onerror = null;
-    };
-  }, [backgroundImage]);
 
   const menuItem = shortcutMenu ? shortcuts.find((item) => item.id === shortcutMenu.id) : null;
   const groupNames = groups.map(([group]) => group);
@@ -1934,7 +1635,7 @@ export function StartPage({
         wallpaperPreviewKind={wallpaperPreviewKind}
         bingGallery={bingGallery}
         bingGalleryState={bingGalleryState}
-        onRetryBingGallery={() => setBingGalleryState('idle')}
+        onRetryBingGallery={retryBingGallery}
         bingSelection={bingSelection}
         onPickBing={pickBingImage}
         onResetBing={resetBingImage}
@@ -1954,20 +1655,7 @@ export function StartPage({
         blur={effect.blur}
         dim={effect.dim}
         minimal={minimal}
-        onPick={(next) => {
-          setWallpaper(next);
-          setWallpaperImage('');
-          setWallpaperMedia(null);
-          setMediaUrl('');
-          setInk(null);
-          setWallpaperOpen(false);
-          void clearWallpaperBlob().catch(() => undefined);
-          void patchGeneral({
-            startWallpaper: next,
-            startWallpaperImage: '',
-            startWallpaperMedia: undefined
-          });
-        }}
+        onPick={pickWallpaper}
         onUpload={applyWallpaperFile}
         onUploadUrl={applyWallpaperUrl}
         onClear={clearCustomWallpaper}

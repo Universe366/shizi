@@ -212,6 +212,7 @@ start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
 start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
 start/useStartClock.ts 时钟状态与刷新频率（15s / 1s）
 start/useStartWeather.ts 天气状态、城市与强制刷新
+start/useStartWallpaper.ts 壁纸/图库/墨色/轮播状态与副作用
 start/commands.ts      指令面板的静态命令与动态搜索命令
 start/bookmarks.ts     Chrome / Edge 书签 HTML 解析
 start/pomodoroStore.ts 全局番茄钟（跨页面/重启）
