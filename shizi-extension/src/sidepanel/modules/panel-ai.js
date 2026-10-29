@@ -2228,6 +2228,141 @@ function chunkStartSeconds(chunk, index, allLines, durationSeconds) {
   return Math.round((index / n) * dur);
 }
 
+// 插件本地的新总结流程：与桌面端一致——不做前置校对、不做分段；
+// 官方分段优先，一次把完整字幕交给模型。
+async function generateSummaryLocalNew() {
+  const st = store.get();
+  const settings = st.settings || {};
+  const lines = st.subtitles || [];
+  if (!lines.length) return null;
+  const video = st.video || {};
+  const task = jobs.beginTask(TASK_LABEL.summarize, { detail: '整理提示词…' });
+  state.summaryAbortRequested = false;
+  state.summaryStreaming = true;
+  state.streaming = true;
+  state.stream = null;
+  store.set({ summaryStream: '', summaryReferences: [] });
+  render();
+  try {
+    const official = Array.isArray(video.viewPoints)
+      ? video.viewPoints
+          .map((point) => ({
+            from: Number(point.from != null ? point.from : point.start) || 0,
+            to: Number(point.to != null ? point.to : point.end) || 0,
+            content: String(point.content || point.title || '').trim()
+          }))
+          .filter((point) => point.content && point.to > point.from)
+      : [];
+    const officialBlock = official.length
+      ? ['【官方分段（优先按这些章节组织总结）】',
+          ...official.map((point) => `${fmtTime(point.from)} · ${point.content}`)].join('\n')
+      : '';
+    const meta = [
+      `视频标题：${video.title || '未知'}`,
+      `UP 主：${video.owner || '未知'}`,
+      `视频时长：${fmtTime(video.duration || 0)}`,
+      `链接：${video.url || ''}`,
+      settings.summary && settings.summary.useVideoMeta !== false && video.desc
+        ? `视频简介：${String(video.desc).slice(0, 2000)}`
+        : '',
+      officialBlock
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const messages = [
+      {
+        role: 'system',
+        content: [activePromptText(), FEISHU_FORMAT_RULES].filter(Boolean).join('\n\n')
+      },
+      {
+        role: 'user',
+        content: [
+          meta,
+          '',
+          '请基于上面的字幕写一份完整总结，严格按系统提示里的格式规则输出；不要写开场白或“根据字幕”这类过程说明。',
+          '尽量详细：每个主题至少展开 2–4 个具体要点，保留数字、时间、步骤、例子和结论。',
+          '下面是这期视频的字幕原文（已提供的全部，请据此整理，不要推测缺失部分）：',
+          linesToTranscript(lines)
+        ].join('\n')
+      }
+    ];
+    const stream = new Stream();
+    state.stream = stream;
+    let streamedChars = 0;
+    task.set(50, '正在生成总结…');
+    stream.start(
+      'ai.summarize',
+      {
+        messages,
+        platformId: settings.ai.activeId,
+        temperature: settings.ai.temperature,
+        maxTokens: settings.ai.maxTokens
+      },
+      {
+        onDelta: (text) => {
+          const cur = store.get();
+          store.set({ summaryStream: (cur.summaryStream || '') + text });
+          streamedChars += text.length;
+          task.set(Math.min(95, 60 + Math.log10(streamedChars + 1) * 11), `生成中（已 ${streamedChars} 字）`);
+          renderSummary();
+          scrollAiBottom();
+        },
+        onEnd: async () => {
+          const bodyText = store.get().summaryStream || '';
+          state.summaryStreaming = false;
+          state.streaming = false;
+          state.stream = null;
+          state.summaryRid = '';
+          state.summaryAbortRequested = false;
+          const chapters = official.length
+            ? official.map((point) => ({
+                title: point.content,
+                start: point.from,
+                end: point.to,
+                summary: ''
+              }))
+            : video.chapters || [];
+          store.set({
+            summary: bodyText,
+            summaryStream: '',
+            video: { ...video, chapters }
+          });
+          recountCitations(bodyText);
+          await saveHistory();
+          task.set(100, `完成（${bodyText.length} 字）`);
+          task.end();
+          render();
+          toast({ title: '总结完成', detail: '已按 Markdown 渲染' }, 'ok');
+        },
+        onError: (payload) => {
+          state.summaryStreaming = false;
+          state.streaming = false;
+          state.stream = null;
+          state.summaryRid = '';
+          state.summaryAbortRequested = false;
+          task.end();
+          const partial = store.get().summaryStream || '';
+          if (partial) {
+            store.set({ summary: partial, summaryStream: '' });
+            toast({ title: '总结中断，已保留已生成的部分', detail: payload.detail }, 'warn', 5000);
+          } else {
+            showError(Object.assign(new Error(payload.title), { payload }));
+          }
+          render();
+        }
+      }
+    );
+    return { text: store.get().summary || '' };
+  } catch (err) {
+    state.summaryStreaming = false;
+    state.streaming = false;
+    state.stream = null;
+    task.end();
+    showError(err, '总结失败');
+    return null;
+  }
+}
+
 export async function generateSummary(opts = {}) {
   const skipProofread = opts.skipProofread === true;
   const st = store.get();
@@ -2279,6 +2414,8 @@ export async function generateSummary(opts = {}) {
       ? { ready: false }
       : await probeDesktopAi();
   const useDesktop = desktopAi.ready === true;
+  // 插件独立运行：直接走新流程（不再前置校对、不再分段）。
+  if (!useDesktop) return generateSummaryLocalNew();
 
   // 整个总结流程挂一个可取消的任务，进度显示在全局进度条上。
   // 之前总结时界面只有「生成中…」，用户不知道卡在哪一步、还剩多久。
