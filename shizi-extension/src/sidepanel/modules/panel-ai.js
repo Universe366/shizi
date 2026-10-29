@@ -2353,7 +2353,6 @@ async function generateSummaryLocalNew() {
 }
 
 export async function generateSummary(opts = {}) {
-  const skipProofread = opts.skipProofread === true;
   const st = store.get();
   if (state.streaming) {
     toast({ title: '正在生成中，请先停止或等待完成' }, 'warn', 2500);
@@ -2371,9 +2370,6 @@ export async function generateSummary(opts = {}) {
     return;
   }
   const settings = st.settings;
-  const promptText = activePromptText();
-  // 官方分段：桌面端总结会优先按它组织；插件本地总结也带上，并在没有 AI 章节时
-  // 直接作为可点击章节展示（独立使用时与桌面端体验一致）。
   const officialPoints = Array.isArray(st.video && st.video.viewPoints)
     ? st.video.viewPoints
         .map((point) => ({
@@ -2396,335 +2392,35 @@ export async function generateSummary(opts = {}) {
       }
     });
   }
-  // 桌面端可用时把总结整条链路交给它：提示词、官方分段、联网工具与桌面端一致。
-  // 连不上/没配置 AI 时回退本地；forceLocal 用于失败后重试。
+
   const allowDesktop = opts.forceLocal !== true && desktopAiAllowed(settings);
   const desktopAi = allowDesktop ? await probeDesktopAi() : { ready: false };
   const useDesktop =
     allowDesktop && (desktopAi.ready === true || desktopAiRequired(settings));
-  // 插件独立运行：直接走新流程（不再前置校对、不再分段）。
+  // 插件独立运行：直接走新流程（不做前置校对、不做分段）。
   if (!useDesktop) return generateSummaryLocalNew();
 
-  // 整个总结流程挂一个可取消的任务，进度显示在全局进度条上。
-  // 之前总结时界面只有「生成中…」，用户不知道卡在哪一步、还剩多久。
+  // 桌面端执行：只传原始视频/字幕，提示词、官方分段、联网工具都由桌面端统一处理。
   const task = jobs.beginTask(TASK_LABEL.summarize, { detail: '准备中…' });
-  // 从「校对」阶段就进入可终止状态：这段时间可能连着跑 8 次检索 + 1 次 AI，
-  // 用户不应该只能干等。停止按钮据此出现，stopStream 会设置 abortRequested。
   state.summaryAbortRequested = false;
   state.summaryRid = '';
   state.summaryStreaming = true;
   state.streaming = true;
-  store.set({
-    summaryStream: '',
-    summaryReferences: [],
-    verifyQueries: [],
-    verifyEvidence: [],
-    verifyFailures: [],
-    verifyJudged: false
-  });
+  store.set({ summaryStream: '', summaryReferences: [] });
   render();
 
-  // ---- 阶段 1：校对字幕（联网核对术语/逻辑/时间/事实），并**实际更正字幕** ----
-  //
-  // 用户要求的流程：点「生成总结」时先查字幕里的错误 → 联网核对 → 更正字幕
-  // （原字幕可回退）→ 用**更正后的字幕**生成总结。
-  //
-  // 早先的做法是把核对证据塞进总结的上下文里让模型「边说边改」，
-  // 那样校正和总结混在一起，用户既看不清改了什么，也没法回退。
-  // 现在拆成两个阶段，并真的把修正写回字幕。
-  const capSearch = searchCapabilityOf(settings);
-  // 是否真的执行阶段 1：只由「总结校对开关 + 检索是否可用」决定。
-  // 以前这里还要求 capSearch.searchOn（即「对话时自动联网」），
-  // 于是用户一关对话自动联网，总结的校对也跟着停了 —— 两个无关的开关被串在一起。
-  const willProofread =
-    !useDesktop &&
-    !skipProofread &&
-    settings.search.verifyOnSummary !== false &&
-    capSearch.webCapable &&
-    st.subtitles.length > 0;
-  let correctedLines = st.subtitles;
-  let webVerify = [];
-  let webJudged = false;
-  let webJudgeNotes = '';
-  const totalSteps = willProofread ? 3 : 2;
-  if (skipProofread) {
-    task.set(5, '快速总结：跳过联网校对');
-  } else if (willProofread) {
-    try {
-      task.set(2, `第 1/${totalSteps} 步：准备校对字幕`);
-      const out = await proofreadSubtitles(st.subtitles, settings, {
-        quiet: false,
-        onStage: (stage, i, total, item) => {
-          if (stage === 'verify') {
-            // 核对占总进度的 5%→50%（几步而已，但这是最耗时的一段）
-            const pct = 5 + (total ? (i / total) * 45 : 0);
-            task.set(pct, `第 2/${totalSteps} 步：联网核对 ${Math.min(i + 1, total)}/${total}${item ? ` · ${String(item).slice(0, 18)}` : ''}`);
-          } else if (stage === 'correct') {
-            task.set(52, `第 2/${totalSteps} 步：让 AI 给出字幕更正…`);
-          } else if (stage === 'judge') {
-            task.set(56, `第 2/${totalSteps} 步：语义核对外部证据…`);
-          }
-        }
-      });
-      webVerify = (out && out.verify) || [];
-      webJudged = !!(out && out.judged);
-      webJudgeNotes = (out && out.notes) || '';
-      if (out && out.applied && out.applied.changed) {
-        correctedLines = out.lines;
-      }
-      task.set(58, out && out.applied && out.applied.changed
-        ? `第 2/${totalSteps} 步：已更正 ${out.applied.changed} 处`
-        : `第 2/${totalSteps} 步：字幕未发现需要更正的地方`);
-    } catch (err) {
-      if (state.summaryAbortRequested || (err && err.name === 'AbortError')) {
-        state.summaryStreaming = false;
-        state.streaming = false;
-        state.summaryRid = '';
-        state.summaryAbortRequested = false;
-        task.end();
-        render();
-        toast({ title: '已终止生成总结', detail: '校对/生成已停止，不会继续消耗额度。' }, 'warn', 3500);
-        return;
-      }
-      const detail = (err && err.payload && err.payload.title) || (err && err.message) || '校对失败';
-      toast({ title: '字幕校对失败，将用原字幕生成总结', detail }, 'warn', 4000);
-    }
-  } else {
-    const why = useDesktop
-      ? '使用桌面端生成'
-      : settings.search.verifyOnSummary === false
-        ? '设置里已关闭「总结前联网核对」'
-        : '检索能力未就绪';
-    task.set(5, `第 1/${totalSteps} 步：跳过联网校对（${why}）`);
-  }
-
-  // 校对刚结束时用户可能已点停止：不要继续进入生成阶段
-  if (state.summaryAbortRequested) {
-    state.summaryStreaming = false;
-    state.streaming = false;
-    state.summaryRid = '';
-    state.summaryAbortRequested = false;
-    task.end();
-    render();
-    toast({ title: '已终止生成总结', detail: '不会继续消耗额度。' }, 'warn', 3000);
-    return;
-  }
-
-  // 证据判定成功时，外部补充已经在同一次调用里产出，不再重复调用模型；
-  // 判定失败才退回原来的「整理外部补充」。
-  let webSupplement = webJudged ? webJudgeNotes : '';
-  if (webVerify.length && webJudged) {
-    task.set(60, `第 2/${totalSteps} 步：外部补充已随证据判定完成`);
-  } else if (webVerify.length) {
-    task.set(60, `第 2/${totalSteps} 步：整理外部补充…`);
-    try {
-      webSupplement = await buildSummarySupplement(webVerify, settings, st.video);
-    } catch (err) {
-      if (state.summaryAbortRequested || (err && err.name === 'AbortError')) {
-        state.summaryStreaming = false;
-        state.streaming = false;
-        state.summaryRid = '';
-        state.summaryAbortRequested = false;
-        task.end();
-        render();
-        toast({ title: '已终止生成总结', detail: '不会继续消耗额度。' }, 'warn', 3000);
-        return;
-      }
-      /* 补充整理失败不影响总结，按原字幕生成 */
-    }
-  }
-  if (state.summaryAbortRequested) {
-    state.summaryStreaming = false;
-    state.streaming = false;
-    state.summaryRid = '';
-    state.summaryAbortRequested = false;
-    task.end();
-    render();
-    toast({ title: '已终止生成总结', detail: '不会继续消耗额度。' }, 'warn', 3000);
-    return;
-  }
-
-  const webSupplementBlock = webSupplement
-    ? [
-        '【外部补充（可选参考）】',
-        '下面是外部资料里与视频相关、且相对明确的补充或提醒。只在确实能补充或纠正视频内容时自然融入；' +
-          '不要单独列出来源，不要写「检索到 / 根据资料 / 待核实」，不要输出网址或编号；与正文无关就忽略。',
-        webSupplement
-      ].join('\n\n')
-    : '';
-
-  // 桌面端会用自己的提示词与字幕处理；本地 context/messages 只用于本地 Stream。
-  let ctx = useDesktop ? { text: '', truncated: false } : selectContext(correctedLines, '', 40000);
-  // 若在对话区选过技能，总结也按该技能的指令走
-  const activeSkill = ((settings.skills && settings.skills.items) || []).find((x) => x.id === state.activeSkillId);
-  // ---- 视频简介 + 热门评论（用户希望总结时结合）----
-  let extraContext = '';
-  if (!useDesktop && st.video && settings.summary && settings.summary.useVideoMeta !== false) {
-    const bits = [];
-    const desc = String(st.video.desc || '').trim();
-    if (desc) bits.push(`【视频简介】\n${desc.slice(0, 2000)}`);
-    // 评论按需抓取（失败不影响总结）
-    if (settings.summary.useComments === true && (st.video.aid || st.video.bvid)) {
-      try {
-        const out = await call(
-          'bili.comments',
-          { aid: st.video.aid, bvid: st.video.bvid, pageUrl: st.video.url, limit: 10 },
-          { timeoutMs: 20000 }
-        );
-        if (out && out.ok && out.comments && out.comments.length) {
-          const rows = out.comments.map((c, i) => `${i + 1}. [${c.like}赞] ${c.user}：${c.text}`);
-          bits.push(`【热门评论（供参考，不代表事实）】\n${rows.join('\n')}`);
-        } else if (out && !out.ok) {
-          toast(
-            { title: '评论获取失败，已跳过', detail: out.reason || '不影响总结生成' },
-            'warn',
-            3500
-          );
-        }
-      } catch (err) {
-        // 用户明确开了「带上评论」时，失败要说一声，不能静默少一块上下文
-        toast(
-          { title: '评论获取失败，已跳过', detail: (err && err.message) || '不影响总结生成' },
-          'warn',
-          3500
-        );
-      }
-    }
-    if (bits.length) extraContext = bits.join('\n\n');
-  }
-  if (!useDesktop && officialPoints.length) {
-    const officialBlock = [
-      '【官方分段（优先按这些章节组织总结）】',
-      ...officialPoints.map((point) => `${fmtTime(point.from)} · ${point.content}`)
-    ].join('\n');
-    extraContext = [officialBlock, extraContext].filter(Boolean).join('\n\n');
-  }
-
-  const messages = [
-    {
-      role: 'system',
-      content: [
-        activeSkill ? `${promptText}\n\n【当前技能：${activeSkill.name}】\n${activeSkill.body}` : promptText,
-        FEISHU_FORMAT_RULES
-      ].filter(Boolean).join('\n\n')
-    },
-    {
-      role: 'user',
-      content: [
-        st.video ? `视频：${st.video.title || ''}${st.video.partTitle ? ` · ${st.video.partTitle}` : ''}` : '',
-        st.video && st.video.owner ? `UP：${st.video.owner}` : '',
-        st.video && st.video.duration ? `时长：${fmtTime(st.video.duration)}` : '',
-        // 把字幕的**真实**覆盖范围交给模型，并禁止它议论字幕完整性 ——
-        // 否则它会拿「视频总时长」与「最后一句字幕的时间」作差，
-        // 自己脑补出「之后 N 分钟字幕未提供」这种不存在的结论。
-        describeSpan(subtitleSpan(correctedLines), st.video && st.video.duration),
-        extraContext,
-        webSupplementBlock,
-        '下面是这期视频的字幕原文（**已提供的全部**，请据此整理，不要推测缺失部分）：',
-        ctx.text
-      ]
-        .filter(Boolean)
-        .join('\n\n')
-    }
-  ];
-
-  // ---- 长视频：分段总结再合并（不能只取前 40000 字符）----
-  //
-  // 这是用户报的「2 小时视频总结到某个时间点就没有了」的修复点。
-  // 字幕是完整的，但之前只把前 40000 字符喂给 AI。
-  if (ctx.truncated && !useDesktop) {
-    try {
-      const result = await summarizeInChunks({
-        lines: correctedLines,
-        systemBase: [
-          activeSkill ? `${promptText}\n\n【当前技能：${activeSkill.name}】\n${activeSkill.body}` : promptText,
-          FEISHU_FORMAT_RULES
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
-        video: st.video,
-        extraContext,
-        // 每段只带一个压缩版背景，避免 2000 字简介 + 评论被复制 10 份
-        chunkContext: extraContext
-          ? `${extraContext.slice(0, 900)}${extraContext.length > 900 ? '…' : ''}`
-          : '',
-        webSupplement: webSupplementBlock,
-        settings,
-        task,
-        totalSteps,
-        onChunkSummary: (text) => {
-          // 让用户看得见进度：把各段中间结果先落进 summaryStream
-          store.set({ summaryStream: text });
-          renderSummary();
-        }
-      });
-      const bodyText = result && result.text ? result.text : '';
-      if (!bodyText) throw new Error('分段总结没有返回内容');
-      const finalText = bodyText;
-      state.summaryStreaming = false;
-      state.streaming = false;
-      state.stream = null;
-      state.summaryRid = '';
-      state.summaryAbortRequested = false;
-      store.set({ summary: finalText, summaryStream: '' });
-      recountCitations(bodyText);
-      await saveHistory();
-      task.set(100, `完成（${bodyText.length} 字，覆盖全片 ${result.chunks} 段）`);
-      task.end();
-      render();
-      toast(
-        {
-          title: '总结完成',
-          detail: `视频较长，已分段总结并合并（共 ${result.chunks} 段），覆盖全片。`
-        },
-        'ok',
-        5000
-      );
-      return;
-    } catch (err) {
-      const aborted = state.summaryAbortRequested || (err && err.name === 'AbortError');
-      state.summaryStreaming = false;
-      state.streaming = false;
-      state.stream = null;
-      state.summaryRid = '';
-      state.summaryAbortRequested = false;
-      task.end();
-      const payload = (err && err.payload) || {};
-      const partial = store.get().summaryStream || '';
-      if (aborted) {
-        if (partial) {
-          store.set({ summary: partial, summaryStream: '' });
-          toast({ title: '已终止分段总结', detail: '已保留已经生成的部分', }, 'warn', 4000);
-        } else {
-          toast({ title: '已终止分段总结' }, 'warn', 2500);
-        }
-      } else if (partial) {
-        store.set({ summary: partial, summaryStream: '' });
-        toast({ title: '分段总结中断，已保留已生成的部分', detail: payload.detail || String(err.message || err) }, 'warn', 6000);
-      } else {
-        showError(Object.assign(new Error(payload.title || String((err && err.message) || err)), { payload }));
-      }
-      render();
-      return;
-    }
-  }
-
-  task.set(60, `第 ${totalSteps}/${totalSteps} 步：${useDesktop ? '桌面端生成中' : '正在生成总结'}…`);
-  const stream = useDesktop ? new DesktopStream() : new Stream();
+  const stream = new DesktopStream();
   state.stream = stream;
-  // 生成阶段无法预知总长度，所以用「已输出 N 字」做温和推进：
-  // 60% → 95%，永不假装到 100%（收尾时才置满）。
   let streamedChars = 0;
+  task.set(60, '桌面端生成中…');
   stream.start(
     'ai.summarize',
     {
-      messages,
       platformId: settings.ai.activeId,
       temperature: settings.ai.temperature,
       maxTokens: settings.ai.maxTokens,
-      // 桌面端需要原始视频与字幕来跑它自己的总结提示词；本地 Stream 会忽略这些字段。
       video: st.video,
-      lines: correctedLines,
+      lines: st.subtitles,
       web: true
     },
     {
@@ -2732,22 +2428,30 @@ export async function generateSummary(opts = {}) {
         const cur = store.get();
         store.set({ summaryStream: (cur.summaryStream || '') + text });
         streamedChars += text.length;
-        task.set(Math.min(95, 60 + Math.log10(streamedChars + 1) * 11), `第 ${totalSteps}/${totalSteps} 步：生成中（已 ${streamedChars} 字）`);
+        task.set(Math.min(95, 60 + Math.log10(streamedChars + 1) * 11), `生成中（已 ${streamedChars} 字）`);
         renderSummary();
         scrollAiBottom();
       },
       onEnd: async (event) => {
         const bodyText = store.get().summaryStream || '';
-        const finalText = bodyText;
         state.summaryStreaming = false;
         state.streaming = false;
         state.stream = null;
         state.summaryRid = '';
         state.summaryAbortRequested = false;
+        const chapters = officialPoints.length
+          ? officialPoints.map((point) => ({
+              title: point.content,
+              start: point.from,
+              end: point.to,
+              summary: ''
+            }))
+          : st.video.chapters || [];
         store.set({
-          summary: finalText,
+          summary: bodyText,
           summaryStream: '',
-          summaryReferences: Array.isArray(event && event.references) ? event.references : []
+          summaryReferences: Array.isArray(event && event.references) ? event.references : [],
+          video: { ...st.video, chapters }
         });
         recountCitations(bodyText);
         await saveHistory();
@@ -2771,8 +2475,6 @@ export async function generateSummary(opts = {}) {
           render();
           return;
         }
-        // 桌面端在「还没输出任何字」时失败：自动回退到插件本地 AI，
-        // 不让一次桥接故障把总结能力整体打掉。
         if (useDesktop && !aborted) {
           toast(
             {

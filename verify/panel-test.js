@@ -1481,14 +1481,12 @@ async function main() {
 
     // 总结进度条：必须挂到全局 jobs 进度上，并分阶段报告
     check('总结流程创建了任务', /jobs\.beginTask\(TASK_LABEL\.summarize/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check('校对阶段报告核对进度', /步：联网核对/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check('生成阶段报告已输出字数', /步：生成中（已 \$\{streamedChars\} 字）/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    // 步骤总数按「本次是否真的校对」计算：快速总结、设置里关闭校对、
-    // 或检索不可用时都只有两步。
+    check('不再有前置校对阶段', !/步：联网核对/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
+    check('生成阶段报告已输出字数', /生成中（已 \$\{streamedChars\} 字）/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
     check(
-      '步骤总数按「是否真的校对」计算',
-      /const willProofread =[\s\S]{0,300}verifyOnSummary !== false/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /const totalSteps = willProofread \? 3 : 2;/.test(srcOf('sidepanel/modules/panel-ai.js')),
+      '不再按“是否校对”计算步骤',
+      !/const willProofread =/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
+        !/const totalSteps = willProofread/.test(srcOf('sidepanel/modules/panel-ai.js')),
       ''
     );
     check(
@@ -1519,15 +1517,13 @@ async function main() {
       ''
     );
     check(
-      '总结阶段会把证据整理成 0~3 条外部补充',
-      /async function buildSummarySupplement\(/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /const webSupplementBlock =/.test(srcOf('sidepanel/modules/panel-ai.js')),
+      '新总结流程不再预生成外部补充块',
+      !/const webSupplementBlock =/.test(srcOf('sidepanel/modules/panel-ai.js')),
       ''
     );
     check(
       '总结不再列来源 / 编号 / 待核实',
-      !/summaryVerifyBlock|summarySourcesFooter|sourcesFooter/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /不要单独列出来源/.test(srcOf('sidepanel/modules/panel-ai.js')),
+      !/summaryVerifyBlock|summarySourcesFooter|sourcesFooter/.test(srcOf('sidepanel/modules/panel-ai.js')),
       ''
     );
     check(
@@ -2130,9 +2126,8 @@ async function main() {
       check('describeSpan 含真实首末时间', /00:00/.test(desc) && /1:43:43/.test(desc), desc);
       check('describeSpan 含总时长', /1:58:11/.test(desc), desc);
     }
-    check('单次总结提示词带上真实字幕范围', /describeSpan\(subtitleSpan\(correctedLines\)/.test(aiSrc2), '');
-    check('合并提示词带上真实字幕范围', /spanText/.test(aiSrc2), '');
-    check('明确禁止模型议论字幕完整性', /不要\*\*写任何关于「字幕是否完整/.test(aiSrc2), '');
+    check('本地总结使用共享提示词核心', /buildSummaryPrompt\(/.test(aiSrc2), '');
+    check('本地总结不再调用分段合并', !/await summarizeInChunks/.test(aiSrc2), '');
     check('字幕原文说明改为「已提供的全部」', /已提供的全部/.test(aiSrc2), '');
     const actSrc2 = fs.readFileSync(
       path.join(__dirname, '..', 'shizi-extension', 'src', 'sidepanel', 'modules', 'panel-actions.js'),
