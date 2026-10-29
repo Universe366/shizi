@@ -14497,3 +14497,15 @@ sup:has(> .cite-ref) {
   color: #e5484d;
   background: var(--surface-soft);
 }
+
+.studio-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .studio-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

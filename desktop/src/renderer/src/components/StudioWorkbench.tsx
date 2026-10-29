@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import type {
+  AsrPlatform,
   LibraryVideo,
   OptimizeSuggestion,
   PageInfo,
@@ -63,6 +64,7 @@ interface LocalBatchItem {
   status: 'waiting' | 'running' | 'done' | 'failed';
   percent: number;
   lines: SubtitleLine[];
+  videoId?: number;
   error?: string;
 }
 
@@ -80,6 +82,8 @@ export function StudioWorkbench() {
   const [tab, setTab] = useState<StudioTab>('task');
   const [file, setFile] = useState<{ path: string; name: string; duration: number } | null>(null);
   const [language, setLanguage] = useState('auto');
+  const [asrPlatforms, setAsrPlatforms] = useState<AsrPlatform[]>([]);
+  const [asrActive, setAsrActive] = useState('');
   const [lines, setLines] = useState<SubtitleLine[]>([]);
   const [importedName, setImportedName] = useState('');
   const [translated, setTranslated] = useState<SubtitleLine[] | null>(null);
@@ -110,6 +114,8 @@ export function StudioWorkbench() {
   const [localBatchRunning, setLocalBatchRunning] = useState(false);
   const batchActive = useRef('');
   const batchResolve = useRef<(() => void) | null>(null);
+  const batchLines = useRef<SubtitleLine[]>([]);
+  const batchMeta = useRef<{ name: string; duration: number }>({ name: '', duration: 0 });
   const translateId = useRef('');
   const optimizeId = useRef('');
 
@@ -128,6 +134,8 @@ export function StudioWorkbench() {
     const offDone = window.bsub.onLocalTransDone?.((event) => {
       if (batchActive.current) {
         const active = batchActive.current;
+        batchLines.current = event.lines;
+        batchMeta.current = { name: event.name, duration: event.duration };
         setLocalBatch((current) =>
           current.map((item) =>
             item.id === active
@@ -189,6 +197,9 @@ export function StudioWorkbench() {
       const general = response.data.settings.general;
       setStyle({ ...DEFAULT_SUBTITLE_STYLE, ...(general.subtitleStyle || {}) });
       setPresets(general.subtitlePresets || []);
+      const platforms = response.data.settings.asr?.platforms || [];
+      setAsrPlatforms(platforms);
+      setAsrActive(response.data.settings.asr?.activeId || platforms[0]?.id || '');
     })();
   }, []);
 
@@ -337,8 +348,11 @@ export function StudioWorkbench() {
       return;
     }
     setLocalBatchRunning(true);
+    const savedIds: number[] = [];
     for (const item of pending) {
       batchActive.current = item.id;
+      batchLines.current = [];
+      batchMeta.current = { name: item.name, duration: 0 };
       setLocalBatch((current) =>
         current.map((row) =>
           row.id === item.id ? { ...row, status: 'running', percent: 0, error: undefined } : row
@@ -357,9 +371,35 @@ export function StudioWorkbench() {
       await new Promise<void>((resolve) => {
         batchResolve.current = resolve;
       });
+      const saved = await window.bsub.saveLocalTranscript?.({
+        path: item.path,
+        name: batchMeta.current.name || item.name,
+        duration: batchMeta.current.duration,
+        lines: batchLines.current
+      });
+      if (saved?.ok) {
+        savedIds.push(saved.data.videoId);
+        setLocalBatch((current) =>
+          current.map((row) =>
+            row.id === item.id ? { ...row, videoId: saved.data.videoId } : row
+          )
+        );
+      }
     }
     setLocalBatchRunning(false);
-    setMessage('本地批量转录完成，可在资料库继续批量成片');
+    if (savedIds.length) {
+      const synthesized = await window.bsub.batchSynthesize?.({
+        ids: savedIds,
+        style,
+        mode: 'hard'
+      });
+      if (!synthesized) setMessage('批量转录完成，但当前版本不支持批量成片');
+      else if (!synthesized.ok) setMessage(synthesized.error);
+      else if ('canceled' in synthesized.data) setMessage('批量转录完成，已取消成片输出');
+      else setMessage(`已完成 ${savedIds.length} 个视频的转录并提交成片`);
+    } else {
+      setMessage('本地批量转录完成');
+    }
   };
 
   const handleTaskDrop = async (event: ReactDragEvent) => {
@@ -387,6 +427,15 @@ export function StudioWorkbench() {
     setTranslated(null);
     setImportedName('');
     setMessage('已选择拖入的文件');
+  };
+
+  const changeAsr = async (id: string) => {
+    setAsrActive(id);
+    const response = await window.bsub.getSettings?.();
+    if (!response?.ok) return;
+    const settings = response.data.settings;
+    settings.asr.activeId = id;
+    await window.bsub.saveSettings(settings);
   };
 
   const pick = async () => {
@@ -695,7 +744,19 @@ export function StudioWorkbench() {
               </button>
             </div>
 
-            <div className="studio-grid-2">
+            <div className="studio-grid-3">
+              <label className="studio-field">
+                <span>识别引擎</span>
+                <select value={asrActive} disabled={busy} onChange={(event) => void changeAsr(event.target.value)}>
+                  {asrPlatforms.length ? (
+                    asrPlatforms.map((platform) => (
+                      <option key={platform.id} value={platform.id}>{platform.name || platform.id}</option>
+                    ))
+                  ) : (
+                    <option value="">本机 Whisper</option>
+                  )}
+                </select>
+              </label>
               <label className="studio-field">
                 <span>识别语言</span>
                 <select value={language} disabled={busy} onChange={(event) => setLanguage(event.target.value)}>
@@ -841,6 +902,8 @@ export function StudioWorkbench() {
               <div className="studio-grid-2">
                 <label className="studio-field"><span>字号</span><input type="number" min={20} max={120} value={style.fontSize} onChange={(event) => setStyle({ ...style, fontSize: Number(event.target.value) })} /></label>
                 <label className="studio-field"><span>描边</span><input type="number" min={0} max={10} value={style.outline} onChange={(event) => setStyle({ ...style, outline: Number(event.target.value) })} /></label>
+                <label className="studio-field"><span>阴影</span><input type="number" min={0} max={10} value={style.shadow} onChange={(event) => setStyle({ ...style, shadow: Number(event.target.value) })} /></label>
+                <label className="studio-field"><span>底部距离</span><input type="number" min={0} max={240} value={style.marginV} onChange={(event) => setStyle({ ...style, marginV: Number(event.target.value) })} /></label>
               </div>
               <div className="studio-grid-2">
                 <label className="studio-field"><span>文字颜色</span><input type="color" value={style.primaryColor} onChange={(event) => setStyle({ ...style, primaryColor: event.target.value })} /></label>
@@ -968,7 +1031,7 @@ export function StudioWorkbench() {
                   disabled={!localBatch.length || localBatchRunning}
                 >
                   {localBatchRunning ? <Loader2 size={12} className="spin" /> : <Mic size={12} />}
-                  开始全部
+                  开始全部（转录→成片）
                 </button>
               </div>
               {!localBatch.length ? (
