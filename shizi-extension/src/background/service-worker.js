@@ -60,6 +60,66 @@ async function collectMcpTools(mcpCfg, opts = {}) {
 }
 
 
+// 总结用的本地联网工具：与桌面端 web_search / web_fetch 对齐。
+// 复用现有检索平台与免费兜底，不额外引入 API。
+function buildWebTools(settings, send) {
+  const maxResults = Math.max(1, Math.min(20, Number(settings.search && settings.search.maxResults) || 6));
+  return [
+    {
+      qualifiedName: 'web_search',
+      name: 'web_search',
+      serverName: 'web',
+      description: '搜索公开网页获取最新或外部事实。可以换关键词多次调用；结果里的 index 可用于引用 [n]。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '自包含的搜索词，不要用代词' }
+        },
+        required: ['query']
+      },
+      handler: async (args) => {
+        const out = await methods['search.provider']({
+          query: String((args && args.query) || ''),
+          maxResults,
+          fetchPageContent: false
+        });
+        const results = (out && out.results) || [];
+        if (!results.length) return '（没有搜索到结果）';
+        return results
+          .map((item, index) =>
+            [
+              `[${index + 1}] ${item.title || ''}`,
+              item.url || '',
+              String(item.excerpt || item.snippet || item.content || '').slice(0, 700)
+            ]
+              .filter(Boolean)
+              .join('\n')
+          )
+          .join('\n\n');
+      }
+    },
+    {
+      qualifiedName: 'web_fetch',
+      name: 'web_fetch',
+      serverName: 'web',
+      description: '打开一篇公开网页并读取正文。用于核对搜索结果里的具体链接。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'http/https 网页地址' }
+        },
+        required: ['url']
+      },
+      handler: async (args) => {
+        const url = String((args && args.url) || '');
+        if (!/^https?:\/\//i.test(url)) throw new Error('只支持 http/https 网页');
+        const page = await methods['search.fetch-page']({ url });
+        return String((page && page.text) || '').slice(0, 4000) || '（网页没有正文）';
+      }
+    }
+  ];
+}
+
 // 构建指纹：版本号 + 模块数 + 构建时间（第十一章）。
 //
 // 这三项是给用户**确认自己真的加载了新代码**用的（README 第一节），
@@ -1550,6 +1610,27 @@ async function runStreamRoute(msg, port, controller) {
     const plat = settings.ai.platforms.find((p) => p.id === (params.platformId || settings.ai.activeId));
     const messages = params.messages || [];
     const timeoutMs = params.timeoutMs || (route === 'ai.summarize' ? 600000 : 300000);
+
+    // ---- 总结的本地联网工具（与桌面 web_search / web_fetch 对齐）----
+    if (route === 'ai.summarize' && params.webTools) {
+      const webTools = buildWebTools(settings, send);
+      send.log('info', '联网工具已启用：模型可按需搜索/读取网页');
+      try {
+        const out = await T.chatWithTools(plat, messages, webTools, {
+          temperature: params.temperature ?? settings.ai.temperature,
+          maxTokens: params.maxTokens || settings.ai.maxTokens,
+          signal: controller.signal,
+          timeoutMs,
+          maxToolRounds: 6,
+          toolTimeoutMs: 30000,
+          onToolEvent: (e) => send.tool(e)
+        });
+        if (out.text) send.delta(out.text);
+        return { text: out.text };
+      } catch (err) {
+        send.log('warn', `联网工具不可用，已降级为普通总结：${(err && err.message) || err}`);
+      }
+    }
 
     // ---- MCP 工具（只对对话生效，总结不需要外部工具）----
     // 注意：面板的对话走的是**流式**路由，而工具调用是非流式的多轮循环。

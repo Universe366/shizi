@@ -129,8 +129,14 @@ export async function chatWithTools(platform, messages, tools, opts = {}) {
       let ok = true;
       try {
         if (!tool) throw new Error(`未知工具：${call.name}`);
-        const out = await callTool(tool.server, tool.name, call.args, { timeoutMs: opts.toolTimeoutMs });
-        text = toolResultToText(out) || '（工具没有返回文本内容）';
+        if (typeof tool.handler === 'function') {
+          // 本地工具（联网检索/读网页等）直接执行，不走 MCP。
+          text = String((await tool.handler(call.args, { signal: opts.signal })) || '');
+          if (!text) text = '（工具没有返回文本内容）';
+        } else {
+          const out = await callTool(tool.server, tool.name, call.args, { timeoutMs: opts.toolTimeoutMs });
+          text = toolResultToText(out) || '（工具没有返回文本内容）';
+        }
       } catch (err) {
         ok = false;
         text = `工具调用失败：${(err && err.message) || err}`;

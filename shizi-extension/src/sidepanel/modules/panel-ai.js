@@ -2286,9 +2286,14 @@ async function generateSummaryLocalNew() {
         messages,
         platformId: settings.ai.activeId,
         temperature: settings.ai.temperature,
-        maxTokens: settings.ai.maxTokens
+        maxTokens: settings.ai.maxTokens,
+        webTools: searchCapabilityOf(settings).webCapable
       },
       {
+        onLog: (_level, text) => task.set(50, String(text || '联网中…')),
+        onTool: (event) => {
+          if (event && event.phase === 'start') task.set(50, `调用工具：${event.name}`);
+        },
         onDelta: (text) => {
           const cur = store.get();
           store.set({ summaryStream: (cur.summaryStream || '') + text });
