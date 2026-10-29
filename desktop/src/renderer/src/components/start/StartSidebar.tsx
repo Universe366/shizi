@@ -161,9 +161,11 @@ export function StartSidebar({
           )}
           <button className="start-tab start-tab-add" title="导出起始页" onClick={onExport}>
             <Download size={13} />
+            导出
           </button>
           <button className="start-tab start-tab-add" title="导入起始页" onClick={onImport}>
             <Upload size={13} />
+            导入
           </button>
           <button
             className="start-tab start-tab-add"
@@ -171,6 +173,7 @@ export function StartSidebar({
             onClick={onImportBookmarks}
           >
             <Bookmark size={13} />
+            书签
           </button>
           <button className="start-tab start-tab-add" title="批量导入网址" onClick={onBatchAdd}>
             <Tags size={13} />
