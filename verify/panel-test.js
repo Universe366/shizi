@@ -1164,29 +1164,6 @@ async function main() {
         sentQuery
       );
 
-      // 语义判定：来源强度按独立域名计算
-      const agree = api.panelAi.agreementOf([
-        { url: 'https://a.example/x', verdict: 'support' },
-        { url: 'https://b.example/y', verdict: 'support' },
-        { url: 'https://a.example/z', verdict: 'support' }
-      ]);
-      check('多来源一致按独立域名计算', agree.agreement === 'multi' && agree.support === 2, JSON.stringify(agree));
-      const conflict = api.panelAi.agreementOf([
-        { url: 'https://a.example/x', verdict: 'support' },
-        { url: 'https://b.example/y', verdict: 'refute' }
-      ]);
-      check('来源冲突能识别', conflict.agreement === 'conflict', JSON.stringify(conflict));
-      check(
-        '单一来源不算多来源',
-        api.panelAi.agreementOf([{ url: 'https://a.example/x', verdict: 'support' }]).agreement === 'single',
-        ''
-      );
-      check(
-        '证据判定 JSON 能解析（含代码块）',
-        api.panelAi.parseVerdictJson('```json\n{"verdicts":[{"claim":1,"evidence":1,"verdict":"support"}]}\n```').length === 1,
-        ''
-      );
-
       // 并发核对：保持原始顺序
       const conc = await V.verifyItems(
         ['DeepSeek', 'MoE', '6710 亿'],
@@ -1223,15 +1200,6 @@ async function main() {
         V.domainOfUrl('https://a.example/x') !== V.domainOfUrl('https://b.example/y'),
         ''
       );
-      check(
-        '同主域的子域不构成多来源',
-        api.panelAi.agreementOf([
-          { url: 'https://finance.sina.com.cn/a', verdict: 'support' },
-          { url: 'https://tech.sina.com.cn/b', verdict: 'support' }
-        ]).agreement === 'single',
-        ''
-      );
-
       // 转载近似文本合并
       const dupText = 'DeepSeek V4 在 2026 年 3 月正式发布，参数量达到 6710 亿，价格是每百万 token 一元钱。';
       const dedup = V.dedupeNearDuplicates([
@@ -1244,18 +1212,6 @@ async function main() {
         { title: 'B', text: '另一家公司的产品在 2025 年发布了完全不同的功能，价格和参数都不一样，这里只是用来做不相似文本的对照。', url: 'https://b.example/2' }
       ]);
       check('不同文本不会被合并', dedup2.length === 2, '');
-
-      // 判定引用必须能在证据原文里找到
-      check(
-        '判定引用必须逐字出现在证据里',
-        api.panelAi.quoteMatches('2026 年 3 月发布', 'DeepSeek V4 在 2026 年 3 月发布，参数量 6710 亿') === true,
-        ''
-      );
-      check(
-        '编造的引用会被拒绝',
-        api.panelAi.quoteMatches('OpenAI 在 2025 年发布', 'DeepSeek V4 在 2026 年 3 月发布') === false,
-        ''
-      );
 
       // 失败重试与失败记录
       let attempts = 0;
@@ -1353,12 +1309,7 @@ async function main() {
     check('检索词解析：JSON 数组', JSON.stringify(Q('["DeepSeek V4 发布时间","6710 亿参数量"]')) === JSON.stringify(['DeepSeek V4 发布时间', '6710 亿参数量']), '');
     check('检索词解析：编号行 + 去重', JSON.stringify(Q('1. DeepSeek V4\n2. 6710 亿参数量\n3. DeepSeek V4')) === JSON.stringify(['DeepSeek V4', '6710 亿参数量']), '');
     check('检索词解析：过滤 URL / 空话', Q('["https://a.com", "没有", "DeepSeek V4"]').length === 1, JSON.stringify(Q('["https://a.com", "没有", "DeepSeek V4"]')));
-    check(
-      '校对优先用 AI 生成查询，失败回退规则',
-      /buildSearchQueries\(lines, settings/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-ai.js'), 'utf8')) &&
-        /buildVerifyClaims\(lines, cap\)/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-ai.js'), 'utf8')),
-      ''
-    );
+
 
     // 能力自述：未检索时不得承诺「会附参考资料」
     const B = mod.buildCapabilityBlock;
@@ -1464,19 +1415,7 @@ async function main() {
       ''
     );
     check('主按钮不再标注「先校对」', !/生成总结（先校对）/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check(
-      '长视频分段总结也能终止（rid + cancel）',
-      /state\.summaryRid = rid/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /call\('cancel', \{ rid: state\.summaryRid \}/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /summaryAbortRequested/.test(srcOf('sidepanel/modules/panel-ai.js')),
-      ''
-    );
-    check(
-      '校对阶段的联网搜索也能被停止',
-      /rid: proofRid/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /rid: hooks\.rid/.test(srcOf('sidepanel/modules/search.js')),
-      ''
-    );
+
     check(
       '长视频不再分段拼背景',
       !/background: chunkContext/.test(srcOf('sidepanel/modules/panel-ai.js')),
@@ -1497,23 +1436,7 @@ async function main() {
       !/本次字幕已校对并更正/.test(srcOf('sidepanel/modules/panel-ai.js')),
       ''
     );
-    check(
-      '校对不再被「对话自动联网」开关卡住',
-      /if \(cap\.webCapable\) \{\n    if \(shouldAbort\(\)\) throw abortError\(\);/.test(
-        srcOf('sidepanel/modules/panel-ai.js')
-      ),
-      ''
-    );
-    check(
-      '校对阶段也能终止（verifyItems 支持 shouldAbort）',
-      /shouldAbort/.test(
-        fs.readFileSync(
-          path.join(__dirname, '..', 'shizi-extension', 'src', 'shared', 'verify.js'),
-          'utf8'
-        )
-      ) && /shouldAbort/.test(srcOf('sidepanel/modules/panel-ai.js')),
-      ''
-    );
+
     check(
       '清空字幕有二次确认',
       /confirmDialog\([\s\S]{0,160}清空字幕/.test(
@@ -1539,11 +1462,14 @@ async function main() {
   // ---- 生成总结：先校对字幕再总结 + 飞书格式 + 可回退 ----
   {
     const mod = api.panelAi;
-    check('导出了 proofreadSubtitles', typeof mod.proofreadSubtitles === 'function', typeof mod.proofreadSubtitles);
+    check('旧校对函数已移除', typeof mod.proofreadSubtitles === 'undefined', typeof mod.proofreadSubtitles);
     check('导出了 revertSubtitles', typeof mod.revertSubtitles === 'function', typeof mod.revertSubtitles);
 
-    // 飞书格式规则必须包含确定支持的那几类，且排除会失效的
-    const rules = mod.FEISHU_FORMAT_RULES || '';
+    // 格式规则已抽到桌面/插件共享 core，测试直接读唯一源码。
+    const rules = fs.readFileSync(
+      path.join(__dirname, '..', 'desktop', 'src', 'shared', 'core', 'summary.ts'),
+      'utf8'
+    );
     check('格式规则含标题层级限制', /标题最多三级/.test(rules), '');
     check('格式规则含表格（要求表头与分隔行）', /管道表格/.test(rules) && /表头与 .*分隔行/.test(rules), '');
     check('格式规则含代码块（要求标注语言）', /三个反引号/.test(rules), '');
@@ -1921,8 +1847,12 @@ async function main() {
       ),
       ''
     );
-    check('提示词要求更详细', /宁可详细，不要简略/.test(api.panelAi.FEISHU_FORMAT_RULES || ''), '');
-    check('提示词保留反灌水约束', /不要为了凑长度/.test(api.panelAi.FEISHU_FORMAT_RULES || ''), '');
+    const coreRules = fs.readFileSync(
+      path.join(__dirname, '..', 'desktop', 'src', 'shared', 'core', 'summary.ts'),
+      'utf8'
+    );
+    check('提示词要求更详细', /宁可详细，不要简略/.test(coreRules), '');
+    check('提示词保留反灌水约束', /不要为了凑长度/.test(coreRules), '');
 
     // ---- 解码路径必须按**实际 codec** 建 SourceBuffer ----
     //
