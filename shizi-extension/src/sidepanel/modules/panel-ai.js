@@ -85,10 +85,17 @@ export function init(container) {
     .catch(() => {});
   state.summaryHost = h('div', { id: 'summary-host' });
   state.chatHost = h('div', { class: 'chat-list', id: 'chat-host' });
-  body.appendChild(h('div', { class: 'section-title', text: 'AI 总结' }));
-  body.appendChild(state.summaryHost);
-  body.appendChild(h('div', { class: 'section-title', text: '与 AI 对话' }));
-  body.appendChild(state.chatHost);
+  const summarySection = h('div', { class: 'ai-summary-section' }, [
+    h('div', { class: 'section-title', text: 'AI 总结' }),
+    state.summaryHost
+  ]);
+  const chatSection = h('div', { class: 'ai-chat-section' }, [
+    h('div', { class: 'section-title', text: '与 AI 对话' }),
+    state.chatHost
+  ]);
+  body.appendChild(summarySection);
+  body.appendChild(chatSection);
+  inputWrap.classList.add('ai-chat-section');
 
   scrollHost.addEventListener('scroll', () => {
     store.setScroll('ai', scrollHost.scrollTop);

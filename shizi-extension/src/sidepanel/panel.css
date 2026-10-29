@@ -234,7 +234,9 @@ body[data-embed='true'] .topbar-actions {
 }
 
 body[data-tab='subtitles'] .tab[data-tab-btn='subtitles'],
-body[data-tab='ai'] .tab[data-tab-btn='ai'],
+body[data-tab='summary'] .tab[data-tab-btn='summary'],
+body[data-tab='chat'] .tab[data-tab-btn='chat'],
+body[data-tab='ai'] .tab[data-tab-btn='summary'],
 body[data-tab='library'] .tab[data-tab-btn='library'],
 body[data-tab='settings'] .tab[data-tab-btn='settings'] {
   background: var(--bg);
@@ -538,6 +540,32 @@ body[data-tab='settings'] .tab[data-tab-btn='settings'] {
 
 .settings {
   display: none;
+}
+
+/* 总结 / 对话：共用 AI 面板，但按 tab 只显示对应部分 */
+body[data-tab='summary'] .ai-chat-section,
+body[data-tab='chat'] .ai-summary-section {
+  display: none;
+}
+
+body[data-tab='summary'] #chat-input-wrap {
+  display: none;
+}
+
+body[data-tab='summary'] #actionbar,
+body[data-tab='chat'] #actionbar {
+  display: none;
+}
+
+body[data-tab='summary'] #col-subtitles,
+body[data-tab='chat'] #col-subtitles {
+  display: none;
+}
+
+body[data-tab='summary'] #col-ai,
+body[data-tab='chat'] #col-ai {
+  display: flex;
+  flex: 1 1 auto;
 }
 
 /* 库：桌面端本地库的只读镜像 */
@@ -2620,7 +2648,9 @@ mark.hit {
 }
 
 body[data-tab='subtitles'] .tab[data-tab-btn='subtitles'],
-body[data-tab='ai'] .tab[data-tab-btn='ai'],
+body[data-tab='summary'] .tab[data-tab-btn='summary'],
+body[data-tab='chat'] .tab[data-tab-btn='chat'],
+body[data-tab='ai'] .tab[data-tab-btn='summary'],
 body[data-tab='library'] .tab[data-tab-btn='library'],
 body[data-tab='settings'] .tab[data-tab-btn='settings'] {
   background: linear-gradient(135deg, var(--brand), #ff8fb1);

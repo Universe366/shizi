@@ -58,6 +58,8 @@ async function boot() {
   } catch (err) {
     /* ignore */
   }
+  // 旧 UI 只有一个「总结 / AI」tab，迁移到新的「总结」入口。
+  if (store.get().activeTab === 'ai') store.set({ activeTab: 'summary' });
   installShell();
   window.addEventListener('bsub:update-state', (e) => applyUpdateBadge(e && e.detail));
   jobs.setJobsHost(document.getElementById('jobs'));
@@ -242,13 +244,14 @@ function installShell() {
 }
 
 function switchTab(tab) {
-  store.set({ activeTab: tab });
+  const next = tab === 'ai' ? 'summary' : tab;
+  store.set({ activeTab: next });
   renderTabs();
   store.scheduleUiPersist();
-  if (tab === 'settings') settingsPanel.render();
-  if (tab === 'ai') aiPanel.render();
-  if (tab === 'subtitles') subtitlesPanel.render();
-  if (tab === 'library' && app.panels.library) app.panels.library.render();
+  if (next === 'settings') settingsPanel.render();
+  if (next === 'summary' || next === 'chat') aiPanel.render();
+  if (next === 'subtitles') subtitlesPanel.render();
+  if (next === 'library' && app.panels.library) app.panels.library.render();
 }
 
 function renderTabs() {
@@ -268,7 +271,8 @@ function applyLayout() {
   columns.setAttribute('data-mode', one ? 'one' : 'two');
   const tab = st.activeTab || 'subtitles';
   const isSettings = tab === 'settings';
-  document.getElementById('col-subtitles').setAttribute('data-hidden', String(one && !isSettings && tab === 'ai'));
+  const isAi = tab === 'ai' || tab === 'summary' || tab === 'chat';
+  document.getElementById('col-subtitles').setAttribute('data-hidden', String(one && !isSettings && isAi));
   document.getElementById('col-ai').setAttribute('data-hidden', String(one && !isSettings && tab === 'subtitles'));
 }
 
@@ -514,7 +518,7 @@ function wireStore() {
 // ---------------------------------------------------------------------------
 
 const SHORTCUTS = [
-  ['Alt + 1 / 2 / 3', '切换到 字幕 / 总结·AI / 设置'],
+  ['Alt + 1 / 2 / 3 / 4 / 5', '切换到 字幕 / 总结 / 对话 / 库 / 设置'],
   ['Alt + T', '开始语音转录'],
   ['Alt + H', '抓取官方字幕'],
   ['Alt + S', '对当前视频生成总结'],
@@ -541,8 +545,10 @@ function wireKeys() {
     const k = e.key.toLowerCase();
     const map = {
       '1': () => switchTab('subtitles'),
-      '2': () => switchTab('ai'),
-      '3': () => switchTab('settings'),
+      '2': () => switchTab('summary'),
+      '3': () => switchTab('chat'),
+      '4': () => switchTab('library'),
+      '5': () => switchTab('settings'),
       t: () => transcribe(),
       h: () => harvest(),
       s: () => aiPanel.generateSummary(),
