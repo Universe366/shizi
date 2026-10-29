@@ -45,6 +45,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ShortcutBoard>> = 
     onClearSelection: vi.fn(),
     onBatchDelete: vi.fn(),
     onBatchMove: vi.fn(),
+    onNewGroupFrom: vi.fn(),
     tags: [] as Array<{ tag: string; count: number }>,
     activeTag: '',
     onTag: vi.fn(),

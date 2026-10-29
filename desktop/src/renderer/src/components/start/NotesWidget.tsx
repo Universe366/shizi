@@ -1,8 +1,9 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, HTMLAttributes } from 'react';
 import { ChevronDown, ChevronUp, Eraser, StickyNote } from 'lucide-react';
 
 interface NotesWidgetProps {
   style?: CSSProperties;
+  widgetProps?: HTMLAttributes<HTMLElement>;
   text: string;
   onChange: (value: string) => void;
   onClear: () => void;
@@ -13,6 +14,7 @@ interface NotesWidgetProps {
 /** 便签：直接写在起始页，内容由 StartPage 统一持久化。 */
 export function NotesWidget({
   style,
+  widgetProps,
   text,
   onChange,
   onClear,
@@ -22,6 +24,7 @@ export function NotesWidget({
   return (
     <article
       className={`start-widget start-notes-widget${collapsed ? ' is-collapsed' : ''}`}
+      {...widgetProps}
       style={style}
     >
       <header className="start-widget-head">

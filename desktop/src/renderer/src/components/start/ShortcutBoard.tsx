@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  FolderPlus,
   Info,
   Plus,
   Star,
@@ -55,6 +56,7 @@ interface ShortcutBoardProps {
   onClearSelection: () => void;
   onBatchDelete: () => void;
   onBatchMove: (group: string) => void;
+  onNewGroupFrom: (id: string) => void;
   tags: Array<{ tag: string; count: number }>;
   activeTag: string;
   onTag: (tag: string) => void;
@@ -92,6 +94,7 @@ export function ShortcutBoard({
   onClearSelection,
   onBatchDelete,
   onBatchMove,
+  onNewGroupFrom,
   tags,
   activeTag,
   onTag,
@@ -100,6 +103,7 @@ export function ShortcutBoard({
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [limits, setLimits] = useState<Record<string, number>>({});
+  const [dropGroup, setDropGroup] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
   const startRename = (group: string) => {
@@ -143,13 +147,43 @@ export function ShortcutBoard({
         {groups.map(([group, items]) => (
           <button
             key={group}
-            className={`start-tab${activeGroup === group ? ' is-active' : ''}`}
+            className={`start-tab${activeGroup === group ? ' is-active' : ''}${
+              dropGroup === group ? ' is-drop' : ''
+            }`}
+            title="点击切换；拖入快捷方式可移到该分组"
             onClick={() => onGroup(group)}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropGroup(group);
+            }}
+            onDragLeave={() => setDropGroup((current) => (current === group ? null : current))}
+            onDrop={(event) => {
+              dropOn(group)(event);
+              setDropGroup(null);
+            }}
           >
             {group}
             <span className="start-tab-count">{items.length}</span>
           </button>
         ))}
+        <button
+          className={`start-tab start-tab-new${dropGroup === '__new__' ? ' is-drop' : ''}`}
+          title="拖一个快捷方式到这里新建分组"
+          onClick={() => onNewGroupFrom('')}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDropGroup('__new__');
+          }}
+          onDragLeave={() => setDropGroup((current) => (current === '__new__' ? null : current))}
+          onDrop={(event) => {
+            event.preventDefault();
+            const id = event.dataTransfer.getData('text/plain');
+            setDropGroup(null);
+            if (id) onNewGroupFrom(id);
+          }}
+        >
+          <FolderPlus size={12} /> 新分组
+        </button>
         <span className="start-tab-actions">
           <span className="start-density" role="group" aria-label="卡片密度">
             {DENSITIES.map((item) => (

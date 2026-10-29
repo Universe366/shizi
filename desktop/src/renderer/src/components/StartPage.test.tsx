@@ -77,6 +77,31 @@ function installBsub() {
   return api;
 }
 
+function installGroupedBsub() {
+  const api = installBsub();
+  api.getSettings.mockImplementation(async () => ({
+    ok: true as const,
+    data: {
+      settings: {
+        general: {
+          searchEngine: 'bing',
+          petTodos: [],
+          startShortcuts: [
+            { id: 's1', label: '知乎', url: 'https://www.zhihu.com', group: '常用' },
+            { id: 's2', label: 'MDN', url: 'https://developer.mozilla.org', group: '学习' }
+          ],
+          startWallpaper: 'aurora',
+          startWeather: true,
+          startCity: '上海',
+          startHotSearch: true
+        }
+      },
+      version: '0.38.13'
+    }
+  }));
+  return api;
+}
+
 function props(overrides: Record<string, unknown> = {}) {
   return {
     onNavigate: vi.fn(),
@@ -1052,6 +1077,72 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     const select = document.querySelector('.start-rotate-row select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: '15' } });
     expect(localStorage.getItem('start-bing-rotate')).toBe('15');
+  });
+
+  it('小组件可以直接拖动排序', async () => {
+    const api = installGroupedBsub();
+    render(<StartPage {...props()} />);
+    const weather = document.querySelector('[data-widget="weather"]');
+    const todo = document.querySelector('[data-widget="todo"]');
+    expect(weather && todo).toBeTruthy();
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => 'widget:weather',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(weather!, { dataTransfer: transfer });
+    fireEvent.drop(todo!, { dataTransfer: transfer });
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startWidgets: expect.arrayContaining(['todo', 'weather'])
+          })
+        })
+      )
+    );
+  });
+
+  it('快捷方式可以拖到分组标签，也可以拖出新分组', async () => {
+    const api = installGroupedBsub();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const tabs = [...document.querySelectorAll('.start-tab')] as HTMLElement[];
+    const study = tabs.find((tab) => tab.textContent?.startsWith('学习'))!;
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => 's1',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.drop(study, { dataTransfer: transfer });
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ id: 's1', group: '学习' })
+            ])
+          })
+        })
+      )
+    );
+
+    const newTab = document.querySelector('.start-tab-new')!;
+    fireEvent.drop(newTab, { dataTransfer: transfer });
+    const input = await screen.findByLabelText('分组名称');
+    fireEvent.change(input, { target: { value: '新组' } });
+    fireEvent.click(screen.getByText('创建分组'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ id: 's1', group: '新组' })
+            ])
+          })
+        })
+      )
+    );
   });
 
   it('小组件可以折叠并记住状态', async () => {

@@ -42,7 +42,8 @@ export const WIDGET_LABELS: Record<string, string> = {
   notes: '便签',
   hot: '热搜',
   recent: '最近入库',
-  history: '最近访问'
+  history: '最近访问',
+  quote: '每日一句'
 };
 
 export const ALL_WIDGETS = [
@@ -52,7 +53,8 @@ export const ALL_WIDGETS = [
   'notes',
   'hot',
   'recent',
-  'history'
+  'history',
+  'quote'
 ] as const;
 
 export const WALLPAPERS: Array<{ id: WallpaperId; label: string }> = [

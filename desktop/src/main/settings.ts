@@ -188,7 +188,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ],
     startWallpaper: 'aurora',
     startWallpaperImage: '',
-    startWidgets: ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history'],
+    startWidgets: ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history', 'quote'],
     startWeather: true,
     startCity: '上海',
     startHotSearch: true,
@@ -820,7 +820,16 @@ function normalize(input: unknown): AppSettings {
             .filter((item, index, list) => Boolean(item) && list.indexOf(item) === index)
             .slice(0, 8)
         : [];
-      const widgetIds = ['weather', 'todo', 'pomodoro', 'notes', 'hot', 'recent', 'history'];
+      const widgetIds = [
+        'weather',
+        'todo',
+        'pomodoro',
+        'notes',
+        'hot',
+        'recent',
+        'history',
+        'quote'
+      ];
       base.general.startWidgets = Array.isArray(raw.general.startWidgets)
         ? (raw.general.startWidgets as unknown[])
             .map(String)

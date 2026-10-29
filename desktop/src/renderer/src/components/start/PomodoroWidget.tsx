@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, HTMLAttributes } from 'react';
 import { ChevronDown, ChevronUp, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 import {
   POMODORO_LABELS,
@@ -23,7 +23,11 @@ export interface PomodoroState {
 const PHASES: PomodoroPhase[] = ['work', 'short', 'long'];
 
 /** 番茄钟：25 分钟专注、5 分钟短休、15 分钟长休，结束后自动切换。 */
-export function PomodoroWidget({ style, ...state }: { style?: CSSProperties } & PomodoroState) {
+export function PomodoroWidget({
+  style,
+  widgetProps,
+  ...state
+}: { style?: CSSProperties; widgetProps?: HTMLAttributes<HTMLElement> } & PomodoroState) {
   const {
     phase,
     left,
@@ -42,6 +46,7 @@ export function PomodoroWidget({ style, ...state }: { style?: CSSProperties } & 
   return (
     <article
       className={`start-widget start-pomodoro-widget${collapsed ? ' is-collapsed' : ''}`}
+      {...widgetProps}
       style={style}
     >
       <header className="start-widget-head">

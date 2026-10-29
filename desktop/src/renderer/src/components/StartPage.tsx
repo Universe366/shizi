@@ -30,6 +30,7 @@ import { Dock } from './start/Dock';
 import { ShortcutBoard, type BuiltInEntry } from './start/ShortcutBoard';
 import { ShortcutDialog, type ShortcutDraft } from './start/ShortcutDialog';
 import { BatchAddDialog } from './start/BatchAddDialog';
+import { GroupNameDialog } from './start/GroupNameDialog';
 import { ShortcutDetail } from './start/ShortcutDetail';
 import { askConfirm } from './ui/confirm';
 import { WidgetPanel } from './start/WidgetPanel';
@@ -213,6 +214,8 @@ export function StartPage({
   const [shortcutBackup, setShortcutBackup] = useState<StartShortcut[]>([]);
   const [selectedShortcuts, setSelectedShortcuts] = useState<string[]>([]);
   const [activeGroup, setActiveGroup] = useState('全部');
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupSeed, setGroupSeed] = useState<string | null>(null);
   const [dockIds, setDockIds] = useState<string[]>([]);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
@@ -224,7 +227,8 @@ export function StartPage({
     'notes',
     'hot',
     'recent',
-    'history'
+    'history',
+    'quote'
   ]);
   const {
     weather,
@@ -919,6 +923,30 @@ export function StartPage({
     });
   };
 
+  const requestNewGroup = (id: string) => {
+    if (!id) {
+      showNotice('拖动一个快捷方式到「新分组」即可创建');
+      return;
+    }
+    setGroupSeed(id);
+    setGroupDialogOpen(true);
+  };
+
+  const createGroup = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const seed = groupSeed;
+    setGroupDialogOpen(false);
+    setGroupSeed(null);
+    if (seed) {
+      void persistShortcuts(
+        shortcuts.map((item) => (item.id === seed ? { ...item, group: trimmed } : item))
+      );
+    }
+    setActiveGroup(trimmed);
+    showNotice(`已创建分组「${trimmed}」`);
+  };
+
   const batchMoveShortcuts = (group: string) => {
     const ids = new Set(selectedShortcuts);
     if (!ids.size) return;
@@ -1477,10 +1505,16 @@ export function StartPage({
       <main className="start-main">
         <section className="start-hero">
           <div className="start-clock">{formatClock(now, clock)}</div>
-          {lunar && <div className="start-lunar">{lunar.text}</div>}
-          <div className="start-greeting">
-            {greeting(now)}，
-            {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
+          <div className="start-meta">
+            {lunar && <span className="start-lunar">{lunar.text}</span>}
+            <span className="start-greeting">
+              {greeting(now)}，
+              {now.toLocaleDateString('zh-CN', {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+              })}
+            </span>
           </div>
           {minimal && <div className="start-zen-hint">按 Esc 退出禅模式</div>}
 
@@ -1567,6 +1601,7 @@ export function StartPage({
           onClearSelection={() => setSelectedShortcuts([])}
           onBatchDelete={batchDeleteShortcuts}
           onBatchMove={batchMoveShortcuts}
+          onNewGroupFrom={requestNewGroup}
           tags={tags}
           activeTag={activeTag}
           onTag={setActiveTag}
@@ -1657,7 +1692,7 @@ export function StartPage({
           <span className="start-footnote-text">
             {editMode
               ? '编辑中：拖动卡片可排序或换组，✎ 改名，× 删除'
-              : '拖动卡片排序 · 右键更多 · Ctrl/⌘+K 指令面板 · / 搜索'}
+              : '拖动卡片 / 小组件排序 · 拖到分组标签归组 · 右键更多 · Ctrl/⌘+K 指令面板'}
           </span>
           {editMode && shortcutBackup.length > shortcuts.length && (
             <button className="start-foot-link" onClick={() => void persistShortcuts(shortcutBackup)}>
@@ -1823,6 +1858,15 @@ export function StartPage({
           event.target.value = '';
           if (file) void importBookmarks(file);
         }}
+      />
+
+      <GroupNameDialog
+        open={groupDialogOpen}
+        onCancel={() => {
+          setGroupDialogOpen(false);
+          setGroupSeed(null);
+        }}
+        onSubmit={createGroup}
       />
 
       <BatchAddDialog

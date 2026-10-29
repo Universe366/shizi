@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type DragEvent, type HTMLAttributes } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -10,6 +10,7 @@ import {
   LocateFixed,
   MapPin,
   Plus,
+  Quote,
   RefreshCw,
   X
 } from 'lucide-react';
@@ -26,6 +27,21 @@ import {
 } from './model';
 import { PomodoroWidget, type PomodoroState } from './PomodoroWidget';
 import { NotesWidget } from './NotesWidget';
+
+const QUOTES = [
+  { text: '把注意力放在能复利的事情上。', from: '拾字' },
+  { text: '慢慢来，比较快。', from: '佚名' },
+  { text: '工具应该消失在使用里。', from: '设计随笔' },
+  { text: '先完成，再完美。', from: '佚名' },
+  { text: '记录是思考的第二次发生。', from: '拾字' },
+  { text: '不要用战术上的勤奋，掩盖战略上的懒惰。', from: '雷军' },
+  { text: 'Simplicity is the ultimate sophistication.', from: 'Leonardo da Vinci' },
+  { text: 'What we think, we become.', from: 'Buddha' },
+  { text: 'The best way out is always through.', from: 'Robert Frost' },
+  { text: '少即是多。', from: '密斯·凡·德·罗' },
+  { text: '每天进步一点点。', from: '佚名' },
+  { text: '做难而正确的事。', from: '左晖' }
+];
 
 interface WidgetPanelProps {
   order: string[];
@@ -126,6 +142,9 @@ export function WidgetPanel(props: WidgetPanelProps) {
   } = props;
 
   const [todoExpanded, setTodoExpanded] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(
+    () => new Date().getDate() % QUOTES.length
+  );
   const Fold = ({ id }: { id: string }) => {
     const folded = collapsedWidgets.includes(id);
     return (
@@ -142,6 +161,21 @@ export function WidgetPanel(props: WidgetPanelProps) {
     const index = order.indexOf(id);
     return index < 0 ? 99 : index;
   };
+  const dragProps = (id: string): HTMLAttributes<HTMLElement> =>
+    ({
+      draggable: true,
+      'data-widget': id,
+      onDragStart: (event: DragEvent<HTMLElement>) => {
+        event.dataTransfer.setData('text/plain', `widget:${id}`);
+        event.dataTransfer.effectAllowed = 'move';
+      },
+      onDragOver: (event: DragEvent<HTMLElement>) => event.preventDefault(),
+      onDrop: (event: DragEvent<HTMLElement>) => {
+        event.preventDefault();
+        const raw = event.dataTransfer.getData('text/plain');
+        if (raw.startsWith('widget:')) onMoveTo(raw.slice(7), id);
+      }
+    }) as HTMLAttributes<HTMLElement>;
   const doneCount = todos.filter((todo) => todo.done).length;
   const visibleTodos = todoExpanded ? todos : todos.slice(0, 4);
 
@@ -199,6 +233,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
             className={`start-widget start-weather-widget${
               collapsedWidgets.includes('weather') ? ' is-collapsed' : ''
             }`}
+            {...dragProps('weather')}
             style={{ order: orderOf('weather') }}
           >
             <header className="start-widget-head">
@@ -332,6 +367,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
         {isVisible('todo') && (
           <article
             className={`start-widget${collapsedWidgets.includes('todo') ? ' is-collapsed' : ''}`}
+            {...dragProps('todo')}
             style={{ order: orderOf('todo') }}
           >
             <header className="start-widget-head">
@@ -417,6 +453,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
 
         {isVisible('pomodoro') && (
           <PomodoroWidget
+            widgetProps={dragProps('pomodoro')}
             style={{ order: orderOf('pomodoro') }}
             {...pomodoro}
             collapsed={collapsedWidgets.includes('pomodoro')}
@@ -426,6 +463,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
 
         {isVisible('notes') && (
           <NotesWidget
+            widgetProps={dragProps('notes')}
             style={{ order: orderOf('notes') }}
             text={notes}
             onChange={onNotes}
@@ -438,6 +476,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
         {isVisible('hot') && (
           <article
             className={`start-widget${collapsedWidgets.includes('hot') ? ' is-collapsed' : ''}`}
+            {...dragProps('hot')}
             style={{ order: orderOf('hot') }}
           >
             <header className="start-widget-head">
@@ -480,6 +519,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
         {isVisible('recent') && (
           <article
             className={`start-widget${collapsedWidgets.includes('recent') ? ' is-collapsed' : ''}`}
+            {...dragProps('recent')}
             style={{ order: orderOf('recent') }}
           >
             <header className="start-widget-head">
@@ -507,9 +547,37 @@ export function WidgetPanel(props: WidgetPanelProps) {
           </article>
         )}
 
+        {isVisible('quote') && (
+          <article
+            className={`start-widget start-quote-widget${
+              collapsedWidgets.includes('quote') ? ' is-collapsed' : ''
+            }`}
+            {...dragProps('quote')}
+            style={{ order: orderOf('quote') }}
+          >
+            <header className="start-widget-head">
+              <Quote size={15} />
+              <span>每日一句</span>
+              <button
+                className="start-widget-icon"
+                title="换一句"
+                onClick={() => setQuoteIndex((index) => (index + 1) % QUOTES.length)}
+              >
+                <RefreshCw size={12} />
+              </button>
+              <Fold id="quote" />
+            </header>
+            <blockquote className="start-quote-text">
+              “{QUOTES[quoteIndex]?.text}”
+            </blockquote>
+            <div className="start-quote-from">— {QUOTES[quoteIndex]?.from}</div>
+          </article>
+        )}
+
         {isVisible('history') && (
           <article
             className={`start-widget${collapsedWidgets.includes('history') ? ' is-collapsed' : ''}`}
+            {...dragProps('history')}
             style={{ order: orderOf('history') }}
           >
             <header className="start-widget-head">
