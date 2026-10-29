@@ -887,6 +887,20 @@ export class TabManager {
     this.emit();
   }
 
+  /** 一次移动多个标签，保持它们在原数组中的相对顺序。 */
+  moveMany(ids: string[], toIndex: number): void {
+    const moving = new Set(ids.filter((id) => this.tabs.has(id)));
+    if (!moving.size) return;
+    const entries = [...this.tabs.entries()];
+    const block = entries.filter(([key]) => moving.has(key));
+    const rest = entries.filter(([key]) => !moving.has(key));
+    const target = Math.max(0, Math.min(rest.length, Math.round(toIndex)));
+    rest.splice(target, 0, ...block);
+    this.tabs.clear();
+    for (const [key, record] of rest) this.tabs.set(key, record);
+    this.emit();
+  }
+
   async reopenClosed(): Promise<string | null> {
     const last = this.closedStack.pop();
     if (!last) return null;

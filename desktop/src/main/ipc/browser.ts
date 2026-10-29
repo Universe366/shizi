@@ -136,6 +136,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:move', (_event, id: string, index: number) => {
     ctx.tabs.move(id, index);
   });
+  ipcMain.handle('tab:move-many', (_event, ids: string[], index: number) => {
+    ctx.tabs.moveMany(Array.isArray(ids) ? ids.map(String) : [], index);
+  });
   ipcMain.handle('tab:close', (_event, id: string, nextId?: string) => {
     ctx.tabs.close(id, nextId ? String(nextId) : undefined);
   });

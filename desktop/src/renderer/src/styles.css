@@ -14905,3 +14905,35 @@ sup:has(> .cite-ref) {
     padding-bottom: 18px;
   }
 }
+
+/* 折叠轨道上的新建按钮，不挤占 52px 头部 */
+.app-shell.vertical-tabs .tab-collapsed-new {
+  flex: none;
+  width: 100%;
+  height: 30px;
+  margin: 2px 0 4px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: transparent;
+}
+
+.app-shell.vertical-tabs .tab-collapsed-new:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+/* 折叠态悬停展开时，关闭/静音按钮要可用 */
+.tab-strip.is-collapsed:not(.is-peeking) .tab-close {
+  display: none;
+}
+
+.tab-strip.is-collapsed:not(.is-peeking) .tab-audio {
+  display: none;
+}
+
+/* 悬停探出时主区域让位，避免地址栏/前进后退被标签栏盖住 */
+.app-shell.vertical-tabs.is-tab-peek:has(.tab-strip.is-collapsed.is-peeking) {
+  padding-left: var(--tab-peek-width, 220px);
+}

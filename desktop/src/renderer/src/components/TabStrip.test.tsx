@@ -45,6 +45,7 @@ function installBsub() {
     activateTab: vi.fn(async () => ({ ok: true })),
     closeTab: vi.fn(async () => undefined),
     moveTab: vi.fn(async () => undefined),
+    moveTabs: vi.fn(async () => undefined),
     newTab: vi.fn(),
     writeClipboard: vi.fn(async () => ({ ok: true })),
     pinTab: vi.fn(async () => undefined),
@@ -69,7 +70,10 @@ function installBsub() {
 }
 
 describe('TabStrip', () => {
-  beforeEach(() => installBsub());
+  beforeEach(() => {
+    localStorage.clear();
+    installBsub();
+  });
   afterEach(cleanup);
 
   it('渲染标签标题，空标题回退为「新标签页」', () => {
@@ -125,6 +129,27 @@ describe('TabStrip', () => {
     expect(api.moveTab).toHaveBeenCalledWith('t1', 2);
   });
 
+  it('多选后拖拽整组标签', () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByText('B 站首页'), { ctrlKey: true });
+    fireEvent.click(screen.getByText('第三个'), { ctrlKey: true });
+    const first = screen.getByText('B 站首页').closest('.tab') as HTMLElement;
+    const second = screen.getByText('新标签页').closest('.tab') as HTMLElement;
+    fireEvent.dragStart(first);
+    fireEvent.dragOver(second);
+    fireEvent.drop(second);
+    expect(api.moveTabs).toHaveBeenCalledWith(['t1', 't3'], expect.any(Number));
+  });
+
+  it('折叠轨道仍可新建标签', () => {
+    localStorage.setItem('tabs.collapsed', '1');
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('新建标签页（Ctrl+T）'));
+    expect(api.newTab).toHaveBeenCalled();
+  });
+
   it('纵向模式可以搜索过滤标签', () => {
     render(<TabStrip tabs={tabs} vertical />);
     fireEvent.click(screen.getByTitle('搜索标签'));
@@ -165,6 +190,10 @@ describe('TabStrip', () => {
 });
 
 describe('TabStrip 增强', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installBsub();
+  });
   afterEach(cleanup);
 
   it('Ctrl+点击多选，右键批量关闭', () => {

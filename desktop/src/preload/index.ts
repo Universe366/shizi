@@ -187,6 +187,8 @@ const api: BsubApi = {
       reused: boolean;
       ready: boolean;
     }>,
+  moveTabs: (ids: string[], index: number) =>
+    ipcRenderer.send('tab:move-many', ids, index),
   moveTab: (id: string, index: number) =>
     ipcRenderer.invoke('tab:move', id, index) as Promise<void>,
   focusMain: () => ipcRenderer.invoke('app:focus-main') as Promise<void>,

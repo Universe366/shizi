@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { FindResult, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
@@ -667,6 +667,11 @@ export default function App() {
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
       }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
+      style={
+        verticalTabs
+          ? ({ '--tab-peek-width': `${tabPeek.width}px` } as CSSProperties)
+          : undefined
+      }
     >
       {!settingsOpen && (
         <TabStrip

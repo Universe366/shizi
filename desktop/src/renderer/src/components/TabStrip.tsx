@@ -74,6 +74,7 @@ export function TabStrip({
   const [selected, setSelected] = useState<string[]>([]);
   const [anchorId, setAnchorId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingIds, setDraggingIds] = useState<string[]>([]);
   const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
   const [groups, setGroups] = useState<TabGroup[]>([]);
   const [peekOpen, setPeekOpen] = useState(false);
@@ -99,6 +100,7 @@ export function TabStrip({
   const peekSuppressed = useRef(false);
   const lastPeekReport = useRef<{ open: boolean; width: number }>({ open: false, width: 0 });
   const lastActiveId = useRef<string | null>(null);
+  const lastGroupKey = useRef('');
   const groupMenuRef = useRef<HTMLDivElement>(null);
   /** 原生 mouse 事件走 ref，避免折叠过程中 React 的 enter/leave 状态过期。 */
   const peekApi = useRef<{ open: () => void; close: () => void }>({
@@ -191,10 +193,13 @@ export function TabStrip({
   // 只在“当前标签变了”时滚动，页面标题/声音更新不再把列表拽回去。
   useEffect(() => {
     const activeId = tabs.find((tab) => tab.active)?.id ?? null;
-    if (!activeId || activeId === lastActiveId.current) return;
+    if (!activeId) return;
+    const groupKey = groups.map((group) => `${group.id}:${group.collapsed}`).join('|');
+    if (activeId === lastActiveId.current && groupKey === lastGroupKey.current) return;
     lastActiveId.current = activeId;
+    lastGroupKey.current = groupKey;
     listRef.current?.querySelector('.tab.is-active')?.scrollIntoView?.({ block: 'nearest' });
-  }, [tabs]);
+  }, [tabs, groups]);
 
   // 标签被外部关掉后，清掉已经不存在的多选项 / 预览缓存。
   useEffect(() => {
@@ -420,11 +425,24 @@ export function TabStrip({
     for (const tab of visualTabs.slice(index + 1)) void window.bsub.closeTab(tab.id);
   };
 
-  const dropIndex = (fromId: string, targetId: string, after: boolean): number => {
-    const rest = tabs.filter((tab) => tab.id !== fromId);
+  const dropIndex = (ids: string[], targetId: string, after: boolean): number => {
+    const moving = new Set(ids);
+    const rest = tabs.filter((tab) => !moving.has(tab.id));
     const target = rest.findIndex((tab) => tab.id === targetId);
     if (target < 0) return rest.length;
     return target + (after ? 1 : 0);
+  };
+
+  const readDragIds = (event: React.DragEvent): string[] => {
+    if (draggingIds.length) return draggingIds;
+    if (draggingId) return [draggingId];
+    try {
+      const raw = event.dataTransfer?.getData('application/x-shizi-tabs');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) ? parsed.map(String) : [];
+    } catch {
+      return [];
+    }
   };
 
   const onDragOverTab = (event: React.DragEvent, tab: TabInfo) => {
@@ -442,16 +460,22 @@ export function TabStrip({
   };
 
   const finishDrop = (tab: TabInfo) => {
-    const from = draggingId;
+    const ids = draggingIds.length ? draggingIds : draggingId ? [draggingId] : [];
     const after = dropTarget?.id === tab.id ? dropTarget.after : true;
     setDropTarget(null);
     setDraggingId(null);
-    if (!from || from === tab.id) return;
-    const dragged = tabs.find((item) => item.id === from);
-    if (dragged && Boolean(dragged.pinned) !== Boolean(tab.pinned)) return;
-    void window.bsub.moveTab(from, dropIndex(from, tab.id, after));
-    if ((dragged?.groupId || null) !== (tab.groupId || null)) {
-      void window.bsub.assignTabGroup?.(from, tab.groupId || null);
+    setDraggingIds([]);
+    if (!ids.length || ids.includes(tab.id)) return;
+    const dragged = tabs.find((item) => item.id === ids[0]);
+    if (!dragged) return;
+    if (ids.some((id) => Boolean(tabs.find((item) => item.id === id)?.pinned) !== Boolean(tab.pinned))) {
+      return;
+    }
+    const index = dropIndex(ids, tab.id, after);
+    if (ids.length > 1) window.bsub.moveTabs?.(ids, index);
+    else window.bsub.moveTab(ids[0], index);
+    if ((dragged.groupId || null) !== (tab.groupId || null)) {
+      for (const id of ids) void window.bsub.assignTabGroup?.(id, tab.groupId || null);
     }
   };
 
@@ -484,7 +508,7 @@ export function TabStrip({
   const batchIds = (tab: TabInfo) => (selected.includes(tab.id) ? selected : [tab.id]);
 
   const showPreview = (tab: TabInfo, element: HTMLElement) => {
-    if (!vertical || !expanded || draggingId) return;
+    if (!vertical || !expanded || draggingIds.length) return;
     clearPreview();
     const seq = previewSeq.current;
     previewTimer.current = window.setTimeout(() => {
@@ -544,18 +568,22 @@ export function TabStrip({
         tabIndex={-1}
         className={`tab${tab.active ? ' is-active' : ''}${tab.suspended ? ' is-suspended' : ''}${
           isSelected ? ' is-selected' : ''
-        }${draggingId === tab.id ? ' is-dragging' : ''}${
+        }${draggingIds.includes(tab.id) ? ' is-dragging' : ''}${
           drop ? (dropTarget.after ? ' is-drop-after' : ' is-drop-before') : ''
         }`}
         title={`${tab.title || '新标签页'}${tab.suspended ? '（已休眠，点击恢复）' : ''}`}
         draggable={vertical ? !collapsed || peekOpen : true}
         onDragStart={(event) => {
+          const ids = selected.includes(tab.id) ? selected : [tab.id];
           setDraggingId(tab.id);
+          setDraggingIds(ids);
           clearPreview();
           event.dataTransfer?.setData('text/plain', tab.id);
+          event.dataTransfer?.setData('application/x-shizi-tabs', JSON.stringify(ids));
         }}
         onDragEnd={() => {
           setDraggingId(null);
+          setDraggingIds([]);
           setDropTarget(null);
         }}
         onDragOver={(event) => onDragOverTab(event, tab)}
@@ -819,6 +847,16 @@ export function TabStrip({
           )}
         </div>
       )}
+      {vertical && !expanded && (
+        <button
+          className="tab-collapsed-new"
+          title="新建标签页（Ctrl+T）"
+          aria-label="新建标签页"
+          onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
+        >
+          <Plus size={15} />
+        </button>
+      )}
       {vertical && expanded && searchOpen && (
         <div className="tab-filter">
           <Search size={12} />
@@ -899,13 +937,17 @@ export function TabStrip({
         onDrop={(event) => {
           if (!draggingId || event.target !== event.currentTarget) return;
           event.preventDefault();
-          const from = draggingId;
-          const dragged = tabs.find((tab) => tab.id === from);
+          const ids = readDragIds(event);
+          const dragged = tabs.find((tab) => tab.id === ids[0]);
           setDraggingId(null);
+          setDraggingIds([]);
           setDropTarget(null);
+          if (!ids.length || !dragged || dragged.pinned) return;
           // 拖到列表空白处 = 移出分组并放到普通标签末尾。
-          if (dragged?.groupId) void window.bsub.assignTabGroup?.(from, null);
-          void window.bsub.moveTab(from, tabs.length - 1);
+          const rest = tabs.filter((tab) => !ids.includes(tab.id));
+          for (const id of ids) void window.bsub.assignTabGroup?.(id, null);
+          if (ids.length > 1) window.bsub.moveTabs?.(ids, rest.length);
+          else window.bsub.moveTab(ids[0], rest.length);
         }}
       >
         {pinnedTabs.length > 0 && (
@@ -944,12 +986,16 @@ export function TabStrip({
                 onDrop={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  const from = draggingId || event.dataTransfer?.getData('text/plain');
+                  const ids = readDragIds(event);
+                  const dragged = tabs.find((tab) => tab.id === ids[0]);
                   setDraggingId(null);
+                  setDraggingIds([]);
                   setDropTarget(null);
-                  if (!from) return;
-                  void window.bsub.assignTabGroup?.(from, group.id);
-                  void window.bsub.moveTab(from, tabs.length - 1);
+                  if (!ids.length || !dragged || dragged.pinned) return;
+                  const rest = tabs.filter((tab) => !ids.includes(tab.id));
+                  for (const id of ids) void window.bsub.assignTabGroup?.(id, group.id);
+                  if (ids.length > 1) window.bsub.moveTabs?.(ids, rest.length);
+                  else window.bsub.moveTab(ids[0], rest.length);
                 }}
               >
                 {group.collapsed && !query ? <ChevronRight size={12} /> : <ChevronDown size={12} />}

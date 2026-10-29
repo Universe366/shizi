@@ -142,6 +142,7 @@ export interface BsubApi {
   /** 打开链接：同一视频已打开时复用标签；start 为秒级播放位置。 */
   openUrl(url: string, start?: number): Promise<{ id: string; reused: boolean; ready: boolean }>;
   moveTab(id: string, index: number): void;
+  moveTabs(ids: string[], index: number): void;
   petPosition(): Promise<{ x: number; y: number } | null>;
   resetPetPosition(): Promise<void>;
   movePet(x: number, y: number): Promise<void>;

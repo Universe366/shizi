@@ -265,6 +265,7 @@
   "tab:find",
   "tab:forward",
   "tab:move",
+  "tab:move-many",
   "tab:navigate",
   "tab:new",
   "tab:open",
