@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Clapperboard, FileCog, Library, X } from 'lucide-react';
+import { Clapperboard, FileCog, Library, X } from 'lucide-react';
 import { LibraryPanel } from './LibraryPanel';
 import { StudioPanel } from './StudioPanel';
-import { KnowledgePanel } from './KnowledgePanel';
 import { FileConvertPanel } from './FileConvertPanel';
 
-/** 工作台：资料库 + 知识库问答 + 文件转换 + 成片与本地处理。 */
+/** 工作台：资料库 + 文件转换 + 成片与本地处理。 */
 export function LibraryPage({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'library' | 'knowledge' | 'convert' | 'studio'>('library');
+  const [tab, setTab] = useState<'library' | 'convert' | 'studio'>('library');
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -47,12 +46,6 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
           <Library size={13} /> 资料库
         </button>
         <button
-          className={`workbench-tab${tab === 'knowledge' ? ' is-active' : ''}`}
-          onClick={() => setTab('knowledge')}
-        >
-          <BookOpen size={13} /> 知识库
-        </button>
-        <button
           className={`workbench-tab${tab === 'convert' ? ' is-active' : ''}`}
           onClick={() => setTab('convert')}
         >
@@ -69,10 +62,6 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
       {tab === 'library' ? (
         <div className="library-page-body">
           <LibraryPanel />
-        </div>
-      ) : tab === 'knowledge' ? (
-        <div className="library-page-body">
-          <KnowledgePanel />
         </div>
       ) : tab === 'convert' ? (
         <div className="library-page-body">

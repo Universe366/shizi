@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/banner.png" alt="拾字" width="100%" />
-  <p><b>B 站字幕 → 语音转录 → AI 笔记 → 跨视频知识库。</b></p>
+  <p><b>B 站字幕 → 语音转录 → AI 笔记 → 成片与处理。</b></p>
   <p>浏览器插件 + Windows 桌面端，本地优先，数据留在自己电脑。</p>
 </div>
 
@@ -46,7 +46,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | Windows 桌面端 | `desktop/` | Electron 45 + React 19 + TypeScript + SQLite |
 | 浏览器插件 | `shizi-extension/` | Chrome / Edge MV3 + 原生 JS |
 
-当前版本：**桌面 0.146.0 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
+当前版本：**桌面 0.147.0 / 插件 2.18.8**。安装包与自动更新来自 [GitHub Releases](https://github.com/Universe366/shizi/releases)。
 
 ## 功能
 
@@ -81,14 +81,14 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | MCP / 技能 | HTTP / SSE / **本地 stdio**；工具白名单、资源与提示词读取、**危险工具逐次审批**；SKILL.md 支持文件/文件夹/链接导入 |
 | 用量 | 解析 OpenAI / Anthropic / Gemini usage，按模型/任务/日期统计，价格可改，CSV 导出 |
 
-### 语音、OCR 与知识库
+### 语音与 OCR
 
 | 能力 | 说明 |
 |---|---|
 | 文字朗读 | Edge 在线 / Windows SAPI 离线 / OpenAI 兼容 TTS；朗读总结、回答、笔记，语速音量音色可调 |
 | 语音输入 | 侧栏麦克风；全局听写热键，识别后写剪贴板并可自动粘贴到前台应用 |
 | 本地 OCR | Windows 系统 OCR（离线），截图取字优先本地、失败回退 AI；可接自建 PaddleOCR 服务 |
-| 跨视频知识库 | 字幕/总结/笔记切块 + embedding 索引，工作台「知识库」跨视频提问，回答带 `[n]` 引用并可跳转视频 |
+
 
 ### 浏览器与桌面
 
@@ -136,7 +136,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 
 ### 桌面端（推荐）
 
-1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.146.0.exe`（安装版）或 `shizi-0.146.0-win-x64-green.zip`（绿色版）。
+1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载 `shizi-setup-0.147.0.exe`（安装版）或 `shizi-0.147.0-win-x64-green.zip`（绿色版）。
 2. 打开「设置 → AI 与语音」：选平台、填 Base URL、模型和 API Key，点「测试连接」。
 3. 打开任意 B 站视频，左侧即可抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -177,7 +177,7 @@ node panel-test.js           # 520 项
 
 ```
 desktop/
-├─ src/main/        Electron 主进程：窗口/标签/桥/库/AI/ASR/OCR/TTS/MCP/知识库
+├─ src/main/        Electron 主进程：窗口/标签/桥/库/AI/ASR/OCR/TTS/MCP
 ├─ src/preload/     contextBridge API（window.bsub）
 ├─ src/renderer/    React 界面：Sidebar / Subtitles / Summary / Chat / Library / Settings
 ├─ src/shared/      跨进程类型、品牌、预设、纯函数
@@ -211,7 +211,7 @@ desktop/
 
 ## 版本
 
-- 桌面端：**0.146.0**（2026-10-29）
+- 桌面端：**0.147.0**（2026-10-29）
 - 插件：**2.18.8**
 - 变更记录：[`desktop/CHANGELOG.md`](desktop/CHANGELOG.md)、[`shizi-extension/CHANGELOG.md`](shizi-extension/CHANGELOG.md)
 

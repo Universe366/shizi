@@ -18,7 +18,6 @@ import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
 import { DownloadSection } from './settings/DownloadSection';
 import { RadialSection } from './settings/RadialSection';
-import { KnowledgeSection } from './settings/KnowledgeSection';
 import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
 import { ChatPromptsSection } from './settings/ChatPromptsSection';
@@ -1533,16 +1532,6 @@ export function SettingsPanel({
         <OcrSection
           value={draft.ocr}
           onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
-        />
-      )}
-
-      {show('search') && (
-        <KnowledgeSection
-          value={draft.knowledge}
-          platforms={draft.ai.platforms}
-          onChange={(patch) =>
-            setDraft({ ...draft, knowledge: { ...draft.knowledge, ...patch } })
-          }
         />
       )}
 

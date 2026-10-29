@@ -30,7 +30,7 @@ SettingsPage.tsx            左导航、页头、目录（TOC）
 | `general` | 通用 | 通用、标签页与会话、快捷键 |
 | `appearance` | 外观与浏览器 | 外观、地址栏与搜索、页面与阅读 |
 | `ai` | AI 与语音 | AI 平台、按任务选模型、助手档案、ASR、本地模型管理（含内置向量模型）、TTS、语音输入、OCR、提示词、校对 |
-| `search` | 检索与知识 | 联网检索、知识库、MCP、Skills、插件桥 |
+| `search` | 检索与知识 | 联网检索、MCP、Skills、插件桥 |
 | `subtitles` | 字幕与播放 | 字幕与翻译/行为、播放速度、成片样式、导出默认值 |
 | `desktop` | 桌面助手 | 效率工具、快捷取词、桌面宠物 |
 | `data` | 数据与关于 | 用量统计（概览/热力图/分布）、数据与备份、版本更新、诊断、站点权限 |
@@ -405,7 +405,7 @@ start-footnote   操作提示、导入导出设置
 - 字数与耗时合并为一行；思考过程只折叠、不提供“隐藏”；外部资料列表可滚动。
 - 完整流程、提示词与工具说明见 [`../desktop/docs/SUMMARY-FLOW.md`](../desktop/docs/SUMMARY-FLOW.md)。
 
-## 12. 下载与知识库
+## 12. 下载
 
 ### 下载（`DownloadVideoDialog`）
 
@@ -414,20 +414,10 @@ start-footnote   操作提示、导入导出设置
 - 进度通过 `download:progress` 回传（百分比 / 速度 / ETA），队列在弹窗内串行执行，关闭后仍保留；失败可重试，可全部取消。
 - 命名模板与「列表建子文件夹」在设置 → 视频下载；下载完成会写入导出记录（`kind: online-download`），弹窗底部「最近下载」可再打开。
 
-### 知识库（`KnowledgePanel`）
-
-- 两栏：左侧「全部 / 合集 / 视频」树 + 搜索 + 学习状态下拉；右侧「问答 / 文档 / 复习 / 历史」。
-- 引用：回答下方 `<details class="kb-cites">` 折叠展示（最新一条默认展开），每条可直接「跳到 mm:ss / 打开」；不再使用右侧引用栏。
-- 范围：`kbAsk(question, { videoId })` / `{ collectionId }`；合集 id 由 `kb:collection-videos` 换成视频集合后在 SQL 里过滤。
-- 索引：`kb:index` + `kb:progress`；`kb:documents` 返回每篇的块数、向量数、标签与学习状态；`kb:status-set` 修改状态。
-- 文档页签：`library:get` 的总结/笔记 + `kb:chunks` 的索引片段；片段点击 `openLibrarySource(videoId, startMs)` 跳时间。
-- 沉淀与导出：`saveNote` 追加问答到笔记；`kb:export` 输出 Markdown / JSON。
-- 记忆：提问/检索写入 `kb_qa` 并记录 `kb_mentions`（文档页签「相关问题」）；复习页签用 `kb_cards` 的简化间隔重复（纯调度在 `shared/kbReview.ts`，可直接单测）。
-
 ## 13. 验证清单
 
 - `npm run typecheck` / `npm run lint`（0 warning）
-- `npm test`（当前 158 文件 / 910 用例）
+- `npm test`（当前 173 文件 / 1038 用例）
 - 改设置/对话：`npm run smoke`（19 条 E2E）
 - 改插件：`cd verify && node bundle.js && node panel-test.js`
-- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片流水线四步、成片样式预览。
+- 手动过一遍：设置 7 个分组、对话 `＋` 面板、页面/联网 chip、起始页搜索建议、地址栏紧凑 URL、成片工作台六页、成片样式预览。

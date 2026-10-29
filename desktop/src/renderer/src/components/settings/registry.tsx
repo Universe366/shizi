@@ -59,10 +59,9 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'search',
     label: '检索与知识',
-    description: '联网搜索、知识库、MCP 与技能',
+    description: '联网搜索、MCP 与技能',
     tips: [
       '总结前核对默认开启；没有检索 Key 也能用免费兜底。',
-      '知识库需要支持 /embeddings 的平台，先建索引才能「问库」。',
       'MCP 危险工具默认逐次确认，写入类操作不会静默执行。'
     ],
     icon: Globe
