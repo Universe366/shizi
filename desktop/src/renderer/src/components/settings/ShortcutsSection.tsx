@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Pencil } from 'lucide-react';
 import type { AppSettings } from '../../../../shared/types';
 import {
   FIXED_SHORTCUT_GROUPS,
@@ -141,12 +142,14 @@ export function ShortcutsSection({ value, onChange }: ShortcutsSectionProps) {
                   <span className="shortcut-actions">
                     <button
                       className="mini-btn"
+                      title={`修改快捷键：${action.label}`}
+                      aria-label={`修改快捷键：${action.label}`}
                       onClick={() => {
                         setRecording(action.id);
                         setError('');
                       }}
                     >
-                      {recording === action.id ? '按下新键…' : '修改'}
+                      {recording === action.id ? '按下新键…' : <Pencil size={12} />}
                     </button>
                     {custom && (
                       <button className="mini-btn" onClick={() => resetOne(action.id)}>

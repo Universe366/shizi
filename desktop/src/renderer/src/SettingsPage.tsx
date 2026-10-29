@@ -116,7 +116,6 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="settings-page-head-actions">
-          {dirty && <span className="settings-dirty">未保存</span>}
           <button className="mini-btn" onClick={() => void close()}>
             关闭
           </button>

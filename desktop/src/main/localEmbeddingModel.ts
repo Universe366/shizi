@@ -271,7 +271,7 @@ async function getRuntime(): Promise<OrtModule> {
 async function getSession(): Promise<InferenceSession> {
   const status = localEmbeddingStatus();
   if (!status.installed) {
-    throw new Error('内置向量模型未下载（设置 → AI 与语音 → 本地模型管理）');
+    throw new Error('内置向量模型未下载');
   }
   if (!sessionPromise) {
     sessionPromise = (async () => {
@@ -295,7 +295,7 @@ async function getSession(): Promise<InferenceSession> {
 export async function embedTextsLocal(inputs: string[]): Promise<Float32Array[]> {
   const status = localEmbeddingStatus();
   if (!status.installed) {
-    throw new Error('内置向量模型未下载（设置 → AI 与语音 → 本地模型管理）');
+    throw new Error('内置向量模型未下载');
   }
   const session = await getSession();
   const ort = await getRuntime();

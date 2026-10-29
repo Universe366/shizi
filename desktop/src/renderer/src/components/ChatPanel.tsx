@@ -1174,7 +1174,7 @@ export function ChatPanel({
 
   const addImages = async (files: File[]) => {
     if (!visionEnabled) {
-      setError('当前模型未开启图片能力：到「设置 → AI 与语音 → AI 平台 → 模型能力」勾选「图片」后再试。');
+      setError('当前模型未开启图片能力：到「设置 → AI 与模型 → AI 平台 → 模型能力」勾选「图片」后再试。');
       return;
     }
     const selected = files.filter((file) => file.type.startsWith('image/'));

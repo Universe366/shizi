@@ -52,7 +52,7 @@ export function SitePermissionsSection({
       ))}
       <div className="settings-inline">
         <button className="mini-btn" onClick={onRefresh}>
-          刷新
+          刷新权限
         </button>
         <button className="mini-btn danger" disabled={!items.length} onClick={onClear}>
           清除全部

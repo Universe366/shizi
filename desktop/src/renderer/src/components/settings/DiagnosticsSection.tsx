@@ -1,4 +1,4 @@
-import { Download, FolderOpen, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import type { DiagnosticsInfo } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
 
@@ -76,16 +76,13 @@ export function DiagnosticsSection({
       </pre>
       <div className="settings-inline">
         <button className="mini-btn" onClick={onRefresh}>
-          <RefreshCw size={12} /> 刷新
+          <RefreshCw size={12} /> 刷新诊断
         </button>
         <button className="mini-btn" onClick={onCopy}>
           复制诊断
         </button>
         <button className="mini-btn" onClick={onExport}>
           <Download size={12} /> 导出诊断包
-        </button>
-        <button className="mini-btn" onClick={() => void window.bsub.openDataDir()}>
-          <FolderOpen size={12} /> 打开数据目录
         </button>
         <button
           className="mini-btn"

@@ -300,7 +300,7 @@ export function UsageSection({ value, onChange }: Props) {
         <div className="usage-actions">
           <button className="mini-btn" onClick={() => void load(days, selectedDay)} title="刷新">
             {loading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
-            刷新
+            刷新用量
           </button>
           <button
             className="mini-btn"

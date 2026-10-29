@@ -24,7 +24,7 @@ export function PromptSection({
   const activeTemplate = value.templates.find((item) => item.id === value.activeId) || value.templates[0];
 
   return (
-    <SettingsSection title="提示词模板" defaultOpen={false}>
+    <SettingsSection title="总结提示词模板" defaultOpen={false}>
       <div className="settings-inline">
         <select
           className="settings-input"

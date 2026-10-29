@@ -883,66 +883,6 @@ export function SettingsPanel({
     });
   };
 
-  /** 本地模型页把内置向量模型设为知识库 embedding（离线、无需平台）。 */
-  const useBuiltinEmbedding = () => {
-    if (!draft) return;
-    setDraft({
-      ...draft,
-      knowledge: { ...draft.knowledge, enabled: true, provider: 'local' }
-    });
-  };
-
-  /** 本地模型页把本机服务设为知识库 embedding：已有同地址平台就复用，否则补一个。 */
-  const useLocalEmbedding = (baseUrl: string, model: string) => {
-    if (!draft) return;
-    const normalize = (value: string) => value.trim().replace(/\/+$/, '').toLowerCase();
-    const target = normalize(baseUrl);
-    const existing = draft.ai.platforms.find(
-      (platform) => normalize(platform.baseUrl) === target
-    );
-    let platforms = draft.ai.platforms;
-    let platformId = existing?.id || '';
-    if (existing) {
-      if (!(existing.models || []).includes(model)) {
-        platforms = platforms.map((platform) =>
-          platform.id === existing.id
-            ? { ...platform, models: [...(platform.models || []), model] }
-            : platform
-        );
-      }
-    } else {
-      let id = baseUrl.includes(':11434')
-        ? 'ollama'
-        : baseUrl.includes(':1234')
-          ? 'lmstudio'
-          : 'local-embedding';
-      if (platforms.some((platform) => platform.id === id)) {
-        id = `${id}-${Date.now().toString(36)}`;
-      }
-      platformId = id;
-      platforms = [
-        ...platforms,
-        {
-          id,
-          name: id.startsWith('ollama')
-            ? 'Ollama（本地）'
-            : id.startsWith('lmstudio')
-              ? 'LM Studio（本地）'
-              : '本地向量服务',
-          baseUrl,
-          apiKey: '',
-          model: '',
-          models: [model]
-        }
-      ];
-    }
-    setDraft({
-      ...draft,
-      ai: { ...draft.ai, platforms },
-      knowledge: { ...draft.knowledge, enabled: true, platformId, model }
-    });
-  };
-
   const removePlatform = () => {
     if (!draft || !active || draft.ai.platforms.length <= 1) return;
     const platforms = draft.ai.platforms.filter((platform) => platform.id !== active.id);
@@ -1416,9 +1356,69 @@ export function SettingsPanel({
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>
       )}
+      {show('voice') && (
+        <>
+          <AsrSection
+            draft={draft}
+            activeAsr={activeAsr}
+            updateAsr={(patch) => updateAsr(patch)}
+            updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
+            addAsrPlatform={addAsrPlatform}
+            removeAsrPlatform={removeAsrPlatform}
+            testConnection={(kind) => void testConnection(kind)}
+            probeModels={(kind) => void probeModels(kind)}
+            platformBusy={platformBusy}
+            modelCache={modelCache}
+            showKey={showKey}
+            setShowKey={setShowKey}
+            setEditingAsrId={setEditingAsrId}
+            platformStatus={platformStatusNode}
+          />
+          <LocalModelsSection
+            activeAsr={activeAsr}
+            updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
+          />
+          <TtsSection
+            value={draft.tts}
+            onChange={(patch) => setDraft({ ...draft, tts: { ...draft.tts, ...patch } })}
+          />
+          <VoiceInputSection
+            value={draft.general.dictation}
+            onChange={(patch) =>
+              updateGeneral({ dictation: { ...draft.general.dictation, ...patch } })
+            }
+          />
+          <OcrSection
+            value={draft.ocr}
+            onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
+          />
+        </>
+      )}
+
       {show('subtitles') && (
         <>
           <SubtitleGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <CorrectionSection
+            value={draft.correction}
+            testText={correctionTest}
+            preview={correctionPreview}
+            testing={correctionTesting}
+            onToggle={(enabled) => updateCorrection({ enabled })}
+            onAddGroup={addGroup}
+            onImportGroups={() => void importRuleGroups()}
+            onUpdateGroup={(id, patch) => updateGroup(id, patch)}
+            onExportGroup={(group) => void exportRuleGroup(group)}
+            onRemoveGroup={removeGroup}
+            onAddRule={addRule}
+            onUpdateRule={(groupId, ruleId, patch) => updateRule(groupId, ruleId, patch)}
+            onRemoveRule={(groupId, ruleId) => removeRule(groupId, ruleId)}
+            onToggleGlossary={(enabled) => updateGlossary({ enabled })}
+            onAddTerm={addTerm}
+            onUpdateTerm={(id, patch) => updateTerm(id, patch)}
+            onRemoveTerm={removeTerm}
+            onTestText={setCorrectionTest}
+            onPreview={() => void previewCorrection()}
+          />
           <ExportDefaultsSection
             value={draft.export}
             onChange={(next) => setDraft({ ...draft, export: next })}
@@ -1484,58 +1484,6 @@ export function SettingsPanel({
       )}
 
       {show('ai') && (
-      <AsrSection
-        draft={draft}
-        activeAsr={activeAsr}
-        updateAsr={(patch) => updateAsr(patch)}
-        updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
-        addAsrPlatform={addAsrPlatform}
-        removeAsrPlatform={removeAsrPlatform}
-        testConnection={(kind) => void testConnection(kind)}
-        probeModels={(kind) => void probeModels(kind)}
-        platformBusy={platformBusy}
-        modelCache={modelCache}
-        showKey={showKey}
-        setShowKey={setShowKey}
-        setEditingAsrId={setEditingAsrId}
-        platformStatus={platformStatusNode}
-      />
-      )}
-
-      {show('ai') && (
-        <LocalModelsSection
-          draft={draft}
-          activeAsr={activeAsr}
-          updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
-          onUseLocalEmbedding={useLocalEmbedding}
-          onUseBuiltinEmbedding={useBuiltinEmbedding}
-        />
-      )}
-
-      {show('ai') && (
-        <TtsSection
-          value={draft.tts}
-          onChange={(patch) => setDraft({ ...draft, tts: { ...draft.tts, ...patch } })}
-        />
-      )}
-
-      {show('ai') && (
-        <VoiceInputSection
-          value={draft.general.dictation}
-          onChange={(patch) =>
-            updateGeneral({ dictation: { ...draft.general.dictation, ...patch } })
-          }
-        />
-      )}
-
-      {show('ai') && (
-        <OcrSection
-          value={draft.ocr}
-          onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
-        />
-      )}
-
-      {show('ai') && (
       <PromptSection
         value={draft.prompt}
         onPatch={(patch) => setDraft({ ...draft, prompt: { ...draft.prompt, ...patch } })}
@@ -1569,30 +1517,6 @@ export function SettingsPanel({
         searchTesting={searchTesting}
         searchResults={searchResults}
         onTestSearch={() => void testSearch()}
-      />
-      )}
-
-      {show('ai') && (
-      <CorrectionSection
-        value={draft.correction}
-        testText={correctionTest}
-        preview={correctionPreview}
-        testing={correctionTesting}
-        onToggle={(enabled) => updateCorrection({ enabled })}
-        onAddGroup={addGroup}
-        onImportGroups={() => void importRuleGroups()}
-        onUpdateGroup={(id, patch) => updateGroup(id, patch)}
-        onExportGroup={(group) => void exportRuleGroup(group)}
-        onRemoveGroup={removeGroup}
-        onAddRule={addRule}
-        onUpdateRule={(groupId, ruleId, patch) => updateRule(groupId, ruleId, patch)}
-        onRemoveRule={(groupId, ruleId) => removeRule(groupId, ruleId)}
-        onToggleGlossary={(enabled) => updateGlossary({ enabled })}
-        onAddTerm={addTerm}
-        onUpdateTerm={(id, patch) => updateTerm(id, patch)}
-        onRemoveTerm={removeTerm}
-        onTestText={setCorrectionTest}
-        onPreview={() => void previewCorrection()}
       />
       )}
 

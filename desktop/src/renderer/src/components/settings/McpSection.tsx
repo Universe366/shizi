@@ -144,10 +144,10 @@ export function McpSection({
           模板
         </button>
         <button className="mini-btn" onClick={() => fileRef.current?.click()}>
-          导入 JSON
+          导入 MCP JSON
         </button>
         <button className="mini-btn" onClick={exportServers}>
-          导出 JSON
+          导出 MCP JSON
         </button>
         <button
           className="mini-btn"
@@ -158,7 +158,7 @@ export function McpSection({
             })
           }
         >
-          全部启用
+          启用全部 MCP
         </button>
         <button
           className="mini-btn"
@@ -169,7 +169,7 @@ export function McpSection({
             })
           }
         >
-          全部停用
+          停用全部 MCP
         </button>
         <input
           ref={fileRef}

@@ -39,7 +39,7 @@ export function TaskModelSection({ value, updateAi }: Props) {
   };
 
   return (
-    <SettingsSection title="默认模型" defaultOpen={false}>
+    <SettingsSection title="按任务选模型" defaultOpen={false}>
       <div className="settings-inline">
         <div className="settings-field">
           <div className="settings-label">默认平台</div>

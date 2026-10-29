@@ -39,7 +39,7 @@ describe('SitePermissionsSection', () => {
   it('刷新与清除全部回调；空列表时清除禁用', () => {
     const p = props();
     const { rerender } = render(<SitePermissionsSection {...p} />);
-    fireEvent.click(screen.getByText('刷新'));
+    fireEvent.click(screen.getByText('刷新权限'));
     fireEvent.click(screen.getByText('清除全部'));
     expect(p.onRefresh).toHaveBeenCalled();
     expect(p.onClear).toHaveBeenCalled();

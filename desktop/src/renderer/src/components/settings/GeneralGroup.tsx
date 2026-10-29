@@ -6,14 +6,14 @@ interface Props {
   onChange: (patch: Partial<AppSettings['general']>) => void;
 }
 
-/** 通用：网络代理。影响内置浏览器、AI 与联网检索。 */
+/** 网络代理：影响内置浏览器、AI 与联网检索。 */
 export function GeneralGroup({ value, onChange }: Props) {
   const proxy = value.proxy || { mode: 'system', url: '', bypass: '' };
   const patch = (next: Partial<AppSettings['general']['proxy']>) =>
     onChange({ proxy: { ...proxy, ...next } });
 
   return (
-    <SettingsSection title="通用" defaultOpen>
+    <SettingsSection title="网络代理" defaultOpen>
       <div className="settings-group">
         <div className="settings-group-title">网络代理</div>
         <div className="settings-group-desc">

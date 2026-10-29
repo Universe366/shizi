@@ -86,7 +86,7 @@ export function SkillsSection({
           远程技能库
         </button>
         <button className="mini-btn" onClick={() => fileRef.current?.click()}>
-          导入 JSON
+          导入技能 JSON
         </button>
         <button
           className="mini-btn"
@@ -110,7 +110,7 @@ export function SkillsSection({
             )
           }
         >
-          导出 JSON
+          导出技能 JSON
         </button>
         <input
           ref={fileRef}
@@ -159,13 +159,13 @@ export function SkillsSection({
           className="mini-btn"
           onClick={() => value.items.forEach((item) => onUpdate(item.id, { enabled: true }))}
         >
-          全部启用
+          启用全部技能
         </button>
         <button
           className="mini-btn"
           onClick={() => value.items.forEach((item) => onUpdate(item.id, { enabled: false }))}
         >
-          全部停用
+          停用全部技能
         </button>
       </div>
 
@@ -327,7 +327,7 @@ export function SkillsSection({
                 />
                 启用
               </label>
-              <span className="settings-hint">改动即时保存</span>
+              <span className="settings-hint">随设置保存</span>
               <button
                 className="mini-btn skill-delete"
                 title="删除技能"
