@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react';
 import {
+  Bookmark,
   ChevronDown,
   ChevronRight,
   Download,
@@ -48,6 +49,7 @@ interface ShortcutBoardProps {
   frequent: StartShortcut[];
   onExport: () => void;
   onImport: () => void;
+  onImportBookmarks: () => void;
   tags: Array<{ tag: string; count: number }>;
   activeTag: string;
   onTag: (tag: string) => void;
@@ -79,6 +81,7 @@ export function ShortcutBoard({
   frequent,
   onExport,
   onImport,
+  onImportBookmarks,
   tags,
   activeTag,
   onTag,
@@ -154,6 +157,13 @@ export function ShortcutBoard({
           </button>
           <button className="start-tab start-tab-add" title="导入起始页" onClick={onImport}>
             <Upload size={13} />
+          </button>
+          <button
+            className="start-tab start-tab-add"
+            title="导入浏览器书签"
+            onClick={onImportBookmarks}
+          >
+            <Bookmark size={13} />
           </button>
           <button className="start-tab start-tab-add" title="批量导入网址" onClick={onBatchAdd}>
             <Tags size={13} />

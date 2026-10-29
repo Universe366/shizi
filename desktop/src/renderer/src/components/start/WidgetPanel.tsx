@@ -293,10 +293,12 @@ export function WidgetPanel(props: WidgetPanelProps) {
               )}
             </header>
             <div className={`start-todo-list${todoExpanded ? ' is-expanded' : ''}`}>
-              {visibleTodos.map((todo) => (
+              {visibleTodos.map((todo) => {
+                const overdue = Boolean(todo.dueAt && !todo.done && todo.dueAt < Date.now());
+                return (
                 <label
                   key={todo.id}
-                  className="start-todo-item"
+                  className={`start-todo-item${overdue ? ' is-overdue' : ''}`}
                   draggable
                   onDragStart={(event) => {
                     event.dataTransfer.setData('text/plain', String(todo.id));
@@ -328,7 +330,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
                     <X size={10} />
                   </button>
                 </label>
-              ))}
+                );
+              })}
               {!todos.length && <div className="start-widget-empty">还没有待办，加一条试试</div>}
             </div>
             <div className="start-todo-add">

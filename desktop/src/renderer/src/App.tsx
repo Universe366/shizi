@@ -796,6 +796,10 @@ export default function App() {
                 setStartOpen(false);
                 setSettingsOpen(true);
               }}
+              onOpenGlobalSearch={() => {
+                setStartOpen(false);
+                setSearchOpen(true);
+              }}
               onClose={() => setStartOpen(false)}
             />
           )}

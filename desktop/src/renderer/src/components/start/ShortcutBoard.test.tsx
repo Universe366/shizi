@@ -39,6 +39,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof ShortcutBoard>> = 
     frequent: [] as typeof groups[number][1],
     onExport: vi.fn(),
     onImport: vi.fn(),
+    onImportBookmarks: vi.fn(),
     tags: [] as Array<{ tag: string; count: number }>,
     activeTag: '',
     onTag: vi.fn(),

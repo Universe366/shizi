@@ -983,6 +983,11 @@
   font-size: var(--fs-xs);
 }
 
+.start-todo-item.is-overdue .start-todo-due {
+  color: #e5484d;
+  font-weight: 600;
+}
+
 .start-todo-remove {
   display: inline-flex;
   align-items: center;

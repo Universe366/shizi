@@ -16,6 +16,7 @@ beforeEach(() => {
   localStorage.removeItem('start-palette-recent');
   localStorage.removeItem('start-clock');
   localStorage.removeItem('start-weather-unit');
+  localStorage.removeItem('start-search-suggest');
   localStorage.setItem('start-onboarding-done', '1');
 });
 
@@ -75,6 +76,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onOpenSettings: vi.fn(),
     onOpenBookmarks: vi.fn(),
     onOpenDownloads: vi.fn(),
+    onOpenGlobalSearch: vi.fn(),
     onClose: vi.fn(),
     ...overrides
   };
@@ -268,6 +270,37 @@ describe('StartPage v2', () => {
     expect((document.activeElement as HTMLElement)?.textContent).toBe('Google');
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(document.querySelector('.start-engine-menu')).toBeNull());
+  });
+
+  it('关闭联网联想后不再请求 Bing', async () => {
+    const api = installBsub();
+    localStorage.setItem('start-search-suggest', '0');
+    render(<StartPage {...props()} />);
+    fireEvent.change(screen.getByPlaceholderText(/在 必应 搜索/), { target: { value: '拾字' } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(api.startSuggest).not.toHaveBeenCalled();
+  });
+
+  it('图库加载失败可以重试', async () => {
+    const api = installBsub();
+    api.startBingGallery.mockResolvedValue({ ok: false, error: 'offline' } as never);
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    expect(await screen.findByText('图库加载失败')).toBeTruthy();
+    fireEvent.click(screen.getByText('重试'));
+    await vi.waitFor(() => expect(api.startBingGallery).toHaveBeenCalledTimes(2));
+  });
+
+  it('指令面板可以进入字幕库搜索', async () => {
+    installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    fireEvent.change(await screen.findByLabelText('指令面板搜索'), {
+      target: { value: '字幕库' }
+    });
+    fireEvent.click(screen.getByText('搜索字幕库 / 总结'));
+    expect(p.onOpenGlobalSearch).toHaveBeenCalled();
   });
 
   it('输入时合并网络联想词', async () => {
@@ -767,9 +800,10 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
     expect(await screen.findByRole('dialog', { name: '指令面板' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('指令面板搜索'), { target: { value: '任务中心' } });
-    // 第一条永远是「用当前引擎搜索」，第二条才是页面命令。
-    fireEvent.keyDown(document, { key: 'ArrowDown' });
-    fireEvent.keyDown(document, { key: 'Enter' });
+    const item = [...document.querySelectorAll('.start-palette-item')].find(
+      (node) => node.querySelector('.start-palette-label')?.textContent === '任务中心'
+    ) as HTMLElement;
+    fireEvent.click(item);
     expect(p.onOpenTasks).toHaveBeenCalled();
   });
 

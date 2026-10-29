@@ -71,6 +71,7 @@ import { useReducedMotion } from './start/useReducedMotion';
 import { useStartClock } from './start/useStartClock';
 import { useStartWeather } from './start/useStartWeather';
 import { buildStartCommands, buildStartQueryCommands } from './start/commands';
+import { parseBookmarksHtml } from './start/bookmarks';
 
 const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
 const EFFECT_KEY = 'start-wallpaper-effect';
@@ -81,6 +82,7 @@ const USAGE_KEY = 'start-usage';
 const NOTES_KEY = 'start-notes';
 const INK_KEY = 'start-ink-mode';
 const UNIT_KEY = 'start-weather-unit';
+const SUGGEST_KEY = 'start-search-suggest';
 
 interface BingGalleryItem {
   url: string;
@@ -96,6 +98,7 @@ export interface StartPageProps {
   onOpenSettings: () => void;
   onOpenBookmarks: () => void;
   onOpenDownloads: () => void;
+  onOpenGlobalSearch: () => void;
   onClose: () => void;
 }
 
@@ -170,6 +173,14 @@ function readNotes(): string {
   }
 }
 
+function readSearchSuggest(): boolean {
+  try {
+    return localStorage.getItem(SUGGEST_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
 function readWeatherUnit(): TemperatureUnit {
   try {
     return localStorage.getItem(UNIT_KEY) === 'f' ? 'f' : 'c';
@@ -196,6 +207,7 @@ export function StartPage({
   onOpenSettings,
   onOpenBookmarks,
   onOpenDownloads,
+  onOpenGlobalSearch,
   onClose
 }: StartPageProps) {
   const [query, setQuery] = useState('');
@@ -215,6 +227,7 @@ export function StartPage({
     null
   );
   const [bingGallery, setBingGallery] = useState<BingGalleryItem[]>([]);
+  const [bingGalleryState, setBingGalleryState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [bingSelection, setBingSelection] = useState<{ url: string; copyright: string } | null>(
     null
   );
@@ -222,6 +235,7 @@ export function StartPage({
   const [wallpaperMedia, setWallpaperMedia] = useState<StartWallpaperMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState('');
   const [ink, setInk] = useState<InkMode | null>(null);
+  const [wallpaperBroken, setWallpaperBroken] = useState(false);
   const [inkMode, setInkMode] = useState<'auto' | InkMode>(readInkMode);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
@@ -270,6 +284,7 @@ export function StartPage({
     }
   });
   const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
+  const [searchSuggestOn, setSearchSuggestOn] = useState(readSearchSuggest);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchActive, setSearchActive] = useState(-1);
   const [cityEditing, setCityEditing] = useState(false);
@@ -292,6 +307,7 @@ export function StartPage({
     }
   });
   const importRef = useRef<HTMLInputElement>(null);
+  const bookmarkRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -378,7 +394,8 @@ export function StartPage({
       try {
         localStorage.setItem(NOTES_KEY, notes);
       } catch {
-        // ignore
+        setNotice({ text: '便签保存失败：本地存储空间不足' });
+        window.setTimeout(() => setNotice(null), 2600);
       }
     }, 350);
     return () => window.clearTimeout(timer);
@@ -393,7 +410,7 @@ export function StartPage({
 
   useEffect(() => {
     const value = query.trim();
-    if (value.length < 2) {
+    if (!searchSuggestOn || value.length < 2) {
       setRemoteSuggest([]);
       return;
     }
@@ -407,7 +424,7 @@ export function StartPage({
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, searchSuggestOn]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -421,15 +438,25 @@ export function StartPage({
   }, [searchOpen]);
 
   useEffect(() => {
-    if (!wallpaperOpen || bingGallery.length) return;
+    if (!wallpaperOpen || bingGallery.length || bingGalleryState === 'error') return;
     let alive = true;
-    void window.bsub.startBingGallery?.().then((response) => {
-      if (alive && response.ok) setBingGallery(response.data);
-    });
+    void window.bsub
+      .startBingGallery?.()
+      .then((response) => {
+        if (!alive) return;
+        if (response?.ok && response.data.length) {
+          setBingGallery(response.data);
+        } else {
+          setBingGalleryState('error');
+        }
+      })
+      .catch(() => {
+        if (alive) setBingGalleryState('error');
+      });
     return () => {
       alive = false;
     };
-  }, [wallpaperOpen, bingGallery.length]);
+  }, [wallpaperOpen, bingGallery.length, bingGalleryState]);
 
   useEffect(() => {
     if (wallpaper !== 'bing' || wallpaperImage) return;
@@ -488,9 +515,6 @@ export function StartPage({
     };
   }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper, bingSelection]);
 
-
-
-
   useEffect(() => {
     if (!shortcutMenu) return;
     const close = () => setShortcutMenu(null);
@@ -500,6 +524,7 @@ export function StartPage({
 
   useEffect(() => {
     if (!shortcutMenu) return;
+    const previous = document.activeElement as HTMLElement | null;
     const menu = menuRef.current;
     menu?.querySelector<HTMLButtonElement>('button')?.focus();
     const onKey = (event: KeyboardEvent) => {
@@ -524,7 +549,10 @@ export function StartPage({
       buttons[next].focus();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (previous && previous.isConnected) previous.focus();
+    };
   }, [shortcutMenu]);
 
   useEffect(() => {
@@ -570,6 +598,7 @@ export function StartPage({
         !typing &&
         !meta &&
         !event.altKey &&
+        !event.isComposing &&
         event.key.length === 1 &&
         event.key !== '/' &&
         event.key !== ' ' &&
@@ -714,6 +743,10 @@ export function StartPage({
     }
   };
 
+  const updateNotes = (value: string) => {
+    setNotes(value.slice(0, 20000));
+  };
+
   const clearNotes = () => {
     const previous = notes;
     setNotes('');
@@ -725,6 +758,15 @@ export function StartPage({
     setCity(next);
     setCityEditing(false);
     void patchGeneral({ startCity: next });
+  };
+
+  const changeSearchSuggest = (value: boolean) => {
+    setSearchSuggestOn(value);
+    try {
+      localStorage.setItem(SUGGEST_KEY, value ? '1' : '0');
+    } catch {
+      // ignore
+    }
   };
 
   const toggleWeatherUnit = () => {
@@ -757,11 +799,14 @@ export function StartPage({
     }
   };
 
-  const persistShortcuts = async (next: StartShortcut[]) => {
+  const persistShortcuts = async (
+    next: StartShortcut[],
+    extra?: Record<string, unknown>
+  ) => {
     setShortcuts(next);
     writeShortcutBackup(next);
     setShortcutBackup(next);
-    await patchGeneral({ startShortcuts: next });
+    await patchGeneral({ startShortcuts: next, ...extra });
   };
 
   const saveShortcut = () => {
@@ -868,10 +913,17 @@ export function StartPage({
 
   const removeShortcut = (id: string) => {
     const previous = shortcuts;
+    const previousDock = dockIds;
+    const nextDock = dockIds.filter((item) => item !== id);
     const target = shortcuts.find((item) => item.id === id);
-    void persistShortcuts(shortcuts.filter((item) => item.id !== id));
+    if (nextDock.length !== dockIds.length) setDockIds(nextDock);
+    void persistShortcuts(
+      shortcuts.filter((item) => item.id !== id),
+      nextDock.length !== dockIds.length ? { startDockIds: nextDock } : undefined
+    );
     showNotice(target ? `已删除「${target.label}」` : '已删除', () => {
-      void persistShortcuts(previous);
+      if (previousDock.length !== dockIds.length) setDockIds(previousDock);
+      void persistShortcuts(previous, { startDockIds: previousDock });
     });
   };
 
@@ -1204,6 +1256,29 @@ export function StartPage({
     showNotice(`已导出 ${backup.shortcuts.length} 个快捷方式`);
   };
 
+  const importBookmarks = async (file: File) => {
+    let text = '';
+    try {
+      text = await file.text();
+    } catch {
+      showNotice('读取书签文件失败');
+      return;
+    }
+    const parsed = parseBookmarksHtml(text);
+    if (!parsed.shortcuts.length) {
+      showNotice('没有识别到可导入的网址');
+      return;
+    }
+    const ok = await askConfirm({
+      title: '导入浏览器书签？',
+      description: `识别到 ${parsed.shortcuts.length} 个网址、${parsed.folders} 个分组，按网址去重后合并。`,
+      confirmText: '合并导入'
+    });
+    if (!ok) return;
+    void persistShortcuts(mergeShortcuts(shortcuts, parsed.shortcuts));
+    showNotice(`已导入 ${parsed.shortcuts.length} 个书签`);
+  };
+
   const importStart = async (file: File) => {
     let text = '';
     try {
@@ -1237,10 +1312,14 @@ export function StartPage({
       void patchGeneral({ startWallpaperImage: prefs.wallpaperImage });
     }
     if (prefs.wallpaperMedia) {
-      setWallpaperMedia(prefs.wallpaperMedia);
-      setWallpaperImage('');
-      void clearWallpaperBlob().catch(() => undefined);
-      void patchGeneral({ startWallpaperMedia: prefs.wallpaperMedia, startWallpaperImage: '' });
+      if (prefs.wallpaperMedia.source === 'file') {
+        showNotice('备份里的本地壁纸文件无法随备份迁移，已跳过');
+      } else {
+        setWallpaperMedia(prefs.wallpaperMedia);
+        setWallpaperImage('');
+        void clearWallpaperBlob().catch(() => undefined);
+        void patchGeneral({ startWallpaperMedia: prefs.wallpaperMedia, startWallpaperImage: '' });
+      }
     }
     if (prefs.effect) {
       const next = {
@@ -1326,6 +1405,32 @@ export function StartPage({
     : wallpaperImage ||
       (wallpaper === 'bing' ? bingSelection?.url || bingWallpaper?.url || '' : '');
 
+  const fallbackBackground =
+    wallpaper === 'bing' && bingSelection ? bingWallpaper?.url || '' : '';
+  const displayBackground = wallpaperBroken ? fallbackBackground : backgroundImage;
+  const displayVideo = wallpaperBroken ? '' : videoBackground;
+
+  useEffect(() => {
+    if (!backgroundImage) {
+      setWallpaperBroken(false);
+      return;
+    }
+    let alive = true;
+    const image = new Image();
+    image.onload = () => {
+      if (alive) setWallpaperBroken(false);
+    };
+    image.onerror = () => {
+      if (alive) setWallpaperBroken(true);
+    };
+    image.src = backgroundImage;
+    return () => {
+      alive = false;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [backgroundImage]);
+
   const menuItem = shortcutMenu ? shortcuts.find((item) => item.id === shortcutMenu.id) : null;
   const groupNames = groups.map(([group]) => group);
 
@@ -1339,6 +1444,7 @@ export function StartPage({
       searchRef.current?.focus();
       setSearchOpen(true);
     },
+    openGlobalSearch: onOpenGlobalSearch,
     openOnboarding: () => setOnboarding(true),
     openWallpaper: () => setWallpaperOpen(true),
     exportStart,
@@ -1357,18 +1463,19 @@ export function StartPage({
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
       }`}
     >
-      {!videoBackground && backgroundImage && (
+      {!displayVideo && displayBackground && (
         <div
-          key={backgroundImage}
+          key={displayBackground}
           className="start-wallpaper-layer"
-          style={{ backgroundImage: `url(${backgroundImage})` }}
+          style={{ backgroundImage: `url(${displayBackground})` }}
           aria-hidden="true"
         />
       )}
-      {videoBackground && (
+      {displayVideo && (
         <video
           className="start-wallpaper-video"
-          src={videoBackground}
+          src={displayVideo}
+          onError={() => setWallpaperBroken(true)}
           autoPlay={!reducedMotion}
           preload="metadata"
           muted
@@ -1513,6 +1620,7 @@ export function StartPage({
           frequent={frequent}
           onExport={exportStart}
           onImport={() => importRef.current?.click()}
+          onImportBookmarks={() => bookmarkRef.current?.click()}
           tags={tags}
           activeTag={activeTag}
           onTag={setActiveTag}
@@ -1549,7 +1657,7 @@ export function StartPage({
               onPhase: pomodoroActions.setPhase
             }}
             notes={notes}
-            onNotes={setNotes}
+            onNotes={updateNotes}
             onNotesClear={clearNotes}
             todos={todos}
             todoDraft={todoDraft}
@@ -1667,6 +1775,8 @@ export function StartPage({
         wallpaperPreview={wallpaperPreview}
         wallpaperPreviewKind={wallpaperPreviewKind}
         bingGallery={bingGallery}
+        bingGalleryState={bingGalleryState}
+        onRetryBingGallery={() => setBingGalleryState('idle')}
         bingSelection={bingSelection}
         onPickBing={pickBingImage}
         onResetBing={resetBingImage}
@@ -1674,6 +1784,8 @@ export function StartPage({
         onInkMode={changeInkMode}
         clock={clock}
         onClock={changeClock}
+        searchSuggest={searchSuggestOn}
+        onSearchSuggest={changeSearchSuggest}
         bingWallpaper={bingWallpaper}
         blur={effect.blur}
         dim={effect.dim}
@@ -1735,6 +1847,17 @@ export function StartPage({
           const file = event.target.files?.[0];
           event.target.value = '';
           if (file) void importStart(file);
+        }}
+      />
+      <input
+        ref={bookmarkRef}
+        type="file"
+        accept=".html,text/html"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void importBookmarks(file);
         }}
       />
 

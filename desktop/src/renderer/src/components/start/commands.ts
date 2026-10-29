@@ -7,6 +7,7 @@ import {
   Flame,
   Globe,
   History,
+  Library,
   ListChecks,
   Palette,
   Pencil,
@@ -28,6 +29,7 @@ export interface StartCommandContext {
   toggleMinimal: () => void;
   toggleEdit: () => void;
   focusSearch: () => void;
+  openGlobalSearch: () => void;
   openOnboarding: () => void;
   openWallpaper: () => void;
   exportStart: () => void;
@@ -76,6 +78,14 @@ export function buildStartCommands(context: StartCommandContext): PaletteCommand
       hint: '/',
       icon: Search,
       run: context.focusSearch
+    },
+    {
+      id: 'global-search',
+      group: '操作',
+      label: '搜索字幕库 / 总结',
+      hint: '库',
+      icon: Library,
+      run: context.openGlobalSearch
     },
     {
       id: 'shortcut-help',

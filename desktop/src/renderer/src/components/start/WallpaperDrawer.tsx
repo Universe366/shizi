@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, ImagePlus, Link2, Sparkles, Trash2, X } from 'lucide-react';
 import {
   WALLPAPERS,
@@ -22,6 +22,8 @@ interface WallpaperDrawerProps {
   wallpaperPreview: string;
   wallpaperPreviewKind: StartWallpaperMedia['kind'];
   bingGallery: Array<{ url: string; copyright: string; date: string }>;
+  bingGalleryState: 'idle' | 'loading' | 'error';
+  onRetryBingGallery: () => void;
   bingSelection: { url: string; copyright: string } | null;
   onPickBing: (image: { url: string; copyright: string; date: string }) => void;
   onResetBing: () => void;
@@ -29,6 +31,8 @@ interface WallpaperDrawerProps {
   onInkMode: (mode: 'auto' | 'light' | 'dark') => void;
   clock: ClockOptions;
   onClock: (patch: Partial<ClockOptions>) => void;
+  searchSuggest: boolean;
+  onSearchSuggest: (value: boolean) => void;
   bingWallpaper: { url: string; copyright: string } | null;
   blur: number;
   dim: number;
@@ -52,6 +56,8 @@ export function WallpaperDrawer({
   wallpaperPreview,
   wallpaperPreviewKind,
   bingGallery,
+  bingGalleryState,
+  onRetryBingGallery,
   bingSelection,
   onPickBing,
   onResetBing,
@@ -59,6 +65,8 @@ export function WallpaperDrawer({
   onInkMode,
   clock,
   onClock,
+  searchSuggest,
+  onSearchSuggest,
   bingWallpaper,
   blur,
   dim,
@@ -73,6 +81,43 @@ export function WallpaperDrawer({
   onClose
 }: WallpaperDrawerProps) {
   const [urlDraft, setUrlDraft] = useState('');
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.querySelector<HTMLElement>('button')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !panel) return;
+      const nodes = [
+        ...panel.querySelectorAll<HTMLElement>('button, input:not([type="file"])')
+      ].filter((node) => !node.hasAttribute('disabled'));
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      if (previous && previous.isConnected) previous.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -84,7 +129,14 @@ export function WallpaperDrawer({
 
   return (
     <div className="start-drawer-backdrop" onMouseDown={onClose}>
-      <aside className="start-drawer" onMouseDown={(event) => event.stopPropagation()}>
+      <aside
+        ref={panelRef}
+        className="start-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="外观"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="start-drawer-head">
           <span>外观</span>
           <button className="start-icon-btn" title="关闭" onClick={onClose}>
@@ -138,6 +190,13 @@ export function WallpaperDrawer({
                   <span>{formatBingDate(image.date)}</span>
                 </button>
               ))}
+            </div>
+          ) : bingGalleryState === 'error' ? (
+            <div className="start-drawer-hint">
+              图库加载失败
+              <button className="start-link-btn" onClick={onRetryBingGallery}>
+                重试
+              </button>
             </div>
           ) : (
             <div className="start-drawer-hint">图库加载中…</div>
@@ -282,6 +341,18 @@ export function WallpaperDrawer({
               onChange={(event) => onClock({ hour12: event.target.checked })}
             />
             12 小时制
+          </label>
+        </section>
+
+        <section className="start-drawer-section">
+          <div className="start-drawer-label">搜索</div>
+          <label className="start-check-row">
+            <input
+              type="checkbox"
+              checked={searchSuggest}
+              onChange={(event) => onSearchSuggest(event.target.checked)}
+            />
+            联网联想词（发送到 Bing）
           </label>
         </section>
 
