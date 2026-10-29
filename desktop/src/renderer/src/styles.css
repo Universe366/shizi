@@ -14438,3 +14438,62 @@ sup:has(> .cite-ref) {
 .studio-row-actions button.is-danger:hover {
   color: #e5484d;
 }
+
+.studio-local-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-local-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.studio-local-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 22px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: var(--fs-sm);
+}
+
+.studio-local-row + .studio-local-row {
+  border-top: 1px solid var(--border);
+}
+
+.studio-local-status {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+.studio-local-status.is-running {
+  color: var(--accent);
+}
+
+.studio-local-status.is-done {
+  color: #1a9b62;
+}
+
+.studio-local-status.is-failed {
+  color: #e5484d;
+}
+
+.studio-local-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--faint);
+}
+
+.studio-local-remove:hover {
+  color: #e5484d;
+  background: var(--surface-soft);
+}

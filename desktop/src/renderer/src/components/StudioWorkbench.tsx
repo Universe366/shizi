@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import {
   Captions,
   Clapperboard,
@@ -13,12 +13,14 @@ import {
   Merge,
   Mic,
   Palette,
+  Plus,
   Save,
   Scissors,
   Sparkles,
   Split,
   Trash2,
-  Wand2
+  Wand2,
+  X
 } from 'lucide-react';
 import type {
   LibraryVideo,
@@ -53,6 +55,16 @@ const LANGUAGES = [
 
 const TARGETS = ['中文（简体）', 'English', '日本語', '한국어'];
 type StudioTab = 'task' | 'subtitle' | 'style' | 'synthesis' | 'batch' | 'records';
+
+interface LocalBatchItem {
+  id: string;
+  path: string;
+  name: string;
+  status: 'waiting' | 'running' | 'done' | 'failed';
+  percent: number;
+  lines: SubtitleLine[];
+  error?: string;
+}
 
 const TABS: Array<{ id: StudioTab; label: string; icon: typeof FileVideo }> = [
   { id: 'task', label: '任务', icon: FileVideo },
@@ -94,6 +106,10 @@ export function StudioWorkbench() {
   const [library, setLibrary] = useState<LibraryVideo[]>([]);
   const [batchSelected, setBatchSelected] = useState<Set<number>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
+  const [localBatch, setLocalBatch] = useState<LocalBatchItem[]>([]);
+  const [localBatchRunning, setLocalBatchRunning] = useState(false);
+  const batchActive = useRef('');
+  const batchResolve = useRef<(() => void) | null>(null);
   const translateId = useRef('');
   const optimizeId = useRef('');
 
@@ -101,8 +117,30 @@ export function StudioWorkbench() {
     const offProgress = window.bsub.onLocalTransProgress?.((event) => {
       setProgress(event.percent);
       setMessage(event.message);
+      if (batchActive.current) {
+        setLocalBatch((current) =>
+          current.map((item) =>
+            item.id === batchActive.current ? { ...item, percent: event.percent } : item
+          )
+        );
+      }
     });
     const offDone = window.bsub.onLocalTransDone?.((event) => {
+      if (batchActive.current) {
+        const active = batchActive.current;
+        setLocalBatch((current) =>
+          current.map((item) =>
+            item.id === active
+              ? { ...item, status: 'done', percent: 100, lines: event.lines }
+              : item
+          )
+        );
+        batchActive.current = '';
+        const resolve = batchResolve.current;
+        batchResolve.current = null;
+        resolve?.();
+        return;
+      }
       setBusy(false);
       setProgress(100);
       setFile((current) =>
@@ -121,6 +159,19 @@ export function StudioWorkbench() {
       setTab('subtitle');
     });
     const offError = window.bsub.onLocalTransError?.((event) => {
+      if (batchActive.current) {
+        const active = batchActive.current;
+        setLocalBatch((current) =>
+          current.map((item) =>
+            item.id === active ? { ...item, status: 'failed', error: event.error } : item
+          )
+        );
+        batchActive.current = '';
+        const resolve = batchResolve.current;
+        batchResolve.current = null;
+        resolve?.();
+        return;
+      }
       setBusy(false);
       setMessage(event.error);
     });
@@ -233,6 +284,109 @@ export function StudioWorkbench() {
     } finally {
       setBatchBusy(false);
     }
+  };
+
+  const addLocalBatch = async () => {
+    const response = await window.bsub.pickLocalMedia?.();
+    if (!response?.ok) return;
+    const picked = response.data;
+    if ('canceled' in picked) return;
+    setLocalBatch((current) => [
+      ...current,
+      {
+        id: `local-${Date.now()}-${current.length}`,
+        path: picked.path,
+        name: picked.name,
+        status: 'waiting',
+        percent: 0,
+        lines: []
+      }
+    ]);
+    setTab('batch');
+  };
+
+  const addBatchFiles = (files: File[]) => {
+    const items = files
+      .map((file): LocalBatchItem | null => {
+        const path = window.bsub.filePath?.(file) || '';
+        return path
+          ? {
+              id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+              path,
+              name: file.name,
+              status: 'waiting',
+              percent: 0,
+              lines: []
+            }
+          : null;
+      })
+      .filter((item): item is LocalBatchItem => Boolean(item));
+    if (items.length) {
+      setLocalBatch((current) => [...current, ...items]);
+      setTab('batch');
+    }
+  };
+
+  const runLocalBatch = async () => {
+    if (localBatchRunning) return;
+    const pending = localBatch.filter(
+      (item) => item.status === 'waiting' || item.status === 'failed'
+    );
+    if (!pending.length) {
+      setMessage('没有待转录的本地文件');
+      return;
+    }
+    setLocalBatchRunning(true);
+    for (const item of pending) {
+      batchActive.current = item.id;
+      setLocalBatch((current) =>
+        current.map((row) =>
+          row.id === item.id ? { ...row, status: 'running', percent: 0, error: undefined } : row
+        )
+      );
+      const response = await window.bsub.transcribeLocalVideo?.(item.path, language);
+      if (!response?.ok) {
+        setLocalBatch((current) =>
+          current.map((row) =>
+            row.id === item.id ? { ...row, status: 'failed', error: response?.error } : row
+          )
+        );
+        batchActive.current = '';
+        continue;
+      }
+      await new Promise<void>((resolve) => {
+        batchResolve.current = resolve;
+      });
+    }
+    setLocalBatchRunning(false);
+    setMessage('本地批量转录完成，可在资料库继续批量成片');
+  };
+
+  const handleTaskDrop = async (event: ReactDragEvent) => {
+    event.preventDefault();
+    const dropped = event.dataTransfer.files?.[0];
+    if (!dropped) return;
+    if (/\.(srt|vtt)$/i.test(dropped.name)) {
+      const parsed = parseSubtitleText(await dropped.text());
+      if (parsed.length) {
+        setLines(parsed);
+        setImportedName(dropped.name);
+        setTranslated(null);
+        setTab('subtitle');
+        setMessage(`已导入 ${parsed.length} 行 · ${dropped.name}`);
+      }
+      return;
+    }
+    const path = window.bsub.filePath?.(dropped) || '';
+    if (!path) {
+      setMessage('无法读取拖入文件的路径，请使用“选择文件”');
+      return;
+    }
+    setFile({ path, name: dropped.name, duration: 0 });
+    setLines([]);
+    setTranslated(null);
+    setImportedName('');
+    setMessage('已选择拖入的文件');
   };
 
   const pick = async () => {
@@ -503,7 +657,11 @@ export function StudioWorkbench() {
 
         {tab === 'task' && (
           <div className="studio-task">
-            <div className="studio-card studio-drop">
+            <div
+              className="studio-card studio-drop"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => void handleTaskDrop(event)}
+            >
               <div className="studio-drop-icon"><FileVideo size={26} /></div>
               <div>
                 <b>{file ? file.name : '选择本地视频 / 音频'}</b>
@@ -791,6 +949,57 @@ export function StudioWorkbench() {
 
         {tab === 'batch' && (
           <div className="studio-batch">
+            <div
+              className="studio-card studio-local-batch"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                addBatchFiles([...event.dataTransfer.files]);
+              }}
+            >
+              <div className="studio-toolbar">
+                <span>本地文件批量转录（拖入多个文件，或逐个添加）。</span>
+                <button className="mini-btn" onClick={() => void addLocalBatch()}>
+                  <Plus size={12} /> 添加文件
+                </button>
+                <button
+                  className="mini-btn primary"
+                  onClick={() => void runLocalBatch()}
+                  disabled={!localBatch.length || localBatchRunning}
+                >
+                  {localBatchRunning ? <Loader2 size={12} className="spin" /> : <Mic size={12} />}
+                  开始全部
+                </button>
+              </div>
+              {!localBatch.length ? (
+                <div className="settings-hint">把本地视频/音频拖到这里，或点「添加文件」。</div>
+              ) : (
+                <div className="studio-local-list">
+                  {localBatch.map((item) => (
+                    <div className="studio-local-row" key={item.id}>
+                      <span className="studio-batch-title">{item.name}</span>
+                      <span className={`studio-local-status is-${item.status}`}>
+                        {item.status === 'waiting' && '等待'}
+                        {item.status === 'running' && `转录 ${Math.round(item.percent)}%`}
+                        {item.status === 'done' && `完成 · ${item.lines.length} 行`}
+                        {item.status === 'failed' && (item.error || '失败')}
+                      </span>
+                      <button
+                        className="studio-local-remove"
+                        title="移除"
+                        onClick={() =>
+                          setLocalBatch((current) => current.filter((row) => row.id !== item.id))
+                        }
+                        disabled={item.status === 'running'}
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="studio-toolbar">
               <span>从资料库选择视频，批量烧录当前样式。</span>
               <button
