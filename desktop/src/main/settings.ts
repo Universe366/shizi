@@ -806,8 +806,9 @@ function normalize(input: unknown): AppSettings {
       }
       base.general.startBingImage =
         typeof raw.general.startBingImage === 'string' &&
-        /^https?:\/\//i.test(raw.general.startBingImage)
-          ? raw.general.startBingImage.slice(0, 2000)
+        (/^https?:\/\//i.test(raw.general.startBingImage) ||
+          /^data:image\//i.test(raw.general.startBingImage))
+          ? raw.general.startBingImage.slice(0, 4000)
           : '';
       base.general.startBingCopyright =
         typeof raw.general.startBingCopyright === 'string'

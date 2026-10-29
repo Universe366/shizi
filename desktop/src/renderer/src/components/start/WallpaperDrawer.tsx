@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ImagePlus, Link2, Sparkles, Trash2, X } from 'lucide-react';
+import type { GallerySource } from './useStartWallpaper';
 import {
   WALLPAPERS,
   formatBingDate,
@@ -23,6 +24,8 @@ interface WallpaperDrawerProps {
   wallpaperPreviewKind: StartWallpaperMedia['kind'];
   bingGallery: Array<{ url: string; copyright: string; date: string }>;
   bingGalleryState: 'idle' | 'loading' | 'error';
+  gallerySource: GallerySource;
+  onGallerySource: (source: GallerySource) => void;
   onRetryBingGallery: () => void;
   bingSelection: { url: string; copyright: string } | null;
   onPickBing: (image: { url: string; copyright: string; date: string }) => void;
@@ -37,6 +40,8 @@ interface WallpaperDrawerProps {
   onClock: (patch: Partial<ClockOptions>) => void;
   searchSuggest: boolean;
   onSearchSuggest: (value: boolean) => void;
+  autoSync: boolean;
+  onAutoSync: (value: boolean) => void;
   searchHistoryCount: number;
   onClearSearchHistory: () => void;
   bingWallpaper: { url: string; copyright: string } | null;
@@ -63,6 +68,8 @@ export function WallpaperDrawer({
   wallpaperPreviewKind,
   bingGallery,
   bingGalleryState,
+  gallerySource,
+  onGallerySource,
   onRetryBingGallery,
   bingSelection,
   onPickBing,
@@ -77,6 +84,8 @@ export function WallpaperDrawer({
   onClock,
   searchSuggest,
   onSearchSuggest,
+  autoSync,
+  onAutoSync,
   searchHistoryCount,
   onClearSearchHistory,
   bingWallpaper,
@@ -186,7 +195,25 @@ export function WallpaperDrawer({
             })}
           </div>
 
-          <div className="start-drawer-label">必应图库</div>
+          <div className="start-drawer-label">图库</div>
+          <div className="start-gallery-tabs">
+            {(
+              [
+                ['bing', '必应'],
+                ['gradient', '渐变'],
+                ['picsum', 'Picsum'],
+                ['wallhaven', 'Wallhaven']
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                className={gallerySource === id ? 'is-active' : ''}
+                onClick={() => onGallerySource(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {bingGallery.length ? (
             <div className="start-bing-grid">
               {bingGallery.map((image) => (
@@ -399,6 +426,21 @@ export function WallpaperDrawer({
               清空搜索历史（{searchHistoryCount}）
             </button>
           )}
+        </section>
+
+        <section className="start-drawer-section">
+          <div className="start-drawer-label">同步</div>
+          <label className="start-check-row">
+            <input
+              type="checkbox"
+              checked={autoSync}
+              onChange={(event) => onAutoSync(event.target.checked)}
+            />
+            自动同步到文件夹（2 秒防抖）
+          </label>
+          <div className="start-drawer-hint">
+            需要先在 设置 → 数据与备份 选择同步文件夹。
+          </div>
         </section>
 
         <section className="start-drawer-section">

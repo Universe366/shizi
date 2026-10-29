@@ -2696,3 +2696,26 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
 }
+
+.start-gallery-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--start-soft);
+}
+
+.start-gallery-tabs button {
+  flex: 1;
+  height: 24px;
+  border-radius: 7px;
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+}
+
+.start-gallery-tabs button.is-active {
+  background: var(--start-surface-solid);
+  color: var(--start-text);
+  box-shadow: var(--start-shadow);
+}

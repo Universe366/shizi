@@ -50,7 +50,9 @@ function installBsub() {
     })),
     startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
     startSuggest: vi.fn(async () => ({ ok: true as const, data: [] as string[] })),
+    startLocate: vi.fn(async () => ({ ok: true as const, data: { city: '杭州' } })),
     startBingGallery: vi.fn(async () => ({ ok: true as const, data: [] as never[] })),
+    startGallery: vi.fn(async () => ({ ok: true as const, data: [] as never[] })),
     startSync: vi.fn(async () => ({
       ok: true as const,
       data: { path: 'C:/sync/shizi-start.json' }
@@ -291,12 +293,12 @@ describe('StartPage v2', () => {
 
   it('图库加载失败可以重试', async () => {
     const api = installBsub();
-    api.startBingGallery.mockResolvedValue({ ok: false, error: 'offline' } as never);
+    api.startGallery.mockResolvedValue({ ok: false, error: 'offline' } as never);
     render(<StartPage {...props()} />);
     fireEvent.click(screen.getByTitle('更换壁纸'));
     expect(await screen.findByText('图库加载失败')).toBeTruthy();
     fireEvent.click(screen.getByText('重试'));
-    await vi.waitFor(() => expect(api.startBingGallery).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(api.startGallery).toHaveBeenCalledTimes(2));
   });
 
   it('指令面板可以进入字幕库搜索', async () => {
@@ -980,9 +982,34 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     expect(screen.getByText('72°')).toBeTruthy();
   });
 
+  it('图库可以切换 Picsum / Wallhaven 源', async () => {
+    const api = installBsub();
+    api.startGallery.mockResolvedValue({
+      ok: true as const,
+      data: [{ url: 'https://picsum.photos/id/1/1920/1080', copyright: 'P', date: '' }]
+    } as never);
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    await vi.waitFor(() => expect(api.startGallery).toHaveBeenCalledWith('bing'));
+    fireEvent.click(screen.getByText('Wallhaven'));
+    await vi.waitFor(() => expect(api.startGallery).toHaveBeenCalledWith('wallhaven'));
+    fireEvent.click(screen.getByText('渐变'));
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll('.start-bing-thumb').length).toBe(8)
+    );
+  });
+
+  it('可以开启自动同步', async () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    fireEvent.click(screen.getByText('自动同步到文件夹（2 秒防抖）'));
+    expect(localStorage.getItem('start-auto-sync')).toBe('1');
+  });
+
   it('必应图库可以收藏并设置轮播', async () => {
     const api = installBsub();
-    api.startBingGallery.mockResolvedValue({
+    api.startGallery.mockResolvedValue({
       ok: true as const,
       data: [
         { url: 'https://www.bing.com/a.jpg', copyright: 'A', date: '20261029' },
@@ -1037,7 +1064,7 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
 
   it('必应图库可以选图并写入设置', async () => {
     const api = installBsub();
-    api.startBingGallery.mockResolvedValue({
+    api.startGallery.mockResolvedValue({
       ok: true as const,
       data: [
         { url: 'https://www.bing.com/a.jpg', copyright: 'A', date: '20261029' },
@@ -1077,6 +1104,19 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     );
     await waitFor(() => expect(document.querySelector('.start-dock [title="知乎"]')).toBeTruthy());
     expect(document.querySelector('.start-dock [title="MDN"]')).toBeNull();
+  });
+
+  it('可以按 IP 定位城市', async () => {
+    const api = installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('使用当前位置'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ startCity: '杭州' })
+        })
+      )
+    );
   });
 
   it('天气可以手动刷新并显示更新时间', async () => {

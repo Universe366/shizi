@@ -7,6 +7,7 @@ import {
   Flame,
   History,
   ListChecks,
+  LocateFixed,
   MapPin,
   Plus,
   RefreshCw,
@@ -44,6 +45,8 @@ interface WidgetPanelProps {
   onCityStart: () => void;
   onCitySave: () => void;
   onCityCancel: () => void;
+  onLocate: () => void;
+  locating: boolean;
   onWeatherRefresh: () => void;
   weatherAt: number | null;
   weatherUnit: TemperatureUnit;
@@ -94,6 +97,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onCityStart,
     onCitySave,
     onCityCancel,
+    onLocate,
+    locating,
     onWeatherRefresh,
     weatherAt,
     weatherUnit,
@@ -219,6 +224,14 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   <MapPin size={10} /> {weather?.city || city}
                 </button>
               )}
+              <button
+                className="start-widget-icon"
+                title="使用当前位置"
+                onClick={onLocate}
+                disabled={locating}
+              >
+                <LocateFixed size={12} className={locating ? 'spin' : ''} />
+              </button>
               <button
                 className="start-widget-meta"
                 title="切换温度单位"

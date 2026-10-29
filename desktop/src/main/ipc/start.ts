@@ -52,14 +52,18 @@ function aqiLevel(aqi: number): string {
 const WEATHER_TTL = 30 * 60 * 1000;
 const HOT_TTL = 10 * 60 * 1000;
 let weatherCache: { city: string; at: number; data: WeatherInfo } | null = null;
+let locateCache: { at: number; city: string } | null = null;
 let hotCache: { at: number; data: string[] } | null = null;
 const suggestCache = new Map<string, { at: number; data: string[] }>();
 const SUGGEST_TTL = 10 * 60 * 1000;
 let bingCache: { at: number; data: { url: string; copyright: string } } | null = null;
-let bingGalleryCache: {
-  at: number;
-  data: Array<{ url: string; copyright: string; date: string }>;
-} | null = null;
+type GallerySource = 'bing' | 'picsum' | 'wallhaven';
+interface GalleryItem {
+  url: string;
+  copyright: string;
+  date: string;
+}
+const galleryCache = new Map<GallerySource, { at: number; data: GalleryItem[] }>();
 
 const WEATHER_CODES: Record<number, string> = {
   0: '晴',
@@ -181,6 +185,71 @@ async function fetchWeather(city: string): Promise<WeatherInfo> {
   };
 }
 
+async function fetchGallery(source: GallerySource): Promise<GalleryItem[]> {
+  if (source === 'bing') {
+    const response = await fetch(
+      'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=zh-CN',
+      {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          referer: 'https://www.bing.com/'
+        },
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+    const json = (await response.json()) as {
+      images?: Array<{ urlbase?: string; copyright?: string; startdate?: string }>;
+    };
+    const data = (json.images || [])
+      .filter((image) => Boolean(image.urlbase))
+      .map((image) => ({
+        url: `https://www.bing.com${image.urlbase}_1920x1080.jpg`,
+        copyright: String(image.copyright || ''),
+        date: String(image.startdate || '')
+      }));
+    if (!data.length) throw new Error('必应图库为空');
+    return data;
+  }
+  if (source === 'picsum') {
+    const response = await fetch('https://picsum.photos/v2/list?page=1&limit=8', {
+      headers: { 'User-Agent': 'Mozilla/5.0 Shizi/0.132' },
+      signal: AbortSignal.timeout(10000)
+    });
+    const list = (await response.json()) as Array<{ id?: string; author?: string }>;
+    const data = (list || [])
+      .filter((item) => Boolean(item.id))
+      .slice(0, 8)
+      .map((item) => ({
+        url: `https://picsum.photos/id/${item.id}/1920/1080`,
+        copyright: `Photo by ${item.author || 'Picsum'} / Lorem Picsum`,
+        date: ''
+      }));
+    if (!data.length) throw new Error('Picsum 图库为空');
+    return data;
+  }
+  const response = await fetch(
+    'https://wallhaven.cc/api/v1/search?sorting=toplist&purity=100&categories=111&ratios=16x9&page=1',
+    {
+      headers: { 'User-Agent': 'Mozilla/5.0 Shizi/0.132' },
+      signal: AbortSignal.timeout(10000)
+    }
+  );
+  const json = (await response.json()) as {
+    data?: Array<{ path?: string; resolution?: string }>;
+  };
+  const data = (json.data || [])
+    .filter((item) => Boolean(item.path))
+    .slice(0, 8)
+    .map((item) => ({
+      url: String(item.path),
+      copyright: `Wallhaven${item.resolution ? ` · ${item.resolution}` : ''}`,
+      date: ''
+    }));
+  if (!data.length) throw new Error('Wallhaven 图库为空');
+  return data;
+}
+
 async function fetchHot(): Promise<string[]> {
   const data = await requestJson<{
     data?: { trending?: { list?: Array<{ keyword?: string }> } };
@@ -212,6 +281,33 @@ export function registerStartIpc(): void {
       return { ok: true, data };
     } catch (error) {
       return failure(`天气获取失败：${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('start:locate', async () => {
+    const now = Date.now();
+    if (locateCache && now - locateCache.at < 30 * 60 * 1000) {
+      return { ok: true, data: { city: locateCache.city } };
+    }
+    try {
+      const response = await fetch('https://whois.pconline.com.cn/ipJson.jsp?json=true', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 Shizi/0.132',
+          Referer: 'https://whois.pconline.com.cn/'
+        },
+        signal: AbortSignal.timeout(8000)
+      });
+      const buffer = await response.arrayBuffer();
+      const text = new TextDecoder('gbk').decode(buffer);
+      const data = JSON.parse(text) as { city?: string; pro?: string };
+      const city = String(data.city || data.pro || '')
+        .trim()
+        .replace(/(市|地区|盟)$/, '');
+      if (!city) throw new Error('未能识别城市');
+      locateCache = { at: now, city };
+      return { ok: true, data: { city } };
+    } catch (error) {
+      return failure(`定位失败：${(error as Error).message}`);
     }
   });
 
@@ -291,40 +387,28 @@ export function registerStartIpc(): void {
     }
   });
 
-  ipcMain.handle('start:bing-gallery', async () => {
+  const galleryHandler = async (source: GallerySource) => {
     const now = Date.now();
-    if (bingGalleryCache && now - bingGalleryCache.at < 60 * 60 * 1000) {
-      return { ok: true, data: bingGalleryCache.data };
+    const cached = galleryCache.get(source);
+    if (cached && now - cached.at < 60 * 60 * 1000) {
+      return { ok: true, data: cached.data };
     }
     try {
-      const response = await fetch(
-        'https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=zh-CN',
-        {
-          headers: {
-            'user-agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            referer: 'https://www.bing.com/'
-          },
-          signal: AbortSignal.timeout(10000)
-        }
-      );
-      const json = (await response.json()) as {
-        images?: Array<{ urlbase?: string; copyright?: string; startdate?: string }>;
-      };
-      const data = (json.images || [])
-        .filter((image) => Boolean(image.urlbase))
-        .map((image) => ({
-          url: `https://www.bing.com${image.urlbase}_1920x1080.jpg`,
-          copyright: String(image.copyright || ''),
-          date: String(image.startdate || '')
-        }));
-      if (!data.length) return failure('必应壁纸不可用');
-      bingGalleryCache = { at: now, data };
+      const data = await fetchGallery(source);
+      galleryCache.set(source, { at: now, data });
       return { ok: true, data };
     } catch (error) {
-      return failure(`必应壁纸列表获取失败：${(error as Error).message}`);
+      return failure(`图库获取失败：${(error as Error).message}`);
     }
-  });
+  };
+
+  ipcMain.handle('start:bing-gallery', () => galleryHandler('bing'));
+
+  ipcMain.handle('start:gallery', (_event, rawSource: unknown) =>
+    galleryHandler(
+      rawSource === 'picsum' || rawSource === 'wallhaven' ? rawSource : 'bing'
+    )
+  );
 
   ipcMain.handle('start:probe-site', async (_event, rawUrl: unknown) => {
     try {

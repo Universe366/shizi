@@ -79,6 +79,7 @@ const NOTES_KEY = 'start-notes';
 const UNIT_KEY = 'start-weather-unit';
 const SUGGEST_KEY = 'start-search-suggest';
 const WIDGET_COLLAPSED_KEY = 'start-widget-collapsed';
+const AUTO_SYNC_KEY = 'start-auto-sync';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -260,10 +261,18 @@ export function StartPage({
   });
   const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
   const [searchSuggestOn, setSearchSuggestOn] = useState(readSearchSuggest);
+  const [autoSync, setAutoSync] = useState(() => {
+    try {
+      return localStorage.getItem(AUTO_SYNC_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>(readWidgetCollapsed);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchActive, setSearchActive] = useState(-1);
   const [cityEditing, setCityEditing] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [cityDraft, setCityDraft] = useState('');
   const [hotLoading, setHotLoading] = useState(false);
   const [density, setDensity] = useState<StartDensity>(readDensity);
@@ -313,6 +322,8 @@ export function StartPage({
     bingWallpaper,
     bingGallery,
     bingGalleryState,
+    gallerySource,
+    changeGallerySource,
     bingSelection,
     setBingSelection,
     bingFavorites,
@@ -704,6 +715,24 @@ export function StartPage({
     void patchGeneral({ startCity: next });
   };
 
+  const locateCity = async () => {
+    setLocating(true);
+    try {
+      const response = await window.bsub.startLocate?.();
+      if (!response?.ok) {
+        showNotice(response?.error || '定位失败');
+        return;
+      }
+      const next = response.data.city;
+      setCity(next);
+      setCityEditing(false);
+      void patchGeneral({ startCity: next });
+      showNotice(`已定位到 ${next}`);
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const clearSearchHistory = () => {
     setSearchHistory([]);
     try {
@@ -712,6 +741,15 @@ export function StartPage({
       // ignore
     }
     showNotice('搜索历史已清空');
+  };
+
+  const changeAutoSync = (value: boolean) => {
+    setAutoSync(value);
+    try {
+      localStorage.setItem(AUTO_SYNC_KEY, value ? '1' : '0');
+    } catch {
+      // ignore
+    }
   };
 
   const changeSearchSuggest = (value: boolean) => {
@@ -1169,6 +1207,26 @@ export function StartPage({
     await importStart(file);
   };
 
+  const backupGetter = useRef(buildBackup);
+  backupGetter.current = buildBackup;
+  const autoSyncPrimed = useRef(false);
+  const autoSyncSignature = autoSync ? JSON.stringify(buildBackup()) : '';
+
+  useEffect(() => {
+    if (!autoSync) {
+      autoSyncPrimed.current = false;
+      return;
+    }
+    if (!autoSyncPrimed.current) {
+      autoSyncPrimed.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void window.bsub.startSync?.('push', backupGetter.current());
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [autoSync, autoSyncSignature]);
+
   const importBookmarks = async (file: File) => {
     let text = '';
     try {
@@ -1533,6 +1591,8 @@ export function StartPage({
             }}
             onCitySave={saveCity}
             onCityCancel={() => setCityEditing(false)}
+            onLocate={() => void locateCity()}
+            locating={locating}
             onWeatherRefresh={() => void refreshWeather()}
             weatherAt={weatherAt}
             weatherUnit={weatherUnit}
@@ -1679,6 +1739,8 @@ export function StartPage({
         wallpaperPreviewKind={wallpaperPreviewKind}
         bingGallery={bingGallery}
         bingGalleryState={bingGalleryState}
+        gallerySource={gallerySource}
+        onGallerySource={changeGallerySource}
         onRetryBingGallery={retryBingGallery}
         bingSelection={bingSelection}
         onPickBing={pickBingImage}
@@ -1693,6 +1755,8 @@ export function StartPage({
         onClock={changeClock}
         searchSuggest={searchSuggestOn}
         onSearchSuggest={changeSearchSuggest}
+        autoSync={autoSync}
+        onAutoSync={changeAutoSync}
         searchHistoryCount={searchHistory.length}
         onClearSearchHistory={clearSearchHistory}
         bingWallpaper={bingWallpaper}

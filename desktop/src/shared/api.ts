@@ -481,10 +481,15 @@ export interface BsubApi {
   >;
   /** 起始页搜索联想（Bing osjson，失败返回空数组） */
   startSuggest(query: string): Promise<Result<string[]>>;
+  /** 按出口 IP 粗略定位城市（免权限） */
+  startLocate(): Promise<Result<{ city: string }>>;
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;
   startBingGallery(): Promise<
+    Result<Array<{ url: string; copyright: string; date: string }>>
+  >;
+  startGallery(source: 'bing' | 'gradient' | 'picsum' | 'wallhaven'): Promise<
     Result<Array<{ url: string; copyright: string; date: string }>>
   >;
   /** 起始页数据同步到设置的同步文件夹 */

@@ -603,8 +603,11 @@ const api: BsubApi = {
     ipcRenderer.invoke('start:weather', city, force === true),
   startHotSearch: (force?: boolean) => ipcRenderer.invoke('start:hot', force === true),
   startSuggest: (query: string) => ipcRenderer.invoke('start:suggest', query),
+  startLocate: () => ipcRenderer.invoke('start:locate'),
   startBingWallpaper: () => ipcRenderer.invoke('start:bing-wallpaper'),
   startBingGallery: () => ipcRenderer.invoke('start:bing-gallery'),
+  startGallery: (source: 'bing' | 'gradient' | 'picsum' | 'wallhaven') =>
+    ipcRenderer.invoke('start:gallery', source),
   startSync: (action: 'push' | 'pull' | 'status', payload?: unknown) =>
     ipcRenderer.invoke('start:sync', action, payload),
   setDefaultModel: (platformId: string, model: string) =>

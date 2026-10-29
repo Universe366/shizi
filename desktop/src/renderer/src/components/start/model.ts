@@ -613,8 +613,10 @@ export function parseStartBackup(text: string): ParsedBackup {
           ? Math.max(0, Math.min(9999, Math.floor(Number(prefsRaw.pomodoroRounds))))
           : undefined,
         bingImage:
-          typeof prefsRaw.bingImage === 'string' && /^https?:\/\//i.test(prefsRaw.bingImage)
-            ? prefsRaw.bingImage.slice(0, 2000)
+          typeof prefsRaw.bingImage === 'string' &&
+          (/^https?:\/\//i.test(prefsRaw.bingImage) ||
+            /^data:image\//i.test(prefsRaw.bingImage))
+            ? prefsRaw.bingImage.slice(0, 4000)
             : undefined,
         bingCopyright:
           typeof prefsRaw.bingCopyright === 'string'
@@ -637,7 +639,8 @@ export function parseStartBackup(text: string): ParsedBackup {
           ? prefsRaw.bingFavorites
               .filter(
                 (item): item is string =>
-                  typeof item === 'string' && /^https?:\/\//i.test(item)
+                  typeof item === 'string' &&
+                  (/^https?:\/\//i.test(item) || /^data:image\//i.test(item))
               )
               .slice(0, 30)
           : undefined,

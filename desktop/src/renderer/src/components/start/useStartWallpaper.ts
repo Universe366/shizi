@@ -19,6 +19,40 @@ export interface BingGalleryItem {
 const INK_KEY = 'start-ink-mode';
 const BING_FAV_KEY = 'start-bing-favorites';
 const ROTATE_KEY = 'start-bing-rotate';
+const GALLERY_KEY = 'start-gallery-source';
+
+export type GallerySource = 'bing' | 'gradient' | 'picsum' | 'wallhaven';
+
+function readGallerySource(): GallerySource {
+  try {
+    const value = localStorage.getItem(GALLERY_KEY);
+    return value === 'gradient' || value === 'picsum' || value === 'wallhaven'
+      ? value
+      : 'bing';
+  } catch {
+    return 'bing';
+  }
+}
+
+const GRADIENTS = [
+  { name: '暮色', from: '#1e3a8a', to: '#f472b6' },
+  { name: '青岚', from: '#064e3b', to: '#a7f3d0' },
+  { name: '暖沙', from: '#7c2d12', to: '#fde68a' },
+  { name: '夜航', from: '#0f172a', to: '#334155' },
+  { name: '薄荷', from: '#134e4a', to: '#99f6e4' },
+  { name: '紫雾', from: '#4c1d95', to: '#c4b5fd' },
+  { name: '落日', from: '#9a3412', to: '#fb923c' },
+  { name: '深海', from: '#082f49', to: '#38bdf8' }
+];
+
+function gradientImage(from: string, to: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>` +
+    `</linearGradient></defs><rect width="1920" height="1080" fill="url(#g)"/></svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 
 function readInkMode(): 'auto' | InkMode {
   try {
@@ -74,6 +108,7 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
   );
   const [bingFavorites, setBingFavorites] = useState<string[]>(readBingFavorites);
   const [rotateMinutes, setRotateMinutes] = useState(readRotateMinutes);
+  const [gallerySource, setGallerySource] = useState<GallerySource>(readGallerySource);
   const applyBingRef = useRef<(image: BingGalleryItem, silent: boolean) => void>(() => undefined);
   const patchRef = useRef(patchGeneral);
   patchRef.current = patchGeneral;
@@ -82,9 +117,20 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
 
   useEffect(() => {
     if (!wallpaperOpen || bingGallery.length || bingGalleryState === 'error') return;
+    if (gallerySource === 'gradient') {
+      setBingGallery(
+        GRADIENTS.map((item) => ({
+          url: gradientImage(item.from, item.to),
+          copyright: `拾字渐变 · ${item.name}`,
+          date: ''
+        }))
+      );
+      setBingGalleryState('idle');
+      return;
+    }
     let alive = true;
     void window.bsub
-      .startBingGallery?.()
+      .startGallery?.(gallerySource)
       .then((response) => {
         if (!alive) return;
         if (response?.ok && response.data.length) setBingGallery(response.data);
@@ -96,7 +142,7 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
     return () => {
       alive = false;
     };
-  }, [wallpaperOpen, bingGallery.length, bingGalleryState]);
+  }, [wallpaperOpen, bingGallery.length, bingGalleryState, gallerySource]);
 
   useEffect(() => {
     if (!rotateMinutes || wallpaper !== 'bing' || wallpaperMedia || wallpaperImage) return;
@@ -334,6 +380,17 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
     if (typeof prefs.rotateMinutes === 'number') changeRotateMinutes(prefs.rotateMinutes);
   };
 
+  const changeGallerySource = (source: GallerySource) => {
+    setGallerySource(source);
+    setBingGallery([]);
+    setBingGalleryState('idle');
+    try {
+      localStorage.setItem(GALLERY_KEY, source);
+    } catch {
+      // ignore
+    }
+  };
+
   const resetBingImage = () => {
     setBingSelection(null);
     void patchRef.current({ startBingImage: undefined, startBingCopyright: undefined });
@@ -388,6 +445,8 @@ export function useStartWallpaper({ patchGeneral, showNotice }: WallpaperOptions
     bingWallpaper,
     bingGallery,
     bingGalleryState,
+    gallerySource,
+    changeGallerySource,
     bingSelection,
     setBingSelection,
     bingFavorites,
