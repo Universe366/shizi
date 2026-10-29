@@ -8,7 +8,17 @@
 import { h, button, toast } from './dom.js';
 import { openOverlay, closeOverlays, confirmDialog } from './ui.js';
 import { store, loadSettings, saveSettings } from './store.js';
-import { linkStatus, fetchSharedSettings, pushSharedSettings } from './desktop-link.js';
+import {
+  linkStatus,
+  fetchSharedSettings,
+  pushSharedSettings,
+  queueSnapshot,
+  flushOutbox,
+  syncLibrary,
+  fetchBridgeChats
+} from './desktop-link.js';
+import { syncChatConversation } from './desktop-ai.js';
+import { historyAll, chatHistoryAll, chatHistoryPut } from '../../shared/storage.js';
 import { exportSharedSettings, importSharedSettings } from '../../shared/settings-sync.js';
 
 const BACKUP_KEY = 'bsub.settingsMigrationBackup.v1';
@@ -97,8 +107,88 @@ export async function migrateFromDesktop() {
     migrationDismissed: false
   };
   await saveSettings(next);
-  toast({ title: '已以桌面端为准', detail: 'AI / 检索 / ASR / 提示词 / 导出已同步' }, 'ok', 3000);
+  let data = null;
+  try {
+    data = await migrateDataFromDesktop();
+  } catch (err) {
+    toast({ title: '设置已同步，但桌面库/对话拉取失败', detail: String((err && err.message) || err) }, 'warn', 5000);
+  }
+  toast(
+    {
+      title: '已以桌面端为准',
+      detail: data ? `设置与桌面库已同步；对话 ${data.chats} 个` : '设置与桌面库已同步'
+    },
+    'ok',
+    3200
+  );
   return next;
+}
+
+/** 拉取桌面库，并把桌面桥接对话写回插件本地。 */
+export async function migrateDataFromDesktop(onProgress = () => {}) {
+  await syncLibrary();
+  const chats = await fetchBridgeChats();
+  let imported = 0;
+  for (let index = 0; index < chats.length; index += 1) {
+    const row = chats[index];
+    if (!row || !row.key || !Array.isArray(row.messages) || !row.messages.length) continue;
+    await chatHistoryPut(
+      row.key,
+      row.messages
+        .filter((message) => message && (message.role === 'user' || message.role === 'assistant'))
+        .map((message) => ({
+          role: message.role,
+          text: String(message.content || ''),
+          reasoning: String(message.reasoning || '')
+        })),
+      { videoTitle: row.videoTitle || '', importedFrom: 'desktop' }
+    );
+    imported += 1;
+    if ((index + 1) % 10 === 0) onProgress({ kind: 'chat', done: index + 1, total: chats.length });
+  }
+  return { chats: imported };
+}
+
+/** 把插件本地历史库与对话批量推到桌面端。 */
+export async function migrateDataToDesktop(onProgress = () => {}) {
+  const settings = store.get().settings || (await loadSettings());
+  const history = await historyAll();
+  let pushedHistory = 0;
+  let skippedHistory = 0;
+  for (let index = 0; index < history.length; index += 1) {
+    const row = history[index];
+    if (!row || !row.video) continue;
+    const result = await queueSnapshot(
+      { video: row.video, subtitles: row.lines || [], summary: row.summary || '', settings },
+      { force: true }
+    );
+    if (result && result.queued) pushedHistory += 1;
+    else skippedHistory += 1;
+    if ((index + 1) % 10 === 0) {
+      await flushOutbox({ force: true });
+      onProgress({ kind: 'history', done: index + 1, total: history.length });
+    }
+  }
+  await flushOutbox({ force: true });
+
+  const chats = await chatHistoryAll();
+  let pushedChats = 0;
+  for (let index = 0; index < chats.length; index += 1) {
+    const row = chats[index];
+    if (!row || !row.key || !Array.isArray(row.messages) || !row.messages.length) continue;
+    await syncChatConversation(row.key, {
+      videoKey: row.key,
+      videoTitle: row.videoTitle || '',
+      messages: row.messages.map((message) => ({
+        role: message.role,
+        content: message.text || '',
+        reasoning: message.reasoning || ''
+      }))
+    });
+    pushedChats += 1;
+    if ((index + 1) % 10 === 0) onProgress({ kind: 'chat', done: index + 1, total: chats.length });
+  }
+  return { history: pushedHistory, skippedHistory, chats: pushedChats };
 }
 
 /** 以插件端为准：插件共享设置覆盖桌面。 */
@@ -118,7 +208,22 @@ export async function migrateToDesktop() {
   const next = withAuthority(current, 'plugin');
   next.desktop = { ...(next.desktop || {}), migrationDismissed: false };
   await saveSettings(next);
-  toast({ title: '已以插件端为准', detail: '桌面端共享设置已更新' }, 'ok', 3000);
+  let data = null;
+  try {
+    data = await migrateDataToDesktop();
+  } catch (err) {
+    toast({ title: '设置已同步，但历史/对话迁移失败', detail: String((err && err.message) || err) }, 'warn', 5000);
+  }
+  toast(
+    {
+      title: '已以插件端为准',
+      detail: data
+        ? `设置已更新；历史 ${data.history} 条、对话 ${data.chats} 个已推送`
+        : '桌面端共享设置已更新'
+    },
+    'ok',
+    3600
+  );
   return next;
 }
 

@@ -779,6 +779,26 @@ export async function fetchSharedSettings(includeSecrets = true) {
   }
 }
 
+/** 拉取桌面端的桥接对话（插件写入过的会话）。 */
+export async function fetchBridgeChats() {
+  const conn = await ensureLink(false);
+  if (!conn) throw new Error('未连接桌面端');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(`http://127.0.0.1:${conn.port}/v1/chat/export`, {
+      headers: { authorization: `Bearer ${conn.token}` },
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return Array.isArray(data.conversations) ? data.conversations : [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 用插件设置覆盖桌面端共享设置。 */
 export async function pushSharedSettings(settings) {
   const conn = await ensureLink(false);

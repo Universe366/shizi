@@ -292,6 +292,10 @@ export async function historyList(limit = 100) {
   return rows.slice(0, limit);
 }
 
+export async function historyAll() {
+  return historyList(10000);
+}
+
 export async function historyGet(key) {
   return db.get(STORE_HISTORY, key);
 }
@@ -416,4 +420,10 @@ export async function chatHistoryGet(key) {
 
 export async function chatHistoryClear(key) {
   await db.del(STORE_CHAT, key);
+}
+
+export async function chatHistoryAll() {
+  const rows = await db.all(STORE_CHAT);
+  rows.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  return rows;
 }

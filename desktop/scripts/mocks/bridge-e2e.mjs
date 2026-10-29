@@ -416,6 +416,14 @@ try {
     chatSyncAgainBody.conversationId === chatSyncBody.conversationId,
     JSON.stringify(chatSyncAgainBody)
   );
+  const chatExport = await fetch(`${base}/v1/chat/export`, { headers });
+  const chatExportBody = await chatExport.json();
+  const exportedChat = (chatExportBody.conversations || []).find((row) => row.key === chatKey);
+  check(
+    '对话导出可按 key 拉回',
+    chatExportBody.ok === true && !!exportedChat && exportedChat.messages.length === 2,
+    JSON.stringify({ count: exportedChat && exportedChat.messages.length })
+  );
 
   // ---- 标签 / 合集回写 ----
   const tagsRes = await fetch(`${base}/v1/library/tags`, {

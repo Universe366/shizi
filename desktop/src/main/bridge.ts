@@ -27,7 +27,7 @@ import { applyCorrectionToLines } from './correction';
 import { runRpc } from './bridgeRpc';
 import { exportSharedSettings, importSharedSettings } from './settingsBridge';
 import { localAsrReadiness, transcribeFile } from './asr';
-import { syncBridgeConversation } from './chatStore';
+import { listBridgeConversations, syncBridgeConversation } from './chatStore';
 import {
   BRIDGE_CAPABILITIES,
   BRIDGE_PROTOCOL,
@@ -701,6 +701,17 @@ function createHandler(win: BrowserWindow, token: string) {
           messages
         });
         json(response, 200, { ok: true, ...result });
+        return;
+      }
+
+      // 插件首次迁移：拉回桥接会话。
+      if (url.pathname === '/v1/chat/export' && request.method === 'GET') {
+        if (!authorized(request, token)) {
+          json(response, 401, { ok: false, error: 'token 无效' });
+          return;
+        }
+        const conversations = listBridgeConversations(500);
+        json(response, 200, { ok: true, conversations });
         return;
       }
 

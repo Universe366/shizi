@@ -244,6 +244,49 @@ export function syncBridgeConversation(input: {
   return { conversationId, count: messages.length };
 }
 
+/** 导出插件写入的桥接会话，供插件首次迁移拉回。 */
+export function listBridgeConversations(limit = 200): Array<{
+  key: string;
+  videoKey: string;
+  videoTitle: string;
+  updatedAt: number;
+  messages: Array<{ role: 'user' | 'assistant'; content: string; reasoning: string }>;
+}> {
+  try {
+    const rows = db()
+      ?.prepare(
+        `SELECT bc.conversation_key AS key, c.id AS conversation_id, c.video_key AS video_key,
+                c.video_title AS video_title, c.updated_at AS updated_at
+         FROM bridge_conversations bc
+         JOIN conversations c ON c.id = bc.conversation_id
+         ORDER BY c.updated_at DESC
+         LIMIT ?`
+      )
+      .all(Math.max(1, Math.min(1000, Math.round(limit)))) as unknown as Array<{
+      key: string;
+      conversation_id: number;
+      video_key: string;
+      video_title: string;
+      updated_at: number;
+    }>;
+    return (rows || []).map((row) => ({
+      key: String(row.key || ''),
+      videoKey: String(row.video_key || ''),
+      videoTitle: String(row.video_title || ''),
+      updatedAt: Number(row.updated_at) || 0,
+      messages: listMessages(Number(row.conversation_id))
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .map((message) => ({
+          role: message.role as 'user' | 'assistant',
+          content: String(message.content || ''),
+          reasoning: String(message.reasoning || '')
+        }))
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function setConversationModel(
   id: number,
   platformId: string,
