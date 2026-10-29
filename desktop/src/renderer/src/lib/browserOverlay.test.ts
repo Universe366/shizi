@@ -50,6 +50,17 @@ describe('overlayVisible', () => {
     expect(overlayVisible()).toBe(true);
   });
 
+  it('标签右键/操作菜单打开时算浮层，避免被网页盖住', () => {
+    document.body.innerHTML = '<div class="tab-menu"><button>关闭其他</button></div>';
+    expect(overlayVisible()).toBe(true);
+
+    document.body.innerHTML = '<div class="tab-actions-menu"></div>';
+    expect(overlayVisible()).toBe(true);
+
+    document.body.innerHTML = '<div class="tab-group-menu"></div>';
+    expect(overlayVisible()).toBe(true);
+  });
+
   it('导出下拉真正打开时算浮层', () => {
     document.body.innerHTML = '<div class="export-popover"><button>Markdown</button></div>';
     expect(overlayVisible()).toBe(true);
