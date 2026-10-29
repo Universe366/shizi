@@ -92,7 +92,8 @@ export function createSessionPersister(
       const manager = getManager();
       if (!manager) return;
       const snapshot = manager.sessionSnapshot();
-      if (snapshot.tabs.length) saveSession(snapshot.tabs, snapshot.activeUrl, snapshot.groups || []);
+      // 空标签也要写：saveSession 会删除旧会话，避免「关闭全部标签后重启又回来」。
+      saveSession(snapshot.tabs, snapshot.activeUrl, snapshot.groups || []);
     } catch (error) {
       console.warn('[session] 保存失败:', (error as Error).message);
     }

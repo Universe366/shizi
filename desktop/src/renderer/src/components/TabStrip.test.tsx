@@ -233,6 +233,14 @@ describe('TabStrip 增强', () => {
     expect(api.activateTab).toHaveBeenCalledWith('t2');
   });
 
+  it('标签操作菜单可以关闭全部标签', async () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('标签操作'));
+    fireEvent.click(await screen.findByText('关闭全部标签'));
+    expect(api.closeTab).toHaveBeenCalledTimes(3);
+  });
+
   it('标签操作菜单列出最近关闭并可恢复', async () => {
     const api = installBsub();
     render(<TabStrip tabs={tabs} vertical />);

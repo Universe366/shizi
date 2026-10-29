@@ -39,10 +39,11 @@ describe('createSessionPersister', () => {
     expect(saveSession).toHaveBeenCalledTimes(1);
   });
 
-  it('没有标签时不写盘；管理器为空也不崩', () => {
+  it('没有标签时写入空快照以清除旧会话；管理器为空也不崩', () => {
     createSessionPersister(() => manager([])).persist();
     createSessionPersister(() => null).persist();
-    expect(saveSession).not.toHaveBeenCalled();
+    expect(saveSession).toHaveBeenCalledWith([], '', []);
+    expect(saveSession).toHaveBeenCalledTimes(1);
   });
 
   it('dispose 取消待写入', () => {

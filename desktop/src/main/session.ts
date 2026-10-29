@@ -82,7 +82,11 @@ export function saveSession(tabs: SessionTab[], activeUrl: string, groups: TabGr
         groupId: tab.groupId,
         pinned: tab.pinned === true
       }));
-    if (!clean.length) return;
+    if (!clean.length) {
+      // 用户主动关掉所有标签后退出：必须清掉旧会话，否则下次启动会把它们恢复回来。
+      clearSession();
+      return;
+    }
     const file = sessionFile();
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const temp = `${file}.tmp`;
