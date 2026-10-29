@@ -18,6 +18,7 @@ import {
   ALL_WIDGETS,
   WIDGET_LABELS,
   forecastLabel,
+  formatHourLabel,
   formatTemperature,
   type TemperatureUnit,
   type Weather
@@ -251,6 +252,22 @@ export function WidgetPanel(props: WidgetPanelProps) {
                 </button>
               </div>
             )}
+            {weather?.hourly && weather.hourly.length > 0 && (
+              <div className="start-weather-hours">
+                {weather.hourly.slice(0, 12).map((hour) => (
+                  <div
+                    key={hour.time}
+                    className="start-weather-hour"
+                    title={`${hour.description} · 降水 ${hour.precipitation}%`}
+                  >
+                    <span className="start-weather-hour-time">{formatHourLabel(hour.time)}</span>
+                    <span>{formatTemperature(hour.temperature, weatherUnit)}</span>
+                    <span className="start-weather-hour-rain">{hour.precipitation}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {weather?.forecast && weather.forecast.length > 1 && (
               <div className="start-weather-days">
                 {weather.forecast.slice(0, 4).map((day) => (
@@ -279,6 +296,11 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   )}
                   {typeof weather.wind === 'number' && (
                     <span>风 {Math.round(weather.wind)} km/h</span>
+                  )}
+                  {weather.airQuality && (
+                    <span>
+                      空气 {weather.airQuality.aqi} {weather.airQuality.level}
+                    </span>
                   )}
                   {weatherAt && (
                     <span>

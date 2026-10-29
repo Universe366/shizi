@@ -99,6 +99,7 @@ export function ShortcutBoard({
 }: ShortcutBoardProps) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [limits, setLimits] = useState<Record<string, number>>({});
   const renameRef = useRef<HTMLInputElement>(null);
 
   const startRename = (group: string) => {
@@ -252,7 +253,10 @@ export function ShortcutBoard({
         </div>
       )}
 
-      {visibleGroups.map(([group, items]) => (
+      {visibleGroups.map(([group, items]) => {
+        const limit = limits[group] ?? 60;
+        const shown = items.slice(0, limit);
+        return (
         <div
           className="start-group"
           key={group}
@@ -309,8 +313,9 @@ export function ShortcutBoard({
             )}
           </div>
           {!collapsed.includes(group) && (
+          <>
           <div className="start-grid">
-            {items.map((item) => (
+            {shown.map((item) => (
               <div
                 key={item.id}
                 className={`start-tile${editMode ? ' is-editing' : ''}${
@@ -387,9 +392,21 @@ export function ShortcutBoard({
               </div>
             ))}
           </div>
+          {items.length > limit && (
+            <button
+              className="start-group-more"
+              onClick={() =>
+                setLimits((current) => ({ ...current, [group]: limit + 60 }))
+              }
+            >
+              显示更多（剩余 {items.length - limit}）
+            </button>
+          )}
+          </>
           )}
         </div>
-      ))}
+        );
+      })}
 
       {visibleGroups.length === 0 && activeGroup !== '全部' && activeGroup !== '拾字' && (
         <EmptyState compact desc="这个分组还没有网址" />

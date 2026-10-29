@@ -21,6 +21,18 @@ export interface Weather {
   wind?: number;
   apparent?: number;
   forecast?: WeatherDay[];
+  hourly?: Array<{
+    time: string;
+    temperature: number;
+    precipitation: number;
+    description: string;
+  }>;
+  airQuality?: { aqi: number; level: string; pm25: number } | null;
+}
+
+export function formatHourLabel(time: string): string {
+  const hour = Number(String(time).slice(11, 13));
+  return Number.isFinite(hour) && String(time).length >= 13 ? `${hour}时` : time;
 }
 
 export const WIDGET_LABELS: Record<string, string> = {

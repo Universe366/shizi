@@ -470,6 +470,13 @@ export interface BsubApi {
       wind?: number;
       apparent?: number;
       forecast?: Array<{ date: string; high: number; low: number; description: string }>;
+      hourly?: Array<{
+        time: string;
+        temperature: number;
+        precipitation: number;
+        description: string;
+      }>;
+      airQuality?: { aqi: number; level: string; pm25: number } | null;
     }>
   >;
   /** 起始页搜索联想（Bing osjson，失败返回空数组） */

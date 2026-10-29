@@ -1118,13 +1118,20 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
         forecast: [
           { date: iso(0), high: 25, low: 18, description: '多云' },
           { date: iso(1), high: 26, low: 19, description: '晴' }
-        ]
+        ],
+        hourly: [
+          { time: '2026-10-29T10:00', temperature: 23, precipitation: 20, description: '多云' },
+          { time: '2026-10-29T11:00', temperature: 24, precipitation: 10, description: '晴' }
+        ],
+        airQuality: { aqi: 42, level: '优', pm25: 12 }
       }
     } as never);
     render(<StartPage {...props()} />);
     expect(await screen.findByText('湿度 61%')).toBeTruthy();
     expect(screen.getByText('明天')).toBeTruthy();
     expect(screen.getByText('体感 21°')).toBeTruthy();
+    expect(screen.getByText('空气 42 优')).toBeTruthy();
+    expect(screen.getByText('10时')).toBeTruthy();
   });
 
   it('便签内容自动写入本地', async () => {

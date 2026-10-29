@@ -65,6 +65,20 @@ describe('ShortcutBoard', () => {
     expect(props.onDensity).toHaveBeenCalledWith('large');
   });
 
+  it('大分组先渲染 60 个，点击后显示更多', () => {
+    const many = Array.from({ length: 70 }, (_, index) => ({
+      id: `m${index}`,
+      label: `站点${index}`,
+      url: `https://example${index}.com`,
+      group: '常用'
+    }));
+    const list: Array<[string, typeof many]> = [['常用', many]];
+    setup({ groups: list, visibleGroups: list, total: 70 });
+    expect(document.querySelectorAll('.start-tile').length).toBe(60);
+    fireEvent.click(screen.getByText(/显示更多/));
+    expect(document.querySelectorAll('.start-tile').length).toBe(70);
+  });
+
   it('分组可以折叠，卡片从 DOM 移除', () => {
     const props = setup();
     expect(screen.getByText('B 站')).toBeTruthy();

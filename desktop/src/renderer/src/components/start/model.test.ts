@@ -282,3 +282,12 @@ describe('时钟 / 温度 / 必应日期', () => {
     expect(formatBingDate('bad')).toBe('');
   });
 });
+import { formatHourLabel } from './model';
+
+describe('逐小时标签', () => {
+  it('从 ISO 时间取小时', () => {
+    expect(formatHourLabel('2026-10-29T10:00')).toBe('10时');
+    expect(formatHourLabel('2026-10-29T00:00')).toBe('0时');
+    expect(formatHourLabel('bad')).toBe('bad');
+  });
+});

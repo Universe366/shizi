@@ -11,6 +11,19 @@ interface WeatherDay {
   description: string;
 }
 
+interface WeatherHour {
+  time: string;
+  temperature: number;
+  precipitation: number;
+  description: string;
+}
+
+interface AirQuality {
+  aqi: number;
+  level: string;
+  pm25: number;
+}
+
 interface WeatherInfo {
   city: string;
   temperature: number;
@@ -21,6 +34,17 @@ interface WeatherInfo {
   wind: number;
   apparent: number;
   forecast: WeatherDay[];
+  hourly: WeatherHour[];
+  airQuality: AirQuality | null;
+}
+
+function aqiLevel(aqi: number): string {
+  if (aqi <= 50) return '优';
+  if (aqi <= 100) return '良';
+  if (aqi <= 150) return '轻度污染';
+  if (aqi <= 200) return '中度污染';
+  if (aqi <= 300) return '重度污染';
+  return '严重污染';
 }
 
 const WEATHER_TTL = 30 * 60 * 1000;
@@ -94,12 +118,37 @@ async function fetchWeather(city: string): Promise<WeatherInfo> {
       temperature_2m_max?: number[];
       temperature_2m_min?: number[];
     };
+    hourly?: {
+      time?: string[];
+      temperature_2m?: number[];
+      precipitation_probability?: number[];
+      weather_code?: number[];
+    };
   }>(
     `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
       '&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,apparent_temperature' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+      '&hourly=temperature_2m,precipitation_probability,weather_code&forecast_hours=12' +
       '&timezone=auto&forecast_days=4'
   );
+  let airQuality: AirQuality | null = null;
+  try {
+    const air = await requestJson<{
+      current?: { us_aqi?: number; pm2_5?: number };
+    }>(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${place.latitude}&longitude=${place.longitude}&current=us_aqi,pm2_5&timezone=auto`
+    );
+    const aqi = Math.round(Number(air.current?.us_aqi ?? 0));
+    if (Number.isFinite(aqi) && aqi > 0) {
+      airQuality = {
+        aqi,
+        level: aqiLevel(aqi),
+        pm25: Math.round(Number(air.current?.pm2_5 ?? 0))
+      };
+    }
+  } catch {
+    // 空气质量是可选数据
+  }
   const temperature = Number(forecast.current?.temperature_2m ?? 0);
   const code = Number(forecast.current?.weather_code ?? 0);
   const days = forecast.daily?.time || [];
@@ -117,7 +166,16 @@ async function fetchWeather(city: string): Promise<WeatherInfo> {
       high: Number(forecast.daily?.temperature_2m_max?.[index] ?? temperature),
       low: Number(forecast.daily?.temperature_2m_min?.[index] ?? temperature),
       description: describe(Number(forecast.daily?.weather_code?.[index] ?? 0))
-    }))
+    })),
+    hourly: (forecast.hourly?.time || []).slice(0, 12).map((time, index) => ({
+      time,
+      temperature: Number(forecast.hourly?.temperature_2m?.[index] ?? temperature),
+      precipitation: Math.round(
+        Number(forecast.hourly?.precipitation_probability?.[index] ?? 0)
+      ),
+      description: describe(Number(forecast.hourly?.weather_code?.[index] ?? 0))
+    })),
+    airQuality
   };
 }
 
