@@ -1,4 +1,4 @@
-import { CloudSun, Command, Sparkles, Timer } from 'lucide-react';
+import { Check, CloudSun, Command, Pencil, Sparkles, Timer, X } from 'lucide-react';
 import type { StartShortcut } from '../../../../shared/types';
 import { SiteIcon } from './SiteIcon';
 import type { BuiltInEntry } from './ShortcutBoard';
@@ -21,6 +21,9 @@ interface DockProps {
   onBuiltIn: (entry: BuiltInEntry) => void;
   onPalette: () => void;
   onZen: () => void;
+  editing: boolean;
+  onEdit: () => void;
+  onRemove: (id: string) => void;
 }
 
 /** 底部 Dock：常用站点 + 内置页面 + 指令面板 / 禅模式入口。 */
@@ -35,10 +38,13 @@ export function Dock({
   onMenu,
   onBuiltIn,
   onPalette,
-  onZen
+  onZen,
+  editing,
+  onEdit,
+  onRemove
 }: DockProps) {
   return (
-    <nav className="start-dock" aria-label="起始页 Dock">
+    <nav className={`start-dock${editing ? ' is-editing' : ''}`} aria-label="起始页 Dock">
       {shortcuts.map((item) => (
         <button
           key={item.id}
@@ -60,9 +66,25 @@ export function Dock({
             event.preventDefault();
             onMenu(item, event.clientX, event.clientY);
           }}
-          onClick={() => onOpenShortcut(item)}
+          onClick={() => {
+            if (!editing) onOpenShortcut(item);
+          }}
         >
           <SiteIcon item={item} small />
+          {editing && (
+            <span
+              className="start-dock-remove"
+              title="从 Dock 移除"
+              role="button"
+              aria-label={`从 Dock 移除 ${item.label}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemove(item.id);
+              }}
+            >
+              <X size={10} />
+            </span>
+          )}
         </button>
       ))}
 
@@ -123,6 +145,15 @@ export function Dock({
         onClick={onZen}
       >
         <Sparkles size={17} />
+      </button>
+
+      <button
+        className={`start-dock-item${editing ? ' is-active' : ''}`}
+        title={editing ? '完成 Dock 编辑' : '编辑 Dock'}
+        aria-label={editing ? '完成 Dock 编辑' : '编辑 Dock'}
+        onClick={onEdit}
+      >
+        {editing ? <Check size={16} /> : <Pencil size={15} />}
       </button>
     </nav>
   );

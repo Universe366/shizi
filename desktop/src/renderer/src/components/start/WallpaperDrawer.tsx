@@ -46,6 +46,8 @@ interface WallpaperDrawerProps {
   onGlass: (value: number) => void;
   sidebarSide: 'left' | 'right';
   onSidebarSide: (value: 'left' | 'right') => void;
+  dockAutoHide: boolean;
+  onDockAutoHide: (value: boolean) => void;
   searchHistoryCount: number;
   onClearSearchHistory: () => void;
   bingWallpaper: { url: string; copyright: string } | null;
@@ -94,6 +96,8 @@ export function WallpaperDrawer({
   onGlass,
   sidebarSide,
   onSidebarSide,
+  dockAutoHide,
+  onDockAutoHide,
   searchHistoryCount,
   onClearSearchHistory,
   bingWallpaper,
@@ -402,6 +406,23 @@ export function WallpaperDrawer({
                 onClick={() => onSidebarSide('right')}
               >
                 右侧
+              </button>
+            </div>
+          </div>
+          <div className="start-ink-row">
+            <span className="start-ink-label">Dock</span>
+            <div className="start-ink-toggle">
+              <button
+                className={!dockAutoHide ? 'is-active' : ''}
+                onClick={() => onDockAutoHide(false)}
+              >
+                常驻
+              </button>
+              <button
+                className={dockAutoHide ? 'is-active' : ''}
+                onClick={() => onDockAutoHide(true)}
+              >
+                自动隐藏
               </button>
             </div>
           </div>

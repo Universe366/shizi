@@ -87,6 +87,7 @@ const EXTRA_GROUPS_KEY = 'start-extra-groups';
 const GLASS_KEY = 'start-glass';
 const SIDEBAR_SIDE_KEY = 'start-sidebar-side';
 const GROUP_ORDER_KEY = 'start-group-order';
+const DOCK_AUTOHIDE_KEY = 'start-dock-autohide';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -250,6 +251,14 @@ export function StartPage({
   const [extraGroups, setExtraGroups] = useState<string[]>(readExtraGroups);
   const [groupOrder, setGroupOrder] = useState<string[]>(readGroupOrder);
   const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [dockEditing, setDockEditing] = useState(false);
+  const [dockAutoHide, setDockAutoHide] = useState(() => {
+    try {
+      return localStorage.getItem(DOCK_AUTOHIDE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [dockIds, setDockIds] = useState<string[]>([]);
   const [weatherUnit, setWeatherUnit] = useState<TemperatureUnit>(readWeatherUnit);
   const pomodoro = usePomodoro();
@@ -955,6 +964,30 @@ export function StartPage({
     void persistShortcuts(next);
   };
 
+  const removeFromDock = (id: string) => {
+    const known = new Set(shortcuts.map((item) => item.id));
+    const base = (dockIds.length ? dockIds : dockShortcuts.map((item) => item.id)).filter(
+      (item) => known.has(item)
+    );
+    if (base.length <= 1) {
+      showNotice('Dock 至少保留一个图标');
+      return;
+    }
+    const next = base.filter((item) => item !== id);
+    setDockIds(next);
+    void patchGeneral({ startDockIds: next });
+    showNotice('已从 Dock 移除');
+  };
+
+  const changeDockAutoHide = (value: boolean) => {
+    setDockAutoHide(value);
+    try {
+      localStorage.setItem(DOCK_AUTOHIDE_KEY, value ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  };
+
   const toggleDockShortcut = (id: string) => {
     const pinned = dockIds.includes(id);
     const next = pinned ? dockIds.filter((item) => item !== id) : [...dockIds, id].slice(0, 8);
@@ -964,7 +997,10 @@ export function StartPage({
   };
 
   const reorderDock = (fromId: string, toId: string) => {
-    const base = dockIds.length ? dockIds : dockShortcuts.map((item) => item.id);
+    const known = new Set(shortcuts.map((item) => item.id));
+    const base = (dockIds.length ? dockIds : dockShortcuts.map((item) => item.id)).filter(
+      (id) => known.has(id)
+    );
     const from = base.indexOf(fromId);
     const to = base.indexOf(toId);
     if (from < 0 || to < 0 || from === to) return;
@@ -1552,7 +1588,9 @@ export function StartPage({
     <div
       className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
-      }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}${sidebarPinned ? ' is-sidebar-pinned' : ''}`}
+      }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}${sidebarPinned ? ' is-sidebar-pinned' : ''}${
+        dockAutoHide ? ' is-dock-autohide' : ''
+      }`}
       style={
         {
           '--glass-strong': `${glass}%`,
@@ -1920,6 +1958,9 @@ export function StartPage({
           onReorder={reorderDock}
           onMenu={(item, x, y) => setShortcutMenu({ x, y, id: item.id })}
           builtIn={builtIn}
+          editing={dockEditing}
+          onEdit={() => setDockEditing((value) => !value)}
+          onRemove={removeFromDock}
           weather={weather}
           pomodoro={{
             phase: pomodoro.phase,
@@ -1966,6 +2007,8 @@ export function StartPage({
         onGlass={changeGlass}
         sidebarSide={sidebarSide}
         onSidebarSide={changeSidebarSide}
+        dockAutoHide={dockAutoHide}
+        onDockAutoHide={changeDockAutoHide}
         searchHistoryCount={searchHistory.length}
         onClearSearchHistory={clearSearchHistory}
         bingWallpaper={bingWallpaper}

@@ -942,6 +942,33 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     expect(screen.getByText('15:00')).toBeTruthy();
   });
 
+  it('Dock 可以进入编辑模式并移除图标', async () => {
+    const api = installGroupedBsub();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(document.querySelectorAll('.start-dock-item').length).toBeGreaterThan(1));
+    fireEvent.click(screen.getByTitle('编辑 Dock'));
+    expect(document.querySelector('.start-dock')?.className).toContain('is-editing');
+    const remove = document.querySelector('.start-dock-remove') as HTMLElement;
+    expect(remove).toBeTruthy();
+    fireEvent.click(remove);
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({ startDockIds: ['s2'] })
+        })
+      )
+    );
+  });
+
+  it('Dock 可以切换自动隐藏', async () => {
+    installGroupedBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    fireEvent.click(screen.getByText('自动隐藏'));
+    expect(document.querySelector('.start-page')?.className).toContain('is-dock-autohide');
+    expect(localStorage.getItem('start-dock-autohide')).toBe('1');
+  });
+
   it('Dock 显示番茄钟剩余分钟，点击可开始/暂停', async () => {
     installBsub();
     render(<StartPage {...props()} />);
