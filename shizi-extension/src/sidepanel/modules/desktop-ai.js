@@ -4,6 +4,7 @@
 // 第二套模型配置。桌面端不可用时由 panel-ai 回退到本地 Stream。
 
 import { ensureLink, linkStatus, onLinkChange } from './desktop-link.js';
+import { Stream } from './bridge.js';
 import { store } from './store.js';
 
 let probeCache = { at: 0, ready: false, reason: '', platform: null, platforms: [], asr: null };
@@ -99,7 +100,75 @@ export async function probeDesktopAi(force = false) {
   return probing;
 }
 
+/** 执行策略：auto 优先桌面，local 只用本地，desktop 强制尝试桌面（失败仍回退）。 */
+export function desktopAiAllowed(settings) {
+  const cfg = (settings && settings.desktop) || {};
+  if (cfg.executionMode === 'local') return false;
+  if (cfg.useDesktopAi === false) return false;
+  return true;
+}
+
+export function desktopAiRequired(settings) {
+  const cfg = (settings && settings.desktop) || {};
+  return cfg.executionMode === 'desktop';
+}
+
 /** 与本地 Stream 相同的接口，panel-ai 只换构造函数即可。 */
+export class AutoStream {
+  constructor() {
+    this.route = '';
+    this.params = {};
+    this.callbacks = {};
+    this.current = null;
+    this.received = false;
+    this.closed = false;
+    this.rid = null;
+  }
+
+  start(route, params, callbacks = {}) {
+    this.route = route;
+    this.params = params;
+    this.callbacks = callbacks;
+    this.received = false;
+    this.closed = false;
+    this.current = new DesktopStream();
+    this.rid = this.current.start(route, params, this.wrap(callbacks, false));
+    return this.rid;
+  }
+
+  wrap(callbacks, fallback) {
+    return {
+      ...callbacks,
+      onDelta: (text) => {
+        this.received = true;
+        if (callbacks.onDelta) callbacks.onDelta(text);
+      },
+      onEnd: (event) => {
+        if (callbacks.onEnd) callbacks.onEnd(event);
+      },
+      onError: (payload) => {
+        // 桌面端在输出任何字之前失败：自动换本地流，参数与回调完全一致。
+        if (!fallback && !this.received && !this.closed) {
+          this.current = new Stream();
+          this.current.start(this.route, this.params, this.wrap(callbacks, true));
+          return;
+        }
+        if (callbacks.onError) callbacks.onError(payload);
+      }
+    };
+  }
+
+  cancel() {
+    this.closed = true;
+    if (this.current && typeof this.current.cancel === 'function') this.current.cancel();
+  }
+
+  close() {
+    this.closed = true;
+    if (this.current && typeof this.current.close === 'function') this.current.close();
+  }
+}
+
 export class DesktopStream {
   constructor() {
     this.rid = null;

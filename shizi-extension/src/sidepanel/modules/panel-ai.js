@@ -12,7 +12,15 @@ import { buildVerifyClaims, verifyItems, isQueryGroundedIn, contextWindowForQuer
 import { cleanSearchQuery } from '../../shared/search-router.js';
 import { wrapUntrusted } from '../../shared/untrusted.js';
 import { Stream, call } from './bridge.js';
-import { DesktopStream, probeDesktopAi, desktopAiState, speakViaDesktop } from './desktop-ai.js';
+import {
+  AutoStream,
+  DesktopStream,
+  desktopAiAllowed,
+  desktopAiRequired,
+  probeDesktopAi,
+  desktopAiState,
+  speakViaDesktop
+} from './desktop-ai.js';
 import { watchChatPersistence, clearChatForVideo } from './chat-store.js';
 import { buildSummaryPrompt } from '../../shared/core/summary.js';
 import * as jobs from './jobs.js';
@@ -263,9 +271,7 @@ function renderToolbar() {
   // 多花一轮 AI + 若干次检索。现在按当前设置直接写在按钮上。
   const searchCfg = (st.settings && st.settings.search) || {};
   const proofreadReady = searchCfg.verifyOnSummary !== false && searchCapabilityOf(st.settings || {}).webCapable;
-  const viaDesktop =
-    !(st.settings && st.settings.desktop && st.settings.desktop.useDesktopAi === false) &&
-    desktopAiState().ready === true;
+  const viaDesktop = desktopAiAllowed(st.settings) && desktopAiState().ready === true;
   const willProofread = hasLines && proofreadReady && !viaDesktop;
   const cost = estimateSummaryCost(st.settings || {}, {
     webCapable: proofreadReady,
@@ -2404,11 +2410,10 @@ export async function generateSummary(opts = {}) {
   }
   // 桌面端可用时把总结整条链路交给它：提示词、官方分段、联网工具与桌面端一致。
   // 连不上/没配置 AI 时回退本地；forceLocal 用于失败后重试。
-  const desktopAi =
-    opts.forceLocal === true || (settings && settings.desktop && settings.desktop.useDesktopAi === false)
-      ? { ready: false }
-      : await probeDesktopAi();
-  const useDesktop = desktopAi.ready === true;
+  const allowDesktop = opts.forceLocal !== true && desktopAiAllowed(settings);
+  const desktopAi = allowDesktop ? await probeDesktopAi() : { ready: false };
+  const useDesktop =
+    allowDesktop && (desktopAi.ready === true || desktopAiRequired(settings));
   // 插件独立运行：直接走新流程（不再前置校对、不再分段）。
   if (!useDesktop) return generateSummaryLocalNew();
 
@@ -2926,11 +2931,10 @@ export async function sendMessage(text, opts = {}) {
   if (!question) return;
   const st = store.get();
   // 桌面端 AI 可用时，即使插件自己没配 Key 也能对话/总结。
-  const desktopAi =
-    st.settings && st.settings.desktop && st.settings.desktop.useDesktopAi === false
-      ? { ready: false }
-      : await probeDesktopAi();
-  const useDesktop = desktopAi.ready === true;
+  const allowDesktop = desktopAiAllowed(st.settings);
+  const desktopAi = allowDesktop ? await probeDesktopAi() : { ready: false };
+  const useDesktop =
+    allowDesktop && (desktopAi.ready === true || desktopAiRequired(st.settings));
   if (!st.readiness?.ok?.ai && !useDesktop) {
     const issue = (st.readiness?.issues || []).find((i) => i.area === 'ai');
     showError(
@@ -3080,7 +3084,7 @@ export async function sendMessage(text, opts = {}) {
     }
   }
 
-  const stream = useDesktop ? new DesktopStream() : new Stream();
+  const stream = useDesktop ? new AutoStream() : new Stream();
   state.stream = stream;
   touchStream();
   const streamedTools = [];

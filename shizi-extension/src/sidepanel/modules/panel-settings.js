@@ -2115,13 +2115,21 @@ function desktopGroup(d) {
       )
     );
     body.appendChild(
-      checkbox(
-        cfg.useDesktopAi !== false,
-        (v) => {
-          cfg.useDesktopAi = v;
-          markDirty();
-        },
-        '桌面端 AI 可用时优先使用（总结 / 对话）'
+      field(
+        '执行位置',
+        select(
+          cfg.executionMode || (cfg.useDesktopAi === false ? 'local' : 'auto'),
+          [
+            { value: 'auto', label: '自动（优先桌面，失败回退本地）' },
+            { value: 'local', label: '仅插件本地' },
+            { value: 'desktop', label: '优先桌面（不可用也先尝试）' }
+          ],
+          (v) => {
+            cfg.executionMode = v;
+            markDirty();
+          }
+        ),
+        '总结/对话在桌面端连接时优先交给桌面执行；失败会自动回退插件本地。'
       )
     );
     body.appendChild(

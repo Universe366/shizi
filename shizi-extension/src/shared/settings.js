@@ -682,7 +682,9 @@ export function defaultSettings() {
       enabled: true,
       // 自动把保存的字幕/总结同步到桌面端；关闭后只能手动「立即同步」。
       autoSync: true,
-      // 桌面端 AI 可用时优先用它；关闭后始终使用插件本地 AI。
+      // auto：优先桌面，失败回退本地；local：只用插件；desktop：强制先试桌面。
+      executionMode: 'auto',
+      // 兼容旧设置：false 等同 local。
       useDesktopAi: true,
       // 桌面端本地 Whisper 可用时优先用它；失败自动回退在线 ASR。
       useDesktopAsr: true,
@@ -829,6 +831,10 @@ export function migrateSettings(raw) {
     merged.search.platforms = defaultSearchPlatforms();
   } else {
     merged.search.platforms = mergeBuiltinPlatforms(merged.search.platforms, defaultSearchPlatforms());
+  }
+  // 旧设置没有 executionMode：useDesktopAi=false 迁移为 local。
+  if (merged.desktop && !['auto', 'local', 'desktop'].includes(merged.desktop.executionMode)) {
+    merged.desktop.executionMode = merged.desktop.useDesktopAi === false ? 'local' : 'auto';
   }
   return merged;
 }
