@@ -1319,40 +1319,7 @@ async function main() {
     const defaults = api.settingsLib.defaultSettings();
     check('默认每次核实 12 条', defaults.search.verifyItemCount === 12, String(defaults.search.verifyItemCount));
     check('默认开启页面内嵌面板', defaults.page.embedPanel === true, String(defaults.page.embedPanel));
-    check('默认开启 AI 生成检索词', defaults.search.aiQueryGeneration === true, String(defaults.search.aiQueryGeneration));
-    const estimate = api.panelAi.estimateSummaryCost(defaults);
-    check('总结成本估算：默认 3~6 次检索 + 4 次 AI', estimate.searches === 6 && estimate.aiCalls === 4, JSON.stringify(estimate));
-    const estimateRule = api.panelAi.estimateSummaryCost({
-      ...defaults,
-      search: { ...defaults.search, aiQueryGeneration: false }
-    });
-    check(
-      '总结成本估算：关闭 AI 查询后按兜底条数',
-      estimateRule.searches === defaults.search.verifyItemCount && estimateRule.aiCalls === 3,
-      JSON.stringify(estimateRule)
-    );
-    const estimateOff = api.panelAi.estimateSummaryCost({
-      ...defaults,
-      search: { ...defaults.search, verifyOnSummary: false }
-    });
-    check('总结成本估算：关闭联网后只算 1 次 AI', estimateOff.searches === 0 && estimateOff.aiCalls === 1, JSON.stringify(estimateOff));
-    const estimateLong = api.panelAi.estimateSummaryCost(defaults, { subtitleChars: 100000 });
-    check(
-      '总结成本估算：长视频按分段增加调用',
-      estimateLong.chunks === 3 && estimateLong.aiCalls === 7 && /3 段分段/.test(estimateLong.label),
-      JSON.stringify(estimateLong)
-    );
-    check(
-      '设置页不再显示 AI 生成检索词开关',
-      !/用 AI 生成检索词/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-settings.js'), 'utf8')),
-      ''
-    );
-    check(
-      '关闭开关时跳过 AI 查询生成',
-      /aiQueryGeneration !== false/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-ai.js'), 'utf8')),
-      ''
-    );
-    check('额外核实查询默认空', defaults.search.extraVerifyQueries === '', String(defaults.search.extraVerifyQueries));
+
     check('不再有「总结末尾附来源」配置', defaults.summary.attachSources === undefined, String(defaults.summary.attachSources));
     check(
       '设置页不再显示额外核实查询输入',
@@ -1511,9 +1478,8 @@ async function main() {
       ''
     );
     check(
-      '长视频的每一段都带压缩后的视频背景',
-      /chunkContext/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
-        /background: chunkContext/.test(srcOf('sidepanel/modules/panel-ai.js')),
+      '长视频不再分段拼背景',
+      !/background: chunkContext/.test(srcOf('sidepanel/modules/panel-ai.js')),
       ''
     );
     check(
@@ -2090,7 +2056,7 @@ async function main() {
       path.join(__dirname, '..', 'shizi-extension', 'src', 'sidepanel', 'modules', 'panel-ai.js'),
       'utf8'
     );
-    check('总结在截断时走分段合并', /if \(ctx\.truncated\)/.test(aiSrc2) && /summarizeInChunks/.test(aiSrc2), '');
+    check('不再有分段合并路径', !/summarizeInChunks/.test(aiSrc2), '');
     check('有分段提取与合并两段提示词', /const CHUNK_SYSTEM/.test(aiSrc2) && /function mergeUserPrompt/.test(aiSrc2), '');
     check('合并提示词明确要求覆盖全片', /覆盖\*\*全片\*\*/.test(aiSrc2), '');
 

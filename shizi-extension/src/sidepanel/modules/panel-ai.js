@@ -228,42 +228,7 @@ export function render() {
   renderInput();
 }
 
-// 分段总结每段的字符数（与 summarizeInChunks 共用，保证估算一致）
-const SUMMARY_CHUNK_CHARS = 40000;
-
-// 估算一次总结大概要几次检索 / AI 调用，给用户一个额度与耗时预期。
-// 按字幕总字符数估算分段数；主流程不含“校对失败后重试”等异常路径。
-export function estimateSummaryCost(settings, opts = {}) {
-  const s = (settings && settings.search) || {};
-  const chars = Math.max(0, Number(opts.subtitleChars) || 0);
-  const chunks = Math.max(1, Math.ceil(chars / SUMMARY_CHUNK_CHARS));
-  const summaryCalls = chunks > 1 ? chunks + 1 : 1;
-  const segmentHint = chunks > 1 ? `（${chunks} 段分段）` : '';
-  const webCapable = opts.webCapable !== false;
-  if (!webCapable || s.verifyOnSummary === false) {
-    return {
-      searches: 0,
-      aiCalls: summaryCalls,
-      chunks,
-      label: `约 ${summaryCalls} 次 AI 调用${segmentHint}（未启用联网校对）`
-    };
-  }
-  const aiQuery = s.aiQueryGeneration !== false;
-  const n = Math.max(1, Math.min(16, Number(s.verifyItemCount) || 12));
-  const baseAi = aiQuery ? 3 : 2; // 查询生成（可选）+ 校正 + 外部补充
-  const aiCalls = baseAi + summaryCalls;
-  const searchLabel = aiQuery ? '3~6' : String(n);
-  return {
-    searches: aiQuery ? 6 : n,
-    aiCalls,
-    chunks,
-    label: `约 ${searchLabel} 次检索 + ${aiCalls} 次 AI 调用${segmentHint}`
-  };
-}
-
-function subtitleCharCount(lines) {
-  return (Array.isArray(lines) ? lines : []).reduce((n, l) => n + String((l && l.text) || '').length, 0);
-}
+// 新总结流程不再本地分段；这里不再预估调用次数。
 
 function renderToolbar() {
   const st = store.get();
@@ -373,15 +338,10 @@ function renderSummary() {
       h('div', { class: 'empty', text: hasLines ? '还没有总结。点上方「生成总结」。' : '「生成总结」需要先有字幕；但下方对话可以直接提问，不需要字幕。' })
     );
     if (hasLines) {
-      const cap = searchCapabilityOf(st.settings || {});
-      const cost = estimateSummaryCost(st.settings || {}, {
-        webCapable: cap.webCapable,
-        subtitleChars: subtitleCharCount(st.subtitles)
-      });
       host.appendChild(
         h('div', {
           class: 'note',
-          text: `按当前设置：${cost.label}。实际取决于字幕长度与检索结果。`
+          text: '将使用与桌面端一致的提示词与官方分段；需要外部事实时按需联网检索。'
         })
       );
     }
@@ -2105,125 +2065,7 @@ function mergeUserPrompt({ title, part, duration, chunkCount, chunkSummaries, ex
 // 为什么不用流式：分段时每一段都要单独拿到完整结果才能进入下一段，
 // 所以这里用普通 `ai.chat` 调用。合并那一步也用普通调用 ——
 // 它可能很长，但比"丢内容"要好。
-async function summarizeInChunks({ lines, systemBase, video, extraContext, chunkContext, webSupplement, settings, task, totalSteps, onChunkSummary }) {
-  const CHUNK_CHARS = SUMMARY_CHUNK_CHARS;
-  const chunks = chunkTranscript(lines, CHUNK_CHARS);
-  const totalCount = chunks.length;
-  const title = (video && video.title) || '';
-  const part = (video && video.partTitle) || '';
-  const durationText = video && video.duration ? fmtTime(video.duration) : '';
-  const maxTokens = Number(settings.ai.maxTokens) || 8192;
-  const spanText = describeSpan(subtitleSpan(lines), (video && video.duration) || 0);
-
-  const summaries = [];
-  const durSec = (video && video.duration) || 0;
-  for (let i = 0; i < totalCount; i += 1) {
-    if (state.summaryAbortRequested) {
-      const e = new Error('已终止');
-      e.name = 'AbortError';
-      throw e;
-    }
-    const c = chunks[i];
-    // 该段首末时间（用于提示模型"这是哪一段"）
-    const fromT = chunkStartSeconds(c, i, lines, durSec);
-    const toT = i + 1 < totalCount ? chunkStartSeconds(chunks[i + 1], i + 1, lines, durSec) : durSec;
-    task.set(
-      60 + (i / (totalCount + 1)) * 25,
-      `第 ${totalSteps}/${totalSteps} 步：分段总结 ${i + 1}/${totalCount}（全片 ${Math.round((fromT / 60) * 10) / 10} 分钟起）`
-    );
-    // rid 让「停止」能真正 abort 当前这段请求（后台 cancel 按 rid 找 controller）
-    const rid = `sum_${Date.now().toString(36)}_${i}`;
-    state.summaryRid = rid;
-    const res = await call(
-      'ai.chat',
-      {
-        rid,
-        messages: [
-          { role: 'system', content: systemBase ? `${systemBase}\n\n${CHUNK_SYSTEM}` : CHUNK_SYSTEM },
-          {
-            role: 'user',
-            content: chunkUserPrompt({
-              title,
-              part,
-              index: i + 1,
-              total: totalCount,
-              fromLabel: fmtClock(fromT),
-              toLabel: fmtClock(toT),
-              background: chunkContext,
-              text: c.text
-            })
-          }
-        ],
-        platformId: settings.ai.activeId,
-        temperature: settings.ai.temperature,
-        maxTokens
-      },
-      { timeoutMs: 600000 }
-    );
-    const text = String((res && res.text) || '').trim();
-    if (!text) throw new Error(`第 ${i + 1}/${totalCount} 段总结为空`);
-    summaries.push({ index: i + 1, from: fromT, text });
-    if (onChunkSummary) {
-      onChunkSummary(`（分段总结进行中 ${summaries.length}/${totalCount}）\n\n` + summaries.map((s) => s.text).join('\n\n---\n\n'));
-    }
-  }
-
-  task.set(88, `第 ${totalSteps}/${totalSteps} 步：合并 ${totalCount} 段为完整总结…`);
-  const chunkSummaries = summaries
-    .map((s) => `【第 ${s.index}/${totalCount} 段 · 起于 ${fmtClock(s.from)}】\n${s.text}`)
-    .join('\n\n---\n\n');
-  if (state.summaryAbortRequested) {
-    const e = new Error('已终止');
-    e.name = 'AbortError';
-    throw e;
-  }
-  const mergeRid = `sum_${Date.now().toString(36)}_merge`;
-  state.summaryRid = mergeRid;
-  const res2 = await call(
-    'ai.chat',
-    {
-      rid: mergeRid,
-      messages: [
-        { role: 'system', content: systemBase },
-        {
-          role: 'user',
-          content: mergeUserPrompt({
-            title,
-            part,
-            duration: durationText,
-            chunkCount: totalCount,
-            chunkSummaries,
-            extraContext,
-            webSupplement,
-            spanText
-          })
-        }
-      ],
-      platformId: settings.ai.activeId,
-      temperature: settings.ai.temperature,
-      maxTokens
-    },
-    { timeoutMs: 600000 }
-  );
-  const text = String((res2 && res2.text) || '').trim();
-  if (!text) throw new Error('合并总结为空');
-  return { text, chunks: totalCount };
-}
-
-// 取某一段的起始秒数：优先解析该段第一行的时间戳（形如 "[12:34] 文本"）。
-// 解析不到就按「第几段 / 总段数 × 时长」估算，绝不用 0 ——
-// 全返回 0 会让进度提示全部显示「0.0 分钟起」，等于没有信息。
-function chunkStartSeconds(chunk, index, allLines, durationSeconds) {
-  const m = /^\[(\d+):(\d{2})\]\s?/.exec((chunk && chunk.text) || '');
-  if (m) return Number(m[1]) * 60 + Number(m[2]);
-  const n = Array.isArray(allLines) ? allLines.length : 0;
-  const dur = Number(durationSeconds) || 0;
-  if (!n || !dur) return 0;
-  return Math.round((index / n) * dur);
-}
-
-// 插件本地的新总结流程：与桌面端一致——不做前置校对、不做分段；
-// 官方分段优先，一次把完整字幕交给模型。
+// 分段总结已移除：新流程一次把完整字幕交给模型。
 async function generateSummaryLocalNew() {
   const st = store.get();
   const settings = st.settings || {};
