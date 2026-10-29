@@ -237,20 +237,35 @@ function renderBody() {
     state.body.appendChild(box);
   }
 
+  state.body.appendChild(sectionHeader('通用与外观'));
   state.body.appendChild(generalGroup(d));
+  state.body.appendChild(pageGroup(d));
+
+  state.body.appendChild(sectionHeader('AI 与模型'));
   state.body.appendChild(aiGroup(d));
-  state.body.appendChild(asrGroup(d));
   state.body.appendChild(promptGroup(d));
   state.body.appendChild(rulesGroup(d));
   state.body.appendChild(glossaryGroup(d));
+  state.body.appendChild(skillsGroup(d));
+
+  state.body.appendChild(sectionHeader('语音与识别'));
+  state.body.appendChild(asrGroup(d));
+
+  state.body.appendChild(sectionHeader('字幕与导出'));
+  state.body.appendChild(exportGroup(d));
+
+  state.body.appendChild(sectionHeader('检索与扩展'));
   state.body.appendChild(searchGroup(d));
   state.body.appendChild(mcpGroup(d));
-  state.body.appendChild(skillsGroup(d));
-  state.body.appendChild(exportGroup(d));
+
+  state.body.appendChild(sectionHeader('桌面与数据同步'));
+  state.body.appendChild(desktopGroup(d));
+
+  state.body.appendChild(sectionHeader('历史与批量'));
   state.body.appendChild(batchGroup(d));
   state.body.appendChild(historyGroup(d));
-  state.body.appendChild(pageGroup(d));
-  state.body.appendChild(desktopGroup(d));
+
+  state.body.appendChild(sectionHeader('高级与诊断'));
   state.body.appendChild(advancedGroup(d));
 
   const noResult = h('div', {
@@ -267,6 +282,10 @@ function renderBody() {
     }
   });
   return true;
+}
+
+function sectionHeader(title) {
+  return h('div', { class: 'settings-section-title', text: title });
 }
 
 function setGroupOpenEl(g, open) {
@@ -1561,65 +1580,8 @@ function searchGroup(d) {
       )
     );
 
-    // ---- 总结时联网核实 + 视频简介 / 评论 ----
-    body.appendChild(h('div', { class: 'section-title', text: '总结时核实与补充' }));
-    body.appendChild(
-      checkbox(
-        d.search.verifyOnSummary !== false,
-        (v) => { d.search.verifyOnSummary = v; markDirty(); },
-        '生成总结前，对字幕里的术语与事实逐条联网核对'
-      )
-    );
-    body.appendChild(
-      h('div', {
-        class: 'note',
-        text:
-          '做法：优先让 AI 根据视频标题 + 字幕生成 3~6 条**具体查询**（人名/产品/数字/版本）；\n' +
-          '不想多花一次小调用，可关闭上方「用 AI 生成检索词」，改用规则抽取。\n' +
-          '生成失败时，再按「每次核实几条」从字幕前 / 中 / 后段抽术语兜底。\n' +
-          '每项单独检索，并做**相关性过滤**（与该项毫无词重叠的结果直接丢弃）。\n\n' +
-          '校对阶段：模型只用于**校正**字幕里的术语/数字/时间/因果关系错误。\n' +
-          '总结阶段：会先把证据整理成 0~3 条简短的「外部补充」，再交给总结模型自然融入；\n' +
-          '正文不列来源、不标编号、不出现「待核实」，避免总结变成检索报告。\n\n' +
-          '不会抓取整篇网页正文 —— 那样会把上万字无关内容灌进上下文，\n' +
-          '把字幕挤成少数派（这是之前版本的问题）。'
-      })
-    );
-    body.appendChild(
-      checkbox(
-        d.search.aiQueryGeneration !== false,
-        (v) => { d.search.aiQueryGeneration = v; markDirty(); },
-        '用 AI 生成检索词（更准，但每次总结多一次小模型调用；关闭则只用规则抽取）'
-      )
-    );
-    body.appendChild(
-      field(
-        '每次核实几条',
-        numberInput(d.search.verifyItemCount ?? 12, (v) => {
-          d.search.verifyItemCount = Math.max(1, Math.min(16, v));
-          markDirty();
-        }, { min: 1, max: 16 }),
-        '从字幕的前 / 中 / 后段各取候选项（AI 生成查询失败时的兜底数量）'
-      )
-    );
-    const extraQueriesInput = h('textarea', {
-      class: 'input',
-      rows: 3,
-      placeholder: '每行一条，例如：DeepSeek V4 发布时间',
-      title: '这些查询会补充到 AI 生成的检索词里'
-    });
-    extraQueriesInput.value = d.search.extraVerifyQueries || '';
-    extraQueriesInput.addEventListener('input', () => {
-      d.search.extraVerifyQueries = extraQueriesInput.value;
-      markDirty();
-    });
-    body.appendChild(
-      field(
-        '额外核实查询（每行一条）',
-        extraQueriesInput,
-        'AI 漏掉的关键实体可以在这里补；会与 AI 生成的查询合并、去重'
-      )
-    );
+    // 新总结流程不再做“生成前逐条核对”；视频简介/评论仍作为可选上下文。
+    body.appendChild(h('div', { class: 'section-title', text: '总结补充' }));
     body.appendChild(
       checkbox(
         (d.summary && d.summary.useVideoMeta) !== false,

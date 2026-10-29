@@ -542,6 +542,20 @@ body[data-tab='settings'] .tab[data-tab-btn='settings'] {
   display: none;
 }
 
+/* 设置页顶层分组：与桌面端的 8 组结构对齐 */
+.settings-section-title {
+  margin: 16px 2px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-section-title:first-of-type {
+  margin-top: 4px;
+}
+
 /* 对话历史：只在「对话」tab 顶部显示 */
 .chat-sessions {
   display: flex;

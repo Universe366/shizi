@@ -1343,8 +1343,8 @@ async function main() {
       JSON.stringify(estimateLong)
     );
     check(
-      '设置页有 AI 生成检索词开关',
-      /用 AI 生成检索词/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-settings.js'), 'utf8')),
+      '设置页不再显示 AI 生成检索词开关',
+      !/用 AI 生成检索词/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-settings.js'), 'utf8')),
       ''
     );
     check(
@@ -1355,8 +1355,8 @@ async function main() {
     check('额外核实查询默认空', defaults.search.extraVerifyQueries === '', String(defaults.search.extraVerifyQueries));
     check('不再有「总结末尾附来源」配置', defaults.summary.attachSources === undefined, String(defaults.summary.attachSources));
     check(
-      '设置页有额外核实查询输入',
-      /额外核实查询/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-settings.js'), 'utf8')),
+      '设置页不再显示额外核实查询输入',
+      !/额外核实查询/.test(fs.readFileSync(path.join(ROOT, 'src/sidepanel/modules/panel-settings.js'), 'utf8')),
       ''
     );
     check(
@@ -1498,7 +1498,7 @@ async function main() {
       ),
       ''
     );
-    check('主按钮如实标出「先校对」', /生成总结（先校对）/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
+    check('主按钮不再标注「先校对」', !/生成总结（先校对）/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
     check(
       '长视频分段总结也能终止（rid + cancel）',
       /state\.summaryRid = rid/.test(srcOf('sidepanel/modules/panel-ai.js')) &&
@@ -1568,11 +1568,8 @@ async function main() {
         ),
       ''
     );
-    check('快速总结跳过联网校对', /opts\.skipProofread === true/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check('快速总结提示跳过校对', /快速总结：跳过联网校对/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check('AI 工具栏有快速总结按钮', /⚡ 快速总结/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
-    check('操作区有快速总结按钮', /⚡ 快速/.test(srcOf('sidepanel/modules/panel-actions.js')), '');
-    check('两个入口共用 summarize()', /export function summarize\(skipProofread\)/.test(srcOf('sidepanel/modules/panel-actions.js')), '');
+    check('快速总结入口已移除', !/⚡ 快速总结/.test(srcOf('sidepanel/modules/panel-ai.js')) && !/⚡ 快速/.test(srcOf('sidepanel/modules/panel-actions.js')), '');
+    check('总结入口共用 summarize()', /export function summarize\(\)/.test(srcOf('sidepanel/modules/panel-actions.js')), '');
     check('结束时把进度置满并收尾', /task\.set\(100,/.test(srcOf('sidepanel/modules/panel-ai.js')) && /task\.end\(\)/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
     check('出错时也收尾任务', /task\.end\(\);[\s\S]{0,120}const partial = store\.get\(\)\.summaryStream/.test(srcOf('sidepanel/modules/panel-ai.js')), '');
   }

@@ -106,12 +106,11 @@ export function generateChapters() {
   return contextGenerateChapters();
 }
 
-// 「生成总结」与「快速总结」的唯一区别就是是否跳过联网校对。
-// 抽成一个函数，避免以后调用方式变了只改一处。
-export function summarize(skipProofread) {
-  store.set({ activeTab: 'ai' });
+// 面板上的所有「生成总结」入口都走这里；新流程不再前置校对/分段。
+export function summarize() {
+  store.set({ activeTab: 'summary' });
   if (app.panels.ai && app.panels.ai.generateSummary) {
-    app.panels.ai.generateSummary(skipProofread ? { skipProofread: true } : undefined);
+    app.panels.ai.generateSummary();
   }
 }
 
@@ -162,33 +161,16 @@ export function render() {
     // 走 runTranscribe（统一入口，会先关掉可能挡着的浮层）
     host.appendChild(button('语音转录', () => runTranscribe(), { cls: 'btn-accent', title: '没有可用字幕时，把音轨转成文字' }));
   } else {
-    const capSearch = searchCapabilityOf(st.settings || {});
-    const willProofread = !!(
-      st.settings &&
-      st.settings.search &&
-      st.settings.search.verifyOnSummary !== false &&
-      capSearch.webCapable
-    );
     host.appendChild(
-      button(hasSummary ? '重新生成总结' : '③ 生成总结', () => summarize(false), {
+      button(hasSummary ? '重新生成总结' : '③ 生成总结', () => summarize(), {
         primary: true,
-        title: willProofread
-          ? '先联网校对字幕（术语/逻辑/时间/事实），再据此生成总结'
-          : '直接用现有字幕生成总结（未开启联网校对，或检索不可用）'
-      })
-    );
-    // 快速总结：跳过联网校对，省掉最耗时的一段。
-    // 文案补全为「快速总结」—— 内部菜单与 AI 面板都叫这个名字，
-    // 只写「快速」会让人不确定快速的是哪一步。
-    host.appendChild(
-      button('⚡ 快速总结', () => summarize(true), {
-        title: '快速总结：跳过联网校对，直接用现有字幕生成（更快，但不会修正字幕错误）'
+        title: '用现有字幕生成总结；需要外部事实时模型会按需联网检索'
       })
     );
     // 「去提问」是字幕就绪后的高频动作，摆出来
     host.appendChild(
       button('去提问', () => {
-        store.set({ activeTab: 'ai' });
+        store.set({ activeTab: 'chat' });
         if (app.panels.ai && app.panels.ai.focusInput) app.panels.ai.focusInput();
       }, { title: '基于这期视频的字幕向 AI 提问' })
     );

@@ -280,23 +280,10 @@ function renderToolbar() {
   // 主按钮要**如实标出这次会不会先校对**：
   // 以前它永远叫「生成总结」，用户点下去才发现还要先联网核对、
   // 多花一轮 AI + 若干次检索。现在按当前设置直接写在按钮上。
-  const searchCfg = (st.settings && st.settings.search) || {};
-  const proofreadReady = searchCfg.verifyOnSummary !== false && searchCapabilityOf(st.settings || {}).webCapable;
   const viaDesktop = desktopAiAllowed(st.settings) && desktopAiState().ready === true;
-  const willProofread = hasLines && proofreadReady && !viaDesktop;
-  const cost = estimateSummaryCost(st.settings || {}, {
-    webCapable: proofreadReady,
-    subtitleChars: subtitleCharCount(st.subtitles)
-  });
   bar.appendChild(
     button(
-      state.summaryStreaming
-        ? '生成中…'
-        : viaDesktop
-          ? '生成总结（桌面端）'
-          : willProofread
-            ? '生成总结（先校对）'
-            : '生成总结',
+      state.summaryStreaming ? '生成中…' : viaDesktop ? '生成总结（桌面端）' : '生成总结',
       () => generateSummary(),
       {
         small: true,
@@ -304,10 +291,8 @@ function renderToolbar() {
         disabled: !hasLines || state.streaming,
         title: hasLines
           ? viaDesktop
-            ? '由桌面端生成：提示词、官方分段与联网工具和桌面端一致；插件不再本地校对/分段'
-            : willProofread
-              ? `先联网校对字幕（术语/逻辑/时间/事实），再用更正后的字幕生成总结；${cost.label}（不含长视频分段合并）。想跳过请点「⚡ 快速总结」`
-              : '直接用现有字幕生成总结（未开启联网校对，或检索不可用）'
+            ? '由桌面端生成：提示词、官方分段与联网工具和桌面端一致'
+            : '用现有字幕生成总结；需要外部事实时模型会按需联网检索'
           : '需要先有字幕'
       }
     )
@@ -330,15 +315,6 @@ function renderToolbar() {
       }
     )
   );
-  if (!viaDesktop) {
-    bar.appendChild(
-      button('⚡ 快速总结', () => generateSummary({ skipProofread: true }), {
-        small: true,
-        disabled: !hasLines || state.streaming,
-        title: '跳过联网校对，直接用现有字幕生成总结（更快，但不会修正字幕里的术语/时间/事实错误）'
-      })
-    );
-  }
   bar.appendChild(button('重置对话', () => resetChat(), { small: true, title: '清空对话历史（不影响字幕与总结）' }));
   bar.appendChild(
     popoverMenu(
