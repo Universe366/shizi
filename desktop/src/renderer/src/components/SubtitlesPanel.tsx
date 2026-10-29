@@ -11,7 +11,14 @@ import type {
   SubtitleTrackCheck,
   TabInfo
 } from '../../../shared/types';
-import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
+import {
+  pickTrack,
+  isVideoKey,
+  videoKeyOf,
+  readTrackChoice,
+  writeTrackChoice,
+  type TrackPreference
+} from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { parseSubtitleText, subtitleFileNameHint } from '../../../shared/subtitles';
 import {
@@ -32,25 +39,6 @@ import { formatDuration } from '../lib/format';
 import { formatElapsed, useElapsedSeconds } from '../lib/useElapsed';
 import { DEFAULT_SUBTITLE_TOOLBAR, SUBTITLE_TOOLBAR_IDS } from '../../../shared/subtitleToolbar';
 
-function minCoverageOf(duration: number): number {
-  if (!Number.isFinite(duration) || duration <= 0) return 0;
-  // 桌面端没有插件那套「URL 归属 + 缓存签名」全链路，单轨时必须更严格：
-  // 45% 覆盖的「别的视频/广告残留」在 B 站接口里很常见，宁可拒绝也不能串片。
-  if (duration >= 180) return 0.7;
-  return 0.5;
-}
-
-const TITLE_STOPWORDS = new Set([
-  '视频', '内容', '我们', '你们', '他们', '这个', '那个', '什么', '怎么',
-  '为什么', '如何', '到底', '多少', '一个', '一些', '现在', '今天', '就是',
-  '可以', '应该', '因为', '所以', '但是', '而且', '然后', '通过', '关于',
-  '对于', '以及', '还有', '不过', '或者', '因此', '已经', '正在', '表示',
-  '认为', '觉得', '知道', '看到', '进行', '出现', '发生', '成为', '作为',
-  '根据', '由于', '同时', '此外', '例如', '比如', '包括', '主要', '重要',
-  '可能', '需要', '提供', '支持', '使用', '实现', '第一', '第二', '第三',
-  '最后', '开始', '结束', '全集', '高清', '完整版', '最新', '天花板'
-]);
-
 function localVideoPathOf(url: string): string {
   if (!url) return '';
   try {
@@ -64,132 +52,13 @@ function localVideoPathOf(url: string): string {
   }
 }
 
-function titleKeywords(info: PageInfo | null): string[] {
-  if (!info) return [];
-  const source = `${info.title || ''} ${info.desc || ''}`;
-  const words = new Set<string>();
-  for (const run of source.match(/[\u4e00-\u9fa5]{2,}/g) || []) {
-    if (run.length <= 8) words.add(run);
-    for (let index = 0; index + 1 < run.length; index += 1) {
-      const bigram = run.slice(index, index + 2);
-      if (!TITLE_STOPWORDS.has(bigram)) words.add(bigram);
-    }
-  }
-  for (const word of source.match(/[A-Za-z][A-Za-z0-9._-]{2,}/g) || []) {
-    words.add(word.toLowerCase());
-  }
-  return [...words].filter((word) => word.length >= 2).slice(0, 30);
-}
-
-function subtitleMatchesTitle(lines: SubtitleLine[], info: PageInfo | null): boolean {
-  const text = lines.map((line) => line.text).join('').replace(/\s+/g, '');
-  if (!/[\u4e00-\u9fa5]/.test(text)) return true; // 英文/其它语言轨不做中文标题匹配
-  const keywords = titleKeywords(info);
-  if (!keywords.length) return true;
-  return keywords.some((word) => text.includes(word));
-}
-
 async function evaluateTracks(
   tracks: SubtitleTrack[],
-  info: PageInfo | null
+  info: PageInfo | null,
+  preferred?: TrackPreference | null
 ): Promise<{ best: SubtitleTrack | null; checks: SubtitleTrackCheck[] }> {
-  const initial = pickTrack(tracks, info);
-  if (tracks.length <= 1) return { best: initial, checks: [] };
-  const candidates = tracks.filter((item) => item.url && item.source !== 'asr').slice(0, 6);
-  if (candidates.length <= 1) return { best: initial, checks: [] };
-
-  const duration = Number(info?.duration || 0);
-  const checks: SubtitleTrackCheck[] = [];
-  const valid: Array<{ candidate: SubtitleTrack; lines: number; lastEnd: number; aligned: boolean }> = [];
-
-  for (const candidate of candidates) {
-    const base = {
-      url: candidate.url,
-      lanDoc: candidate.lanDoc || candidate.lan || '未知语言',
-      source: candidate.source || '未知来源',
-      isAi: Boolean(candidate.isAi)
-    };
-    const result = await window.bsub.getTrackBody(candidate.url);
-    if (!result.ok || !result.data.lines.length) {
-      checks.push({
-        ...base,
-        lines: 0,
-        lastEnd: 0,
-        coverage: 0,
-        ok: false,
-        reason: result.ok ? '没有正文' : `下载失败：${result.error}`
-      });
-      continue;
-    }
-    const lines = result.data.lines;
-    const lastEnd = lines.reduce(
-      (max, line) => Math.max(max, Number(line.end || line.start || 0)),
-      0
-    );
-    const coverage = duration > 0 ? lastEnd / duration : 1;
-    // 末句明显超出视频时长（>8% 且 >8s）判为别的视频 / 整段合集，直接丢弃。
-    if (duration > 0 && lastEnd > duration * 1.08 + 8) {
-      checks.push({
-        ...base,
-        lines: lines.length,
-        lastEnd,
-        coverage,
-        ok: false,
-        reason: `时长明显超出视频（末句 ${Math.round(lastEnd)}s / 视频 ${Math.round(duration)}s）`
-      });
-      continue;
-    }
-    if (duration > 0 && coverage < minCoverageOf(duration)) {
-      checks.push({
-        ...base,
-        lines: lines.length,
-        lastEnd,
-        coverage,
-        ok: false,
-        reason: `覆盖不足（${Math.round(coverage * 100)}%，需要 ≥${Math.round(
-          minCoverageOf(duration) * 100
-        )}%）`
-      });
-      continue;
-    }
-    // 「对齐片尾」优先：正确轨通常结束在视频时长附近；
-    // 广告/合集/别的视频的轨往往更长，即使行数更多也不能选。
-    const aligned = duration > 0 ? lastEnd <= duration * 1.02 + 5 : true;
-    checks.push({
-      ...base,
-      lines: lines.length,
-      lastEnd,
-      coverage,
-      ok: true,
-      reason: `可用 ${lines.length} 行${aligned ? '' : '（末句超出片尾）'}`
-    });
-    valid.push({ candidate, lines: lines.length, lastEnd, aligned });
-  }
-
-  const alignedRows = valid.filter((row) => row.aligned);
-  const pool = alignedRows.length ? alignedRows : valid;
-  pool.sort(
-    (a, b) =>
-      b.lines - a.lines ||
-      Math.abs(a.lastEnd - duration) - Math.abs(b.lastEnd - duration)
-  );
-  const best = pool[0]?.candidate || initial;
-  console.log(
-    '[subtitle-track-pick]',
-    JSON.stringify({
-      duration: Math.round(duration),
-      checks: checks.map((item) => ({
-        lan: item.lanDoc,
-        lines: item.lines,
-        end: Math.round(item.lastEnd),
-        ok: item.ok,
-        reason: item.reason
-      })),
-      picked: best ? `${best.lanDoc}/${best.url.slice(-10)}` : null
-    })
-  );
-
-  return { best, checks };
+  // 只按来源/语言/人工轨/稳定顺序选择，不再下载正文做时长/覆盖率判断。
+  return { best: pickTrack(tracks, info, preferred), checks: [] };
 }
 
 const isLocalTrack = (track: SubtitleTrack): boolean =>
@@ -280,7 +149,6 @@ export function SubtitlesPanel({
   const bundleRef = useRef<SubtitleBundle | null>(null);
   const trackRef = useRef<SubtitleTrack | null>(null);
   const failedTrackUrlsRef = useRef<Set<string>>(new Set());
-  const coverageRetryRef = useRef(0);
 
   useEffect(() => {
     followRef.current = follow;
@@ -328,7 +196,6 @@ export function SubtitlesPanel({
     setSearchIndex(0);
     loadedRef.current = { key: '', reload: -1 };
     failedTrackUrlsRef.current.clear();
-    coverageRetryRef.current = 0;
   }, [activeTab?.id, videoKey]);
 
   useEffect(() => {
@@ -776,12 +643,13 @@ export function SubtitlesPanel({
           ];
           setBundle({ ...subtitlesResult.data, tracks: displayTracks });
           // 没有官方轨时，优先用数据库里的转写（有正文），再退到内存里的 asr://local。
+          const preferred = readTrackChoice(infoData || infoRef.current);
           const initialTrack =
             tracks.length === 0 && savedTracks.length
               ? savedTracks[0]
               : cachedAsr && tracks.length === 0
                 ? localTrack
-                : pickTrack(tracks, infoData) || savedTracks[0] || null;
+                : pickTrack(tracks, infoData, preferred) || savedTracks[0] || null;
           console.log(
             '[subtitle] select',
             JSON.stringify({
@@ -801,7 +669,7 @@ export function SubtitlesPanel({
           setTrackNonce((value) => value + 1);
           if (tracks.length > 1) {
             const initialUrl = initialTrack?.url || '';
-            void evaluateTracks(tracks, infoData).then(({ best, checks }) => {
+            void evaluateTracks(tracks, infoData, preferred).then(({ best, checks }) => {
               if (cancelled) return;
               setTrackChecks(checks);
               if (best && best.url !== initialUrl) {
@@ -867,113 +735,6 @@ export function SubtitlesPanel({
         if (cancelled) return;
         if (result.ok && result.data.lines.length) {
           const fetched = result.data.lines;
-          const duration = Number(infoRef.current?.duration || 0);
-          const lastEnd = fetched.reduce(
-            (max, line) => Math.max(max, Number(line.end || line.start || 0)),
-            0
-          );
-          // 单轨/手动选轨也要校验：末句明显超过视频时长的轨不是当前视频。
-          if (duration > 0 && lastEnd > duration * 1.08 + 8) {
-            failedTrackUrlsRef.current.add(track.url);
-            const alternatives = preferLocal(
-              bundleRef.current?.tracks || [],
-              failedTrackUrlsRef.current
-            );
-            if (alternatives.length) {
-              setTrack(alternatives[0]);
-              return;
-            }
-            if (coverageRetryRef.current < 4) {
-              coverageRetryRef.current += 1;
-              setReloadKey((value) => value + 1);
-              return;
-            }
-            setLines([]);
-            setError(
-              `这条字幕的时长与当前视频不符（末句 ${Math.round(lastEnd)}s / 视频 ${Math.round(
-                duration
-              )}s），已停止使用；请刷新或重新获取字幕`
-            );
-            setLoadingLines(false);
-            return;
-          }
-          if (duration > 0) {
-            const coverage = lastEnd / duration;
-            const min = minCoverageOf(duration);
-            if (coverage < min) {
-              // 单轨/手动选轨也可能拿到「广告/别的视频」的残留轨：
-              // 30 行只覆盖 10% 的视频时，绝不能当成本片字幕。
-              console.log(
-                '[subtitle-coverage]',
-                JSON.stringify({
-                  duration: Math.round(duration),
-                  lastEnd: Math.round(lastEnd),
-                  coverage: Math.round(coverage * 100),
-                  min: Math.round(min * 100),
-                  lines: fetched.length,
-                  retry: coverageRetryRef.current,
-                  url: track.url.slice(-10)
-                })
-              );
-              failedTrackUrlsRef.current.add(track.url);
-              const alternatives = preferLocal(
-                bundleRef.current?.tracks || [],
-                failedTrackUrlsRef.current
-              );
-              if (alternatives.length) {
-                setTrack(alternatives[0]);
-                return;
-              }
-              // B 站接口在切页/预取时会短暂返回别的视频的轨，重新获取几次通常能碰到正确的。
-              if (coverageRetryRef.current < 4) {
-                coverageRetryRef.current += 1;
-                setReloadKey((value) => value + 1);
-                return;
-              }
-              setLines([]);
-              setError(
-                `这条字幕只覆盖 ${Math.round(coverage * 100)}%（末句 ${Math.round(
-                  lastEnd
-                )}s / 视频 ${Math.round(duration)}s），与当前视频不匹配，已停止使用`
-              );
-              setLoadingLines(false);
-              return;
-            }
-          }
-          if (duration > 0 && lastEnd / duration < 0.97) {
-            // 覆盖率不足以证明归属时，再看字幕正文是否真的提到标题里的事物。
-            // 宁可放过一条全片字幕，也不能把「郎酒」视频配上「京都旅行」的字幕。
-            if (!subtitleMatchesTitle(fetched, infoRef.current)) {
-              console.log(
-                '[subtitle-content]',
-                JSON.stringify({
-                  title: infoRef.current?.title?.slice(0, 30),
-                  lines: fetched.length,
-                  first: fetched[0]?.text?.slice(0, 24),
-                  retry: coverageRetryRef.current
-                })
-              );
-              failedTrackUrlsRef.current.add(track.url);
-              const alternatives = preferLocal(
-                bundleRef.current?.tracks || [],
-                failedTrackUrlsRef.current
-              );
-              if (alternatives.length) {
-                setTrack(alternatives[0]);
-                return;
-              }
-              if (coverageRetryRef.current < 4) {
-                coverageRetryRef.current += 1;
-                setReloadKey((value) => value + 1);
-                return;
-              }
-              setLines([]);
-              setError('这条字幕的内容与视频标题不匹配，已停止使用；请刷新或改用语音转录');
-              setLoadingLines(false);
-              return;
-            }
-          }
-          coverageRetryRef.current = 0;
           const cachedTranslation = getTranslationResult(videoKeyRef.current, track.url);
           if (cachedTranslation && cachedTranslation.lines.length === fetched.length) {
             setTranslated(cachedTranslation.lines);
@@ -1752,6 +1513,7 @@ export function SubtitlesPanel({
           onPick={(item) => {
             failedTrackUrlsRef.current.clear();
             setError(null);
+            writeTrackChoice(infoRef.current, item);
             setTrack(item);
           }}
         />

@@ -1,7 +1,7 @@
 // 字幕：解析、时长校验（防串分 P）、候选轨逐个尝试、缓存复用。
 
 import { call } from './bridge.js';
-import { minCoverageRatio, OVERRUN_RATIO, OVERRUN_MIN_SECONDS, BILIBILI_LANGUAGES } from '../../shared/constants.js';
+import { BILIBILI_LANGUAGES } from '../../shared/constants.js';
 
 // ---------------------------------------------------------------------------
 // 解析
@@ -125,29 +125,8 @@ export function validateLines(lines, videoDuration, expect) {
   result.stats.coverage = coverage;
 
   const dur = Number(videoDuration) || 0;
-  if (dur > 0) {
-    const overrunRatio = last / dur;
-    const overrunSeconds = last - dur;
-    if (overrunSeconds > OVERRUN_MIN_SECONDS && overrunRatio > 1 + OVERRUN_RATIO) {
-      result.kind = 'overrun';
-      result.title = '字幕时长与视频不匹配（可能是其它分 P 的字幕）';
-      result.detail = `字幕最后一句到 ${last.toFixed(1)}s，视频只有 ${dur.toFixed(1)}s，超出 ${overrunSeconds.toFixed(1)}s（${Math.round(
-        overrunRatio * 100
-      )}%）。`;
-      return result;
-    }
-    const ratio = coverage / dur;
-    result.stats.coverageRatio = ratio;
-    const need = minCoverageRatio(dur);
-    if (need > 0 && ratio < need) {
-      result.kind = 'coverage';
-      result.title = '字幕覆盖度过低（可能只截到片段）';
-      result.detail = `字幕只覆盖 ${coverage.toFixed(1)}s / 视频 ${dur.toFixed(1)}s = ${(ratio * 100).toFixed(
-        1
-      )}%，低于该时长档要求的 ${(need * 100).toFixed(0)}%。`;
-      return result;
-    }
-  }
+  // 时长/覆盖率只作为统计信息，不参与拒绝：真实视频可以有长时间留白。
+  if (dur > 0) result.stats.coverageRatio = coverage / dur;
 
   // ---- 归属校验：这份字幕真的是这个视频的吗 ----
   //
@@ -296,15 +275,29 @@ export function langLabel(code) {
   return hit ? hit.label : code || '未知语言';
 }
 
+function sourceRank(source) {
+  const value = String(source || '');
+  if (value === 'player/wbi/v2') return 300;
+  if (value === 'player.getSubtitle') return 200;
+  return 100;
+}
+
 export function sortCandidates(list) {
-  return [...(list || [])].sort((a, b) => {
-    const pa = LANG_PRIORITY[a.lan] == null ? (String(a.lan).toLowerCase().startsWith('zh') ? 8 : 50) : LANG_PRIORITY[a.lan];
-    const pb = LANG_PRIORITY[b.lan] == null ? (String(b.lan).toLowerCase().startsWith('zh') ? 8 : 50) : LANG_PRIORITY[b.lan];
-    if (pa !== pb) return pa - pb;
-    // 人工字幕优先于 AI 字幕
-    if (a.isAi !== b.isAi) return a.isAi ? 1 : -1;
-    return String(a.lan).localeCompare(String(b.lan));
-  });
+  const rows = [...(list || [])];
+  // 稳定排序：同分保留平台返回顺序，不再按行数/覆盖度猜质量。
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const sa = sourceRank(a.row.source);
+      const sb = sourceRank(b.row.source);
+      if (sa !== sb) return sb - sa;
+      const pa = LANG_PRIORITY[a.row.lan] == null ? (String(a.row.lan).toLowerCase().startsWith('zh') ? 8 : 50) : LANG_PRIORITY[a.row.lan];
+      const pb = LANG_PRIORITY[b.row.lan] == null ? (String(b.row.lan).toLowerCase().startsWith('zh') ? 8 : 50) : LANG_PRIORITY[b.row.lan];
+      if (pa !== pb) return pa - pb;
+      if (a.row.isAi !== b.row.isAi) return a.row.isAi ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map((item) => item.row);
 }
 
 // ---------------------------------------------------------------------------
@@ -509,7 +502,8 @@ export async function harvestSubtitles(video, settings, hooks = {}, opts = {}) {
 
   // 3) 合并候选（按语言去重，页面侧优先）
   const byLang = new Map();
-  for (const t of [...pageTracks, ...apiTracks]) {
+  // 先按来源排序，保证同一语言同时有 WBI 和播放器轨时保留 WBI。
+  for (const t of sortCandidates([...pageTracks, ...apiTracks])) {
     const key = t.lan || t.id || t.url;
     if (!byLang.has(key)) byLang.set(key, t);
   }
@@ -656,7 +650,7 @@ export async function harvestSubtitles(video, settings, hooks = {}, opts = {}) {
       if (!validation.ok) {
         attempt.stage = 'rejected';
         // 标记「跑到了别的分 P」——这是可恢复的，值得换个来源再试
-        if (validation.kind === 'overrun' || validation.kind === 'coverage') attempt.wrongPart = true;
+        /* 时长/覆盖度不再参与拒绝；身份校验失败才换轨。 */
         continue;
       }
 
@@ -691,6 +685,7 @@ export async function harvestSubtitles(video, settings, hooks = {}, opts = {}) {
           cached: attempt.cached,
           count: lines.length,
           from: attempt.from || cand.from,
+          source: cand.source || '',
           // 摊平一个「归属参考」字段，方便诊断面板直接显示
           // （validateLines 把最长连续重合写在 stats 里，只有参考价值）
           overlapLcs: validation && validation.stats ? validation.stats.overlapLcs : null,

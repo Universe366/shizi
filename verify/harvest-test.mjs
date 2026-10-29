@@ -237,16 +237,10 @@ resetCase({
 });
 
 out = await harvestSubtitles(VIDEO, settings, { onProgress: () => {} });
-check('先试了接口给的超长字幕', (out.attempts || []).some((a) => a.from === 'api' && a.stage === 'rejected'), JSON.stringify((out.attempts || []).map((a) => [a.lan, a.from, a.stage])));
-check('被拒用的候选标记了 wrongPart', (out.attempts || []).some((a) => a.wrongPart), JSON.stringify((out.attempts || []).map((a) => [a.lan, a.stage, !!a.wrongPart])));
-check('分 P 不匹配时会去点播放器菜单重新拉取', rpcLog.filter((r) => r.method === 'subtitle.trigger').length >= 2, rpcLog.map((r) => r.method).join(','));
-check('诊断里记录了重试结果', !!out.diagnostic && !!out.diagnostic.triggerRetry, JSON.stringify(out.diagnostic && out.diagnostic.triggerRetry));
-check('重新拉取后采用当前分 P 的字幕', out.ok === true, JSON.stringify(out.reason || out.meta));
-if (out.ok) {
-  const last = Math.max(...out.lines.map((l) => l.to || 0));
-  check('采用的字幕没有超出视频时长', last <= 754, `last=${last}`);
-  check('采用的是页面侧（带 cid）的那一份', (out.meta && out.meta.from) === 'network-sniff', JSON.stringify(out.meta));
-}
+// 新规则：不再用时长/覆盖率拒绝字幕；接口返回的长轨直接采用。
+check('接口返回的长字幕直接采用（不按时长拒绝）', out.ok === true && out.lines.length === 824, JSON.stringify(out.meta || out.reason));
+check('不会因为时长反复点播放器菜单', rpcLog.filter((r) => r.method === 'subtitle.trigger').length < 2, rpcLog.map((r) => r.method).join(','));
+check('标记来源为接口', out.ok && out.meta && out.meta.from === 'api', JSON.stringify(out.meta));
 
 console.log('\n===== 字幕抓取层测试 =====');
 let failed = 0;

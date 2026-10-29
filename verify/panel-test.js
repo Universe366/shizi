@@ -436,11 +436,16 @@ async function main() {
   const mk = (n, step) => Array.from({ length: n }, (_, i) => ({ from: i * step, to: i * step + step - 0.2, text: '这是一行足够长的字幕内容' }));
   check('字幕校验：正常字幕通过', api.subtitles.validateLines(mk(200, 4), 800).ok === true);
   const vOver = api.subtitles.validateLines(mk(200, 5), 600);
-  check('字幕校验：超出视频时长过多判为错轨', vOver.ok === false && vOver.kind === 'overrun', vOver.detail);
+  check('字幕校验：超出片长不再拒绝（留白/长视频合法）', vOver.ok === true, vOver.detail);
   const vCov = api.subtitles.validateLines(mk(10, 3), 1200);
-  check('字幕校验：覆盖度过低拒用（分档）', vCov.ok === false && vCov.kind === 'coverage', vCov.detail);
+  check('字幕校验：覆盖度低不再拒绝', vCov.ok === true, vCov.detail);
   const sorted = api.subtitles.sortCandidates([{ lan: 'en-US' }, { lan: 'ai-zh', isAi: true }, { lan: 'zh-CN' }]);
   check('候选轨中文优先排序', sorted[0].lan === 'zh-CN' && sorted[1].lan === 'ai-zh', sorted.map((x) => x.lan).join('>'));
+  const bySource = api.subtitles.sortCandidates([
+    { lan: 'zh-CN', source: 'player.getSubtitle' },
+    { lan: 'en-US', source: 'player/wbi/v2' }
+  ]);
+  check('候选轨来源优先 WBI', bySource[0].source === 'player/wbi/v2', bySource.map((x) => x.source).join('>'));
   check(
     '缓存标识去掉查询串（签名变化不影响命中）',
     api.storage.subtitleCacheKey({ bvid: 'BV1', cid: 1, page: 1, lang: 'zh-CN', url: '//a.hdslb.com/s.json?deadline=1&sign=a' }) ===

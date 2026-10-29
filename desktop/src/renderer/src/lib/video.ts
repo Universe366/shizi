@@ -35,21 +35,99 @@ export function videoKeyOf(url?: string): string {
   }
 }
 
-export function pickTrack(tracks: SubtitleTrack[], info: PageInfo | null): SubtitleTrack | null {
+export interface TrackPreference {
+  lan: string;
+  source?: string;
+  isAi?: boolean;
+}
+
+/** WBI 签名接口 > 播放器自报 > 初始状态/嗅探。 */
+function sourceRank(source: string): number {
+  const value = String(source || '');
+  if (value === 'player/wbi/v2') return 300;
+  if (value === 'player.getSubtitle') return 200;
+  return 100;
+}
+
+function langRank(lan: string): number {
+  const value = String(lan || '').toLowerCase();
+  if (value === 'zh-cn' || value === 'zh-hans') return 40;
+  if (value.startsWith('zh')) return 35;
+  if (value === 'ai-zh') return 30;
+  return 10;
+}
+
+const TRACK_CHOICE_KEY = 'shizi.trackChoice.v1';
+
+export function trackChoiceKey(info: PageInfo | null): string {
+  if (!info) return '';
+  return `${videoKeyOf(info.url)}|${info.cid || ''}`;
+}
+
+export function readTrackChoice(info: PageInfo | null): TrackPreference | null {
+  const key = trackChoiceKey(info);
+  if (!key) return null;
+  try {
+    const raw = globalThis.localStorage?.getItem(TRACK_CHOICE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, TrackPreference>;
+    return parsed && typeof parsed[key] === 'object' ? parsed[key] : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeTrackChoice(info: PageInfo | null, track: SubtitleTrack): void {
+  const key = trackChoiceKey(info);
+  if (!key || !track) return;
+  try {
+    const raw = globalThis.localStorage?.getItem(TRACK_CHOICE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, TrackPreference>) : {};
+    parsed[key] = { lan: track.lan, source: track.source, isAi: Boolean(track.isAi) };
+    globalThis.localStorage?.setItem(TRACK_CHOICE_KEY, JSON.stringify(parsed));
+  } catch {
+    // 本地记忆失败不影响选轨
+  }
+}
+
+export function pickTrack(
+  tracks: SubtitleTrack[],
+  info: PageInfo | null,
+  preferred?: TrackPreference | null
+): SubtitleTrack | null {
   if (!tracks.length) return null;
+  if (preferred && preferred.lan) {
+    const matched = tracks.find(
+      (track) =>
+        track.lan === preferred.lan &&
+        (preferred.source == null || track.source === preferred.source) &&
+        (preferred.isAi == null || Boolean(track.isAi) === Boolean(preferred.isAi))
+    );
+    if (matched) return matched;
+  }
+
   const cid = info?.cid ? String(info.cid) : '';
   const aid = info?.aid ? String(info.aid) : '';
 
-  const score = (track: SubtitleTrack) => {
-    let value = 0;
-    // 带当前 aid/cid 的 URL 可以确定属于这个视频；B 站预取/切页会留下过期轨
-    if (cid && track.url.includes(cid)) value += 50;
-    if (aid && track.url.includes(aid)) value += 25;
-    if (/^zh/i.test(track.lan)) value += 4;
-    if (/^ai-zh/i.test(track.lan)) value += 2;
-    if (track.isAi) value += 1;
+  const rank = (track: SubtitleTrack) => {
+    let value = sourceRank(track.source) * 1000;
+    // 同来源下，URL 带当前 cid/aid 的轨身份更可信；不参与跨来源比较。
+    if (cid && track.url.includes(cid)) value += 200;
+    if (aid && track.url.includes(aid)) value += 100;
+    value += langRank(track.lan) * 2;
+    if (!track.isAi) value += 1;
     return value;
   };
 
-  return [...tracks].sort((a, b) => score(b) - score(a))[0];
+  // 保留平台返回顺序：分数相同不重排，稳定取第一条。
+  let best = tracks[0];
+  let bestScore = rank(tracks[0]);
+  for (const track of tracks.slice(1)) {
+    const score = rank(track);
+    if (score > bestScore) {
+      best = track;
+      bestScore = score;
+    }
+  }
+  return best;
 }

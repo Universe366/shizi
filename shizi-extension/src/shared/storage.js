@@ -2,6 +2,7 @@
 import * as CFG from './settings.js';
 
 const SETTINGS_KEY = 'bsub.settings.v1';
+const TRACK_CHOICE_KEY = 'bsub.trackChoice.v1';
 const DB_NAME = 'bsub-db';
 const DB_VERSION = 4;
 const STORE_CACHE = 'subtitleCache';
@@ -301,6 +302,40 @@ export async function historyRemove(key) {
 
 export async function historyClear() {
   await db.clear(STORE_HISTORY);
+}
+
+// ---------------------------------------------------------------------------
+// 手动选轨记忆（按视频，不参与设置同步）
+// ---------------------------------------------------------------------------
+
+function trackChoiceKey(video) {
+  return [video && video.bvid ? video.bvid : '-', video && video.cid ? video.cid : '-', video && video.page == null ? '-' : video.page].join('|');
+}
+
+export async function loadTrackChoice(video) {
+  try {
+    const got = await chrome.storage.local.get(TRACK_CHOICE_KEY);
+    const map = (got && got[TRACK_CHOICE_KEY]) || {};
+    return map[trackChoiceKey(video)] || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function saveTrackChoice(video, choice) {
+  if (!video || !choice) return;
+  try {
+    const got = await chrome.storage.local.get(TRACK_CHOICE_KEY);
+    const map = { ...((got && got[TRACK_CHOICE_KEY]) || {}) };
+    map[trackChoiceKey(video)] = {
+      lan: String(choice.lan || ''),
+      source: String(choice.source || ''),
+      isAi: Boolean(choice.isAi)
+    };
+    await chrome.storage.local.set({ [TRACK_CHOICE_KEY]: map });
+  } catch (err) {
+    /* ignore */
+  }
 }
 
 // ---------------------------------------------------------------------------

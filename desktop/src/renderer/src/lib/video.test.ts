@@ -36,6 +36,20 @@ describe('pickTrack', () => {
     expect(pickTrack([en, aiZh, zh], info)?.lan).toBe('zh-CN');
   });
 
+  it('来源优先：WBI > 播放器 > 初始/嗅探', () => {
+    const wbi = track({ url: 'https://example.com/123/en.json', lan: 'en-US', source: 'player/wbi/v2' });
+    const player = track({ url: 'https://example.com/123/zh.json', lan: 'zh-CN', source: 'player.getSubtitle' });
+    expect(pickTrack([player, wbi], info)?.source).toBe('player/wbi/v2');
+  });
+
+  it('手动选择优先于自动规则', () => {
+    const wbi = track({ url: 'https://example.com/123/zh.json', lan: 'zh-CN', source: 'player/wbi/v2' });
+    const player = track({ url: 'https://example.com/123/en.json', lan: 'en-US', source: 'player.getSubtitle' });
+    expect(
+      pickTrack([wbi, player], info, { lan: 'en-US', source: 'player.getSubtitle', isAi: false })?.lan
+    ).toBe('en-US');
+  });
+
   it('没有页面信息时也能按语言挑一条', () => {
     const en = track({ url: 'https://example.com/en.json', lan: 'en-US' });
     const zh = track({ url: 'https://example.com/zh.json', lan: 'zh-CN' });

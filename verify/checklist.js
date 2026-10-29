@@ -115,7 +115,7 @@ const items = [
   ['稳定性⑨', '页面类型声明与支持一致', /bangumi/.test(ALL) && /'list'/.test(ALL) && /合集|collection/.test(ALL) && JSON.parse(src['manifest.json']).content_scripts.every((c) => c.matches.some((m) => /bilibili\.com/.test(m)))],
   ['稳定性⑩', 'SPA 导航检测（视频 ID + 分 P 签名）', /pushState/.test(ALL) && /popstate/.test(ALL) && /hashchange/.test(ALL) && /p\$\{idx\}|@p\$\{/.test(ALL)],
   ['稳定性⑪', '错误分类为可操作提示', /classifyHttp/.test(ALL) && /classifyNetwork/.test(ALL) && /action:/.test(ALL)],
-  ['稳定性⑫', '字幕失败原因区分并带明细', /attempts/.test(ALL) && /候选轨明细|wrongPart/.test(ALL) && /kind === 'overrun'|kind = 'overrun'/.test(ALL)]
+  ['稳定性⑫', '字幕失败原因区分并带明细', /attempts/.test(ALL) && /候选轨明细/.test(ALL) && /findForeignVideoId|foreign/.test(ALL)]
 ];
 
 const groups = new Map();

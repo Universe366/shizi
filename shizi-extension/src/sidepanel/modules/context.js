@@ -12,6 +12,7 @@ import * as SEARCH from './search.js';
 import { buildExport, safeFilename } from './exporter.js';
 import { DEFAULT_SYSTEM_PROMPT, TASK_LABEL, METHOD_TIMEOUT } from '../../shared/constants.js';
 import { buildVerifyClaims, verifyItems, contextWindowForQuery, annotateEvidenceAgreement } from '../../shared/verify.js';
+import { loadTrackChoice, saveTrackChoice } from '../../shared/storage.js';
 import { scheduleSnapshot, linkStatus } from './desktop-link.js';
 import {
   exportViaDesktop,
@@ -365,9 +366,12 @@ export async function harvest(opts = {}) {  const s = store.get().settings;
   if (!video) return null;
   const task = jobs.beginTask(TASK_LABEL.harvest, { detail: '选择候选字幕轨' });
   try {
+    // 手动选轨记忆：按视频记住上次语言；用户这次显式指定时以本次为准。
+    const savedChoice = opts.lang ? null : await loadTrackChoice(video);
+    const requestedLang = opts.lang || (savedChoice && savedChoice.lan) || '';
     const result = await harvestSubtitles(video, s, {
       onProgress: (p) => task.set(p.percent, p.detail)
-    }, { lang: opts.lang || '' });
+    }, { lang: requestedLang });
     const attempts = result.attempts || [];
     const diagnostic = result.diagnostic || null;
     if (!result.ok) {
@@ -406,6 +410,9 @@ export async function harvest(opts = {}) {  const s = store.get().settings;
       subtitleDiagnostic: diagnostic,
       subtitlesRevision: (store.get().subtitlesRevision || 0) + 1
     });
+    if (opts.lang && result.meta) {
+      await saveTrackChoice(video, result.meta);
+    }
     await saveHistory();
     await syncOverlayLines();
     if (s.optimize.autoApplyAfter) await applyActiveRules({ silent: true });
