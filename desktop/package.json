@@ -8,9 +8,10 @@
   "scripts": {
     "sync:bridge": "node scripts/sync-bridge.mjs",
     "sync:extension": "node scripts/sync-extension.mjs",
-    "predev": "npm run sync:bridge",
+    "build:core": "node scripts/build-core.mjs",
+    "predev": "npm run build:core && npm run sync:bridge",
     "dev": "electron-vite dev",
-    "prebuild": "npm run sync:bridge && npm run sync:extension",
+    "prebuild": "npm run build:core && npm run sync:bridge && npm run sync:extension",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",

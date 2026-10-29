@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "../shizi-extension/src/shared/core",
+    "rootDir": "src/shared/core",
+    "declaration": false,
+    "sourceMap": false,
+    "noEmitOnError": true
+  },
+  "include": ["src/shared/core/**/*.ts"],
+  "exclude": ["src/shared/core/**/*.test.ts"]
+}

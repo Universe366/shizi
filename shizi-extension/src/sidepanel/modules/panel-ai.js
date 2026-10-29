@@ -14,6 +14,7 @@ import { wrapUntrusted } from '../../shared/untrusted.js';
 import { Stream, call } from './bridge.js';
 import { DesktopStream, probeDesktopAi, desktopAiState, speakViaDesktop } from './desktop-ai.js';
 import { watchChatPersistence, clearChatForVideo } from './chat-store.js';
+import { buildSummaryPrompt } from '../../shared/core/summary.js';
 import * as jobs from './jobs.js';
 import { TASK_LABEL } from '../../shared/constants.js';
 import { promptDialog, popoverMenu, openOverlay, closeOverlays } from './ui.js';
@@ -2253,34 +2254,23 @@ async function generateSummaryLocalNew() {
           }))
           .filter((point) => point.content && point.to > point.from)
       : [];
-    const officialBlock = official.length
-      ? ['【官方分段（优先按这些章节组织总结）】',
-          ...official.map((point) => `${fmtTime(point.from)} · ${point.content}`)].join('\n')
-      : '';
-    const meta = [
-      `视频标题：${video.title || '未知'}`,
-      `UP 主：${video.owner || '未知'}`,
-      `视频时长：${fmtTime(video.duration || 0)}`,
-      `链接：${video.url || ''}`,
-      settings.summary && settings.summary.useVideoMeta !== false && video.desc
-        ? `视频简介：${String(video.desc).slice(0, 2000)}`
-        : '',
-      officialBlock
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const prompt = buildSummaryPrompt({
+      info: { ...video, viewPoints: official },
+      promptText: activePromptText(),
+      glossary: ((settings.optimize && settings.optimize.glossary) || []).map((item) => ({
+        from: String(item.term || ''),
+        to: '',
+        note: String(item.note || '')
+      })),
+      useVideoMeta: !(settings.summary && settings.summary.useVideoMeta === false)
+    });
     const messages = [
-      {
-        role: 'system',
-        content: [activePromptText(), FEISHU_FORMAT_RULES].filter(Boolean).join('\n\n')
-      },
+      { role: 'system', content: prompt.system },
       {
         role: 'user',
         content: [
-          meta,
+          prompt.user,
           '',
-          '请基于上面的字幕写一份完整总结，严格按系统提示里的格式规则输出；不要写开场白或“根据字幕”这类过程说明。',
-          '尽量详细：每个主题至少展开 2–4 个具体要点，保留数字、时间、步骤、例子和结论。',
           '下面是这期视频的字幕原文（已提供的全部，请据此整理，不要推测缺失部分）：',
           linesToTranscript(lines)
         ].join('\n')
