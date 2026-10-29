@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -739,7 +739,14 @@ export function TabStrip({
       }${vertical && collapsed && peekOpen ? ' is-peeking' : ''}${
         vertical && width < 190 ? ' is-narrow' : ''
       }`}
-      style={vertical ? { width: collapsed && !peekOpen ? 52 : width } : undefined}
+      style={
+        vertical
+          ? ({
+              width: collapsed && !peekOpen ? 52 : width,
+              '--tab-strip-width': `${collapsed && !peekOpen ? 52 : width}px`
+            } as CSSProperties)
+          : undefined
+      }
       onMouseEnter={() => {
         if (vertical && collapsed) openPeekSoon();
       }}

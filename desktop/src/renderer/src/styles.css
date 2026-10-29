@@ -15195,3 +15195,15 @@ sup:has(> .cite-ref) {
 .start-folder-dialog-remove:hover {
   color: var(--danger);
 }
+
+/* 垂直标签栏的右键/分组菜单限制在侧栏内，不要伸到网页区域 */
+.app-shell.vertical-tabs .tab-strip:not(.is-collapsed) .tab-menu,
+.app-shell.vertical-tabs .tab-strip.is-peeking .tab-menu,
+.app-shell.vertical-tabs .tab-strip:not(.is-collapsed) .tab-group-menu,
+.app-shell.vertical-tabs .tab-strip.is-peeking .tab-group-menu {
+  left: 8px !important;
+  min-width: 0;
+  width: max(120px, calc(var(--tab-strip-width, 220px) - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
