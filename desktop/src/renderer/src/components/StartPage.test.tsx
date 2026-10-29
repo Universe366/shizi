@@ -1,14 +1,21 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StartPage } from './StartPage';
 import { loadWallpaperBlob } from './start/wallpaperStore';
+import { resetPomodoroStore } from './start/pomodoroStore';
 
 vi.mock('./start/wallpaperStore', () => ({
   loadWallpaperBlob: vi.fn(async () => null),
   saveWallpaperBlob: vi.fn(async () => undefined),
   clearWallpaperBlob: vi.fn(async () => undefined)
 }));
+
+beforeEach(() => {
+  resetPomodoroStore();
+  localStorage.removeItem('start-palette-recent');
+  localStorage.setItem('start-onboarding-done', '1');
+});
 
 function installBsub() {
   const api = {
@@ -35,6 +42,7 @@ function installBsub() {
       data: { city: '上海', temperature: 22, description: '多云', high: 25, low: 18 }
     })),
     startHotSearch: vi.fn(async () => ({ ok: true as const, data: ['热搜一', '热搜二'] })),
+    startSuggest: vi.fn(async () => ({ ok: true as const, data: [] as string[] })),
     startBingWallpaper: vi.fn(async () => ({
       ok: true as const,
       data: { url: 'https://www.bing.com/bing.jpg', copyright: 'Bing' }
@@ -198,8 +206,8 @@ describe('StartPage', () => {
     } as never);
     render(<StartPage {...props()} />);
     await waitFor(() => expect(api.startBingWallpaper).toHaveBeenCalled());
-    const page = document.querySelector('.start-page') as HTMLElement;
-    await waitFor(() => expect(page.style.backgroundImage).toContain('bing.jpg'));
+    const layer = document.querySelector('.start-wallpaper-layer') as HTMLElement;
+    await waitFor(() => expect(layer?.style.backgroundImage).toContain('bing.jpg'));
   });
 
   it('展示最近的库条目，点击打开', async () => {
@@ -228,6 +236,107 @@ describe('StartPage v2', () => {
         })
       )
     );
+  });
+
+  it('输入时合并网络联想词', async () => {
+    const api = installBsub();
+    api.startSuggest.mockResolvedValue({
+      ok: true as const,
+      data: ['拾字 官网', '拾字 下载']
+    } as never);
+    render(<StartPage {...props()} />);
+    const input = screen.getByPlaceholderText(/在 必应 搜索/);
+    fireEvent.change(input, { target: { value: '拾字' } });
+    expect(await screen.findByText('拾字 官网')).toBeTruthy();
+    expect(screen.getByText('拾字 下载')).toBeTruthy();
+  });
+
+  it('首次进入展示快捷操作提示，关闭后不再出现', async () => {
+    installBsub();
+    localStorage.removeItem('start-onboarding-done');
+    render(<StartPage {...props()} />);
+    expect(screen.getByLabelText('起始页提示')).toBeTruthy();
+    fireEvent.click(screen.getByText('开始使用'));
+    await waitFor(() => expect(screen.queryByLabelText('起始页提示')).toBeNull());
+    expect(localStorage.getItem('start-onboarding-done')).toBe('1');
+  });
+
+  it('拖动待办可以调整顺序', async () => {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [
+              { id: 1, text: '第一', done: false },
+              { id: 2, text: '第二', done: false },
+              { id: 3, text: '第三', done: false }
+            ] as never[],
+            startShortcuts: [],
+            startWallpaper: 'aurora',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.124.0'
+      }
+    }));
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('第一')).toBeTruthy());
+    const items = document.querySelectorAll('.start-todo-item');
+    const transfer = {
+      setData: vi.fn(),
+      getData: () => '1',
+      effectAllowed: 'move'
+    } as unknown as DataTransfer;
+    fireEvent.dragStart(items[0], { dataTransfer: transfer });
+    fireEvent.drop(items[2], { dataTransfer: transfer });
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            petTodos: [
+              expect.objectContaining({ text: '第二' }),
+              expect.objectContaining({ text: '第三' }),
+              expect.objectContaining({ text: '第一' })
+            ]
+          })
+        })
+      )
+    );
+  });
+
+  it('待办超过 4 条时可以展开全部', async () => {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: Array.from({ length: 6 }, (_, index) => ({
+              id: index + 1,
+              text: `待办 ${index + 1}`,
+              done: false
+            })) as never[],
+            startShortcuts: [],
+            startWallpaper: 'aurora',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.124.0'
+      }
+    }));
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('全部 6')).toBeTruthy());
+    expect(document.querySelectorAll('.start-todo-item').length).toBe(4);
+    fireEvent.click(screen.getByText('全部 6'));
+    await waitFor(() => expect(document.querySelectorAll('.start-todo-item').length).toBe(6));
   });
 
   it('待办小组件能新增并保存', async () => {
@@ -411,6 +520,37 @@ describe('StartPage 搜索直达与右键菜单', () => {
         expect.objectContaining({
           general: expect.objectContaining({
             startShortcuts: [expect.objectContaining({ label: 'MDN' })]
+          })
+        })
+      )
+    );
+  });
+
+  it('删除快捷方式后可以撤销', async () => {
+    const api = withShortcuts();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(screen.getByText('知乎')).toBeTruthy());
+    const tile = document.querySelector('.start-tile[title="https://www.zhihu.com"]') as HTMLElement;
+    fireEvent.contextMenu(tile, { clientX: 300, clientY: 300 });
+    fireEvent.click(screen.getByText('删除'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: [expect.objectContaining({ label: 'MDN' })]
+          })
+        })
+      )
+    );
+    fireEvent.click(screen.getByText('撤销'));
+    await vi.waitFor(() =>
+      expect(api.saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          general: expect.objectContaining({
+            startShortcuts: expect.arrayContaining([
+              expect.objectContaining({ label: '知乎' }),
+              expect.objectContaining({ label: 'MDN' })
+            ])
           })
         })
       )
@@ -613,6 +753,18 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     expect(p.onClose).toHaveBeenCalled();
   });
 
+  it('指令面板把网址识别为直接打开', async () => {
+    installBsub();
+    const p = props();
+    render(<StartPage {...p} />);
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    const input = await screen.findByLabelText('指令面板搜索');
+    fireEvent.change(input, { target: { value: 'example.com' } });
+    expect(screen.getByText('打开 example.com')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(p.onNavigate).toHaveBeenCalledWith('example.com');
+  });
+
   it('指令面板可以切换禅模式', async () => {
     installBsub();
     render(<StartPage {...props()} />);
@@ -686,6 +838,53 @@ describe('StartPage 指令面板 / Dock / 效率小组件', () => {
     await waitFor(() =>
       expect(document.querySelector('video.start-wallpaper-video')).toBeTruthy()
     );
+  });
+
+  it('手动文字配色会覆盖自动判断', () => {
+    installBsub();
+    localStorage.setItem('start-ink-mode', 'dark');
+    render(<StartPage {...props()} />);
+    expect(document.querySelector('.start-page')?.className).toContain('is-ink-dark');
+    localStorage.removeItem('start-ink-mode');
+  });
+
+  it('抽屉展示自定义壁纸预览', async () => {
+    const api = installBsub();
+    api.getSettings.mockImplementation(async () => ({
+      ok: true as const,
+      data: {
+        settings: {
+          general: {
+            searchEngine: 'bing',
+            petTodos: [],
+            startShortcuts: [],
+            startWallpaper: 'aurora',
+            startWallpaperImage: 'data:image/png;base64,AAAA',
+            startWeather: false,
+            startCity: '上海',
+            startHotSearch: false
+          }
+        },
+        version: '0.124.0'
+      }
+    }));
+    render(<StartPage {...props()} />);
+    await waitFor(() =>
+      expect(
+        (document.querySelector('.start-wallpaper-layer') as HTMLElement)?.style.backgroundImage
+      ).toContain('data:image/png')
+    );
+    fireEvent.click(screen.getByTitle('更换壁纸'));
+    expect(document.querySelector('.start-drawer-preview img')).toBeTruthy();
+  });
+
+  it('天气可以手动刷新并显示更新时间', async () => {
+    const api = installBsub();
+    render(<StartPage {...props()} />);
+    await waitFor(() => expect(api.startWeather).toHaveBeenCalledWith('上海', false));
+    fireEvent.click(screen.getByTitle('刷新天气'));
+    await waitFor(() => expect(api.startWeather).toHaveBeenCalledWith('上海', true));
+    expect(await screen.findByText(/更新 /)).toBeTruthy();
   });
 
   it('壁纸直链会写入设置并推断类型', async () => {

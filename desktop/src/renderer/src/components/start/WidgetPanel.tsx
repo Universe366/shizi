@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   BookOpen,
   CloudSun,
@@ -21,6 +22,7 @@ interface WidgetPanelProps {
   editMode: boolean;
   onToggle: (id: string) => void;
   onMove: (id: string, delta: number) => void;
+  onMoveTo: (fromId: string, toId: string) => void;
 
   weather: Weather | null;
   city: string;
@@ -30,8 +32,14 @@ interface WidgetPanelProps {
   onCityStart: () => void;
   onCitySave: () => void;
   onCityCancel: () => void;
+  onWeatherRefresh: () => void;
+  weatherAt: number | null;
 
   pomodoro: PomodoroState;
+
+  notes: string;
+  onNotes: (value: string) => void;
+  onNotesClear: () => void;
 
   todos: PetTodo[];
   todoDraft: string;
@@ -40,6 +48,7 @@ interface WidgetPanelProps {
   onTodoToggle: (id: number) => void;
   onTodoRemove: (id: number) => void;
   onTodoClearDone: () => void;
+  onTodoReorder: (fromId: number, toId: number) => void;
 
   hot: string[];
   hotLoading: boolean;
@@ -60,6 +69,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
     editMode,
     onToggle,
     onMove,
+    onMoveTo,
     weather,
     city,
     cityEditing,
@@ -68,7 +78,12 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onCityStart,
     onCitySave,
     onCityCancel,
+    onWeatherRefresh,
+    weatherAt,
     pomodoro,
+    notes,
+    onNotes,
+    onNotesClear,
     todos,
     todoDraft,
     onTodoDraft,
@@ -76,6 +91,7 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onTodoToggle,
     onTodoRemove,
     onTodoClearDone,
+    onTodoReorder,
     hot,
     hotLoading,
     onHotRefresh,
@@ -86,11 +102,13 @@ export function WidgetPanel(props: WidgetPanelProps) {
     onNavigate
   } = props;
 
+  const [todoExpanded, setTodoExpanded] = useState(false);
   const orderOf = (id: string) => {
     const index = order.indexOf(id);
     return index < 0 ? 99 : index;
   };
   const doneCount = todos.filter((todo) => todo.done).length;
+  const visibleTodos = todoExpanded ? todos : todos.slice(0, 4);
 
   return (
     <div className="start-widget-area">
@@ -101,7 +119,21 @@ export function WidgetPanel(props: WidgetPanelProps) {
             const visible = isVisible(id);
             const index = order.indexOf(id);
             return (
-              <div key={id} className={`start-widget-toggle${visible ? ' is-on' : ''}`}>
+              <div
+                key={id}
+                className={`start-widget-toggle${visible ? ' is-on' : ''}`}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('text/plain', `widget:${id}`);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const raw = event.dataTransfer.getData('text/plain');
+                  if (raw.startsWith('widget:')) onMoveTo(raw.slice(7), id);
+                }}
+              >
                 <label>
                   <input type="checkbox" checked={visible} onChange={() => onToggle(id)} />
                   {WIDGET_LABELS[id] || id}
@@ -155,6 +187,9 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   <MapPin size={10} /> {weather?.city || city}
                 </button>
               )}
+              <button className="start-widget-icon" title="刷新天气" onClick={onWeatherRefresh}>
+                <RefreshCw size={12} />
+              </button>
             </header>
             {weather ? (
               <div className="start-weather-body">
@@ -167,7 +202,12 @@ export function WidgetPanel(props: WidgetPanelProps) {
                 </div>
               </div>
             ) : (
-              <div className="start-widget-empty">天气获取失败，稍后重试</div>
+              <div className="start-widget-empty">
+                天气获取失败
+                <button className="start-widget-link" onClick={onWeatherRefresh}>
+                  重试
+                </button>
+              </div>
             )}
             {weather?.forecast && weather.forecast.length > 1 && (
               <div className="start-weather-days">
@@ -183,7 +223,8 @@ export function WidgetPanel(props: WidgetPanelProps) {
               </div>
             )}
             {weather &&
-              (typeof weather.apparent === 'number' ||
+              (weatherAt ||
+                typeof weather.apparent === 'number' ||
                 typeof weather.humidity === 'number' ||
                 typeof weather.wind === 'number') && (
                 <div className="start-weather-facts">
@@ -196,6 +237,15 @@ export function WidgetPanel(props: WidgetPanelProps) {
                   {typeof weather.wind === 'number' && (
                     <span>风 {Math.round(weather.wind)} km/h</span>
                   )}
+                  {weatherAt && (
+                    <span>
+                      更新{' '}
+                      {new Date(weatherAt).toLocaleTimeString('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  )}
                 </div>
               )}
           </article>
@@ -206,13 +256,37 @@ export function WidgetPanel(props: WidgetPanelProps) {
             <header className="start-widget-head">
               <ListChecks size={15} />
               <span>待办</span>
-              <span className="start-widget-meta">
-                {doneCount}/{todos.length}
-              </span>
+              {todos.length > 4 ? (
+                <button
+                  className="start-widget-meta"
+                  title={todoExpanded ? '收起待办' : '展开全部待办'}
+                  onClick={() => setTodoExpanded((value) => !value)}
+                >
+                  {todoExpanded ? '收起' : `全部 ${todos.length}`}
+                </button>
+              ) : (
+                <span className="start-widget-meta">
+                  {doneCount}/{todos.length}
+                </span>
+              )}
             </header>
-            <div className="start-todo-list">
-              {todos.slice(0, 4).map((todo) => (
-                <label key={todo.id} className="start-todo-item">
+            <div className={`start-todo-list${todoExpanded ? ' is-expanded' : ''}`}>
+              {visibleTodos.map((todo) => (
+                <label
+                  key={todo.id}
+                  className="start-todo-item"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', String(todo.id));
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const from = Number(event.dataTransfer.getData('text/plain'));
+                    if (Number.isFinite(from)) onTodoReorder(from, todo.id);
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={todo.done}
@@ -260,7 +334,14 @@ export function WidgetPanel(props: WidgetPanelProps) {
           <PomodoroWidget style={{ order: orderOf('pomodoro') }} {...pomodoro} />
         )}
 
-        {isVisible('notes') && <NotesWidget style={{ order: orderOf('notes') }} />}
+        {isVisible('notes') && (
+          <NotesWidget
+            style={{ order: orderOf('notes') }}
+            text={notes}
+            onChange={onNotes}
+            onClear={onNotesClear}
+          />
+        )}
 
         {isVisible('hot') && (
           <article className="start-widget" style={{ order: orderOf('hot') }}>

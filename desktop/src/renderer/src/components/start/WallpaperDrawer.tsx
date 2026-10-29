@@ -13,6 +13,10 @@ interface WallpaperDrawerProps {
   wallpaper: WallpaperId;
   wallpaperImage: string;
   wallpaperMedia: StartWallpaperMedia | null;
+  wallpaperPreview: string;
+  wallpaperPreviewKind: StartWallpaperMedia['kind'];
+  inkMode: 'auto' | 'light' | 'dark';
+  onInkMode: (mode: 'auto' | 'light' | 'dark') => void;
   bingWallpaper: { url: string; copyright: string } | null;
   blur: number;
   dim: number;
@@ -33,6 +37,10 @@ export function WallpaperDrawer({
   wallpaper,
   wallpaperImage,
   wallpaperMedia,
+  wallpaperPreview,
+  wallpaperPreviewKind,
+  inkMode,
+  onInkMode,
   bingWallpaper,
   blur,
   dim,
@@ -75,7 +83,11 @@ export function WallpaperDrawer({
                 <button
                   key={item.id}
                   className={`start-wallpaper-thumb start-wallpaper-${item.id}${active ? ' is-active' : ''}`}
-                  title={item.label}
+                  title={
+                    item.id === 'bing' && bingWallpaper?.copyright
+                      ? `${item.label} · ${bingWallpaper.copyright}`
+                      : item.label
+                  }
                   onClick={() => onPick(item.id)}
                 >
                   {item.id === 'bing' && bingWallpaper && (
@@ -91,6 +103,10 @@ export function WallpaperDrawer({
               );
             })}
           </div>
+
+          {wallpaper === 'bing' && bingWallpaper?.copyright && (
+            <div className="start-drawer-hint">{bingWallpaper.copyright}</div>
+          )}
 
           <div className="start-drawer-row">
             <label className="start-upload">
@@ -111,6 +127,23 @@ export function WallpaperDrawer({
               </button>
             )}
           </div>
+
+          {wallpaperPreview && (
+            <div className="start-drawer-preview">
+              {wallpaperPreviewKind === 'video' ? (
+                <video src={wallpaperPreview} muted loop autoPlay playsInline />
+              ) : (
+                <img src={wallpaperPreview} alt="" />
+              )}
+              <span>
+                {wallpaperMedia
+                  ? `${MEDIA_LABELS[wallpaperMedia.kind]} · ${
+                      wallpaperMedia.source === 'url' ? '直链' : '本地文件'
+                    }`
+                  : '自定义图片'}
+              </span>
+            </div>
+          )}
 
           <div className="start-drawer-url">
             <Link2 size={13} />
@@ -166,6 +199,26 @@ export function WallpaperDrawer({
               onChange={(event) => onDim(Number(event.target.value) / 100)}
             />
           </label>
+          <div className="start-ink-row">
+            <span className="start-ink-label">文字配色</span>
+            <div className="start-ink-toggle">
+              {(
+                [
+                  ['auto', '自动'],
+                  ['light', '浅色字'],
+                  ['dark', '深色字']
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  className={inkMode === id ? 'is-active' : ''}
+                  onClick={() => onInkMode(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="start-drawer-section">

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
 
 function commands(run: (id: string) => void): PaletteCommand[] {
@@ -12,7 +12,10 @@ function commands(run: (id: string) => void): PaletteCommand[] {
 }
 
 describe('CommandPalette', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    localStorage.clear();
+  });
 
   it('展示分组并可以过滤', () => {
     render(<CommandPalette open commands={commands(() => undefined)} onClose={() => undefined} />);
@@ -58,6 +61,20 @@ describe('CommandPalette', () => {
     expect(screen.getByText('搜索 拾字')).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Enter' });
     expect(run).toHaveBeenCalledWith('search');
+  });
+
+  it('非连续输入也能模糊命中', () => {
+    render(<CommandPalette open commands={commands(() => undefined)} onClose={() => undefined} />);
+    fireEvent.change(screen.getByLabelText('指令面板搜索'), { target: { value: '显签' } });
+    expect(screen.getByText('显示便签')).toBeTruthy();
+  });
+
+  it('执行过的命令进入最近使用', async () => {
+    render(<CommandPalette open commands={commands(() => undefined)} onClose={() => undefined} />);
+    fireEvent.click(screen.getByText('进入禅模式'));
+    expect(JSON.parse(localStorage.getItem('start-palette-recent') || '[]')).toContain('zen');
+    await waitFor(() => expect(screen.getByText('最近使用')).toBeTruthy());
+    expect(screen.getAllByText('进入禅模式').length).toBeGreaterThan(0);
   });
 
   it('Esc 关闭，没有匹配时显示空态', () => {

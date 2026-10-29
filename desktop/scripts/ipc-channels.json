@@ -245,6 +245,7 @@
   "start:bing-wallpaper",
   "start:hot",
   "start:probe-site",
+  "start:suggest",
   "start:weather",
   "subtitle:pick-file",
   "subtitle:resegment",

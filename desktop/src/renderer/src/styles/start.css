@@ -1626,6 +1626,9 @@
   left: 50%;
   bottom: 72px;
   z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   transform: translateX(-50%);
   padding: 8px 14px;
   border-radius: 999px;
@@ -1634,6 +1637,12 @@
   box-shadow: var(--start-shadow);
   color: var(--start-text);
   font-size: var(--fs-sm);
+}
+
+.start-toast-undo {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 /* ---------- 起始页：标签筛选与详情 ---------- */
@@ -2257,4 +2266,190 @@
   font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--start-faint);
+}
+
+/* ---------- 壁纸预览 / 文字配色 ---------- */
+.start-drawer-preview {
+  position: relative;
+  height: 96px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--start-border);
+}
+
+.start-drawer-preview img,
+.start-drawer-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.start-drawer-preview span {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: var(--fs-xs);
+}
+
+.start-ink-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.start-ink-label {
+  font-size: var(--fs-sm);
+  color: var(--start-muted);
+}
+
+.start-ink-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--start-soft);
+}
+
+.start-ink-toggle button {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+}
+
+.start-ink-toggle button.is-active {
+  background: var(--start-surface-solid);
+  color: var(--start-text);
+  box-shadow: var(--start-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-page *,
+  .start-page *::before,
+  .start-page *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- 壁纸图层 / 过渡 ---------- */
+.start-wallpaper-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  animation: start-wallpaper-in 0.45s ease;
+}
+
+.start-wallpaper-video {
+  animation: start-wallpaper-in 0.45s ease;
+}
+
+@keyframes start-wallpaper-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- 禅模式 ---------- */
+.start-page.is-minimal .start-topbar-actions > *:not(.start-zen-toggle) {
+  display: none;
+}
+
+.start-page.is-minimal .start-clock {
+  animation: start-zen-breathe 6s ease-in-out infinite;
+}
+
+@keyframes start-zen-breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+.start-zen-hint {
+  margin-top: 8px;
+  color: var(--start-faint);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+}
+
+/* ---------- 首次提示 ---------- */
+.start-onboarding {
+  position: fixed;
+  right: 24px;
+  bottom: 84px;
+  z-index: 30;
+  width: 270px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--start-border);
+  background: var(--start-surface-solid);
+  box-shadow: var(--start-shadow-lg);
+}
+
+.start-onboarding-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--start-text);
+}
+
+.start-onboarding ul {
+  margin: 8px 0 12px;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--start-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.start-onboarding kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--start-soft);
+  color: var(--start-text);
+  font-size: var(--fs-xs);
+}
+
+.start-onboarding-go {
+  width: 100%;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--start-accent-ink);
+  font-size: var(--fs-sm);
+}
+
+/* ---------- 待办 / 小组件拖拽 ---------- */
+.start-todo-list.is-expanded {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.start-widget-toggle[draggable='true'],
+.start-todo-item[draggable='true'] {
+  cursor: grab;
 }

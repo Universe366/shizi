@@ -238,3 +238,27 @@ describe('壁纸备份', () => {
     }
   });
 });
+import { normalizeUsage } from './model';
+
+describe('起始页数据备份', () => {
+  it('便签、使用次数与番茄轮数可导出还原', () => {
+    const backup = buildStartBackup({
+      shortcuts: [{ id: 'a', label: 'B 站', url: 'https://www.bilibili.com', group: '常用' }],
+      notes: '记一笔',
+      usage: { a: 3 },
+      pomodoroRounds: 2
+    });
+    const parsed = parseStartBackup(JSON.stringify(backup));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.data.prefs.notes).toBe('记一笔');
+      expect(parsed.data.prefs.usage).toEqual({ a: 3 });
+      expect(parsed.data.prefs.pomodoroRounds).toBe(2);
+    }
+  });
+
+  it('使用次数只保留正整数', () => {
+    expect(normalizeUsage({ a: 2, b: 0, c: -1, d: 'x' })).toEqual({ a: 2 });
+    expect(normalizeUsage(null)).toBeUndefined();
+  });
+});

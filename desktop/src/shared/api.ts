@@ -459,7 +459,7 @@ export interface BsubApi {
   closeShown?(): void;
   closeDecision(choice: 'tray' | 'quit' | 'cancel', remember: boolean): void;
   /** 起始页天气（Open-Meteo） */
-  startWeather(city: string): Promise<
+  startWeather(city: string, force?: boolean): Promise<
     Result<{
       city: string;
       temperature: number;
@@ -472,6 +472,8 @@ export interface BsubApi {
       forecast?: Array<{ date: string; high: number; low: number; description: string }>;
     }>
   >;
+  /** 起始页搜索联想（Bing osjson，失败返回空数组） */
+  startSuggest(query: string): Promise<Result<string[]>>;
   /** 起始页 B 站热搜 */
   startHotSearch(force?: boolean): Promise<Result<string[]>>;
   startBingWallpaper(): Promise<Result<{ url: string; copyright: string }>>;

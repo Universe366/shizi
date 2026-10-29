@@ -599,8 +599,10 @@ const api: BsubApi = {
   closeShown: () => ipcRenderer.send('app:close-shown'),
   closeDecision: (choice: 'tray' | 'quit' | 'cancel', remember: boolean) =>
     ipcRenderer.send('app:close-decision', { choice, remember }),
-  startWeather: (city: string) => ipcRenderer.invoke('start:weather', city),
+  startWeather: (city: string, force?: boolean) =>
+    ipcRenderer.invoke('start:weather', city, force === true),
   startHotSearch: (force?: boolean) => ipcRenderer.invoke('start:hot', force === true),
+  startSuggest: (query: string) => ipcRenderer.invoke('start:suggest', query),
   startBingWallpaper: () => ipcRenderer.invoke('start:bing-wallpaper'),
   setDefaultModel: (platformId: string, model: string) =>
     ipcRenderer.invoke('ai:set-default-model', { platformId, model }) as Promise<

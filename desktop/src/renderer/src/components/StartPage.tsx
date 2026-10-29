@@ -7,6 +7,7 @@ import {
   Download,
   Flame,
   BookOpen,
+  Globe,
   History,
   Library,
   Info,
@@ -55,8 +56,6 @@ import {
   lunarDate,
   videoLuminance,
   wallpaperMediaFromUrl,
-  POMODORO_SECONDS,
-  nextPomodoroPhase,
   isStartDensity,
   isUrlLike,
   matchShortcut,
@@ -64,18 +63,19 @@ import {
   autofillShortcuts,
   filterByTag,
   normalizeTags,
+  normalizeUsage,
   parseStartBackup,
   topTags,
   topUsed,
   type InkMode,
-  type PomodoroPhase,
   type StartDensity,
   type StartUsage,
   type WallpaperId,
   type Weather
 } from './start/model';
 import { clearWallpaperBlob, loadWallpaperBlob, saveWallpaperBlob } from './start/wallpaperStore';
-import { playChime } from './start/chime';
+import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
+import { useReducedMotion } from './start/useReducedMotion';
 
 const SHORTCUT_BACKUP_KEY = 'start-shortcut-backup';
 const EFFECT_KEY = 'start-wallpaper-effect';
@@ -83,6 +83,8 @@ const MINIMAL_KEY = 'start-minimal';
 const DENSITY_KEY = 'start-density';
 const COLLAPSED_KEY = 'start-collapsed-groups';
 const USAGE_KEY = 'start-usage';
+const NOTES_KEY = 'start-notes';
+const INK_KEY = 'start-ink-mode';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -152,16 +154,26 @@ function readCollapsed(): string[] {
 
 function readUsage(): StartUsage {
   try {
-    const raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}');
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-    const out: StartUsage = {};
-    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-      const count = Number(value);
-      if (Number.isFinite(count) && count > 0) out[key] = Math.min(9999, Math.floor(count));
-    }
-    return out;
+    return normalizeUsage(JSON.parse(localStorage.getItem(USAGE_KEY) || '{}')) || {};
   } catch {
     return {};
+  }
+}
+
+function readNotes(): string {
+  try {
+    return localStorage.getItem(NOTES_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function readInkMode(): 'auto' | InkMode {
+  try {
+    const value = localStorage.getItem(INK_KEY);
+    return value === 'light' || value === 'dark' ? value : 'auto';
+  } catch {
+    return 'auto';
   }
 }
 
@@ -195,10 +207,10 @@ export function StartPage({
   const [wallpaperMedia, setWallpaperMedia] = useState<StartWallpaperMedia | null>(null);
   const [mediaUrl, setMediaUrl] = useState('');
   const [ink, setInk] = useState<InkMode | null>(null);
-  const [pomoPhase, setPomoPhase] = useState<PomodoroPhase>('work');
-  const [pomoLeft, setPomoLeft] = useState(POMODORO_SECONDS.work);
-  const [pomoRunning, setPomoRunning] = useState(false);
-  const [pomoRounds, setPomoRounds] = useState(0);
+  const [inkMode, setInkMode] = useState<'auto' | InkMode>(readInkMode);
+  const [weatherAt, setWeatherAt] = useState<number | null>(null);
+  const pomodoro = usePomodoro();
+  const reducedMotion = useReducedMotion();
   const [widgetOrder, setWidgetOrder] = useState<string[]>([
     'weather',
     'todo',
@@ -235,6 +247,7 @@ export function StartPage({
       return [];
     }
   });
+  const [remoteSuggest, setRemoteSuggest] = useState<string[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchActive, setSearchActive] = useState(-1);
   const [cityEditing, setCityEditing] = useState(false);
@@ -243,10 +256,19 @@ export function StartPage({
   const [density, setDensity] = useState<StartDensity>(readDensity);
   const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
   const [usage, setUsage] = useState<StartUsage>(readUsage);
-  const [notice, setNotice] = useState('');
+  const [notes, setNotes] = useState(readNotes);
+  const [notice, setNotice] = useState<{ text: string; undo?: () => void } | null>(null);
+  const noticeTimer = useRef<number | null>(null);
   const [activeTag, setActiveTag] = useState('');
   const [detail, setDetail] = useState<StartShortcut | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [onboarding, setOnboarding] = useState(() => {
+    try {
+      return localStorage.getItem('start-onboarding-done') !== '1';
+    } catch {
+      return false;
+    }
+  });
   const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -315,9 +337,10 @@ export function StartPage({
   useEffect(() => {
     if (!weatherOn || !widgetOrder.includes('weather')) return;
     let alive = true;
-    void window.bsub.startWeather(city).then((response) => {
+    void window.bsub.startWeather(city, false).then((response) => {
       if (!alive) return;
       setWeather(response.ok ? response.data : null);
+      if (response.ok) setWeatherAt(Date.now());
     });
     return () => {
       alive = false;
@@ -334,6 +357,42 @@ export function StartPage({
       alive = false;
     };
   }, [hotOn, widgetOrder]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem(NOTES_KEY, notes);
+      } catch {
+        // ignore
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [notes]);
+
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    },
+    []
+  );
+
+  useEffect(() => {
+    const value = query.trim();
+    if (value.length < 2) {
+      setRemoteSuggest([]);
+      return;
+    }
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      void window.bsub.startSuggest?.(value).then((response) => {
+        if (alive) setRemoteSuggest(response?.ok ? response.data.slice(0, 6) : []);
+      });
+    }, 250);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -402,21 +461,7 @@ export function StartPage({
     };
   }, [wallpaperMedia, mediaUrl, wallpaperImage, wallpaper, bingWallpaper]);
 
-  useEffect(() => {
-    if (!pomoRunning) return;
-    const timer = window.setInterval(() => setPomoLeft((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearInterval(timer);
-  }, [pomoRunning]);
 
-  useEffect(() => {
-    if (pomoLeft > 0) return;
-    const completed = pomoPhase === 'work' ? pomoRounds + 1 : pomoRounds;
-    if (pomoPhase === 'work') setPomoRounds(completed);
-    const next = nextPomodoroPhase(pomoPhase, completed);
-    setPomoPhase(next);
-    setPomoLeft(POMODORO_SECONDS[next]);
-    if (pomoRunning) playChime();
-  }, [pomoLeft, pomoPhase, pomoRounds, pomoRunning]);
 
 
   useEffect(() => {
@@ -547,11 +592,77 @@ export function StartPage({
     setTodoDraft('');
   };
 
+  const removeTodo = (id: number) => {
+    const previous = todos;
+    void persistTodos(todos.filter((item) => item.id !== id));
+    showNotice('已删除待办', () => {
+      void persistTodos(previous);
+    });
+  };
+
+  const clearDoneTodos = () => {
+    const previous = todos;
+    const next = todos.filter((item) => !item.done);
+    if (next.length === previous.length) return;
+    void persistTodos(next);
+    showNotice(`已清除 ${previous.length - next.length} 条已完成`, () => {
+      void persistTodos(previous);
+    });
+  };
+
+  const reorderTodos = (fromId: number, toId: number) => {
+    const from = todos.findIndex((item) => item.id === fromId);
+    const to = todos.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const previous = todos;
+    const next = [...todos];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    void persistTodos(next);
+    showNotice('已调整待办顺序', () => {
+      void persistTodos(previous);
+    });
+  };
+
+  const dismissOnboarding = () => {
+    setOnboarding(false);
+    try {
+      localStorage.setItem('start-onboarding-done', '1');
+    } catch {
+      // ignore
+    }
+  };
+
+  const clearNotes = () => {
+    const previous = notes;
+    setNotes('');
+    showNotice('便签已清空', () => setNotes(previous));
+  };
+
+  const refreshWeather = async () => {
+    const response = await window.bsub.startWeather(city, true);
+    if (response.ok) {
+      setWeather(response.data);
+      setWeatherAt(Date.now());
+    } else {
+      showNotice('天气刷新失败');
+    }
+  };
+
   const saveCity = () => {
     const next = cityDraft.trim() || city;
     setCity(next);
     setCityEditing(false);
     void patchGeneral({ startCity: next });
+  };
+
+  const changeInkMode = (next: 'auto' | InkMode) => {
+    setInkMode(next);
+    try {
+      localStorage.setItem(INK_KEY, next);
+    } catch {
+      // ignore
+    }
   };
 
   const refreshHot = async () => {
@@ -647,7 +758,12 @@ export function StartPage({
   };
 
   const removeShortcut = (id: string) => {
+    const previous = shortcuts;
+    const target = shortcuts.find((item) => item.id === id);
     void persistShortcuts(shortcuts.filter((item) => item.id !== id));
+    showNotice(target ? `已删除「${target.label}」` : '已删除', () => {
+      void persistShortcuts(previous);
+    });
   };
 
   const addShortcuts = (items: Array<{ label: string; url: string; group: string }>) => {
@@ -743,6 +859,11 @@ export function StartPage({
           kind: 'search'
         });
       }
+      for (const text of remoteSuggest) {
+        if (!text || items.some((item) => item.text === text)) continue;
+        items.push({ text, label: text, kind: 'search', hint: engineLabel });
+        if (items.length >= 7) break;
+      }
     }
     for (const entry of searchHistory) {
       if (value && !entry.toLowerCase().includes(value.toLowerCase())) continue;
@@ -751,7 +872,7 @@ export function StartPage({
       if (items.length >= 7) break;
     }
     return items;
-  }, [query, shortcuts, searchHistory, engineLabel]);
+  }, [query, shortcuts, searchHistory, remoteSuggest, engineLabel]);
 
   const widgetVisible = (id: string) => {
     if (!widgetOrder.includes(id)) return false;
@@ -778,6 +899,17 @@ export function StartPage({
       patch.startHotSearch = !visible;
     }
     void patchGeneral(patch);
+  };
+
+  const moveWidgetTo = (fromId: string, toId: string) => {
+    const from = widgetOrder.indexOf(fromId);
+    const to = widgetOrder.indexOf(toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...widgetOrder];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setWidgetOrder(next);
+    void patchGeneral({ startWidgets: next });
   };
 
   const moveWidget = (id: string, delta: number) => {
@@ -857,17 +989,7 @@ export function StartPage({
     void patchGeneral({ startWallpaperMedia: undefined, startWallpaperImage: '' });
   };
 
-  const togglePomodoro = () => setPomoRunning((value) => !value);
-  const resetPomodoro = () => {
-    setPomoRunning(false);
-    setPomoPhase('work');
-    setPomoLeft(POMODORO_SECONDS.work);
-  };
-  const pickPomodoroPhase = (phase: PomodoroPhase) => {
-    setPomoRunning(false);
-    setPomoPhase(phase);
-    setPomoLeft(POMODORO_SECONDS[phase]);
-  };
+
 
   const updateEffect = (next: { blur: number; dim: number }) => {
     setEffect(next);
@@ -910,9 +1032,10 @@ export function StartPage({
     });
   };
 
-  const showNotice = (text: string) => {
-    setNotice(text);
-    window.setTimeout(() => setNotice(''), 2600);
+  const showNotice = (text: string, undo?: () => void) => {
+    setNotice({ text, undo });
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), undo ? 6000 : 2600);
   };
 
   const exportStart = () => {
@@ -927,7 +1050,10 @@ export function StartPage({
       city,
       widgets: widgetOrder,
       weatherOn,
-      hotOn
+      hotOn,
+      notes,
+      usage,
+      pomodoroRounds: pomodoro.rounds
     });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1004,9 +1130,30 @@ export function StartPage({
       setHotOn(prefs.hotOn);
       void patchGeneral({ startHotSearch: prefs.hotOn });
     }
+    if (typeof prefs.notes === 'string') setNotes(prefs.notes);
+    if (prefs.usage) {
+      setUsage((current) => {
+        const merged = { ...current };
+        for (const [key, count] of Object.entries(prefs.usage || {})) {
+          merged[key] = Math.max(merged[key] || 0, count);
+        }
+        try {
+          localStorage.setItem(USAGE_KEY, JSON.stringify(merged));
+        } catch {
+          // ignore
+        }
+        return merged;
+      });
+    }
+    if (typeof prefs.pomodoroRounds === 'number') {
+      pomodoroActions.setRounds(prefs.pomodoroRounds);
+    }
     showNotice(`已合并导入 ${incoming.length} 个快捷方式`);
   };
 
+  const effectiveInk = inkMode === 'auto' ? ink : inkMode;
+  const wallpaperPreview = wallpaperMedia ? mediaUrl : wallpaperImage;
+  const wallpaperPreviewKind = wallpaperMedia?.kind || 'image';
   const videoBackground = wallpaperMedia?.kind === 'video' ? mediaUrl : '';
   const backgroundImage = wallpaperMedia
     ? wallpaperMedia.kind === 'video'
@@ -1103,19 +1250,23 @@ export function StartPage({
   return (
     <div
       className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
-        ink ? ` is-ink-${ink}` : ''
+        effectiveInk ? ` is-ink-${effectiveInk}` : ''
       }`}
-      style={
-        backgroundImage
-          ? { backgroundImage: `url(${backgroundImage})` }
-          : undefined
-      }
     >
+      {!videoBackground && backgroundImage && (
+        <div
+          key={backgroundImage}
+          className="start-wallpaper-layer"
+          style={{ backgroundImage: `url(${backgroundImage})` }}
+          aria-hidden="true"
+        />
+      )}
       {videoBackground && (
         <video
           className="start-wallpaper-video"
           src={videoBackground}
-          autoPlay
+          autoPlay={!reducedMotion}
+          preload="metadata"
           muted
           loop
           playsInline
@@ -1146,7 +1297,7 @@ export function StartPage({
             <Command size={14} />
           </button>
           <button
-            className={`start-ghost-btn${minimal ? ' is-active' : ''}`}
+            className={`start-ghost-btn start-zen-toggle${minimal ? ' is-active' : ''}`}
             title="极简模式"
             onClick={() => toggleMinimal(!minimal)}
           >
@@ -1181,6 +1332,7 @@ export function StartPage({
             {greeting(now)}，
             {now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
+          {minimal && <div className="start-zen-hint">按 Esc 退出禅模式</div>}
 
           <SearchBar
             query={query}
@@ -1272,6 +1424,7 @@ export function StartPage({
             editMode={editMode}
             onToggle={toggleWidget}
             onMove={moveWidget}
+            onMoveTo={moveWidgetTo}
             weather={weather}
             city={city}
             cityEditing={cityEditing}
@@ -1283,15 +1436,17 @@ export function StartPage({
             }}
             onCitySave={saveCity}
             onCityCancel={() => setCityEditing(false)}
+            onWeatherRefresh={() => void refreshWeather()}
+            weatherAt={weatherAt}
             pomodoro={{
-              phase: pomoPhase,
-              left: pomoLeft,
-              running: pomoRunning,
-              rounds: pomoRounds,
-              onToggle: togglePomodoro,
-              onReset: resetPomodoro,
-              onPhase: pickPomodoroPhase
+              ...pomodoro,
+              onToggle: pomodoroActions.toggle,
+              onReset: pomodoroActions.reset,
+              onPhase: pomodoroActions.setPhase
             }}
+            notes={notes}
+            onNotes={setNotes}
+            onNotesClear={clearNotes}
             todos={todos}
             todoDraft={todoDraft}
             onTodoDraft={setTodoDraft}
@@ -1301,8 +1456,9 @@ export function StartPage({
                 todos.map((item) => (item.id === id ? { ...item, done: !item.done } : item))
               )
             }
-            onTodoRemove={(id) => void persistTodos(todos.filter((item) => item.id !== id))}
-            onTodoClearDone={() => void persistTodos(todos.filter((item) => !item.done))}
+            onTodoRemove={removeTodo}
+            onTodoClearDone={clearDoneTodos}
+            onTodoReorder={reorderTodos}
             hot={hot}
             hotLoading={hotLoading}
             onHotRefresh={() => void refreshHot()}
@@ -1319,7 +1475,19 @@ export function StartPage({
 
         {notice && (
           <div className="start-toast" role="status">
-            {notice}
+            <span>{notice.text}</span>
+            {notice.undo && (
+              <button
+                className="start-toast-undo"
+                onClick={() => {
+                  const undo = notice.undo;
+                  setNotice(null);
+                  undo?.();
+                }}
+              >
+                撤销
+              </button>
+            )}
           </div>
         )}
 
@@ -1373,10 +1541,10 @@ export function StartPage({
           builtIn={builtIn}
           weather={weather}
           pomodoro={{
-            phase: pomoPhase,
-            left: pomoLeft,
-            running: pomoRunning,
-            onToggle: togglePomodoro
+            phase: pomodoro.phase,
+            left: pomodoro.left,
+            running: pomodoro.running,
+            onToggle: pomodoroActions.toggle
           }}
           zen={minimal}
           onOpenShortcut={openShortcut}
@@ -1391,6 +1559,10 @@ export function StartPage({
         wallpaper={wallpaper}
         wallpaperImage={wallpaperImage}
         wallpaperMedia={wallpaperMedia}
+        wallpaperPreview={wallpaperPreview}
+        wallpaperPreviewKind={wallpaperPreviewKind}
+        inkMode={inkMode}
+        onInkMode={changeInkMode}
         bingWallpaper={bingWallpaper}
         blur={effect.blur}
         dim={effect.dim}
@@ -1418,22 +1590,42 @@ export function StartPage({
         onClose={() => setWallpaperOpen(false)}
       />
 
+      {onboarding && (
+        <aside className="start-onboarding" aria-label="起始页提示">
+          <div className="start-onboarding-title">起始页快捷操作</div>
+          <ul>
+            <li>
+              <kbd>Ctrl/⌘ + K</kbd> 打开指令面板
+            </li>
+            <li>
+              <kbd>E</kbd> 进入编辑模式
+            </li>
+            <li>右键卡片查看更多操作</li>
+          </ul>
+          <button className="start-onboarding-go" onClick={dismissOnboarding}>
+            开始使用
+          </button>
+        </aside>
+      )}
+
       <CommandPalette
         open={paletteOpen}
         commands={commands}
         buildQueryCommands={(value) => {
           const text = value.trim();
-          return text
-            ? [
-                {
-                  id: 'palette-search',
-                  group: '搜索',
-                  label: `在 ${engineLabel} 搜索“${text}”`,
-                  icon: Search,
-                  run: () => commitSearch(text)
-                }
-              ]
-            : [];
+          if (!text) return [];
+          const video = /^(BV[0-9A-Za-z]{10}|av\d+)$/i.test(text);
+          const target = video ? `https://www.bilibili.com/video/${text}` : text;
+          const openable = video || isUrlLike(text);
+          return [
+            {
+              id: 'palette-search',
+              group: '搜索',
+              label: openable ? `打开 ${text}` : `在 ${engineLabel} 搜索“${text}”`,
+              icon: openable ? Globe : Search,
+              run: () => commitSearch(target)
+            }
+          ];
         }}
         onClose={() => setPaletteOpen(false)}
       />

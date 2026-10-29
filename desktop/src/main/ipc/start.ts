@@ -27,6 +27,8 @@ const WEATHER_TTL = 30 * 60 * 1000;
 const HOT_TTL = 10 * 60 * 1000;
 let weatherCache: { city: string; at: number; data: WeatherInfo } | null = null;
 let hotCache: { at: number; data: string[] } | null = null;
+const suggestCache = new Map<string, { at: number; data: string[] }>();
+const SUGGEST_TTL = 10 * 60 * 1000;
 let bingCache: { at: number; data: { url: string; copyright: string } } | null = null;
 
 const WEATHER_CODES: Record<number, string> = {
@@ -129,10 +131,15 @@ async function fetchHot(): Promise<string[]> {
 }
 
 export function registerStartIpc(): void {
-  ipcMain.handle('start:weather', async (_event, rawCity: unknown) => {
+  ipcMain.handle('start:weather', async (_event, rawCity: unknown, force?: unknown) => {
     const city = String(rawCity || '上海').trim().slice(0, 20) || '上海';
     const now = Date.now();
-    if (weatherCache && weatherCache.city === city && now - weatherCache.at < WEATHER_TTL) {
+    if (
+      force !== true &&
+      weatherCache &&
+      weatherCache.city === city &&
+      now - weatherCache.at < WEATHER_TTL
+    ) {
       return { ok: true, data: weatherCache.data };
     }
     try {
@@ -141,6 +148,37 @@ export function registerStartIpc(): void {
       return { ok: true, data };
     } catch (error) {
       return failure(`天气获取失败：${(error as Error).message}`);
+    }
+  });
+
+  ipcMain.handle('start:suggest', async (_event, rawQuery: unknown) => {
+    const query = String(rawQuery || '').trim().slice(0, 40);
+    if (query.length < 2) return { ok: true, data: [] };
+    const cached = suggestCache.get(query);
+    if (cached && Date.now() - cached.at < SUGGEST_TTL) {
+      return { ok: true, data: cached.data };
+    }
+    try {
+      const response = await fetch(
+        `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(query)}&mkt=zh-CN`,
+        {
+          headers: { 'User-Agent': 'Mozilla/5.0 Shizi/0.124' },
+          signal: AbortSignal.timeout(3000)
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = (await response.json()) as [string, string[]];
+      const list = Array.isArray(json?.[1]) ? json[1] : [];
+      const data = list
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 6);
+      if (suggestCache.size > 50) suggestCache.clear();
+      suggestCache.set(query, { at: Date.now(), data });
+      return { ok: true, data };
+    } catch {
+      // 联想失败静默回退本地建议
+      return { ok: true, data: [] };
     }
   });
 

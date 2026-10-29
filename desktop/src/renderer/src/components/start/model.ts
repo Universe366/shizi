@@ -383,6 +383,9 @@ export interface StartBackup {
     widgets?: string[];
     weatherOn?: boolean;
     hotOn?: boolean;
+    notes?: string;
+    usage?: StartUsage;
+    pomodoroRounds?: number;
   };
 }
 
@@ -398,6 +401,9 @@ export interface StartBackupInput {
   widgets?: string[];
   weatherOn?: boolean;
   hotOn?: boolean;
+  notes?: string;
+  usage?: StartUsage;
+  pomodoroRounds?: number;
 }
 
 const MAX_BACKUP_SHORTCUTS = 500;
@@ -453,7 +459,10 @@ export function buildStartBackup(input: StartBackupInput): StartBackup {
       city: input.city,
       widgets: input.widgets,
       weatherOn: input.weatherOn,
-      hotOn: input.hotOn
+      hotOn: input.hotOn,
+      notes: input.notes !== undefined ? String(input.notes).slice(0, 20000) : undefined,
+      usage: input.usage,
+      pomodoroRounds: input.pomodoroRounds
     }
   };
 }
@@ -537,7 +546,12 @@ export function parseStartBackup(text: string): ParsedBackup {
           ? prefsRaw.widgets.filter((item): item is string => typeof item === 'string').slice(0, 12)
           : undefined,
         weatherOn: prefsRaw.weatherOn === true,
-        hotOn: prefsRaw.hotOn === true
+        hotOn: prefsRaw.hotOn === true,
+        notes: typeof prefsRaw.notes === 'string' ? prefsRaw.notes.slice(0, 20000) : undefined,
+        usage: normalizeUsage(prefsRaw.usage),
+        pomodoroRounds: Number.isFinite(Number(prefsRaw.pomodoroRounds))
+          ? Math.max(0, Math.min(9999, Math.floor(Number(prefsRaw.pomodoroRounds))))
+          : undefined
       }
     }
   };
@@ -668,6 +682,17 @@ export async function autofillShortcuts(
 }
 
 export type StartUsage = Record<string, number>;
+
+/** 使用次数只保留正整数，避免导入坏数据把 UI 撑坏。 */
+export function normalizeUsage(value: unknown): StartUsage | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const usage: StartUsage = {};
+  for (const [key, count] of Object.entries(value as Record<string, unknown>)) {
+    const number = Number(count);
+    if (Number.isFinite(number) && number > 0) usage[key] = Math.min(9999, Math.floor(number));
+  }
+  return Object.keys(usage).length ? usage : undefined;
+}
 
 export function bumpUsage(usage: StartUsage, id: string): StartUsage {
   if (!id) return usage;

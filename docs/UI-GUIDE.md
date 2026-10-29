@@ -234,21 +234,26 @@ start-footnote   操作提示、导入导出设置
 
 ### 交互约定
 
-- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；`/` 聚焦搜索框，`Esc` 先清空再关闭。
-- 指令面板：`Ctrl/⌘ + K` 打开，输入过滤，`↑`/`↓` 选择、`Enter` 执行、`Esc` 关闭；命令由 StartPage 组装（操作 / 页面 / 小组件 / 搜索 / 快捷方式），没有匹配时显示空态。
+- 搜索：输入即匹配收藏站点（第一条建议直接打开），名称完全一致时回车直达；输入 ≥2 字后 250ms 防抖请求 Bing 联想词（主进程缓存 10 分钟，失败静默回退本地建议）。`/` 聚焦搜索框，`Esc` 先清空再关闭。
+- 指令面板：`Ctrl/⌘ + K` 打开，子序列模糊匹配，`↑`/`↓` 选择、`Enter` 执行、`Esc` 关闭、`Tab` 在面板内循环；命令由 StartPage 组装（搜索 / 最近使用 / 操作 / 页面 / 小组件 / 快捷方式）。执行过的命令记入 `localStorage: start-palette-recent`，关闭后焦点回到打开前的位置。输入网址或 BV 号时第一条是「打开 …」。
 - 卡片：左键打开，右键菜单「打开 / 详情 / 复制链接 / 编辑 / 删除」，编辑模式下可拖拽排序与换组；卡片右上角 ⓘ 打开详情。
 - 标签：编辑弹窗可填描述与标签（≤6，逗号/空格分隔）；标签行按标签筛选，可与分组、常用叠加。
 - 分组：标题前的箭头可折叠/展开；编辑态可重命名（分组标题旁 ✎），删除分组会把站点移到「常用」。
 - 密度：标签栏右侧「舒适 / 紧凑 / 大图标」，紧凑模式隐藏域名、只留图标与名称。
 - 常用：按打开次数排序的虚拟标签（最多 8 个），次数存在本地。
-- 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式、外观偏好与壁纸直链；导入走 `parseStartBackup()` 校验并 askConfirm 合并。本地 GIF/视频在 IndexedDB，不随备份导出。
+- 数据：标签栏「导出 / 导入」按钮，JSON 含快捷方式、外观偏好、壁纸直链、便签、使用次数与番茄轮数；导入走 `parseStartBackup()` 校验并 askConfirm 合并。本地 GIF/视频在 IndexedDB，不随备份导出。
+- 撤销：删除快捷方式、删除待办、清除已完成、清空便签都会弹 6 秒 toast，点「撤销」恢复上一步。
+- 待办与小组件：待办超过 4 条可展开/收起，条目可拖动排序；编辑态的小组件开关可拖动调整顺序（也保留 ↑↓）。
 - 自动获取：编辑弹窗「自动获取」调用 `start:probe-site` 填标题/描述；批量导入时名称仍是域名的条目会自动补全（最多 8 个、3 并发），失败保留原值。
 - 批量导入：标签栏「批量」粘贴多行「名称 URL / 纯网址」，解析规则在 `start/model.ts` 的 `parseShortcutLines()`。
-- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。
-- 墨色自适应：对自定义壁纸与必应每日图采样平均亮度，给 `.start-page` 加 `is-ink-light` / `is-ink-dark`；远程图/视频无 CORS 时保持主题默认。
-- 禅模式（极简模式）：隐藏小组件、站点分组、常去站点、Dock 与底部提示，只留时钟、农历与搜索；`Esc` 直接退出。
-- 番茄钟：专注 25 分钟与休息 5 分钟两档，开始/暂停/重置，阶段结束自动切换并累计轮数。
-- 便签：直接写在卡片里，停止输入约 350ms 后写入 `localStorage: start-notes`。
+- 壁纸：右侧抽屉，含 6 套壁纸、本地上传图片 / GIF / 静音视频、远程直链、模糊与遮罩滑杆；自定义图片会压成 JPEG，GIF/视频原样存 IndexedDB。抽屉会预览当前自定义壁纸，必应每日图显示版权 tooltip。壁纸在独立 `.start-wallpaper-layer` 图层里淡入，不再直接写页面背景。
+- 墨色自适应：对自定义壁纸与必应每日图采样平均亮度，给 `.start-page` 加 `is-ink-light` / `is-ink-dark`；抽屉可手动选「自动 / 浅色字 / 深色字」（`localStorage: start-ink-mode`）。远程图/视频无 CORS 时保持主题默认。
+- 动态降级：`prefers-reduced-motion` 下动画/过渡近似关闭，壁纸视频不自动播放。
+- 禅模式（极简模式）：隐藏小组件、站点分组、常去站点、Dock 与底部提示，顶栏只留禅模式按钮，显示「按 Esc 退出禅模式」与轻微的呼吸动画；`Esc` 直接退出。
+- 首次提示：第一次进入起始页显示快捷操作卡（Ctrl/⌘+K、E、右键），点「开始使用」后写入 `localStorage: start-onboarding-done`。
+- 番茄钟：专注 25 / 短休 5 / 长休 15，开始/暂停/重置；状态在模块级 store（`start/pomodoroStore.ts`），离开起始页或重启应用后按 `endAt` 续跑，Dock 徽标同步显示剩余分钟。每完成 4 个专注自动进长休。
+- 天气：体感 / 湿度 / 风 / 4 日预报；右上角刷新按钮强制绕过 30 分钟缓存，并显示「更新 HH:MM」；失败时卡片内可重试。
+- 便签：直接写在卡片里，由 StartPage 统一持有，停止输入约 350ms 后写入 `localStorage: start-notes`，并随起始页备份导出。
 
 ### 状态与持久化
 
@@ -267,7 +272,11 @@ start-footnote   操作提示、导入导出设置
 | 卡片密度 | `localStorage: start-density`（comfortable/compact/large） |
 | 折叠的分组 | `localStorage: start-collapsed-groups`（数组） |
 | 打开次数 | `localStorage: start-usage`（`{ [id]: count }`） |
-| 便签 | `localStorage: start-notes`（纯文本） |
+| 便签 | `localStorage: start-notes`（纯文本，随备份导出） |
+| 番茄钟 | `localStorage: start-pomodoro`（phase / rounds / running / left / endAt） |
+| 文字配色 | `localStorage: start-ink-mode`（auto / light / dark） |
+| 最近指令 | `localStorage: start-palette-recent`（最多 6 条） |
+| 首次提示 | `localStorage: start-onboarding-done`（`1` 表示已关闭） |
 
 **加组件**：
 
