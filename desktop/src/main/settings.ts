@@ -18,6 +18,7 @@ import type {
 import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
+import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../shared/browserToolbar';
 import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { isSearchEngineId } from '../shared/searchEngines';
 import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
@@ -129,6 +130,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     verticalTabs: true,
     verticalTabsWidth: 220,
     verticalTabsCollapsed: false,
+    browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
     sidebarCollapsed: false,
     autoFollow: true,
     mediaRate: 1,
@@ -492,6 +494,7 @@ function normalize(input: unknown): AppSettings {
         ? Math.min(360, Math.max(160, Math.round(paneWidth)))
         : 220;
       base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
+      base.general.browserToolbar = normalizeBrowserToolbar(raw.general.browserToolbar);
       base.general.petEnabled = raw.general.petEnabled === true;
       base.general.assistantEnabled = raw.general.assistantEnabled === true;
       base.general.petX = Number(raw.general.petX) || 0;

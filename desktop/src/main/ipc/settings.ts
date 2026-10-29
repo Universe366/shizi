@@ -653,4 +653,61 @@ export function registerSettingsIpc(ctx: IpcContext): void {
   ipcMain.handle('settings:open-data', async () => {
     await shell.openPath(app.getPath('userData'));
   });
+
+  ipcMain.handle(
+    'browser:default-status',
+    (): Result<{ isDefault: boolean; platform: string }> => {
+      try {
+        return {
+          ok: true,
+          data: {
+            isDefault: app.isDefaultProtocolClient('http') && app.isDefaultProtocolClient('https'),
+            platform: process.platform
+          }
+        };
+      } catch (error) {
+        return failure<{ isDefault: boolean; platform: string }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'browser:set-default',
+    async (): Promise<Result<{ isDefault: boolean; settingsOpened: boolean }>> => {
+      try {
+        const register = (protocol: string) => {
+          try {
+            if (process.defaultApp && process.argv.length >= 2) {
+              return app.setAsDefaultProtocolClient(protocol, process.execPath, [
+                path.resolve(process.argv[1])
+              ]);
+            }
+            return app.setAsDefaultProtocolClient(protocol);
+          } catch {
+            return false;
+          }
+        };
+        register('http');
+        register('https');
+        let settingsOpened = false;
+        if (process.platform === 'win32') {
+          try {
+            await shell.openExternal('ms-settings:defaultapps');
+            settingsOpened = true;
+          } catch {
+            // Windows 不允许直接打开设置时，至少保留已注册的协议。
+          }
+        }
+        return {
+          ok: true,
+          data: {
+            isDefault: app.isDefaultProtocolClient('http') && app.isDefaultProtocolClient('https'),
+            settingsOpened
+          }
+        };
+      } catch (error) {
+        return failure<{ isDefault: boolean; settingsOpened: boolean }>(error);
+      }
+    }
+  );
 }

@@ -1,5 +1,6 @@
-import type { AppSettings, ThemeMode } from '../../../../shared/types';
+import type { AppSettings, BrowserToolbarSettings, ThemeMode } from '../../../../shared/types';
 import { COLOR_SCHEMES } from '../../../../shared/colorSchemes';
+import { DEFAULT_BROWSER_TOOLBAR } from '../../../../shared/browserToolbar';
 import { SettingsSection } from './SettingsSection';
 
 type General = AppSettings['general'];
@@ -11,7 +12,12 @@ interface Props {
 
 /** 外观：主题、字号、侧栏与标签栏布局。 */
 export function AppearanceGroup({ value, onChange }: Props) {
+  const toolbar: BrowserToolbarSettings = { ...DEFAULT_BROWSER_TOOLBAR, ...(value.browserToolbar || {}) };
+  const toggleToolbar = (key: keyof BrowserToolbarSettings, checked: boolean) =>
+    onChange({ browserToolbar: { ...toolbar, [key]: checked } });
+
   return (
+    <>
     <SettingsSection title="外观" defaultOpen>
       <div className="settings-label">主题</div>
       <select
@@ -254,5 +260,43 @@ export function AppearanceGroup({ value, onChange }: Props) {
         />
       </details>
     </SettingsSection>
+
+    <SettingsSection title="浏览器工具栏" defaultOpen={false}>
+      <div className="settings-group-desc">
+        选择地址栏上显示的按钮；主菜单和设置至少保留一个入口。
+      </div>
+      <div className="settings-check-grid">
+        {([
+          ['back', '后退'],
+          ['forward', '前进'],
+          ['reload', '刷新'],
+          ['engine', '搜索引擎切换'],
+          ['speed', '播放倍速'],
+          ['bookmark', '收藏'],
+          ['library', '工作台'],
+          ['home', '起始页'],
+          ['settings', '设置'],
+          ['menu', '主菜单']
+        ] as Array<[keyof BrowserToolbarSettings, string]>).map(([key, label]) => (
+          <label className="settings-check" key={key}>
+            <input
+              type="checkbox"
+              checked={toolbar[key]}
+              onChange={(event) => toggleToolbar(key, event.target.checked)}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="settings-inline">
+        <button
+          className="mini-btn"
+          onClick={() => onChange({ browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR } })}
+        >
+          恢复默认工具栏
+        </button>
+      </div>
+    </SettingsSection>
+    </>
   );
 }

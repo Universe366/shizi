@@ -573,69 +573,24 @@ export class TabManager {
     });
 
     wc.on('context-menu', (_event, params) => {
-      const canBack = (() => {
-        try {
-          return wc.navigationHistory.canGoBack();
-        } catch {
-          return false;
-        }
-      })();
-      const canForward = (() => {
-        try {
-          return wc.navigationHistory.canGoForward();
-        } catch {
-          return false;
-        }
-      })();
-
-      const template: MenuItemConstructorOptions[] = [
-        {
-          label: '后退',
-          enabled: canBack,
-          click: () => wc.navigationHistory.goBack()
-        },
-        {
-          label: '前进',
-          enabled: canForward,
-          click: () => wc.navigationHistory.goForward()
-        },
-        { label: '刷新', click: () => wc.reload() },
-        { type: 'separator' },
-        {
-          label: '复制',
-          enabled: Boolean(params.selectionText),
-          click: () => clipboard.writeText(params.selectionText)
-        }
-      ];
-
-      if (params.isEditable) {
-        template.push(
-          { label: '粘贴', enabled: params.editFlags.canPaste, click: () => wc.paste() },
-          { label: '全选', click: () => wc.selectAll() }
-        );
-      }
-
-      if (params.linkURL) {
-        template.push(
-          { type: 'separator' },
-          {
-            label: '在新标签页打开链接',
-            click: () => {
-              void this.create(params.linkURL);
-            }
-          },
-          { label: '复制链接地址', click: () => clipboard.writeText(params.linkURL) }
-        );
-      }
-
-      if (!app.isPackaged) {
-        template.push(
-          { type: 'separator' },
-          { label: '检查元素', click: () => wc.inspectElement(params.x, params.y) }
-        );
-      }
-
-      Menu.buildFromTemplate(template).popup({ window: this.win });
+      // 原生菜单在部分页面会被网页自己吞掉；交给渲染层做统一菜单，
+      // 同时利用现有浮层机制暂时隐藏网页视图，避免菜单被盖住。
+      if (this.win.isDestroyed()) return;
+      this.win.webContents.send('page:context-menu', {
+        x: Math.round(this.bounds.x + params.x),
+        y: Math.round(this.bounds.y + params.y),
+        pageX: params.x,
+        pageY: params.y,
+        selectionText: params.selectionText || '',
+        linkURL: params.linkURL || '',
+        srcURL: params.srcURL || '',
+        isEditable: params.isEditable === true,
+        canPaste: params.editFlags.canPaste === true,
+        canCopy: Boolean(params.selectionText) || params.isEditable === true,
+        canGoBack: this.httpHistoryIndex(wc, -1) !== null,
+        canGoForward: this.httpHistoryIndex(wc, 1) !== null,
+        devMode: !app.isPackaged
+      });
     });
   }
 
@@ -1012,14 +967,42 @@ export class TabManager {
     });
   }
 
+  /** 只跳转到 http(s) 历史条目，跳过起始页/空白页，避免后退到白屏。 */
+  private httpHistoryIndex(wc: WebContents, delta: -1 | 1): number | null {
+    try {
+      const history = wc.navigationHistory;
+      const entries = history.getAllEntries();
+      let index = history.getActiveIndex() + delta;
+      while (index >= 0 && index < entries.length) {
+        if (/^https?:/i.test(entries[index]?.url || '')) return index;
+        index += delta;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  canGoBackHistory(): boolean {
+    const wc = this.activeRecord()?.view?.webContents;
+    return Boolean(wc && this.httpHistoryIndex(wc, -1) !== null);
+  }
+
+  canGoForwardHistory(): boolean {
+    const wc = this.activeRecord()?.view?.webContents;
+    return Boolean(wc && this.httpHistoryIndex(wc, 1) !== null);
+  }
+
   back(): void {
     const wc = this.activeRecord()?.view?.webContents;
-    if (wc && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+    const index = wc ? this.httpHistoryIndex(wc, -1) : null;
+    if (wc && index !== null) wc.navigationHistory.goToIndex(index);
   }
 
   forward(): void {
     const wc = this.activeRecord()?.view?.webContents;
-    if (wc && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+    const index = wc ? this.httpHistoryIndex(wc, 1) : null;
+    if (wc && index !== null) wc.navigationHistory.goToIndex(index);
   }
 
   reload(): void {
@@ -1442,16 +1425,8 @@ export class TabManager {
       .sort((a, b) => Number(b.pinned === true) - Number(a.pinned === true))
       .map((record) => {
       const wc = record.view?.webContents;
-      let canGoBack = false;
-      let canGoForward = false;
-      if (wc) {
-        try {
-          canGoBack = wc.navigationHistory.canGoBack();
-          canGoForward = wc.navigationHistory.canGoForward();
-        } catch {
-          // ignore
-        }
-      }
+      const canGoBack = wc ? this.httpHistoryIndex(wc, -1) !== null : false;
+      const canGoForward = wc ? this.httpHistoryIndex(wc, 1) !== null : false;
       return {
         id: record.id,
         title: record.title || '新标签页',

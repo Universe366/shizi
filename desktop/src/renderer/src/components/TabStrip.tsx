@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import type { TabGroup, TabInfo } from '../../../shared/types';
+import { canonicalUrl } from '../../../shared/url';
 
 interface TabMenuState {
   x: number;
@@ -1207,7 +1208,7 @@ export function TabStrip({
             <button
               className="tab-menu-item"
               onClick={() => {
-                void window.bsub.writeClipboard(menu.tab.url);
+                void window.bsub.writeClipboard(canonicalUrl(menu.tab.url));
                 setMenu(null);
               }}
             >

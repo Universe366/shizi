@@ -41,3 +41,17 @@ export function compactUrl(input: string): string {
     return raw.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
   }
 }
+
+/** 复制用：保留完整协议与路径，去掉常见跟踪参数。 */
+export function canonicalUrl(input: string): string {
+  const raw = String(input || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return raw;
+    for (const key of TRACKING_PARAMS) url.searchParams.delete(key);
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}

@@ -82,6 +82,22 @@ export interface DownloadProgressEvent {
   message: string;
 }
 
+export interface PageContextMenuPayload {
+  x: number;
+  y: number;
+  pageX: number;
+  pageY: number;
+  selectionText: string;
+  linkURL: string;
+  srcURL: string;
+  isEditable: boolean;
+  canPaste: boolean;
+  canCopy: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  devMode: boolean;
+}
+
 export interface TabInfo {
   id: string;
   title: string;
@@ -1181,6 +1197,19 @@ export type PetStartCorner =
   | 'top-right'
   | 'top-left';
 
+export interface BrowserToolbarSettings {
+  back: boolean;
+  forward: boolean;
+  reload: boolean;
+  engine: boolean;
+  speed: boolean;
+  bookmark: boolean;
+  library: boolean;
+  home: boolean;
+  settings: boolean;
+  menu: boolean;
+}
+
 export interface AppSettings {
   general: {
     theme: ThemeMode;
@@ -1196,6 +1225,8 @@ export interface AppSettings {
     verticalTabs: boolean;
     verticalTabsWidth: number;
     verticalTabsCollapsed: boolean;
+    /** 顶部地址栏按钮显示配置 */
+    browserToolbar: BrowserToolbarSettings;
     sidebarCollapsed: boolean;
     autoFollow: boolean;
     /** 默认播放倍速（没有站点规则时使用） */

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { FindResult, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
+import type { BrowserToolbarSettings, FindResult, PageContextMenuPayload, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
+import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/browserToolbar';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
 import { FindBar } from './components/FindBar';
@@ -9,6 +10,7 @@ import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { ReaderMode } from './components/ReaderMode';
+import { PageContextMenu } from './components/PageContextMenu';
 import { StartPage } from './components/StartPage';
 import { RadialMenu } from './components/RadialMenu';
 import type { WheelActionId } from '../../shared/types';
@@ -50,6 +52,7 @@ export default function App() {
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [verticalTabs, setVerticalTabs] = useState(true);
+  const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
   const [dragSnapshot, setDragSnapshot] = useState<string | null>(null);
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -62,6 +65,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(initialSection === 'library');
   const [closeOpen, setCloseOpen] = useState(false);
+  const [pageContextMenu, setPageContextMenu] = useState<PageContextMenuPayload | null>(null);
   // 垂直标签栏折叠后悬停展开时，地址栏和网页一起让位，避免标签栏盖住前进/后退按钮。
   const [tabPeek, setTabPeek] = useState<{ open: boolean; width: number }>({
     open: false,
@@ -112,6 +116,7 @@ export default function App() {
   // 不再在这里再用 pageOpen 写一遍：两个来源各说各的时，后到的调用会把
   // 另一个的隐藏覆盖掉（例如关闭框刚弹出又被显示回来的网页盖住）。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
+  useEffect(() => window.bsub.onPageContextMenu((payload) => setPageContextMenu(payload)), []);
   useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
   useBrowserOverlayAuto();
@@ -143,6 +148,11 @@ export default function App() {
     setSidebarPosition(snapshot.settings.general.sidebarPosition);
     setSidebarCollapsed(snapshot.settings.general.sidebarCollapsed);
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
+    setBrowserToolbar(
+      normalizeBrowserToolbar(
+        (snapshot.settings.general as { browserToolbar?: unknown }).browserToolbar
+      )
+    );
     setAssistantEnabled(snapshot.settings.general.assistantEnabled === true);
   };
 
@@ -690,6 +700,7 @@ export default function App() {
       <div className="app-main">
       <AddressBar
         tab={active}
+        toolbar={browserToolbar}
         focusSignal={addressFocus}
         bookmarked={bookmarked}
         onToggleBookmark={() => void toggleBookmark()}
@@ -880,6 +891,10 @@ export default function App() {
       />
       <DictationListener />
       </div>
+      <PageContextMenu
+        menu={pageContextMenu}
+        onClose={() => setPageContextMenu(null)}
+      />
       <CloseDialog
         open={closeOpen}
         onChoose={(choice, remember) => {

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { compactUrl } from './url';
+import { canonicalUrl, compactUrl } from './url';
+
+describe('canonicalUrl', () => {
+  it('复制时保留协议和有效参数，去掉跟踪参数', () => {
+    expect(
+      canonicalUrl(
+        'https://www.bilibili.com/video/BV1xx411c7mD/?spm_id_from=333.999&vd_source=abc&t=12'
+      )
+    ).toBe('https://www.bilibili.com/video/BV1xx411c7mD/?t=12');
+  });
+});
 
 describe('compactUrl', () => {
   it('去掉协议、www 与末尾斜杠', () => {

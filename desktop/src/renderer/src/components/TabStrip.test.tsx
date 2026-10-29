@@ -117,7 +117,7 @@ describe('TabStrip', () => {
 
     fireEvent.contextMenu(screen.getByText('第三个'));
     fireEvent.click(screen.getByText('复制链接'));
-    expect(api.writeClipboard).toHaveBeenCalledWith('https://example.org');
+    expect(api.writeClipboard).toHaveBeenCalledWith('https://example.org/');
   });
 
   it('拖拽调整顺序调用 moveTab', () => {

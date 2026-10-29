@@ -1,4 +1,4 @@
-import { ipcMain, session, shell } from 'electron';
+import { app, ipcMain, session, shell } from 'electron';
 import type {
   Bookmark,
   DownloadRecord,
@@ -137,6 +137,21 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:reload-tab', (_event, id: string) => {
     ctx.tabs.reloadTab(String(id));
   });
+  ipcMain.on(
+    'page:context-action',
+    (_event, action: string, pageX?: number, pageY?: number) => {
+      const wc = ctx.tabs.activeWebContents();
+      if (!wc) return;
+      if (action === 'back') ctx.tabs.back();
+      else if (action === 'forward') ctx.tabs.forward();
+      else if (action === 'reload') ctx.tabs.reload();
+      else if (action === 'paste') wc.paste();
+      else if (action === 'select-all') wc.selectAll();
+      else if (action === 'inspect' && !app.isPackaged) {
+        wc.inspectElement(Number(pageX) || 0, Number(pageY) || 0);
+      }
+    }
+  );
   ipcMain.handle('tab:move', (_event, id: string, index: number) => {
     ctx.tabs.move(id, index);
   });

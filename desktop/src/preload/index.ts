@@ -10,6 +10,7 @@ import type {
   AsrPlatform,
   SearchPlatform,
   AppSettings,
+  PageContextMenuPayload,
   DiagnosticsInfo,
   CorrectionRuleGroup,
   BridgeStatus,
@@ -170,6 +171,9 @@ const api: BsubApi = {
     } | null>,
   getTabGroups: () => ipcRenderer.invoke('tabs:groups') as Promise<TabGroup[]>,
   onTabGroups: (cb: (groups: TabGroup[]) => void) => on<TabGroup[]>('tabs:groups', cb),
+  onPageContextMenu: (cb) => on<PageContextMenuPayload>('page:context-menu', cb),
+  pageContextAction: (action, pageX, pageY) =>
+    ipcRenderer.send('page:context-action', action, pageX, pageY),
   createTabGroup: (name: string, color: TabGroup['color']) =>
     ipcRenderer.invoke('group:create', name, color) as Promise<TabGroup>,
   assignTabGroup: (tabId: string, groupId: string | null) =>
@@ -672,6 +676,14 @@ const api: BsubApi = {
       Result<{ ok: boolean; ms: number; sample: string }>
     >,
   openDataDir: () => ipcRenderer.invoke('settings:open-data') as Promise<void>,
+  defaultBrowserStatus: () =>
+    ipcRenderer.invoke('browser:default-status') as Promise<
+      Result<{ isDefault: boolean; platform: string }>
+    >,
+  setDefaultBrowser: () =>
+    ipcRenderer.invoke('browser:set-default') as Promise<
+      Result<{ isDefault: boolean; settingsOpened: boolean }>
+    >,
   pickFile: (options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) =>
     ipcRenderer.invoke('dialog:pick-file', options) as Promise<Result<string | null>>,
   openExternal: (url: string) => ipcRenderer.invoke('system:open-external', url) as Promise<void>,

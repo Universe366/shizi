@@ -173,6 +173,8 @@ describe('AddressBar', () => {
 
 
 describe('AddressBar 搜索引擎', () => {
+  afterEach(cleanup);
+
   it('可以切换并写回设置', async () => {
     const api = installBsub();
     render(<AddressBar {...props()} />);
@@ -190,6 +192,39 @@ describe('AddressBar 搜索引擎', () => {
 
 describe('AddressBar 原生菜单', () => {
   afterEach(cleanup);
+
+  it('工具栏配置可以隐藏顶部按钮', () => {
+    installBsub();
+    render(
+      <AddressBar
+        {...props()}
+        toolbar={{
+          back: false,
+          forward: false,
+          reload: false,
+          engine: false,
+          speed: false,
+          bookmark: false,
+          library: false,
+          home: false,
+          settings: false,
+          menu: false
+        }}
+      />
+    );
+    for (const title of [
+      '后退',
+      '前进',
+      '刷新',
+      '切换搜索引擎',
+      '工作台：资料库 / 成片',
+      '起始页',
+      '设置',
+      '菜单'
+    ]) {
+      expect(screen.queryByTitle(title)).toBeNull();
+    }
+  });
 
   it('有 popupMenu 时走系统菜单，选中后派发动作', async () => {
     const api = installBsub() as ReturnType<typeof installBsub> & {

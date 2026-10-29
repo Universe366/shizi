@@ -8,6 +8,7 @@ import type {
   AsrPlatform,
   SearchPlatform,
   AppSettings,
+  PageContextMenuPayload,
   TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
@@ -456,6 +457,12 @@ export interface BsubApi {
   popupMenu(
     items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>
   ): Promise<string | null>;
+  onPageContextMenu(cb: (payload: PageContextMenuPayload) => void): () => void;
+  pageContextAction(
+    action: 'back' | 'forward' | 'reload' | 'paste' | 'select-all' | 'inspect',
+    pageX?: number,
+    pageY?: number
+  ): void;
   setTabMuted(id: string, muted: boolean): Promise<void>;
   sleepTab(id: string): Promise<boolean>;
   wakeTab(id: string): Promise<boolean>;
@@ -559,6 +566,8 @@ export interface BsubApi {
     platform: AiPlatform | AsrPlatform | SearchPlatform
   ): Promise<Result<{ ok: boolean; ms: number; sample: string }>>;
   openDataDir(): Promise<void>;
+  defaultBrowserStatus(): Promise<Result<{ isDefault: boolean; platform: string }>>;
+  setDefaultBrowser(): Promise<Result<{ isDefault: boolean; settingsOpened: boolean }>>;
   /** 打开系统文件选择框（本地 ASR 选 exe/模型用） */
   pickFile?(options?: {
     title?: string;

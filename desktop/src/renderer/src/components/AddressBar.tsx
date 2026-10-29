@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Globe, Home, Library, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
-import type { Bookmark as BookmarkItem, HistoryEntry, TabInfo } from '../../../shared/types';
+import type { Bookmark as BookmarkItem, BrowserToolbarSettings, HistoryEntry, TabInfo } from '../../../shared/types';
+import { DEFAULT_BROWSER_TOOLBAR } from '../../../shared/browserToolbar';
 import { SEARCH_ENGINES, searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
-import { compactUrl } from '../../../shared/url';
+import { canonicalUrl, compactUrl } from '../../../shared/url';
 import { formatMediaRate } from '../../../shared/media';
 import type { HubSection } from './BrowserHub';
 
 export function AddressBar({
   tab,
+  toolbar = DEFAULT_BROWSER_TOOLBAR,
   focusSignal = 0,
   bookmarked,
   onToggleBookmark,
@@ -19,6 +21,7 @@ export function AddressBar({
   hasUpdate = false
 }: {
   tab: TabInfo | null;
+  toolbar?: BrowserToolbarSettings;
   focusSignal?: number;
   bookmarked: boolean;
   onToggleBookmark: () => void;
@@ -165,7 +168,7 @@ export function AddressBar({
     else if (choice === 'zoom-in') void window.bsub.zoomIn();
     else if (choice === 'zoom-out') void window.bsub.zoomOut();
     else if (choice === 'zoom') void window.bsub.zoomReset();
-    else if (choice === 'copy') void window.bsub.writeClipboard(tab?.url ?? '');
+    else if (choice === 'copy') void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? ''));
     else if (choice === 'paste') void pasteAndGo();
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
     else if (choice === 'start') onOpenStart();
@@ -199,32 +202,41 @@ export function AddressBar({
 
   return (
     <div className="address-bar">
-      <div className="nav-group">
-        <button
-          className="nav-btn"
-          disabled={!tab?.canGoBack}
-          title="后退"
-          onClick={() => void window.bsub.back()}
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <button
-          className="nav-btn"
-          disabled={!tab?.canGoForward}
-          title="前进"
-          onClick={() => void window.bsub.forward()}
-        >
-          <ArrowRight size={16} />
-        </button>
-        <button
-          className="nav-btn"
-          title={tab?.loading ? '停止' : '刷新'}
-          onClick={() => (tab?.loading ? void window.bsub.stop() : void window.bsub.reload())}
-        >
-          {tab?.loading ? <X size={15} /> : <RotateCw size={15} />}
-        </button>
-      </div>
+      {(toolbar.back || toolbar.forward || toolbar.reload) && (
+        <div className="nav-group">
+          {toolbar.back && (
+            <button
+              className="nav-btn"
+              disabled={!tab?.canGoBack}
+              title="后退"
+              onClick={() => void window.bsub.back()}
+            >
+              <ArrowLeft size={16} />
+            </button>
+          )}
+          {toolbar.forward && (
+            <button
+              className="nav-btn"
+              disabled={!tab?.canGoForward}
+              title="前进"
+              onClick={() => void window.bsub.forward()}
+            >
+              <ArrowRight size={16} />
+            </button>
+          )}
+          {toolbar.reload && (
+            <button
+              className="nav-btn"
+              title={tab?.loading ? '停止' : '刷新'}
+              onClick={() => (tab?.loading ? void window.bsub.stop() : void window.bsub.reload())}
+            >
+              {tab?.loading ? <X size={15} /> : <RotateCw size={15} />}
+            </button>
+          )}
+        </div>
+      )}
 
+      {toolbar.engine && (
       <div className="address-engine" ref={engineRef}>
         <button
           className={`address-engine-btn${engineOpen ? ' is-active' : ''}`}
@@ -247,6 +259,7 @@ export function AddressBar({
           </div>
         )}
       </div>
+      )}
 
       <div className="address-field">
         <Globe size={13} />
@@ -262,7 +275,7 @@ export function AddressBar({
           }}
           onFocus={(event) => {
             setEditing(true);
-            setValue(tab?.url ?? '');
+            setValue(canonicalUrl(tab?.url ?? ''));
             setSuggestOpen(true);
             setSuggestIndex(-1);
             loadBookmarks();
@@ -353,37 +366,48 @@ export function AddressBar({
         </div>
       )}
 
-      <button
-        className="nav-btn speed-btn"
-        title={`播放速度 ${formatMediaRate(tab?.playbackRate ?? 1)}（Alt+Shift+S）`}
-        disabled={!tab}
-        onClick={() => void window.bsub.toggleMediaPanel()}
-      >
-        {formatMediaRate(tab?.playbackRate ?? 1)}
-      </button>
+      {toolbar.speed && (
+        <button
+          className="nav-btn speed-btn"
+          title={`播放速度 ${formatMediaRate(tab?.playbackRate ?? 1)}（Alt+Shift+S）`}
+          disabled={!tab}
+          onClick={() => void window.bsub.toggleMediaPanel()}
+        >
+          {formatMediaRate(tab?.playbackRate ?? 1)}
+        </button>
+      )}
 
-      <button
-        className={`nav-btn${bookmarked ? ' is-active' : ''}`}
-        title={bookmarked ? '取消书签（Ctrl+D）' : '收藏此页（Ctrl+D）'}
-        disabled={!tab}
-        onClick={onToggleBookmark}
-      >
-        <Star size={15} fill={bookmarked ? 'currentColor' : 'none'} />
-      </button>
+      {toolbar.bookmark && (
+        <button
+          className={`nav-btn${bookmarked ? ' is-active' : ''}`}
+          title={bookmarked ? '取消书签（Ctrl+D）' : '收藏此页（Ctrl+D）'}
+          disabled={!tab}
+          onClick={onToggleBookmark}
+        >
+          <Star size={15} fill={bookmarked ? 'currentColor' : 'none'} />
+        </button>
+      )}
 
-      <button className="nav-btn" title="工作台：资料库 / 成片" onClick={onOpenLibrary}>
-        <Library size={15} />
-      </button>
+      {toolbar.library && (
+        <button className="nav-btn" title="工作台：资料库 / 成片" onClick={onOpenLibrary}>
+          <Library size={15} />
+        </button>
+      )}
 
-      <button className="nav-btn" title="起始页" onClick={onOpenStart}>
-        <Home size={15} />
-      </button>
+      {toolbar.home && (
+        <button className="nav-btn" title="起始页" onClick={onOpenStart}>
+          <Home size={15} />
+        </button>
+      )}
 
-      <button className="nav-btn settings-entry" title="设置" onClick={onOpenSettings}>
-        <Settings size={15} />
-        {hasUpdate && <span className="settings-update-dot" />}
-      </button>
+      {toolbar.settings && (
+        <button className="nav-btn settings-entry" title="设置" onClick={onOpenSettings}>
+          <Settings size={15} />
+          {hasUpdate && <span className="settings-update-dot" />}
+        </button>
+      )}
 
+      {toolbar.menu && (
       <div className="address-menu-wrap" ref={menuRef}>
         <button
           className={`nav-btn${menuOpen ? ' is-active' : ''}`}
@@ -400,7 +424,7 @@ export function AddressBar({
             <button onClick={() => { setMenuOpen(false); onOpenHub('tabs'); }}>标签页</button>
             <div className="address-menu-sep" />
             <button onClick={() => { setMenuOpen(false); onOpenReader(); }}>阅读模式（Alt+R）</button>
-            <button onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(tab?.url ?? ''); }}>
+            <button onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? '')); }}>
               复制当前网址
             </button>
             <button onClick={() => { setMenuOpen(false); void pasteAndGo(); }}>
@@ -419,6 +443,7 @@ export function AddressBar({
           </div>
         )}
       </div>
+      )}
 
     </div>
   );
