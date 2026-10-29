@@ -27,7 +27,7 @@ import { applyCorrectionToLines } from './correction';
 import { runRpc } from './bridgeRpc';
 import { exportSharedSettings, importSharedSettings } from './settingsBridge';
 import { localAsrReadiness, transcribeFile } from './asr';
-import { listBridgeConversations, syncBridgeConversation } from './chatStore';
+import { listAllConversations, listBridgeConversations, syncBridgeConversation } from './chatStore';
 import {
   BRIDGE_CAPABILITIES,
   BRIDGE_PROTOCOL,
@@ -710,7 +710,8 @@ function createHandler(win: BrowserWindow, token: string) {
           json(response, 401, { ok: false, error: 'token 无效' });
           return;
         }
-        const conversations = listBridgeConversations(500);
+        const all = url.searchParams.get('all') === '1';
+        const conversations = all ? listAllConversations(500) : listBridgeConversations(500);
         json(response, 200, { ok: true, conversations });
         return;
       }

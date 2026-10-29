@@ -21,7 +21,8 @@ import {
   desktopAiState,
   speakViaDesktop
 } from './desktop-ai.js';
-import { watchChatPersistence, clearChatForVideo } from './chat-store.js';
+import { watchChatPersistence, clearChatForVideo, chatKey, loadChatForVideo } from './chat-store.js';
+import { chatHistoryAll } from '../../shared/storage.js';
 import { buildSummaryPrompt } from '../../shared/core/summary.js';
 import * as jobs from './jobs.js';
 import { TASK_LABEL } from '../../shared/constants.js';
@@ -89,8 +90,10 @@ export function init(container) {
     h('div', { class: 'section-title', text: 'AI 总结' }),
     state.summaryHost
   ]);
+  state.sessionsHost = h('div', { class: 'chat-sessions', id: 'chat-sessions' });
   const chatSection = h('div', { class: 'ai-chat-section' }, [
     h('div', { class: 'section-title', text: '与 AI 对话' }),
+    state.sessionsHost,
     state.chatHost
   ]);
   body.appendChild(summarySection);
@@ -103,6 +106,7 @@ export function init(container) {
   state.scrollHost = scrollHost;
 
   setupDropZone(root, inputWrap);
+  void refreshChatSessions();
 
   render();
   requestAnimationFrame(() => {
@@ -2926,6 +2930,75 @@ async function readSummary() {
   }
 }
 
+function sessionLabel(row) {
+  const meta = row.meta || {};
+  const title = meta.title || meta.videoTitle || '';
+  if (title) return String(title).slice(0, 80);
+  const first = (row.messages || []).find((message) => message.role === 'user' && message.text);
+  return first ? String(first.text).slice(0, 60) : '未命名对话';
+}
+
+async function refreshChatSessions() {
+  try {
+    const rows = await chatHistoryAll();
+    store.set({
+      chatSessions: rows
+        .filter((row) => row && Array.isArray(row.messages) && row.messages.length)
+        .slice(0, 60)
+    });
+  } catch (err) {
+    store.set({ chatSessions: [] });
+  }
+  renderChatSessions();
+}
+
+function renderChatSessions() {
+  const host = state.sessionsHost;
+  if (!host) return;
+  clear(host);
+  const rows = (store.get().chatSessions || []).filter(
+    (row) => row.key !== chatKey(store.get().video)
+  );
+  if (!rows.length) return;
+  host.appendChild(
+    h('div', { class: 'chat-sessions-title', text: `历史对话（${rows.length}）` })
+  );
+  for (const row of rows.slice(0, 12)) {
+    host.appendChild(
+      button(
+        `${sessionLabel(row)}${row.meta && row.meta.importedFrom === 'desktop' ? ' · 桌面' : ''}`,
+        () => void openChatSession(row),
+        { small: true, title: '查看历史对话' }
+      )
+    );
+  }
+}
+
+async function openChatSession(row) {
+  if (!row) return;
+  if (row.key === chatKey(store.get().video)) {
+    await loadChatForVideo(store.get().video);
+    renderChat();
+    scrollAiBottom();
+    return;
+  }
+  const body = h('div', {
+    class: 'chat-session-preview',
+    style: { maxHeight: '60vh', overflow: 'auto', display: 'grid', gap: '8px' }
+  });
+  for (const message of row.messages || []) {
+    body.appendChild(
+      h('div', { class: 'note', style: { whiteSpace: 'pre-wrap' } }, [
+        h('strong', { text: message.role === 'assistant' ? 'AI：' : '你：' }),
+        h('span', { text: String(message.text || '') })
+      ])
+    );
+  }
+  openOverlay(sessionLabel(row), body, [{ label: '关闭', onClick: () => closeOverlays() }], {
+    width: 'min(640px, 92vw)'
+  });
+}
+
 export function resetChat() {
   if (state.streaming) stopStream();
   void clearChatForVideo();
@@ -3203,6 +3276,7 @@ export async function sendMessage(text, opts = {}) {
         recountCitations(chat.map((c) => c.text).join('\n'));
         render();
         await saveHistory();
+        setTimeout(() => void refreshChatSessions(), 800);
         // 队列里还有消息 → 自动发出下一条
         const next = dequeueNext();
         if (next) {

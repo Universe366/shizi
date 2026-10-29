@@ -127,7 +127,7 @@ export async function migrateFromDesktop() {
 /** 拉取桌面库，并把桌面桥接对话写回插件本地。 */
 export async function migrateDataFromDesktop(onProgress = () => {}) {
   await syncLibrary();
-  const chats = await fetchBridgeChats();
+  const chats = await fetchBridgeChats(true);
   let imported = 0;
   for (let index = 0; index < chats.length; index += 1) {
     const row = chats[index];
@@ -141,7 +141,11 @@ export async function migrateDataFromDesktop(onProgress = () => {}) {
           text: String(message.content || ''),
           reasoning: String(message.reasoning || '')
         })),
-      { videoTitle: row.videoTitle || '', importedFrom: 'desktop' }
+      {
+        videoTitle: row.videoTitle || '',
+        title: row.title || row.videoTitle || '桌面对话',
+        importedFrom: 'desktop'
+      }
     );
     imported += 1;
     if ((index + 1) % 10 === 0) onProgress({ kind: 'chat', done: index + 1, total: chats.length });

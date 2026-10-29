@@ -287,6 +287,45 @@ export function listBridgeConversations(limit = 200): Array<{
   }
 }
 
+/** 导出所有会话：桥接会话沿用插件 key，桌面原生会话用 desktop:<id>。 */
+export function listAllConversations(limit = 200): Array<{
+  key: string;
+  videoKey: string;
+  videoTitle: string;
+  title: string;
+  updatedAt: number;
+  messages: Array<{ role: 'user' | 'assistant'; content: string; reasoning: string }>;
+}> {
+  try {
+    const rows = db()
+      ?.prepare(
+        `SELECT c.*, (SELECT bc.conversation_key FROM bridge_conversations bc WHERE bc.conversation_id = c.id) AS bridge_key
+         FROM conversations c
+         ORDER BY c.updated_at DESC, c.id DESC
+         LIMIT ?`
+      )
+      .all(Math.max(1, Math.min(2000, Math.round(limit)))) as unknown as Array<
+      ConversationRow & { bridge_key?: string }
+    >;
+    return (rows || []).map((row) => ({
+      key: String(row.bridge_key || `desktop:${row.id}`),
+      videoKey: String(row.video_key || ''),
+      videoTitle: String(row.video_title || ''),
+      title: String(row.title || row.video_title || '桌面对话'),
+      updatedAt: Number(row.updated_at) || 0,
+      messages: listMessages(Number(row.id))
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .map((message) => ({
+          role: message.role as 'user' | 'assistant',
+          content: String(message.content || ''),
+          reasoning: String(message.reasoning || '')
+        }))
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function setConversationModel(
   id: number,
   platformId: string,

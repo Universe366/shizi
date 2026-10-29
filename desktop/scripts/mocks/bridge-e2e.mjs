@@ -424,6 +424,14 @@ try {
     chatExportBody.ok === true && !!exportedChat && exportedChat.messages.length === 2,
     JSON.stringify({ count: exportedChat && exportedChat.messages.length })
   );
+  const allChatExport = await fetch(`${base}/v1/chat/export?all=1`, { headers });
+  const allChatExportBody = await allChatExport.json();
+  check(
+    '全量对话导出包含桥接会话',
+    allChatExportBody.ok === true &&
+      (allChatExportBody.conversations || []).some((row) => row.key === chatKey),
+    JSON.stringify({ count: allChatExportBody.conversations?.length })
+  );
 
   // ---- 标签 / 合集回写 ----
   const tagsRes = await fetch(`${base}/v1/library/tags`, {
