@@ -253,6 +253,9 @@ const api: BsubApi = {
     ipcRenderer.invoke('tab:pin', id, pinned) as Promise<void>,
   closeTab: (id: string, nextId?: string) =>
     ipcRenderer.invoke('tab:close', id, nextId) as Promise<void>,
+  duplicateTab: (id: string) =>
+    ipcRenderer.invoke('tab:duplicate', id) as Promise<string | null>,
+  reloadTab: (id: string) => ipcRenderer.send('tab:reload-tab', id),
   activateTab: (id: string) => ipcRenderer.invoke('tab:activate', id) as Promise<void>,
   navigate: (url: string) => ipcRenderer.invoke('tab:navigate', url) as Promise<void>,
   back: () => ipcRenderer.invoke('tab:back') as Promise<void>,

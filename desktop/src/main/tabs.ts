@@ -874,6 +874,29 @@ export class TabManager {
     this.emit();
   }
 
+  /** 复制当前标签页：同 URL、同分组/固定状态，激活新标签。 */
+  async duplicate(id: string): Promise<string | null> {
+    const record = this.tabs.get(id);
+    if (!record) return null;
+    const newId = await this.create(record.url);
+    if (record.pinned) this.pin(newId, true);
+    if (record.groupId) this.assignGroup(newId, record.groupId);
+    return newId;
+  }
+
+  reloadTab(id: string): void {
+    const record = this.tabs.get(id);
+    if (!record) return;
+    if (record.view) {
+      record.view.webContents.reload();
+      return;
+    }
+    void this.activate(id).then(() => {
+      const next = this.tabs.get(id);
+      next?.view?.webContents.reload();
+    });
+  }
+
   move(id: string, toIndex: number): void {
     if (!this.tabs.has(id)) return;
     const entries = [...this.tabs.entries()];

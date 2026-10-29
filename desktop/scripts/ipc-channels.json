@@ -264,6 +264,8 @@
   "tab:close",
   "tab:find",
   "tab:forward",
+  "tab:reload-tab",
+  "tab:duplicate",
   "tab:move",
   "tab:move-many",
   "tab:navigate",

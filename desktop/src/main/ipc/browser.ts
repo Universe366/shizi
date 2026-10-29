@@ -133,6 +133,10 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:pin', (_event, id: string, pinned: boolean) => {
     ctx.tabs.pin(id, pinned === true);
   });
+  ipcMain.handle('tab:duplicate', async (_event, id: string) => ctx.tabs.duplicate(String(id)));
+  ipcMain.handle('tab:reload-tab', (_event, id: string) => {
+    ctx.tabs.reloadTab(String(id));
+  });
   ipcMain.handle('tab:move', (_event, id: string, index: number) => {
     ctx.tabs.move(id, index);
   });

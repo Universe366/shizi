@@ -44,6 +44,8 @@ function installBsub() {
   const api = {
     activateTab: vi.fn(async () => ({ ok: true })),
     closeTab: vi.fn(async () => undefined),
+    duplicateTab: vi.fn(async () => 'dup-id'),
+    reloadTab: vi.fn(),
     moveTab: vi.fn(async () => undefined),
     moveTabs: vi.fn(async () => undefined),
     newTab: vi.fn(),
@@ -231,6 +233,32 @@ describe('TabStrip 增强', () => {
       key: 'ArrowDown'
     });
     expect(api.activateTab).toHaveBeenCalledWith('t2');
+  });
+
+  it('标签菜单支持复制、重新加载与关闭左侧', () => {
+    const api = installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.contextMenu(screen.getByText('第三个'));
+    fireEvent.click(screen.getByText('复制标签页'));
+    expect(api.duplicateTab).toHaveBeenCalledWith('t3');
+
+    fireEvent.contextMenu(screen.getByText('第三个'));
+    fireEvent.click(screen.getByText('重新加载'));
+    expect(api.reloadTab).toHaveBeenCalledWith('t3');
+
+    fireEvent.contextMenu(screen.getByText('第三个'));
+    fireEvent.click(screen.getByText('关闭左侧'));
+    expect(api.closeTab).toHaveBeenCalledWith('t1');
+    expect(api.closeTab).toHaveBeenCalledWith('t2');
+  });
+
+  it('可以在操作菜单关闭重复标签', async () => {
+    const api = installBsub();
+    const duplicated = [...tabs, { ...tabs[0], id: 't4', active: false }];
+    render(<TabStrip tabs={duplicated} vertical />);
+    fireEvent.click(screen.getByTitle('标签操作'));
+    fireEvent.click(await screen.findByText(/关闭重复标签/));
+    expect(api.closeTab).toHaveBeenCalledWith('t4');
   });
 
   it('标签操作菜单可以关闭全部标签', async () => {

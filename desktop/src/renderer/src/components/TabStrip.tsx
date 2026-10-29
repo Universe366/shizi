@@ -425,6 +425,22 @@ export function TabStrip({
     for (const tab of visualTabs.slice(index + 1)) void window.bsub.closeTab(tab.id);
   };
 
+  const closeToLeft = (id: string) => {
+    const index = visualTabs.findIndex((tab) => tab.id === id);
+    if (index <= 0) return;
+    for (const tab of visualTabs.slice(0, index)) void window.bsub.closeTab(tab.id);
+  };
+
+  const duplicateIds = () => {
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const tab of tabs) {
+      if (seen.has(tab.url)) duplicates.push(tab.id);
+      else seen.add(tab.url);
+    }
+    return duplicates;
+  };
+
   const dropIndex = (ids: string[], targetId: string, after: boolean): number => {
     const moving = new Set(ids);
     const rest = tabs.filter((tab) => !moving.has(tab.id));
@@ -816,6 +832,16 @@ export function TabStrip({
                     >
                       关闭其他标签
                     </button>
+                    {duplicateIds().length > 0 && (
+                      <button
+                        onClick={() => {
+                          setActionsOpen(false);
+                          closeTabs(duplicateIds());
+                        }}
+                      >
+                        关闭重复标签（{duplicateIds().length}）
+                      </button>
+                    )}
                     <button
                       className="is-danger"
                       onClick={() => {
@@ -1075,6 +1101,24 @@ export function TabStrip({
                 <button
                   className="tab-menu-item"
                   onClick={() => {
+                    void window.bsub.duplicateTab?.(menu.tab.id);
+                    setMenu(null);
+                  }}
+                >
+                  复制标签页
+                </button>
+                <button
+                  className="tab-menu-item"
+                  onClick={() => {
+                    void window.bsub.reloadTab?.(menu.tab.id);
+                    setMenu(null);
+                  }}
+                >
+                  重新加载
+                </button>
+                <button
+                  className="tab-menu-item"
+                  onClick={() => {
                     if (menu.tab.suspended) void window.bsub.wakeTab?.(menu.tab.id);
                     else void window.bsub.sleepTab?.(menu.tab.id);
                     setMenu(null);
@@ -1154,11 +1198,29 @@ export function TabStrip({
             <button
               className="tab-menu-item"
               onClick={() => {
+                closeToLeft(menu.tab.id);
+                setMenu(null);
+              }}
+            >
+              关闭左侧
+            </button>
+            <button
+              className="tab-menu-item"
+              onClick={() => {
                 void window.bsub.writeClipboard(menu.tab.url);
                 setMenu(null);
               }}
             >
               复制链接
+            </button>
+            <button
+              className="tab-menu-item"
+              onClick={() => {
+                void window.bsub.writeClipboard(menu.tab.title || '');
+                setMenu(null);
+              }}
+            >
+              复制标题
             </button>
             <div className="tab-menu-sep" />
             <button

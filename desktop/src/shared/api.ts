@@ -200,6 +200,8 @@ export interface BsubApi {
   setActiveViewVisible(visible: boolean): Promise<void>;
   pinTab(id: string, pinned: boolean): Promise<void>;
   closeTab(id: string, nextId?: string): Promise<void>;
+  duplicateTab(id: string): Promise<string | null>;
+  reloadTab(id: string): void;
   activateTab(id: string): Promise<void>;
   navigate(url: string): Promise<void>;
   back(): Promise<void>;

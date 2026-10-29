@@ -352,6 +352,7 @@ start-footnote   操作提示、导入导出设置
 - 历史/书签/下载/标签页：`components/BrowserHub.tsx`。
 - 标签栏：`components/TabStrip.tsx`。
 - 垂直标签栏：折叠后是 52px 图标轨道，悬停 140ms 展开；展开时 `App.tsx` 用 `--tab-peek-width` 给主区域让位，避免盖住地址栏。折叠态保留新建按钮；多选后可整组拖拽，固定标签不能拖入普通区/分组。
+- 标签操作：右键支持复制标签页、重新加载、关闭左侧/右侧、复制链接/标题；头部操作菜单支持关闭重复标签。
 - URL 展示：`shared/url.ts` 的 `compactUrl()`（去协议、`www.`、末尾斜杠；保留 query，去掉 hash）。
 - 搜索引擎：`shared/searchEngines.ts`，地址栏、起始页、设置页共用；新增引擎只改这一处。
 - 地址栏菜单优先用 `window.bsub.popupMenu()` 的系统菜单（网页视图会盖住 HTML 菜单）；没有该 API 时才回退 HTML 菜单。
