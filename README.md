@@ -201,6 +201,7 @@ desktop/
 | 插件 ↔ 桌面通信 | [`desktop/docs/BRIDGE.md`](desktop/docs/BRIDGE.md) |
 | 发布 / 签名 / 更新 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) |
 | 质量基线与重构顺序 | [`docs/QUALITY.md`](docs/QUALITY.md) |
+| 全部文档索引 / 历史归档 | [`docs/README.md`](docs/README.md) |
 
 ## 隐私
 

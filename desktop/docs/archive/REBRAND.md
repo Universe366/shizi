@@ -4,7 +4,7 @@
 
 桌面端对外显示名改为 **拾字 / Shizi**，副标题「视频与网页的 AI 笔记工作台」。
 
-集中定义在 [`src/shared/brand.ts`](../src/shared/brand.ts)：
+集中定义在 [`src/shared/brand.ts`](../../src/shared/brand.ts)：
 
 ```ts
 export const APP_NAME = '拾字';

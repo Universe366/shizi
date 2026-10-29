@@ -1,7 +1,7 @@
 # 界面维护指南（桌面端）
 
-> 适用：桌面端 0.39+。这里写「界面怎么组织、改哪里、怎么验证」，不重复功能说明。
-> 相关：[架构](ARCHITECTURE.md)、[数据模型](DATA-MODEL.md)、[README](../README.md)。
+> 适用：桌面端 0.160.0+。这里写「界面怎么组织、改哪里、怎么验证」，不重复功能说明。
+> 相关：[架构](../desktop/docs/ARCHITECTURE.md)、[数据模型](DATA-MODEL.md)、[README](../README.md)。
 
 ## 1. 两套界面，两套规则
 
@@ -12,7 +12,7 @@
 
 本指南只讲桌面端。
 
-## 2. 设置页信息架构（0.39.1 起）
+## 2. 设置页信息架构（0.160 起）
 
 设置页由「左导航 → 分组 → 折叠分区」三层组成：
 
@@ -386,7 +386,7 @@ start-footnote   操作提示、导入导出设置
 
 ## 9. 成片与处理流水线
 
-文件：`components/StudioPanel.tsx` + `components/LocalWorkbench.tsx`。
+文件：`components/StudioPanel.tsx` + `components/StudioWorkbench.tsx`。
 
 - **不要**再拆成左侧步骤导航或左右分栏；它是一条连续流水线：
   `选择素材 → 生成字幕 → 整理字幕 → 出成片 → 成片记录`。

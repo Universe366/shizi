@@ -126,7 +126,6 @@ usage_events(
 | 现象 | 看哪里 |
 |---|---|
 | 升级后打开空白 | `library.db` 是否被旧进程锁；看日志 migration 是否抛错 |
-| 知识库检索不到 | `kb_vectors.model` 是否与当前设置模型一致；是否重建过 |
 | 对话历史少了工具卡片 | `messages.tools_json` 是否为空；老库迁移是否执行 |
 | 备份缺对话 | `chat.db` 是否在备份目录；manifest 是否包含 |
 | 数据目录不对 | `shizi-location.txt` 与 `app.getPath('userData')` |

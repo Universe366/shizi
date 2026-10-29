@@ -366,8 +366,8 @@ node panel-test.js     # 至少跑这个
 | 字幕 | 当前视频的信息、字幕轨、转写/翻译/校对/入库/合集导入 |
 | 总结 | 当前字幕的总结、章节、问答；版本与 diff |
 | 对话 | 基于字幕/总结的问答与工具调用 |
-| 库 | 所有已入库内容：搜索、筛选、详情、标签/合集、批量、笔记、合集对比、导入链接、知识库问答 |
-| 设置 | 7 个分组：通用、外观与浏览器、AI 与语音、检索与知识、字幕与播放、桌面助手、数据与关于 |
+| 库 | 所有已入库内容：搜索、筛选、详情、标签/合集、批量、笔记、合集对比、导入链接 |
+| 设置 | 8 个分组：通用、外观与浏览器、AI 与模型、语音与识别、字幕与播放、检索与扩展、桌面助手、数据与关于 |
 
 库顶部的四个动作是固定主线：
 
@@ -385,7 +385,7 @@ node panel-test.js     # 至少跑这个
 ### 10.1 设置页（0.39.1）
 
 ```
-SettingsPage.tsx            左导航 7 组、页头、TOC
+SettingsPage.tsx            左导航 8 组、页头、TOC
 └─ SettingsPanel.tsx        表单状态 / 保存 / 搜索过滤
    └─ settings/SettingsSection.tsx   折叠分区 + 一句话说明
 ```
@@ -411,7 +411,7 @@ SettingsPage.tsx            左导航 7 组、页头、TOC
 |---|---|---|
 | 对话库 | `main/chatStore.ts` + `ipc/chatHistory.ts` | 独立 `chat.db`：会话、消息、工具记录、分支、档案绑定 |
 | 用量 | `main/usage.ts` + `ipc/usage.ts` | 独立 `usage.db`：token、按天/模型/任务统计 |
-| 知识库 | `main/library/knowledge.ts` + `ipc/knowledge.ts` | `kb_chunks`/`kb_vectors`，字幕/总结/笔记 embedding 与检索 |
+| 知识库（已下线） | `main/library/knowledge.ts` + `ipc/knowledge.ts` | 入口已移除；表/接口保留兼容老数据 |
 | MCP 审批 | `shared/mcpApproval.ts` + `chat.ts` / `ipc/media.ts` | 危险工具逐次确认，`chat:approval` 往返 |
 | 多模型对比 | `ipc/media.ts` 的 `chat:compare` | 最多 3 个平台并行回答，不启用工具/联网 |
 | 共享纯函数 | `shared/kb.ts`、`shared/toolSelection.ts`、`shared/mcpApproval.ts` | 可单测的切块/余弦/工具白名单/审批分类 |
@@ -419,9 +419,9 @@ SettingsPage.tsx            左导航 7 组、页头、TOC
 ## 11. 发布与版本
 
 - 一次合并发布包含桌面端与插件两个版本号：
-  - 桌面端 `desktop/package.json`（例如 0.39.1）；
+  - 桌面端 `desktop/package.json`（例如 0.160.0）；
   - 插件 `shizi-extension/manifest.json` 及 constants/content/page-bridge（例如 2.18.8）；
-  - **tag 用桌面版本号**（例如 `v0.39.1`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
+  - **tag 用桌面版本号**（例如 `v0.160.0`），CI 会同时打包桌面安装包、绿色包、插件 zip 和 `latest.yml`；不要再打 `v2.x`，否则 GitHub 按 semver 会把旧插件版本当成 Latest；
 - 发布前：`npm run typecheck`、`npm run build`、`npm run release:notes` 检查发布说明能提取；
 - 本机 `release/` 不入库；CI 用 `desktop-release.yml`，push tag 即触发；
 - 桌面端自动更新只对安装版生效，依赖 Release 里的 `latest.yml` 与 setup exe；
@@ -556,7 +556,7 @@ SettingsPage.tsx            左导航 7 组、页头、TOC
 
 - 空库提供「粘贴链接 → 导入并总结」入口，直接打开导入弹窗并勾选总结；
 - 显示名统一到 `src/shared/brand.ts`（当前工作名「拾字」）；
-- 技术标识（appId / userData / 安装包名）暂不改变，避免打断更新，详见 [`REBRAND.md`](REBRAND.md)。
+- 技术标识（appId / userData / 安装包名）暂不改变，避免打断更新，详见 [`archive/REBRAND.md`](archive/REBRAND.md)。
 
 ### 13.8 网页总结入库
 
@@ -663,8 +663,8 @@ SettingsPage.tsx            左导航 7 组、页头、TOC
   `atempo`/`apad` 对齐后 concat；可只出 M4A 或替换视频音轨。仅 Windows，实验性。
 - **批量成片**：`video:batch-synthesize` 读库条目详情，仅处理 `file://` 本地视频，
   跳过无字幕/非本地条目，统一输出目录并逐个登记 exports。
-- **工作台本地处理**：`LocalWorkbench` 用 `video:pick-local / transcribe-local / save-local`
-  独立完成选文件 → 转写 → 断句/翻译 → 保存/成片/配音；不读写侧栏的 SubtitlesPanel 状态。
+- **工作台本地处理**：`StudioWorkbench` 用 `video:pick-local / transcribe-local / save-local`
+  独立完成选文件 → 转写 → 字幕/样式 → 成片/配音；不读写侧栏的 SubtitlesPanel 状态。
 - **字幕工具栏**：`shared/subtitleToolbar.ts` 是唯一动作清单；显示项存
   `general.subtitleToolbar`，面板用 `display:none` 隐藏，不卸载正在运行的任务。
 - **本地 ASR 模型管理**：`localAsrStatus` 返回 models/binaries；`asr:delete-model`、

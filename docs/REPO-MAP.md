@@ -34,7 +34,7 @@ desktop/
 └─ resources/               图标；extension/ 为构建时同步产物（不入库）
 ```
 
-入口：`src/main/index.ts`；IPC 注册集中在 `src/main/ipc.ts`；
+入口：`src/main/index.ts`；IPC 按域注册在 `src/main/ipc/`（`ipc.ts` 只做装配）；
 数据层 `src/main/library.ts`；页面/字幕 `src/main/page.ts`、`tabs.ts`。
 
 ## 插件
@@ -63,8 +63,8 @@ shizi-extension/
 | 插件和桌面怎么通信 | `desktop/docs/BRIDGE.md` |
 | 发布/更新/安装器 | `docs/MAINTAINERS.md` |
 | 代码质量与重构建议 | `docs/QUALITY.md` |
-| 品牌与路径迁移历史 | `desktop/docs/REBRAND.md` |
-| 0.30.x 旧验收/方案 | `desktop/docs/archive/`（历史，不代表现状） |
+| 品牌与路径迁移历史 | `desktop/docs/archive/REBRAND.md` |
+| 旧功能矩阵 / 0.30.x 验收方案 | `desktop/docs/archive/`（历史，不代表现状） |
 | 逐轮缺陷复盘 | `shizi-extension/docs/history/DEVELOPMENT-LOG.md`（开发记录） |
 
 ## 维护规则
@@ -77,4 +77,4 @@ shizi-extension/
 5. **改完跑**：`cd desktop && npm run typecheck && npm run lint && npm test && npm run smoke`；
    插件改完跑 `cd verify && node bundle.js && node panel-test.js`。
 6. **GitHub Releases 只保留 shizi 时代版本**；更早的 Release 已清理，tag 仍保留用于代码追溯。
-7. **发布 tag 用桌面版本 `v0.39.x`**，不要再用 `v2.x`；后者会让 GitHub 按 semver 把旧插件版本当成 Latest，自动更新会读错。发布后确认 `/releases/latest` 指向桌面版本。
+7. **发布 tag 用桌面版本 `v0.160.x`**，不要再用 `v2.x`；后者会让 GitHub 按 semver 把旧插件版本当成 Latest，自动更新会读错。发布后确认 `/releases/latest` 指向桌面版本。
