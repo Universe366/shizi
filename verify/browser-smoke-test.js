@@ -176,6 +176,39 @@ async function main() {
     check('设置页渲染出分组', settingsState.tab === 'settings' && settingsState.children > 0 && settingsState.text > 500, JSON.stringify(settingsState));
     check('设置页没有脚本异常', panelErrors.length === 0, panelErrors.slice(0, 2).join(' | '));
 
+    const tabNames = await panelPage.evaluate(() =>
+      [...document.querySelectorAll('[data-tab-btn]')].map((el) => el.getAttribute('data-tab-btn'))
+    );
+    check(
+      '五个入口齐全',
+      ['subtitles', 'summary', 'chat', 'library', 'settings'].every((name) => tabNames.includes(name)),
+      JSON.stringify(tabNames)
+    );
+    await panelPage.click('[data-tab-btn="summary"]').catch(() => {});
+    await new Promise((r) => setTimeout(r, 350));
+    const summaryState = await panelPage.evaluate(() => ({
+      tab: document.body.dataset.tab,
+      chat: getComputedStyle(document.querySelector('.ai-chat-section')).display,
+      summary: getComputedStyle(document.querySelector('.ai-summary-section')).display
+    }));
+    check(
+      '总结入口只显示总结区',
+      summaryState.tab === 'summary' && summaryState.chat === 'none' && summaryState.summary !== 'none',
+      JSON.stringify(summaryState)
+    );
+    await panelPage.click('[data-tab-btn="chat"]').catch(() => {});
+    await new Promise((r) => setTimeout(r, 350));
+    const chatState = await panelPage.evaluate(() => ({
+      tab: document.body.dataset.tab,
+      chat: getComputedStyle(document.querySelector('.ai-chat-section')).display,
+      summary: getComputedStyle(document.querySelector('.ai-summary-section')).display
+    }));
+    check(
+      '对话入口只显示对话区',
+      chatState.tab === 'chat' && chatState.summary === 'none' && chatState.chat !== 'none',
+      JSON.stringify(chatState)
+    );
+
     console.log(`\n合计 ${passes.length + failures.length} 项，失败 ${failures.length} 项`);
     if (failures.length) process.exitCode = 1;
   } finally {
