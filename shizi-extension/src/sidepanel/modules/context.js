@@ -18,6 +18,7 @@ import {
   exportViaDesktop,
   probeDesktopAi,
   desktopAiState,
+  desktopAiAllowed,
   translateViaDesktop,
   optimizeViaDesktop
 } from './desktop-ai.js';
@@ -274,7 +275,7 @@ export async function translateSubtitles(targetLang, opts = {}) {
   const next = lines.map((l) => ({ ...l }));
   // 桌面 AI 可用时用桌面翻译链路（与桌面端提示词/分批一致）；失败回退本地。
   await probeDesktopAi();
-  let useDesktop = desktopAiState().ready === true;
+  let useDesktop = desktopAiAllowed(st.settings) && desktopAiState().ready === true;
   let desktopBroken = false;
   try {
     const BATCH = 30;
@@ -626,7 +627,7 @@ export async function optimizeWithAi(opts = {}) {
   const task = jobs.beginTask(TASK_LABEL.optimize, { detail: '向 AI 提交字幕全文' });
   // 桌面端 AI 可用时走桌面校对（提示词/术语表/联网核对与桌面一致）。
   await probeDesktopAi();
-  const useDesktop = desktopAiState().ready === true;
+  const useDesktop = desktopAiAllowed(s) && desktopAiState().ready === true;
   try {
     // 联网核对：**逐条**查字幕里的术语/事实/时间/数据，而不是整篇搜。
     // 整篇搜会把上万字网页灌进上下文，模型就开始把字幕改写成网页内容
@@ -915,7 +916,7 @@ export async function exportSubtitles(overrides = {}) {
   let mime = cfg.format === 'json' ? 'application/json' : 'text/plain;charset=utf-8';
   let viaDesktop = false;
 
-  if (linkStatus().state === 'connected') {
+  if (linkStatus().state === 'connected' && desktopAiAllowed(st.settings)) {
     try {
       const built = await exportViaDesktop({
         video,
