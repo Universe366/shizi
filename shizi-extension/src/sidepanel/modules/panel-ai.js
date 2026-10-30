@@ -52,6 +52,7 @@ const state = {
   // 后台 cancel 会 abort 当前那段 ai.chat，下一次循环前检查标记退出。
   summaryRid: '',
   summaryAbortRequested: false,
+  summaryError: '',
   lastSignature: '',
   // 生成中排队的消息（当前回合结束后自动发出；中止则还回输入框）
   queue: [],
@@ -353,6 +354,43 @@ function agreementLabel(e) {
   return AGREEMENT_LABEL[e.agreement] || '';
 }
 
+function annotateCitations(root, refs) {
+  if (!root || !Array.isArray(refs) || !refs.length) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const targets = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (!node.nodeValue || !/\[\d{1,3}\]/.test(node.nodeValue)) continue;
+    const parent = node.parentElement;
+    if (parent && parent.closest('code,pre,a,.md-cite')) continue;
+    targets.push(node);
+  }
+  for (const node of targets) {
+    const text = node.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    const re = /\[(\d{1,3})\]/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const index = Number(m[1]) - 1;
+      const ref = refs[index];
+      const sup = document.createElement('sup');
+      sup.className = 'md-cite';
+      sup.textContent = m[0];
+      if (ref && /^https?:/i.test(String(ref.url || ''))) {
+        sup.title = String(ref.title || ref.url);
+        sup.style.cursor = 'pointer';
+        sup.addEventListener('click', () => call('tab.open', { url: ref.url }).catch(() => {}));
+      }
+      frag.appendChild(sup);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
 function renderSummary() {
   const st = store.get();
   const host = state.summaryHost;
@@ -368,6 +406,19 @@ function renderSummary() {
     return;
   }
   setBoolAttr(host, 'data-streaming', false);
+  if (!st.summary && state.summaryError) {
+    host.textContent = '';
+    const box = h('div', { class: 'alert error', style: { margin: '8px 0' } });
+    box.appendChild(h('div', { text: state.summaryError }));
+    box.appendChild(
+      button('重试', () => {
+        state.summaryError = '';
+        generateSummary();
+      }, { small: true, primary: true })
+    );
+    host.appendChild(box);
+    return;
+  }
   if (!st.summary) {
     host.textContent = '';
     const hasLines = (st.subtitles || []).length > 0;
@@ -385,8 +436,12 @@ function renderSummary() {
     return;
   }
   host.textContent = '';
+  const refs = (Array.isArray(st.summaryReferences) ? st.summaryReferences : []).filter(
+    (ref) => ref && /^https?:/i.test(String(ref.url || ''))
+  );
   const box = h('div', { class: 'summary-box' });
   renderMarkdownInto(box, st.summary);
+  annotateCitations(box, refs);
   // 章节列表（可点击跳转）
   const chapters = (st.video && st.video.chapters) || [];
   if (chapters.length) {
@@ -411,7 +466,6 @@ function renderSummary() {
   host.appendChild(box);
 
   // 桌面端生成总结时带回的外部资料（本地总结仍用 verifyEvidence）。
-  const refs = Array.isArray(st.summaryReferences) ? st.summaryReferences : [];
   if (refs.length) {
     const refBox = h('details', { class: 'verify-queries' });
     refBox.appendChild(h('summary', { text: `外部资料（${refs.length}）` }));
@@ -1544,6 +1598,7 @@ async function generateSummaryLocalNew() {
   state.summaryAbortRequested = false;
   state.summaryStreaming = true;
   state.streaming = true;
+  state.summaryError = '';
   state.stream = null;
   store.set({ summaryStream: '', summaryReferences: [] });
   render();
@@ -1645,6 +1700,7 @@ async function generateSummaryLocalNew() {
             store.set({ summary: partial, summaryStream: '' });
             toast({ title: '总结中断，已保留已生成的部分', detail: payload.detail }, 'warn', 5000);
           } else {
+            state.summaryError = `${payload.title || '总结失败'}${payload.detail ? `：${payload.detail}` : ''}`;
             showError(Object.assign(new Error(payload.title), { payload }));
           }
           render();
@@ -1716,6 +1772,7 @@ export async function generateSummary(opts = {}) {
   state.summaryRid = '';
   state.summaryStreaming = true;
   state.streaming = true;
+  state.summaryError = '';
   store.set({ summaryStream: '', summaryReferences: [] });
   render();
 
@@ -1798,6 +1855,7 @@ export async function generateSummary(opts = {}) {
           void generateSummary({ ...opts, forceLocal: true });
           return;
         }
+        state.summaryError = `${payload.title || '总结失败'}${payload.detail ? `：${payload.detail}` : ''}`;
         showError(Object.assign(new Error(payload.title), { payload }));
         render();
       }
