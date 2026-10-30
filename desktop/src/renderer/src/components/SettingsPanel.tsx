@@ -22,6 +22,7 @@ import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
 import { ChatPromptsSection } from './settings/ChatPromptsSection';
 import { OcrSection } from './settings/OcrSection';
+import { ImageGenSection } from './settings/ImageGenSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
 import { SubtitleGroup } from './settings/SubtitleGroup';
@@ -1464,6 +1465,13 @@ export function SettingsPanel({
 
       {show('ai') && (
         <TaskModelSection value={draft.ai} updateAi={(patch) => updateAi(patch)} />
+      )}
+
+      {show('ai') && (
+        <ImageGenSection
+          value={draft.image}
+          onChange={(patch) => setDraft({ ...draft, image: { ...draft.image, ...patch } })}
+        />
       )}
 
       {show('ai') && (

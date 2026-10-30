@@ -14,7 +14,10 @@ export const AI_TASKS: AiTaskDef[] = [
   { id: 'proofread', label: '校对', desc: '错别字与术语修正' },
   { id: 'chapters', label: '章节与断句', desc: '章节划分、断句重组' },
   { id: 'verify', label: '联网核对', desc: '检索词生成、证据判定、补充资料' },
-  { id: 'quick', label: '快速判断', desc: '是否需要联网、标题等小请求' }
+  { id: 'quick', label: '快速判断', desc: '是否需要联网、标题等小请求' },
+  { id: 'ocr', label: '文字识别', desc: '截图取字；需要选择支持图片输入的视觉模型' },
+  { id: 'tts', label: '语音朗读', desc: '文字转语音；选择支持 TTS 的平台/模型' },
+  { id: 'image', label: '图片生成', desc: '文生图；选择图片生成平台或本地服务' }
 ];
 
 export const AI_TASK_LABELS: Record<AiTask, string> = Object.fromEntries(

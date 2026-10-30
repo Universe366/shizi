@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-30
-> 适用版本：桌面 **0.162.17** / 插件 **2.20.11**
-> 当前发布基线：tag `v0.162.17`
-> 最新 Release：`v0.162.17`
+> 适用版本：桌面 **0.162.18** / 插件 **2.20.11**
+> 当前发布基线：tag `v0.162.18`
+> 最新 Release：`v0.162.18`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -26,15 +26,22 @@
 | 插件 `panel-test` | 488 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.17` 通过 |
+| 发布 CI | `v0.162.18` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.17，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.18，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.18（2026-10-30，视觉 OCR/朗读平台/图片生成）
+
+- OCR 新增视觉大模型；图片生成支持 OpenAI 兼容、SD WebUI、ComfyUI。
+- 按任务选模型新增文字识别/语音朗读/图片生成。
+- 朗读新增硅基流动 CosyVoice、LocalAI、Kokoro、Wavhost 预设。
+- 测试：桌面 check/smoke 通过；插件 panel-test 488 项。
 
 ### 0.162.17（2026-10-30，起始页窄窗口布局）
 

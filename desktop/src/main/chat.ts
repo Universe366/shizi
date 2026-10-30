@@ -1,5 +1,6 @@
 import type {
   AiPlatform,
+  AiTask,
   AiUsage,
   ChatMessage,
   PageInfo,
@@ -116,6 +117,8 @@ export interface ChatOptions {
   conversationId?: number;
   /** 本轮临时指定搜索服务商 */
   searchPlatformId?: string;
+  /** 任务槽位；OCR 等场景可单独指定视觉模型 */
+  task?: AiTask;
   /** 工具调用进度（开始/结束），用于对话里的工具卡片 */
   onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
   /** 危险工具执行前确认；返回 false 表示用户拒绝。 */
@@ -208,7 +211,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   const profile = options.profileId
     ? settings.ai.profiles.find((item) => item.id === options.profileId)
     : undefined;
-  let platform = options.platform || platformForTask('chat', settings);
+  let platform = options.platform || platformForTask(options.task || 'chat', settings);
   if (profile?.platformId) {
     const target = settings.ai.platforms.find((item) => item.id === profile.platformId);
     if (target) platform = { ...target, model: profile.model || target.model };

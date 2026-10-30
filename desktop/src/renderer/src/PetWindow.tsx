@@ -628,7 +628,7 @@ export function PetWindow() {
    */
   const ask = async (
     text: string,
-    context?: { selection?: string; image?: string | null; cleanup?: 'ocr' }
+    context?: { selection?: string; image?: string | null; cleanup?: 'ocr'; task?: 'ocr' }
   ) => {
     const value = text.trim();
     if (!value || busy) return;
@@ -696,7 +696,8 @@ export function PetWindow() {
         // 桌宠只处理即时问题：不把整页正文塞给模型。
         includePage: false,
         web: webOn,
-        surface: 'pet'
+        surface: 'pet',
+        task: context?.task
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -709,6 +710,16 @@ export function PetWindow() {
 
   /** 本地系统 OCR 优先；失败/没识别到文字时回退到 AI 视觉。 */
   const extractText = async (dataUrl: string) => {
+    try {
+      const settingsResponse = await window.bsub.getSettings();
+      const engine = settingsResponse.ok ? settingsResponse.data.settings.ocr.engine : 'system';
+      if (engine === 'ai') {
+        await ask(OCR_PROMPT, { image: dataUrl, cleanup: 'ocr', task: 'ocr' });
+        return;
+      }
+    } catch {
+      // 设置读取失败时继续走本地 OCR
+    }
     try {
       const local = await window.bsub.ocrRecognize({ dataUrl });
       if (local.ok && local.data.text.trim()) {

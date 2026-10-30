@@ -11,6 +11,15 @@ interface Props {
 
 const SAMPLE = '这是一段朗读测试：拾字可以把字幕、总结和回答读出来。';
 
+/** 这些平台都提供 OpenAI 兼容的 /audio/speech，只是地址/模型不同。 */
+const OPENAI_TTS_PRESETS = [
+  { id: 'openai', label: 'OpenAI（官方）', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini-tts', voice: 'alloy' },
+  { id: 'siliconflow', label: '硅基流动 CosyVoice', baseUrl: 'https://api.siliconflow.cn/v1', model: 'FunAudioLLM/CosyVoice2-0.5B', voice: 'alloy' },
+  { id: 'localai', label: 'LocalAI（本地）', baseUrl: 'http://127.0.0.1:8080/v1', model: 'tts-1', voice: 'alloy' },
+  { id: 'kokoro', label: 'Kokoro（本地）', baseUrl: 'http://127.0.0.1:8880/v1', model: 'kokoro', voice: 'af_heart' },
+  { id: 'wavhost', label: 'Wavhost（本地）', baseUrl: 'http://127.0.0.1:8000/v1', model: 'kokoro', voice: 'af_heart' }
+] as const;
+
 /** 文字朗读：edge（在线）/ Windows SAPI（离线）/ OpenAI 兼容 TTS。 */
 export function TtsSection({ value, onChange }: Props) {
   const [voices, setVoices] = useState<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>(
@@ -174,6 +183,36 @@ export function TtsSection({ value, onChange }: Props) {
       {value.engine === 'openai' && (
         <div className="settings-group">
           <div className="settings-group-title">OpenAI 兼容 TTS</div>
+          <div className="settings-label">服务预设</div>
+          <select
+            className="settings-input"
+            value={
+              OPENAI_TTS_PRESETS.find(
+                (preset) =>
+                  preset.baseUrl === value.openai.baseUrl && preset.model === value.openai.model
+              )?.id || 'custom'
+            }
+            onChange={(event) => {
+              const preset = OPENAI_TTS_PRESETS.find((item) => item.id === event.target.value);
+              if (preset) {
+                onChange({
+                  openai: {
+                    ...value.openai,
+                    baseUrl: preset.baseUrl,
+                    model: preset.model,
+                    voice: preset.voice
+                  }
+                });
+              }
+            }}
+          >
+            {OPENAI_TTS_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+            <option value="custom">自定义</option>
+          </select>
           <div className="settings-label">接口地址</div>
           <input
             className="settings-input"

@@ -20,6 +20,7 @@ import { registerVideoIpc } from './ipc/video';
 import { registerUsageIpc } from './ipc/usage';
 import { registerOcrIpc } from './ipc/ocr';
 import { registerTtsIpc } from './ipc/tts';
+import { registerImageIpc } from './ipc/image';
 import { registerChatHistoryIpc } from './ipc/chatHistory';
 import { registerDictationIpc } from './ipc/dictation';
 import { registerKnowledgeIpc } from './ipc/knowledge';
@@ -70,6 +71,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerOcrIpc();
 
   registerTtsIpc();
+  registerImageIpc();
 
   registerChatHistoryIpc();
 

@@ -681,7 +681,10 @@ export type AiTask =
   | 'proofread'
   | 'chapters'
   | 'verify'
-  | 'quick';
+  | 'quick'
+  | 'ocr'
+  | 'tts'
+  | 'image';
 
 export interface AiTaskModel {
   /** 平台 id；空字符串表示沿用当前平台，只覆盖模型名 */
@@ -827,6 +830,20 @@ export interface ConversationUsageSummary {
 }
 
 export type TtsEngine = 'edge' | 'sapi' | 'openai';
+
+export interface ImageSettings {
+  enabled: boolean;
+  /** openai = OpenAI 兼容 /images/generations（OpenAI/硅基流动/LocalAI）；a1111 = SD WebUI；comfyui = 本地工作流 */
+  provider: 'openai' | 'a1111' | 'comfyui';
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  /** 例如 1024x1024 */
+  size: string;
+  steps: number;
+  /** ComfyUI API 格式工作流（JSON） */
+  workflow: string;
+}
 
 export interface TtsSettings {
   enabled: boolean;
@@ -1443,9 +1460,10 @@ export interface AppSettings {
     prices: Record<string, ModelPrice>;
   };
   tts: TtsSettings;
+  image: ImageSettings;
   ocr: {
-    /** system = Windows 自带 OCR；paddle = 自建 PaddleOCR HTTP 服务 */
-    engine: 'system' | 'paddle';
+    /** system = Windows 自带 OCR；paddle = 自建 PaddleOCR；ai = 视觉大模型（按任务选模型里的“文字识别”） */
+    engine: 'system' | 'paddle' | 'ai';
     /** Windows OCR 语言标签（auto 用系统默认） */
     lang: string;
     /** PaddleOCR 服务地址（POST { image: base64 } → { text } 或 Paddle 常见结构） */
@@ -1653,6 +1671,8 @@ export interface ChatRequest {
   conversationId?: number;
   /** 本轮临时指定搜索服务商（仅对话，不改全局） */
   searchPlatformId?: string;
+  /** 任务槽位：OCR 等场景可用单独的视觉模型 */
+  task?: AiTask;
 }
 
 export interface ChatToolEvent {

@@ -298,6 +298,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
       voice: 'alloy'
     }
   },
+  image: {
+    enabled: false,
+    provider: 'openai',
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: '',
+    model: 'gpt-image-1',
+    size: '1024x1024',
+    steps: 20,
+    workflow: ''
+  },
   ocr: {
     engine: 'system',
     lang: 'auto',
@@ -1116,8 +1126,23 @@ function normalize(input: unknown): AppSettings {
       }
     }
 
+    if (raw.image && typeof raw.image === 'object') {
+      base.image.enabled = raw.image.enabled === true;
+      base.image.provider = ['openai', 'a1111', 'comfyui'].includes(String(raw.image.provider))
+        ? (raw.image.provider as AppSettings['image']['provider'])
+        : 'openai';
+      base.image.baseUrl = String(raw.image.baseUrl || base.image.baseUrl).trim().slice(0, 300);
+      base.image.apiKey = String(raw.image.apiKey || '');
+      base.image.model = String(raw.image.model || base.image.model).trim().slice(0, 120);
+      base.image.size = String(raw.image.size || base.image.size).trim().slice(0, 40);
+      const steps = Number(raw.image.steps);
+      if (Number.isFinite(steps)) base.image.steps = Math.min(80, Math.max(1, Math.round(steps)));
+      base.image.workflow = String(raw.image.workflow || '').slice(0, 200000);
+    }
     if (raw.ocr && typeof raw.ocr === 'object') {
-      base.ocr.engine = raw.ocr.engine === 'paddle' ? 'paddle' : 'system';
+      base.ocr.engine = ['system', 'paddle', 'ai'].includes(String(raw.ocr.engine))
+        ? (raw.ocr.engine as AppSettings['ocr']['engine'])
+        : 'system';
       base.ocr.lang = String(raw.ocr.lang || 'auto').trim().slice(0, 40) || 'auto';
       base.ocr.paddleUrl = String(raw.ocr.paddleUrl || '').trim().slice(0, 300);
     }
@@ -1639,6 +1664,7 @@ function openSecrets(settings: AppSettings): AppSettings {
     platform.extraKeys = (platform.extraKeys || []).map((key) => openSecret(key));
   }
   settings.tts.openai.apiKey = openSecret(settings.tts.openai.apiKey);
+  settings.image.apiKey = openSecret(settings.image.apiKey);
   return settings;
 }
 
@@ -1652,6 +1678,7 @@ function sealSecrets(settings: AppSettings): AppSettings {
     platform.extraKeys = (platform.extraKeys || []).map((key) => sealSecret(key));
   }
   clone.tts.openai.apiKey = sealSecret(clone.tts.openai.apiKey);
+  clone.image.apiKey = sealSecret(clone.image.apiKey);
   return clone;
 }
 
@@ -1664,6 +1691,7 @@ export function stripSecrets(settings: AppSettings): AppSettings {
   for (const platform of clone.ai.platforms) platform.extraKeys = [];
   clone.bridge.token = '';
   clone.tts.openai.apiKey = '';
+  clone.image.apiKey = '';
   return clone;
 }
 
@@ -1753,6 +1781,7 @@ function maskSettings(settings: AppSettings): AppSettings {
   for (const platform of clone.asr.platforms) platform.apiKey = maskSecret(platform.apiKey);
   for (const platform of clone.search.platforms) platform.apiKey = maskSecret(platform.apiKey);
   clone.tts.openai.apiKey = maskSecret(clone.tts.openai.apiKey);
+  clone.image.apiKey = maskSecret(clone.image.apiKey);
   return clone;
 }
 
@@ -1817,6 +1846,7 @@ function mergeSecrets(next: AppSettings, current: AppSettings): AppSettings {
     merged.tts.openai.apiKey,
     current.tts.openai.apiKey || ''
   );
+  merged.image.apiKey = resolveSecret(merged.image.apiKey, current.image.apiKey || '');
   return merged;
 }
 

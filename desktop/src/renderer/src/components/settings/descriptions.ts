@@ -21,7 +21,7 @@ export const SECTION_DESCRIPTIONS: Record<string, string> = {
   '本地 Whisper 模型': '下载/删除 whisper 模型与运行组件；正在使用的模型会被保护。',
   文字朗读: '朗读总结、对话和笔记；可选 Edge、Windows 离线语音或云端 TTS。',
   语音输入: '侧栏麦克风与任意应用的全局听写。',
-  '文字识别（OCR）': '截图取字默认用 Windows 自带 OCR，也可接自建 PaddleOCR 服务。',
+  '文字识别（OCR）': '截图取字可用 Windows 自带 OCR、自建 PaddleOCR，或视觉大模型。',
   字幕校对与术语表: '错别字/同音字规则和术语表，可先本地规则再让 AI 校对。',
   联网检索: '总结核对和对话联网使用的搜索引擎、条数、缓存与黑名单。',
   用量统计: '本机记录的 token、估算成本和每日活动；价格可自己改。',

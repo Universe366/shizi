@@ -415,6 +415,9 @@ export interface BsubApi {
   ttsSpeak(payload: { text: string; override?: TtsSettings }): Promise<
     Result<{ dataUrl: string; mime: string; engine: 'edge' | 'sapi' | 'openai'; ms: number }>
   >;
+  imageGenerate(prompt: string): Promise<
+    Result<{ dataUrl: string; mime: string; ms: number; provider: string }>
+  >;
   ttsVoices(): Promise<Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>>;
   /** 全局听写：主进程热键 → 渲染层录音 → dictationFinish 回传文字。 */
   onDictationStart(cb: () => void): () => void;

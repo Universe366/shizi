@@ -597,6 +597,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('tts:voices') as Promise<
       Result<{ edge: Array<{ id: string; label: string }>; sapi: string[] }>
     >,
+  imageGenerate: (prompt: string) =>
+    ipcRenderer.invoke('image:generate', prompt) as Promise<
+      Result<{ dataUrl: string; mime: string; ms: number; provider: string }>
+    >,
   onDictationStart: (cb: () => void) => on<void>('dictation:start', cb),
   onDictationStop: (cb: () => void) => on<void>('dictation:stop', cb),
   dictationFinish: (payload: { text: string; error?: string }) =>

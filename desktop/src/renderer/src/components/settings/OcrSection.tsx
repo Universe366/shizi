@@ -6,21 +6,24 @@ interface Props {
   onChange: (patch: Partial<AppSettings['ocr']>) => void;
 }
 
-/** 文字识别：系统 OCR（离线）或自建 PaddleOCR HTTP 服务。 */
+/** 文字识别：系统 OCR（离线）、自建 PaddleOCR，或视觉大模型。 */
 export function OcrSection({ value, onChange }: Props) {
   return (
     <SettingsSection title="文字识别（OCR）" defaultOpen={false}>
       <div className="settings-hint">
-        截图取字默认用 Windows 自带 OCR（离线、免下载）；需要更高精度时可接自建的 PaddleOCR 服务。
+        截图取字默认用 Windows 自带 OCR（离线、免下载）；也可以接自建 PaddleOCR，或直接用支持图片输入的视觉大模型。
       </div>
       <div className="settings-inline">
         <select
           className="settings-input"
           value={value.engine}
-          onChange={(event) => onChange({ engine: event.target.value as 'system' | 'paddle' })}
+          onChange={(event) =>
+            onChange({ engine: event.target.value as AppSettings['ocr']['engine'] })
+          }
         >
           <option value="system">Windows 系统 OCR（推荐）</option>
           <option value="paddle">PaddleOCR 服务（自建）</option>
+          <option value="ai">视觉大模型（按任务选模型）</option>
         </select>
       </div>
       <div className="settings-inline">
@@ -39,6 +42,12 @@ export function OcrSection({ value, onChange }: Props) {
           </select>
         </div>
       </div>
+      {value.engine === 'ai' && (
+        <div className="settings-hint">
+          视觉模型在「AI 与模型 → 按任务选模型 → 文字识别」里单独选择；
+          需要模型支持图片输入，否则请求会失败。
+        </div>
+      )}
       {value.engine === 'paddle' && (
         <>
           <div className="settings-label">PaddleOCR 服务地址</div>
