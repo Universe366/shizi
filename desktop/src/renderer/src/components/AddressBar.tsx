@@ -15,6 +15,7 @@ export function AddressBar({
   bookmarked,
   onToggleBookmark,
   onSelectionAction,
+  onNavigate,
   onOpenHub,
   onOpenReader,
   onOpenStart,
@@ -28,6 +29,8 @@ export function AddressBar({
   bookmarked: boolean;
   onToggleBookmark: () => void;
   onSelectionAction: (payload: { action: string; text: string }) => void;
+  /** 地址栏导航；起始页/无标签时由上层决定新建标签 */
+  onNavigate?: (input: string) => void;
   onOpenHub: (section: HubSection) => void;
   onOpenReader: () => void;
   onOpenStart: () => void;
@@ -135,10 +138,15 @@ export function AddressBar({
       .slice(0, 4);
   })();
 
+  const go = (input: string) => {
+    if (onNavigate) onNavigate(input);
+    else void window.bsub.navigate(input);
+  };
+
   const pasteAndGo = async () => {
     const text = (await window.bsub.readClipboard()).trim();
     if (!text) return;
-    void window.bsub.navigate(text);
+    go(text);
   };
 
   useEffect(() => {
@@ -172,7 +180,7 @@ export function AddressBar({
     setSuggestions([]);
     setEditing(false);
     inputRef.current?.blur();
-    void window.bsub.navigate(item.url);
+    go(item.url);
   };
 
   const submit = () => {
@@ -180,7 +188,7 @@ export function AddressBar({
     if (!text) return;
     setEditing(false);
     inputRef.current?.blur();
-    void window.bsub.navigate(text);
+    go(text);
   };
 
   const runMenuChoice = (choice: string | null) => {
@@ -400,7 +408,7 @@ export function AddressBar({
                 setSuggestOpen(false);
                 setEditing(false);
                 inputRef.current?.blur();
-                void window.bsub.navigate(item.url);
+                go(item.url);
               }}
             >
               <span className="address-suggest-title">★ {item.title || item.url}</span>

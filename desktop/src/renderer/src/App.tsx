@@ -328,6 +328,22 @@ export default function App() {
 
   useEffect(() => window.bsub.onSelectionAction(handleSelectionAction), [handleSelectionAction]);
 
+  const navigateAddress = useCallback(
+    (input: string) => {
+      const text = String(input || '').trim();
+      if (!text) return;
+      if (startOpen || !active) {
+        setStartOpen(false);
+        setSettingsOpen(false);
+        setLibraryOpen(false);
+        void window.bsub.newTab(text);
+        return;
+      }
+      void window.bsub.navigate(text);
+    },
+    [startOpen, active]
+  );
+
   useEffect(
     () =>
       window.bsub.onBookmarkRequest(() => {
@@ -704,6 +720,7 @@ export default function App() {
         bookmarked={bookmarked}
         onToggleBookmark={() => void toggleBookmark()}
         onSelectionAction={handleSelectionAction}
+        onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
         onOpenStart={() => {
