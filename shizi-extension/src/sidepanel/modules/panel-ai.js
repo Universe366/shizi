@@ -54,6 +54,8 @@ const state = {
   summaryRid: '',
   summaryAbortRequested: false,
   summaryError: '',
+  summaryStatus: '',
+  summaryReasoning: '',
   lastSignature: '',
   // 生成中排队的消息（当前回合结束后自动发出；中止则还回输入框）
   queue: [],
@@ -443,6 +445,15 @@ function renderSummary() {
     const pre = h('pre', { class: 'plain-stream' });
     pre.textContent = st.summaryStream || '正在生成…';
     box.appendChild(pre);
+    if (state.summaryStatus) {
+      box.appendChild(h('div', { class: 'note', text: state.summaryStatus }));
+    }
+    if (state.summaryReasoning) {
+      const details = h('details', { class: 'verify-queries' });
+      details.appendChild(h('summary', { text: '思考过程' }));
+      details.appendChild(h('div', { class: 'note', style: { whiteSpace: 'pre-wrap' }, text: state.summaryReasoning.slice(0, 4000) }));
+      box.appendChild(details);
+    }
     host.appendChild(box);
     return;
   }
@@ -454,6 +465,8 @@ function renderSummary() {
     box.appendChild(
       button('重试', () => {
         state.summaryError = '';
+  state.summaryStatus = '';
+  state.summaryReasoning = '';
         generateSummary();
       }, { small: true, primary: true })
     );
@@ -1641,6 +1654,8 @@ async function generateSummaryLocalNew() {
   state.summaryStreaming = true;
   state.streaming = true;
   state.summaryError = '';
+  state.summaryStatus = '';
+  state.summaryReasoning = '';
   state.stream = null;
   store.set({ summaryStream: '', summaryReferences: [] });
   render();
@@ -1692,11 +1707,23 @@ async function generateSummaryLocalNew() {
         webTools: summaryWeb && searchCapabilityOf(settings).webCapable
       },
       {
-        onLog: (_level, text) => task.set(50, String(text || '联网中…')),
-        onReasoning: () => task.set(50, '模型思考中…'),
+        onLog: (_level, text) => {
+          state.summaryStatus = String(text || '联网中…');
+          task.set(50, state.summaryStatus);
+          renderSummary();
+        },
+        onReasoning: (piece) => {
+          state.summaryStatus = '模型思考中…';
+          if (!state.summaryReasoning) renderSummary();
+          state.summaryReasoning += String(piece || '');
+        },
         onTool: (event) => {
           if (!event) return;
-          if (event.phase === 'start') task.set(50, `调用工具：${event.name}`);
+          if (event.phase === 'start') {
+            state.summaryStatus = `调用工具：${event.name || '工具'}`;
+            task.set(50, state.summaryStatus);
+            renderSummary();
+          }
           if (event.phase === 'end' && event.name === 'web_search' && event.text) {
             const lines = String(event.text).split('\n');
             for (let i = 0; i < lines.length; i += 1) {
@@ -1829,6 +1856,8 @@ export async function generateSummary(opts = {}) {
   state.summaryStreaming = true;
   state.streaming = true;
   state.summaryError = '';
+  state.summaryStatus = '';
+  state.summaryReasoning = '';
   store.set({ summaryStream: '', summaryReferences: [] });
   render();
 
@@ -1847,11 +1876,23 @@ export async function generateSummary(opts = {}) {
       web: true
     },
     {
-      onLog: (_level, text) => task.set(20, String(text || '桌面端准备中…')),
-      onReasoning: () => task.set(35, '桌面端模型思考中…'),
+      onLog: (_level, text) => {
+        state.summaryStatus = String(text || '桌面端准备中…');
+        task.set(20, state.summaryStatus);
+        renderSummary();
+      },
+      onReasoning: (piece) => {
+        state.summaryStatus = '桌面端模型思考中…';
+        if (!state.summaryReasoning) renderSummary();
+        state.summaryReasoning += String(piece || '');
+      },
       onTool: (event) => {
         if (!event) return;
-        if (event.phase === 'start') task.set(45, `桌面端调用工具：${event.name || '工具'}`);
+        if (event.phase === 'start') {
+          state.summaryStatus = `桌面端调用工具：${event.name || '工具'}`;
+          task.set(45, state.summaryStatus);
+          renderSummary();
+        }
       },
       onDelta: (text) => {
         const cur = store.get();

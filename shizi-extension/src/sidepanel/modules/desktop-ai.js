@@ -377,7 +377,7 @@ onLinkChange((status) => {
     return;
   }
   // 刚连上：清掉「未连接」缓存并主动探一次，别让第一次总结还走本地。
-  if (!probeCache.ready) {
+  if (!probeCache.ready || !(probeCache.asr && probeCache.asr.ready)) {
     probeCache = { ...probeCache, at: 0 };
     probeDesktopAi().catch(() => {});
   }
