@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-30
-> 适用版本：桌面 **0.162.9** / 插件 **2.20.9**
-> 当前发布基线：tag `v0.162.9`
-> 最新 Release：`v0.162.9`
+> 适用版本：桌面 **0.162.11** / 插件 **2.20.11**
+> 当前发布基线：tag `v0.162.11`
+> 最新 Release：`v0.162.11`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -23,18 +23,30 @@
 | 桌面 `lint` | **0 error / 0 warning** |
 | 桌面单测 | 179 个文件 / 1062 个用例（1 跳过）（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
-| 插件 `panel-test` | 487 项，0 失败 |
+| 插件 `panel-test` | 488 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.9` 通过 |
+| 发布 CI | `v0.162.11` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.9，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.11，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.11（2026-10-30，重新发布）
+
+- 0.162.10 发布 CI 在 npm ci 阶段失败，代码不变；本版重新触发并发布成功。
+- 测试：桌面 check/smoke 通过；插件 panel-test 488 项；真实浏览器 13 项。
+- Release：`v0.162.11`，CI 构建并发布。
+
+### 0.162.10（2026-10-30，只同步桌面 Key）
+
+- 插件设置新增「只同步 Key」：把桌面已配置的 AI/搜索/ASR Key 补到插件，不改提示词和平台选择。
+- 测试：桌面 check/smoke 通过；插件 panel-test 488 项。
+- 说明：0.162.10 发布 CI 在 npm ci 阶段失败，由 0.162.11 重新发布。
 
 ### 0.162.9（2026-10-30，总结过程展示）
 
