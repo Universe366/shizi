@@ -2,6 +2,13 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.5（2026-10-30）
+
+### Skills 文件夹导入
+
+- 支持选择文件夹批量导入 SKILL.md。
+- 测试：panel-test 487 项 0 失败。
+
 ## 2.20.4（2026-10-30）
 
 ### Gemini 原生协议

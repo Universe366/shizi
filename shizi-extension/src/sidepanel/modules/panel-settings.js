@@ -693,6 +693,35 @@ function skillsGroup(d) {
     body.appendChild(
       button('导入 SKILL.md', () => fileInput.click(), { small: true })
     );
+    const folderInput = h('input', { type: 'file', multiple: true, style: { display: 'none' } });
+    folderInput.setAttribute('webkitdirectory', '');
+    folderInput.addEventListener('change', async () => {
+      const files = Array.from(folderInput.files || []).filter((file) => /(^|\/)SKILL\.md$/i.test(file.webkitRelativePath || file.name));
+      folderInput.value = '';
+      if (!files.length) {
+        toast({ title: '文件夹里没有 SKILL.md' }, 'warn', 3000);
+        return;
+      }
+      let added = 0;
+      for (const file of files) {
+        try {
+          const text = await file.text();
+          const folder = String(file.webkitRelativePath || file.name).split('/').slice(-2, -1)[0] || 'imported';
+          const sk = SKILLS.skillFromMarkdown(text, { folderName: folder, icon: '📄' });
+          d.skills.items.push(sk);
+          added += 1;
+        } catch (err) {
+          toast({ title: `导入失败：${file.name}`, detail: (err && err.message) || '' }, 'warn', 4000);
+        }
+      }
+      if (added) {
+        markDirty();
+        render();
+        toast({ title: `已导入 ${added} 个技能` }, 'ok', 3000);
+      }
+    });
+    body.appendChild(folderInput);
+    body.appendChild(button('导入文件夹', () => folderInput.click(), { small: true }));
     body.appendChild(
       h('div', {
         class: 'note',
