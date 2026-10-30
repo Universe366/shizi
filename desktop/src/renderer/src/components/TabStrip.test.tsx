@@ -144,12 +144,13 @@ describe('TabStrip', () => {
     expect(api.moveTabs).toHaveBeenCalledWith(['t1', 't3'], expect.any(Number));
   });
 
-  it('折叠轨道仍可新建标签', () => {
+  it('折叠轨道标签直接带关闭按钮，且不再显示无用的加号', () => {
     localStorage.setItem('tabs.collapsed', '1');
     const api = installBsub();
-    render(<TabStrip tabs={tabs} vertical />);
-    fireEvent.click(screen.getByTitle('新建标签页（Ctrl+T）'));
-    expect(api.newTab).toHaveBeenCalled();
+    const { container } = render(<TabStrip tabs={tabs} vertical />);
+    expect(screen.queryByTitle('新建标签页（Ctrl+T）')).toBeNull();
+    fireEvent.click(container.querySelector('.tab-close') as HTMLElement);
+    expect(api.closeTab).toHaveBeenCalled();
   });
 
   it('纵向模式可以搜索过滤标签', () => {

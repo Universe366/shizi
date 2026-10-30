@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-30
-> 适用版本：桌面 **0.162.12** / 插件 **2.20.11**
-> 当前发布基线：tag `v0.162.12`
-> 最新 Release：`v0.162.12`
+> 适用版本：桌面 **0.162.13** / 插件 **2.20.11**
+> 当前发布基线：tag `v0.162.13`
+> 最新 Release：`v0.162.13`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -26,15 +26,22 @@
 | 插件 `panel-test` | 488 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.12` 通过 |
+| 发布 CI | `v0.162.13` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.12，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.13，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.13（2026-10-30，垂直标签栏关闭按钮）
+
+- 折叠态标签页直接显示 X，不再要求右键菜单关闭；
+- 移除折叠轨道底部无效的新建加号；悬停展开后仍可用顶部 + / Ctrl+T。
+- 测试：桌面 check/smoke 通过；TabStrip 26 项。
+- Release：`v0.162.13`，CI 构建并发布。
 
 ### 0.162.12（2026-10-30，划词工具条修复）
 

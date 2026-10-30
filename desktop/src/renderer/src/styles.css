@@ -14906,27 +14906,28 @@ sup:has(> .cite-ref) {
   }
 }
 
-/* 折叠轨道上的新建按钮，不挤占 52px 头部 */
-.app-shell.vertical-tabs .tab-collapsed-new {
-  flex: none;
-  width: 100%;
-  height: 30px;
-  margin: 2px 0 4px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  background: transparent;
+/* 折叠态：标签页直接带 X，不再要求右键菜单 */
+.tab-strip.is-collapsed:not(.is-peeking) .tab {
+  padding-right: 20px;
 }
 
-.app-shell.vertical-tabs .tab-collapsed-new:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--text) 9%, transparent);
-}
-
-/* 折叠态悬停展开时，关闭/静音按钮要可用 */
 .tab-strip.is-collapsed:not(.is-peeking) .tab-close {
-  display: none;
+  display: flex;
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  opacity: 0.55;
+  z-index: 2;
+}
+
+.tab-strip.is-collapsed:not(.is-peeking) .tab:hover .tab-close,
+.tab-strip.is-collapsed:not(.is-peeking) .tab.is-active .tab-close {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
 }
 
 .tab-strip.is-collapsed:not(.is-peeking) .tab-audio {

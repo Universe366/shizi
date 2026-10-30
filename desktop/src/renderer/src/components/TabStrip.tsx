@@ -881,16 +881,6 @@ export function TabStrip({
           )}
         </div>
       )}
-      {vertical && !expanded && (
-        <button
-          className="tab-collapsed-new"
-          title="新建标签页（Ctrl+T）"
-          aria-label="新建标签页"
-          onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
-        >
-          <Plus size={15} />
-        </button>
-      )}
       {vertical && expanded && searchOpen && (
         <div className="tab-filter">
           <Search size={12} />
