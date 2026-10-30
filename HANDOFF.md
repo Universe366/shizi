@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-30
-> 适用版本：桌面 **0.162.0** / 插件 **2.20.0**
-> 当前发布基线：tag `v0.162.0`
-> 最新 Release：`v0.162.0`
+> 适用版本：桌面 **0.162.1** / 插件 **2.20.1**
+> 当前发布基线：tag `v0.162.1`
+> 最新 Release：`v0.162.1`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -23,18 +23,29 @@
 | 桌面 `lint` | **0 error / 0 warning** |
 | 桌面单测 | 179 个文件 / 1062 个用例（1 跳过）（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
-| 插件 `panel-test` | 484 项，0 失败 |
+| 插件 `panel-test` | 487 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.0` 通过 |
+| 发布 CI | `v0.162.1` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.0，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.1，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.1（2026-10-30，插件细节对齐与 bug 修复）
+
+- 修复播放时工具栏每秒重建导致搜索框失焦、菜单/语言下拉关闭。
+- 修复字幕导出/统计弹窗的 `closeOverlay` 未定义错误。
+- 翻译保留原文，新增原文/译文/双语切换。
+- AI 平台补 Perplexity/AiHubMix/302.AI/Ollama/LM Studio；检索补 Firecrawl/Querit。
+- 总结工具栏补转写/章节/联网；外部资料按编号展示。
+- 新增本地字幕导入、规则断句、从链接导入 SKILL.md。
+- 测试：179 文件 / 1062 用例（1 跳过）；冒烟 19/19；插件 panel-test 487 项；真实浏览器 13 项。
+- Release：`v0.162.1`，CI 构建并发布。
 
 ### 0.162.0（2026-10-30，插件独立运行新流程）
 
