@@ -2,6 +2,13 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.6（2026-10-30）
+
+### 总结公式渲染
+
+- 内置 KaTeX，总结支持行内与块级公式。
+- 测试：panel-test 488 项 0 失败。
+
 ## 2.20.5（2026-10-30）
 
 ### Skills 文件夹导入

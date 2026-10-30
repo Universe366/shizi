@@ -24,6 +24,7 @@ import {
 import { watchChatPersistence, clearChatForVideo, chatKey, loadChatForVideo } from './chat-store.js';
 import { chatHistoryAll } from '../../shared/storage.js';
 import { buildSummaryPrompt } from '../../shared/core/summary.js';
+import katex from '../../../vendor/katex/katex.mjs';
 import * as jobs from './jobs.js';
 import { TASK_LABEL } from '../../shared/constants.js';
 import { promptDialog, popoverMenu, openOverlay, closeOverlays } from './ui.js';
@@ -354,6 +355,46 @@ function agreementLabel(e) {
   return AGREEMENT_LABEL[e.agreement] || '';
 }
 
+function renderMathInElement(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const targets = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (!node.nodeValue || !/\$[^$]+\$/.test(node.nodeValue)) continue;
+    const parent = node.parentElement;
+    if (parent && parent.closest('code,pre,a,.katex')) continue;
+    targets.push(node);
+  }
+  for (const node of targets) {
+    const text = node.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    const re = /\$\$([^$]+)\$\$|\$([^$\n]+)\$/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const expr = String(m[1] != null ? m[1] : m[2] || '').trim();
+      const display = m[1] != null;
+      try {
+        const span = document.createElement('span');
+        span.className = display ? 'katex-block' : 'katex-inline';
+        span.innerHTML = katex.renderToString(expr, {
+          displayMode: display,
+          throwOnError: true,
+          strict: 'ignore'
+        });
+        frag.appendChild(span);
+      } catch (err) {
+        frag.appendChild(document.createTextNode(m[0]));
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
 function annotateCitations(root, refs) {
   if (!root || !Array.isArray(refs) || !refs.length) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -441,6 +482,7 @@ function renderSummary() {
   );
   const box = h('div', { class: 'summary-box' });
   renderMarkdownInto(box, st.summary);
+  renderMathInElement(box);
   annotateCitations(box, refs);
   // 章节列表（可点击跳转）
   const chapters = (st.video && st.video.chapters) || [];

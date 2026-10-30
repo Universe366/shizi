@@ -542,6 +542,12 @@ body[data-tab='settings'] .tab[data-tab-btn='settings'] {
   display: none;
 }
 
+.katex-block {
+  display: block;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
 .md-cite {
   font-size: 0.72em;
   vertical-align: super;

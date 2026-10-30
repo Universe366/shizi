@@ -85,6 +85,17 @@ function serve() {
         res.end(fs.readFileSync(PANEL_CSS));
         return;
       }
+      if (p.includes('/vendor/katex/')) {
+        const rel = p.slice(p.indexOf('/vendor/katex/') + '/vendor/katex/'.length);
+        const file = path.join(ROOT, 'vendor', 'katex', rel);
+        if (fs.existsSync(file) && fs.statSync(file).isFile()) {
+          res.writeHead(200, {
+            'content-type': /.css$/i.test(file) ? 'text/css; charset=utf-8' : 'application/octet-stream'
+          });
+          res.end(fs.readFileSync(file));
+          return;
+        }
+      }
       res.writeHead(404);
       res.end('nf');
     });
@@ -2015,6 +2026,13 @@ async function main() {
       check('describeSpan 含总时长', /1:58:11/.test(desc), desc);
     }
     check('本地总结使用共享提示词核心', /buildSummaryPrompt\(/.test(aiSrc2), '');
+    check(
+      '总结支持 KaTeX 公式',
+      /renderMathInElement/.test(aiSrc2) &&
+        fs.existsSync(path.join(ROOT, 'vendor', 'katex', 'katex.mjs')) &&
+        fs.existsSync(path.join(ROOT, 'vendor', 'katex', 'katex.min.css')),
+      ''
+    );
     check('本地总结不再调用分段合并', !/await summarizeInChunks/.test(aiSrc2), '');
     check('字幕原文说明改为「已提供的全部」', /已提供的全部/.test(aiSrc2), '');
     const actSrc2 = fs.readFileSync(
