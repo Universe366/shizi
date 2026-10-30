@@ -87,6 +87,33 @@ function withAuthority(settings, authority) {
   };
 }
 
+/** 只把桌面端已配置的 Key 补到插件，不改平台选择/提示词。 */
+export async function syncKeysFromDesktop() {
+  const current = store.get().settings || (await loadSettings());
+  const shared = await fetchSharedSettings(true);
+  const next = structuredClone(current);
+  let count = 0;
+  const groups = [
+    ['ai', shared.ai && shared.ai.platforms],
+    ['search', shared.search && shared.search.platforms],
+    ['asr', shared.asr && shared.asr.platforms]
+  ];
+  for (const [group, incoming] of groups) {
+    if (!next[group] || !Array.isArray(next[group].platforms)) continue;
+    for (const row of incoming || []) {
+      if (!row || !row.id || !row.apiKey) continue;
+      const target = next[group].platforms.find((item) => item.id === row.id);
+      if (target && target.apiKey !== row.apiKey) {
+        target.apiKey = String(row.apiKey);
+        count += 1;
+      }
+    }
+  }
+  await saveSettings(next);
+  toast({ title: '已从桌面端补全 Key', detail: `补了 ${count} 个平台` }, 'ok', 3000);
+  return count;
+}
+
 /** 以桌面端为准：桌面共享设置覆盖插件。 */
 export async function migrateFromDesktop() {
   const current = store.get().settings || (await loadSettings());

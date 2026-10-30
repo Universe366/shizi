@@ -1,6 +1,6 @@
 # 文档索引
 
-> 适用版本：桌面 0.162.9 / 插件 2.20.9。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
+> 适用版本：桌面 0.162.10 / 插件 2.20.10。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
 
 ## 当前文档
 

@@ -32,7 +32,8 @@ import { probeDesktopAi } from './desktop-ai.js';
 import {
   confirmUndoMigration,
   migrateFromDesktop,
-  migrateToDesktop
+  migrateToDesktop,
+  syncKeysFromDesktop
 } from './settings-migrate.js';
 import * as SKILLS from '../../shared/skills.js';
 import { TIME_PRESETS, normalizeTimeRange } from '../../shared/time-range.js';
@@ -2217,6 +2218,14 @@ function desktopGroup(d) {
               toast({ title: '同步失败', detail: String((err && err.message) || err) }, 'error', 4200);
             }
           }, { small: true }),
+          button('只同步 Key', async () => {
+            try {
+              await syncKeysFromDesktop();
+              render();
+            } catch (err) {
+              toast({ title: '同步 Key 失败', detail: String((err && err.message) || err) }, 'error', 4200);
+            }
+          }, { small: true, title: '只把桌面端已配置的搜索/ASR/AI Key 补到插件，不改提示词和平台选择' }),
           button('撤销上次迁移', async () => {
             await confirmUndoMigration();
             render();

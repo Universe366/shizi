@@ -2,6 +2,13 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.10（2026-10-30）
+
+### 只同步桌面 Key
+
+- 设置新增「只同步 Key」，不改提示词和平台选择。
+- 测试：panel-test 488 项 0 失败。
+
 ## 2.20.9（2026-10-30）
 
 ### 总结过程展示
