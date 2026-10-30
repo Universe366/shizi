@@ -2,6 +2,18 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.1（2026-10-30）
+
+### 细节对齐与 bug 修复
+
+- 修复播放时工具栏每秒重建导致的搜索框失焦、菜单/语言下拉被关闭。
+- 修复字幕导出/统计弹窗的 `closeOverlay` 未定义错误。
+- 翻译保留原文，新增「原文 / 译文 / 双语」切换。
+- AI 平台补 Perplexity、AiHubMix、302.AI、Ollama、LM Studio；检索补 Firecrawl、Querit。
+- 总结工具栏补转写、章节、联网开关；外部资料按编号展示。
+- 新增本地字幕导入、规则断句、从链接导入 SKILL.md。
+- 测试：panel-test 487 项 0 失败；真实浏览器 13 项。
+
 ## 2.20.0（2026-10-30）
 
 ### 独立运行也使用桌面端新流程

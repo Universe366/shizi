@@ -14,7 +14,7 @@
 
 插件可以独立运行；桌面端复用插件的 `page-bridge.js`，但面板层是两套实现。
 
-当前版本：**桌面 0.162.0 / 插件 2.20.0**
+当前版本：**桌面 0.162.1 / 插件 2.20.1**
 最新 Release：`v0.161.0`
 `appId`：`com.shizi.desktop`  
 仓库：`Universe366/shizi`
@@ -138,7 +138,7 @@ node panel-test.js
 
 - `npm run check` 通过（0 error，0 warning；阈值已收紧为 `--max-warnings 0`）；
 - 改主进程/数据层时 `npm run smoke` 通过；
-- 改插件时 `panel-test.js` 全部通过（当前 484 项）；
+- 改插件时 `panel-test.js` 全部通过（当前 487 项）；
 - 没有新增未使用导入/死代码；
 - 文档和命令同步更新；
 - 不把生成物、临时探针、个人数据带进提交。
