@@ -8,6 +8,7 @@ import type { SearchEngineId } from '../shared/searchEngines';
 import { normalizeUrl } from './url';
 import { neighborAfterClose } from './tabOrder';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
+import { normalizeSelectionAction } from './selectionAction';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
@@ -349,9 +350,7 @@ export class TabManager {
             };
             const text = String(data.text || '').slice(0, 4000);
             if (!text) return;
-            const action = ['explain', 'translate', 'summarize'].includes(String(data.action))
-              ? String(data.action)
-              : 'explain';
+            const action = normalizeSelectionAction(data.action);
             this.win.webContents.send('app:selection-action', { action, text });
           } catch (error) {
             console.warn('[selection] 解析划词动作失败:', (error as Error).message);
