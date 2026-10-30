@@ -31,8 +31,21 @@ export const DEFAULT_SUMMARY_FORMAT_RULES = [
   '· 这是一份**完整的观看笔记**，不是摘要提纲，请充分展开。',
   '· 每个要点都要写清「是什么 + 为什么 + 怎么做/结论」，不要只写一句短语。',
   '· 视频里出现的**具体数字、名称、命令、步骤、参数、结论**都要保留；有流程就逐步列出，有对比就做成表格，有坑就写清现象与原因。',
-  '· 按内容自然分节，不要为了短而合并章节；长视频写长一些是正常的。',
+  '· 按时间线自然分节（顺序见下方「顺序」要求），不要为了短而合并章节；长视频写长一些是正常的。',
   '· 唯一要避免的是**重复与灌水** —— 不要为了凑长度而复述同一件事。'
+].join('\n');
+
+/**
+ * 顺序硬要求：无论用户是否自定义格式规则，都会追加到系统提示词末尾。
+ * 模型默认倾向按主题/重要性重排，导致笔记顺序与字幕对不上。
+ */
+export const SUMMARY_ORDER_RULES = [
+  '【顺序：严格按视频时间线，不要按主题重排】',
+  '· 正文从视频开头写到结尾，章节顺序 = 字幕里内容出现的顺序。',
+  '· 每个章节标题带上该节起始时间戳，例如 `## 03:21 主题`、`## 1:02:15 主题`；时间取字幕行首的 `[mm:ss]`，有官方分段时用官方分段的起始时间。',
+  '· 不要把后面才出现的内容提到前面，也不要把分散在各处的同类内容抽出来合并成单独一章。',
+  '· 同一个话题在后文再次出现时，留在后面对应的时间点，最多写「（前面 12:30 提过）」呼应，不要挪回前面。',
+  '· 开头的一句话结论与「速览」表可以放在最前面，但速览表的行同样按出现顺序排列，不要按重要性排序。'
 ].join('\n');
 
 export interface SummaryPointLike {
@@ -84,7 +97,7 @@ export function officialSegmentsBlock(info: SummaryInfoLike): string {
   const points = Array.isArray(info.viewPoints) ? info.viewPoints : [];
   if (points.length < 2) return '';
   return [
-    '【视频官方分段（必须沿用这些分段作为章节，不要另造章节标题）】',
+    '【视频官方分段（必须沿用这些分段作为章节，按时间顺序排列，不要另造章节标题）】',
     ...points.map((point) => {
       const start = Number(point.start != null ? point.start : point.from) || 0;
       const end = Number(point.end != null ? point.end : point.to) || 0;
@@ -117,14 +130,15 @@ export function buildSummaryPrompt(options: SummaryPromptOptions): {
 } {
   const info = options.info || {};
   const rules = String(options.formatRules || '').trim() || DEFAULT_SUMMARY_FORMAT_RULES;
+  // 各段之间留空行：顺序规则单独成段，模型更容易把它当成硬约束。
   const system = [
     String(options.promptText || '').trim(),
     glossaryBlock(options.glossary),
-    '',
-    rules
+    rules,
+    SUMMARY_ORDER_RULES
   ]
     .filter(Boolean)
-    .join('\n');
+    .join('\n\n');
 
   const official = officialSegmentsBlock(info);
   const meta = [
@@ -145,6 +159,7 @@ export function buildSummaryPrompt(options: SummaryPromptOptions): {
     meta,
     '',
     '请基于上面的字幕写一份完整总结，严格按系统提示里的格式规则输出；不要写开场白或“根据字幕”这类过程说明。',
+    '正文严格按字幕时间顺序（从开头到结尾）组织，章节标题带该节起始时间戳；不要按主题或重要性重排。',
     '尽量详细：每个主题至少展开 2–4 个具体要点，保留数字、时间、步骤、例子和结论，不要只写一句话概括。',
     '需要外部事实时，可以调用联网搜索/读取网页；用到外部资料时用 [n] 标注来源。'
   ].join('\n');

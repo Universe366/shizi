@@ -29,6 +29,16 @@ import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 import { setUsageEnabled } from './usage';
 
+/**
+ * 0.162.22 及更早版本会把内置默认格式规则整段写进 settings.json；
+ * 旧默认只差「按内容自然分节」这一句。升级时把这段快照换成新默认，
+ * 用户真正改过的规则保持原样。
+ */
+export const LEGACY_DEFAULT_SUMMARY_FORMAT_RULES = DEFAULT_SUMMARY_FORMAT_RULES.replace(
+  '· 按时间线自然分节（顺序见下方「顺序」要求），不要为了短而合并章节；长视频写长一些是正常的。',
+  '· 按内容自然分节，不要为了短而合并章节；长视频写长一些是正常的。'
+);
+
 function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
   const raw = (value || {}) as Partial<SubtitleStyle>;
   const number = (input: unknown, fallback: number, min: number, max: number) => {
@@ -1281,10 +1291,13 @@ function normalize(input: unknown): AppSettings {
     if (typeof raw.prompt?.chat === 'string' && raw.prompt.chat.trim()) {
       base.prompt.chat = raw.prompt.chat.trim();
     }
+    const storedRules =
+      typeof raw.prompt?.summaryFormatRules === 'string'
+        ? raw.prompt.summaryFormatRules.trim()
+        : '';
     base.prompt.summaryFormatRules =
-      typeof raw.prompt?.summaryFormatRules === 'string' &&
-      raw.prompt.summaryFormatRules.trim()
-        ? raw.prompt.summaryFormatRules.slice(0, 30000)
+      storedRules && storedRules !== LEGACY_DEFAULT_SUMMARY_FORMAT_RULES
+        ? storedRules.slice(0, 30000)
         : DEFAULT_SUMMARY_FORMAT_RULES;
     if (typeof raw.prompt?.translate === 'string' && raw.prompt.translate.trim()) {
       base.prompt.translate = raw.prompt.translate.trim();

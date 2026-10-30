@@ -13,7 +13,12 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { loadSettings, saveSettings, setTabsLayout } from './settings';
+import {
+  LEGACY_DEFAULT_SUMMARY_FORMAT_RULES,
+  loadSettings,
+  saveSettings,
+  setTabsLayout
+} from './settings';
 
 describe('设置的持久化字段', () => {
   beforeAll(() => {
@@ -138,5 +143,27 @@ describe('设置的持久化字段', () => {
     expect(platform.localExe).toBe('D:\\whisper\\whisper-cli.exe');
     expect(platform.localModel).toBe('D:\\whisper\\ggml-base.bin');
     expect(loadSettings().asr.localThreads).toBe(12);
+  });
+
+  it('旧的默认总结格式规则快照升级到新默认（按时间线分节）', () => {
+    // 防止默认规则改动后这里的替换失效（失效会静默退回新默认，掩盖迁移缺失）。
+    expect(LEGACY_DEFAULT_SUMMARY_FORMAT_RULES).toContain('按内容自然分节');
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ prompt: { summaryFormatRules: LEGACY_DEFAULT_SUMMARY_FORMAT_RULES } }),
+      'utf8'
+    );
+    const loaded = loadSettings();
+    expect(loaded.prompt.summaryFormatRules).toContain('按时间线自然分节');
+    expect(loaded.prompt.summaryFormatRules).not.toContain('按内容自然分节');
+  });
+
+  it('用户自定义的总结格式规则不会被迁移覆盖', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ prompt: { summaryFormatRules: '我的自定义格式规则' } }),
+      'utf8'
+    );
+    expect(loadSettings().prompt.summaryFormatRules).toBe('我的自定义格式规则');
   });
 });
