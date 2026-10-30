@@ -122,6 +122,7 @@
   "kb:search",
   "kb:status",
   "kb:status-set",
+  "image:generate",
   "layout:set",
   "library:bulk-collection",
   "library:bulk-remove",
