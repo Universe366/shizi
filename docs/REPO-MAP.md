@@ -61,6 +61,7 @@ shizi-extension/
 | 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |
 | 插件和桌面怎么通信 / 怎么对齐 | `desktop/docs/BRIDGE.md`、`docs/EXTENSION-DESKTOP-ALIGNMENT.md` |
+| 插件与桌面目前还有哪些差异 | `docs/EXTENSION-PARITY.md` |
 | 插件重构（新流程/共享 core/迁移） | `docs/EXTENSION-REFACTOR-PLAN.md` |
 | 发布/更新/安装器 | `docs/MAINTAINERS.md` |
 | 代码质量与重构建议 | `docs/QUALITY.md` |

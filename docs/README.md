@@ -17,6 +17,7 @@
 | [../desktop/docs/BRIDGE.md](../desktop/docs/BRIDGE.md) | 插件 ↔ 桌面桥协议 |
 | [EXTENSION-DESKTOP-ALIGNMENT.md](EXTENSION-DESKTOP-ALIGNMENT.md) | 插件与桌面端对齐：连接/数据/能力三层与分阶段计划 |
 | [EXTENSION-REFACTOR-PLAN.md](EXTENSION-REFACTOR-PLAN.md) | 下一阶段：插件自己跑新流程、共享 core、设置/数据迁移 |
+| [EXTENSION-PARITY.md](EXTENSION-PARITY.md) | 插件—桌面端功能差异、已修问题与暂缓项 |
 | [../desktop/docs/PLATFORMS.md](../desktop/docs/PLATFORMS.md) | AI / 检索 / ASR 平台目录 |
 
 ## 历史归档

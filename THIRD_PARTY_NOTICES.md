@@ -42,6 +42,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## KaTeX
+
+浏览器插件内置 [KaTeX](https://github.com/KaTeX/KaTeX)（MIT，Copyright (c) 2013-2020 Khan Academy and other contributors），
+用于在总结中渲染 LaTeX 公式；文件位于 `shizi-extension/vendor/katex/`，许可证随目录分发。
+
+## FFmpeg / FFmpeg.wasm
+
+浏览器插件使用 FFmpeg.wasm（GPL）处理音轨；桌面端使用 ffmpeg-static。具体版本与许可证以
+`shizi-extension/vendor/ffmpeg/` 与 `desktop/node_modules/ffmpeg-static/` 内附文件为准。
+
 ## 交互设计参考
 
 桌宠的情绪状态、气泡对话与主动冒泡等交互参考了以下项目，未复制其代码：
