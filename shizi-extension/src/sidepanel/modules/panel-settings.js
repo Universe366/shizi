@@ -813,7 +813,7 @@ function aiGroup(d) {
 function asrGroup(d) {
   return groupWrap('asr', '语音识别平台（默认 硅基流动）', true, (body) => {
     body.appendChild(
-      h('div', { class: 'note', text: '语音识别平台统一走 OpenAI 兼容的 /audio/transcriptions：接口地址 + 模型 + Key，请求方式（base64 JSON / multipart）与文件字段名因平台而异。' })
+      h('div', { class: 'note', text: '语音识别平台统一走 OpenAI 兼容的 /audio/transcriptions：接口地址 + 模型 + Key，请求方式（base64 JSON / multipart）与文件字段名因平台而异。连接桌面端时，可在「桌面端」分组启用本地 Whisper 优先。' })
     );
     body.appendChild(platformPicker('asr', d));
     const grid = h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px' } });

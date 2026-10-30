@@ -67,6 +67,12 @@ function platformCtx(platform) {
 
 function authHeaders(platform) {
   const key = String(platform.apiKey || '').trim();
+  if (platform.kind === 'gemini-native') {
+    return safeHeaders({
+      'content-type': 'application/json',
+      'x-goog-api-key': key
+    });
+  }
   if (platform.kind === 'azure') {
     return safeHeaders({
       'content-type': 'application/json',
@@ -288,6 +294,10 @@ export async function listModelsWithSource(platform, opts = {}) {
 // ---------------------------------------------------------------------------
 
 export function buildAiUrl(platform) {
+  if (platform.kind === 'gemini-native') {
+    const base = String(platform.baseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+    return `${base}/models/${encodeURIComponent(platform.model)}:generateContent`;
+  }
   if (platform.kind === 'azure') {
     const b = String(platform.baseUrl || '').replace(/\/+$/, '');
     const version = encodeURIComponent(String(platform.apiVersion || '2024-10-21'));
@@ -335,9 +345,85 @@ function aiBody(platform, messages, opts) {
   return body;
 }
 
+// Gemini 原生协议（generateContent / streamGenerateContent）。
+// 与 OpenAI 兼容层分开：请求体、SSE 结构和鉴权头都不同。
+function geminiBody(platform, messages, opts) {
+  const system = messages
+    .filter((m) => m.role === 'system')
+    .map((m) => String(m.content || ''))
+    .join('\n\n');
+  const contents = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: String(m.content == null ? '' : m.content) }]
+    }));
+  return {
+    contents,
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    generationConfig: {
+      temperature: opts.temperature == null ? 0.3 : opts.temperature,
+      maxOutputTokens: opts.maxTokens || 4096
+    }
+  };
+}
+
+async function chatGeminiNative(platform, messages, onDelta, opts = {}) {
+  const stream = !!opts.stream;
+  const base = String(platform.baseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+  const method = stream ? 'streamGenerateContent' : 'generateContent';
+  const url = `${base}/models/${encodeURIComponent(platform.model)}:${method}${stream ? '?alt=sse' : ''}`;
+  const init = {
+    method: 'POST',
+    headers: authHeaders(platform),
+    body: JSON.stringify(geminiBody(platform, messages, opts))
+  };
+  if (!stream) {
+    const data = await fetchJson(url, init, {
+      timeoutMs: opts.timeoutMs || 300000,
+      externalSignal: opts.signal,
+      ctx: platformCtx(platform)
+    });
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    return {
+      text: parts.map((part) => String(part.text || '')).join(''),
+      message: { role: 'assistant', content: parts.map((part) => ({ type: 'text', text: String(part.text || '') })) },
+      model: platform.model
+    };
+  }
+  const res = await timedFetch(url, init, {
+    timeoutMs: opts.timeoutMs || 300000,
+    externalSignal: opts.signal,
+    ctx: platformCtx(platform)
+  });
+  if (!res.ok) throw await httpError(res, platformCtx(platform));
+  if (!res.body) throw new AppError('nobody', '服务端没有返回流式内容', '响应体为空。', '关闭流式输出或更换平台后重试。');
+  let full = '';
+  await readLines(res, async (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === '[DONE]') return;
+    let data;
+    try { data = JSON.parse(payload); } catch { return; }
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      const text = String(part.text || '');
+      if (!text) continue;
+      full += text;
+      if (onDelta) onDelta(text);
+    }
+  });
+  return { text: full, message: { role: 'assistant', content: full }, model: platform.model };
+}
+
 // 统一流式入口。onDelta(text) 逐段回调；返回完整文本。
 export async function chatStream(platform, messages, onDelta, opts = {}) {
   assertPlatformReady(platform, 'AI');
+  if (platform.kind === 'gemini-native') {
+    const out = await chatGeminiNative(platform, messages, onDelta, { ...opts, stream: true });
+    return out.text;
+  }
   const url = buildAiUrl(platform);
   await ensureHeaderRules(platform, url);
   const body = aiBody(platform, messages, { ...opts, stream: true });
@@ -465,6 +551,9 @@ export async function chatStream(platform, messages, onDelta, opts = {}) {
 
 export async function chatOnce(platform, messages, opts = {}) {
   assertPlatformReady(platform, 'AI');
+  if (platform.kind === 'gemini-native') {
+    return chatGeminiNative(platform, messages, null, { ...opts, stream: false });
+  }
   const url = buildAiUrl(platform);
   await ensureHeaderRules(platform, url);
   const body = aiBody(platform, messages, { ...opts, stream: false });

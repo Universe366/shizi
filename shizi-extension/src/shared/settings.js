@@ -245,6 +245,17 @@ export function defaultAiPlatforms() {
       models: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     },
     {
+      id: 'gemini-native',
+      name: 'Google Gemini（原生协议）',
+      homepage: 'https://ai.google.dev/',
+      keyUrl: 'https://aistudio.google.com/app/apikey',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.5-pro',
+      apiKey: '',
+      models: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'],
+      kind: 'gemini-native'
+    },
+    {
       id: 'perplexity',
       name: 'Perplexity（自带联网）',
       homepage: 'https://www.perplexity.ai/',

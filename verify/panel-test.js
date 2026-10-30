@@ -1278,7 +1278,7 @@ async function main() {
     const aiIds = defaults.ai.platforms.map((platform) => platform.id);
     check(
       'AI 平台目录补齐桌面端条目',
-      ['perplexity', 'aihubmix', '302ai', 'ollama', 'lmstudio', 'azure-openai'].every((id) => aiIds.includes(id)),
+      ['perplexity', 'aihubmix', '302ai', 'ollama', 'lmstudio', 'azure-openai', 'gemini-native'].every((id) => aiIds.includes(id)),
       aiIds.join(',')
     );
     const searchIds = defaults.search.platforms.map((platform) => platform.id);

@@ -1,3 +1,12 @@
+## 0.162.4（2026-10-30）
+
+### Gemini 原生协议
+
+- 插件补 Google Gemini 原生协议（generateContent / streamGenerateContent），使用 x-goog-api-key 鉴权。
+- 支持非流式与 SSE 流式返回；不支持的函数调用仍走无工具对话。
+- 语音识别设置补充“桌面端本地 Whisper 优先”的说明。
+- 测试：桌面 check/smoke 通过；插件 panel-test 487 项。
+
 ## 0.162.3（2026-10-30）
 
 ### Azure OpenAI 平台

@@ -2,6 +2,14 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.4（2026-10-30）
+
+### Gemini 原生协议
+
+- 新增 Google Gemini 原生协议，支持 generateContent / streamGenerateContent 与 x-goog-api-key。
+- 语音识别设置补充桌面端本地 Whisper 说明。
+- 测试：panel-test 487 项 0 失败。
+
 ## 2.20.3（2026-10-30）
 
 ### Azure OpenAI 平台
