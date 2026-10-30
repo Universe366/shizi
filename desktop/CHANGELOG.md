@@ -1,3 +1,10 @@
+## 0.162.3（2026-10-30）
+
+### Azure OpenAI 平台
+
+- 插件补 Azure OpenAI 平台：填 deployments 地址与 api-version，使用 api-key 鉴权。
+- 测试：桌面 check/smoke 通过；插件 panel-test 487 项。
+
 ## 0.162.2（2026-10-30）
 
 ### 总结引用与错误恢复

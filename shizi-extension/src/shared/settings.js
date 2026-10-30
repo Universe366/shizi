@@ -275,6 +275,18 @@ export function defaultAiPlatforms() {
       models: ['gpt-4o-mini', 'deepseek-chat', 'claude-sonnet-4-5']
     },
     {
+      id: 'azure-openai',
+      name: 'Azure OpenAI',
+      homepage: 'https://azure.microsoft.com/products/ai-services/openai-service',
+      keyUrl: 'https://portal.azure.com/',
+      baseUrl: 'https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT',
+      model: 'gpt-4o-mini',
+      apiKey: '',
+      models: ['gpt-4o-mini', 'gpt-4o'],
+      kind: 'azure',
+      apiVersion: '2024-10-21'
+    },
+    {
       id: 'mistral',
       name: 'Mistral',
       homepage: 'https://mistral.ai/',

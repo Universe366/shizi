@@ -994,6 +994,15 @@ function platformDetail(kind, list, p, d, rerender) {
     return '如提示缺少域名权限（自定义接口地址常见），点「申请域名权限」。';
   })();
   body.appendChild(field('接口地址（Base URL）', baseRow, baseNote));
+  if (p.kind === 'azure') {
+    body.appendChild(
+      field(
+        'API 版本',
+        textInput(p.apiVersion || '2024-10-21', (v) => { p.apiVersion = v.trim(); markDirty(); }, { placeholder: '2024-10-21' }),
+        'Azure 地址填到 deployments/<部署名>，这里填 api-version；鉴权用 api-key 头。'
+      )
+    );
+  }
   if (kind !== 'search') {
     const modelRow = h('div', { class: 'row tight' });
     const modelInput = textInput(p.model, (v) => { p.model = v; markDirty(); });

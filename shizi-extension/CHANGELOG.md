@@ -2,6 +2,13 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.3（2026-10-30）
+
+### Azure OpenAI 平台
+
+- 新增 Azure OpenAI 平台，支持 deployments 地址、api-version 与 api-key 鉴权。
+- 测试：panel-test 487 项 0 失败。
+
 ## 2.20.2（2026-10-30）
 
 ### 总结引用与错误恢复

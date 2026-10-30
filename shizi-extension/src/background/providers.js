@@ -67,6 +67,12 @@ function platformCtx(platform) {
 
 function authHeaders(platform) {
   const key = String(platform.apiKey || '').trim();
+  if (platform.kind === 'azure') {
+    return safeHeaders({
+      'content-type': 'application/json',
+      'api-key': key
+    });
+  }
   if (isAnthropic(platform.baseUrl)) {
     return safeHeaders({
       'content-type': 'application/json',
@@ -282,6 +288,14 @@ export async function listModelsWithSource(platform, opts = {}) {
 // ---------------------------------------------------------------------------
 
 export function buildAiUrl(platform) {
+  if (platform.kind === 'azure') {
+    const b = String(platform.baseUrl || '').replace(/\/+$/, '');
+    const version = encodeURIComponent(String(platform.apiVersion || '2024-10-21'));
+    if (/\/chat\/completions$/i.test(b)) {
+      return `${b}?api-version=${version}`;
+    }
+    return `${b}/chat/completions?api-version=${version}`;
+  }
   if (isAnthropic(platform.baseUrl)) {
     const b = String(platform.baseUrl).replace(/\/+$/, '');
     return b.endsWith('/messages') ? b : `${b}/messages`;
