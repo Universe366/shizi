@@ -14,6 +14,25 @@ describe('shared summary core', () => {
     expect(block).toContain('1:00 ~ 2:00');
   });
 
+  it('官方分段只作参考，不强制沿用', () => {
+    const block = officialSegmentsBlock({
+      viewPoints: [
+        { start: 0, end: 60, title: '开场' },
+        { start: 60, end: 120, title: '正片' }
+      ]
+    });
+    expect(block).toContain('仅供参考');
+    expect(block).not.toContain('必须沿用');
+  });
+
+  it('用户提示只有一句总结指令', () => {
+    const built = buildSummaryPrompt({ info: { title: '测试' }, promptText: '模板' });
+    expect(built.user).toContain(
+      '请基于上面的字幕写一份完整总结，需要外部事实时，可以调用联网搜索/读取网页；用到外部资料时用 [n] 标注来源。'
+    );
+    expect(built.user).not.toContain('尽量详细');
+  });
+
   it('少于两段不强制官方分段', () => {
     expect(officialSegmentsBlock({ viewPoints: [{ start: 0, end: 10, title: '一段' }] })).toBe('');
   });
