@@ -465,8 +465,8 @@ function renderSummary() {
     box.appendChild(
       button('重试', () => {
         state.summaryError = '';
-  state.summaryStatus = '';
-  state.summaryReasoning = '';
+        state.summaryStatus = '';
+        state.summaryReasoning = '';
         generateSummary();
       }, { small: true, primary: true })
     );
