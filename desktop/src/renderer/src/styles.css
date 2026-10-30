@@ -15231,3 +15231,42 @@ sup:has(> .cite-ref) {
   max-height: calc(100vh - 16px);
   overflow-y: auto;
 }
+
+/* 全局朗读控制条 */
+.speech-bar {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #1f1f22;
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  font-size: var(--fs-sm);
+  user-select: none;
+}
+
+.speech-bar-label {
+  min-width: 64px;
+}
+
+.speech-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--fs-xs);
+}
+
+.speech-bar-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

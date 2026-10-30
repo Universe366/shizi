@@ -6,6 +6,7 @@ import { AddressBar } from './components/AddressBar';
 import { FindBar } from './components/FindBar';
 import { Sidebar } from './components/Sidebar';
 import { BrowserStage } from './components/BrowserStage';
+import { SpeechBar } from './components/SpeechBar';
 import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
@@ -883,6 +884,7 @@ export default function App() {
         </button>
       )}
 
+      <SpeechBar />
       <CommandPalette
         open={paletteOpen}
         commands={wrappedCommands}

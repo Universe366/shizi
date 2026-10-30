@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Volume2 } from 'lucide-react';
 import type { TtsSettings } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
+import { stopSpeech } from '../../lib/speech';
 
 interface Props {
   value: TtsSettings;
@@ -18,6 +19,8 @@ export function TtsSection({ value, onChange }: Props) {
   const [testing, setTesting] = useState(false);
   const [notice, setNotice] = useState('');
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const previewToken = useRef(0);
 
   useEffect(() => {
     void window.bsub.ttsVoices().then((response) => {
@@ -27,24 +30,48 @@ export function TtsSection({ value, onChange }: Props) {
 
   useEffect(() => () => audio?.pause(), [audio]);
 
+  const stopPreview = () => {
+    previewToken.current += 1;
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+    }
+    setAudio(null);
+    setPreviewing(false);
+  };
+
   const test = async () => {
+    const token = (previewToken.current += 1);
+    stopSpeech();
     setTesting(true);
     setNotice('');
     try {
       const response = await window.bsub.ttsSpeak({ text: SAMPLE, override: value });
+      if (token !== previewToken.current) return;
       if (!response.ok) {
         setNotice(`朗读失败：${response.error}`);
         return;
       }
-      audio?.pause();
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
       const player = new Audio(response.data.dataUrl);
+      player.onended = () => {
+        if (token === previewToken.current) setPreviewing(false);
+      };
       setAudio(player);
       await player.play();
+      if (token !== previewToken.current) {
+        player.pause();
+        return;
+      }
+      setPreviewing(true);
       setNotice(`使用 ${response.data.engine} 合成，用时 ${response.data.ms}ms`);
     } catch (error) {
-      setNotice(`播放失败：${(error as Error).message}`);
+      if (token === previewToken.current) setNotice(`播放失败：${(error as Error).message}`);
     } finally {
-      setTesting(false);
+      if (token === previewToken.current) setTesting(false);
     }
   };
 
@@ -220,6 +247,11 @@ export function TtsSection({ value, onChange }: Props) {
           {testing ? <Loader2 size={12} className="spin" /> : <Volume2 size={12} />}
           试听
         </button>
+        {previewing && (
+          <button className="mini-btn" onClick={stopPreview}>
+            停止试听
+          </button>
+        )}
         {notice && <span className="settings-hint">{notice}</span>}
       </div>
     </SettingsSection>
