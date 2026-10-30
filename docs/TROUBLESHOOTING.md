@@ -1,6 +1,6 @@
 # 故障排查
 
-> 适用：桌面 0.162.23 / 插件 2.20.12
+> 适用：桌面 0.162.24 / 插件 2.20.13
 > 先判断问题在哪一层：桌面启动、插件加载、桥连接、字幕抓取、AI/ASR 服务、更新。
 
 ## 1. 先收集信息
@@ -93,7 +93,7 @@ PowerShell：
 - 先看失败步骤：npm ci、typecheck、test、pack、release；
 - npm ci 失败优先检查 package-lock.json 是否与 package.json 同步；
 - 发布由 tag 触发，不要在本地直接 publish；
-- tag 用桌面版本号（如 v0.162.23），发布后确认 latest.yml 与 Release 资产；
+- tag 用桌面版本号（如 v0.162.24），发布后确认 latest.yml 与 Release 资产；
 - 0.162.18 曾因 image:generate 未登记 IPC 契约导致测试失败，0.162.19 补齐后重新发布成功，可作为先例。
 
 ## 11. 提交问题的最小信息
