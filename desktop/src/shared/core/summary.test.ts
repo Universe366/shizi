@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSummaryPrompt, officialSegmentsBlock } from './summary';
+import { DEFAULT_SUMMARY_FORMAT_RULES, buildSummaryPrompt, officialSegmentsBlock } from './summary';
 
 describe('shared summary core', () => {
   it('官方分段块含起止时间与标题', () => {
@@ -30,37 +30,19 @@ describe('shared summary core', () => {
     expect(built.user).toContain('视频时长：1:01');
   });
 
-  it('系统提示始终追加时间线顺序规则（自定义格式规则时也追加）', () => {
+  it('默认不追加任何格式规则，系统提示就是模板本身', () => {
+    const built = buildSummaryPrompt({ info: { title: '测试' }, promptText: '模板' });
+    expect(built.system).toBe('模板');
+    expect(DEFAULT_SUMMARY_FORMAT_RULES).toBe('');
+  });
+
+  it('只有在设置里填了格式规则时才追加', () => {
     const built = buildSummaryPrompt({
       info: { title: '测试' },
       promptText: '模板',
       formatRules: '自定义格式规则'
     });
-    expect(built.system).toContain('自定义格式规则');
-    expect(built.system).toContain('严格按视频时间线');
-    expect(built.system).toContain('不要按主题重排');
-    // 顺序规则必须在格式规则之后单独成段，模型更容易遵守最后出现的硬约束。
-    expect(built.system.indexOf('严格按视频时间线')).toBeGreaterThan(
-      built.system.indexOf('自定义格式规则')
-    );
-    expect(built.system).toContain('\n\n【顺序：严格按视频时间线');
-  });
-
-  it('用户提示要求正文按字幕时间顺序组织', () => {
-    const built = buildSummaryPrompt({ info: { title: '测试' }, promptText: '模板' });
-    expect(built.user).toContain('按字幕时间顺序');
-    expect(built.user).toContain('时间戳');
-  });
-
-  it('官方分段块要求按时间顺序排列', () => {
-    expect(
-      officialSegmentsBlock({
-        viewPoints: [
-          { start: 0, end: 60, title: '开场' },
-          { start: 60, end: 120, title: '正片' }
-        ]
-      })
-    ).toContain('按时间顺序排列');
+    expect(built.system).toBe('模板\n自定义格式规则');
   });
 
   it('useVideoMeta=false 时不带简介', () => {

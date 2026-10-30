@@ -1500,22 +1500,8 @@ async function main() {
       path.join(__dirname, '..', 'desktop', 'src', 'shared', 'core', 'summary.ts'),
       'utf8'
     );
-    check('格式规则含标题层级限制', /标题最多三级/.test(rules), '');
-    check('格式规则含表格（要求表头与分隔行）', /管道表格/.test(rules) && /表头与 .*分隔行/.test(rules), '');
-    check('格式规则含代码块（要求标注语言）', /三个反引号/.test(rules), '');
-    check('格式规则含引用与分割线', /引用块/.test(rules) && /分割线/.test(rules), '');
-    check('格式规则含 LaTeX 公式', /LaTeX/.test(rules) && /\$…\$/.test(rules), '');
-    check('格式规则含超链接', /\[文字\]\(https/.test(rules), '');
-    check('格式规则含任务列表', /- \[ \]/.test(rules), '');
-    check('格式规则要求先给结论与速览表', /一句话结论/.test(rules) && /速览/.test(rules), '');
-    check('格式规则排除内嵌 HTML', /内嵌 HTML/.test(rules), '');
-    check('格式规则说明图片无法携带', /图片无法通过文本携带/.test(rules), '');
-    check('格式规则提醒不要编造链接', /不要编造/.test(rules), '');
-    check('格式规则要求内容全部来自字幕', /全部来自字幕/.test(rules), '');
-    check('格式规则要求按视频时间线排序', /严格按视频时间线/.test(rules) && /不要按主题重排/.test(rules), '');
-    check('格式规则要求章节标题带时间戳', /章节标题带上该节起始时间戳/.test(rules), '');
-    check('格式规则要求速览表按出现顺序', /速览表的行同样按出现顺序排列/.test(rules), '');
-
+    check('默认不追加格式规则（提示词就是模板本身）', /DEFAULT_SUMMARY_FORMAT_RULES = ''/.test(rules), '');
+    check('旧的长格式规则已移除', !/管道表格/.test(rules) && !/速览/.test(rules), '');
     // 默认提示词就是用户指定的那一句
     check('默认提示词是用户指定的原句', /整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）/.test(api.DEFAULT_SYSTEM_PROMPT), '');
   }
@@ -1884,8 +1870,7 @@ async function main() {
       path.join(__dirname, '..', 'desktop', 'src', 'shared', 'core', 'summary.ts'),
       'utf8'
     );
-    check('提示词要求更详细', /宁可详细，不要简略/.test(coreRules), '');
-    check('提示词保留反灌水约束', /不要为了凑长度/.test(coreRules), '');
+    check('提示词不再内置格式与详细度要求', !/宁可详细，不要简略/.test(coreRules) && !/管道表格/.test(coreRules), '');
 
     // ---- 解码路径必须按**实际 codec** 建 SourceBuffer ----
     //

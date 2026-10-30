@@ -30,14 +30,19 @@ import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 import { setUsageEnabled } from './usage';
 
 /**
- * 0.162.22 及更早版本会把内置默认格式规则整段写进 settings.json；
- * 旧默认只差「按内容自然分节」这一句。升级时把这段快照换成新默认，
- * 用户真正改过的规则保持原样。
+ * 0.162.22 / 0.162.23 会把内置默认格式规则整段写进 settings.json。
+ * 这些历史默认文本统一当作「没改过」，升级成当前默认；用户真正改过的规则保持原样。
  */
-export const LEGACY_DEFAULT_SUMMARY_FORMAT_RULES = DEFAULT_SUMMARY_FORMAT_RULES.replace(
-  '· 按时间线自然分节（顺序见下方「顺序」要求），不要为了短而合并章节；长视频写长一些是正常的。',
-  '· 按内容自然分节，不要为了短而合并章节；长视频写长一些是正常的。'
-);
+export function isBuiltinSummaryFormatRules(value: string): boolean {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  if (text === DEFAULT_SUMMARY_FORMAT_RULES) return true;
+  return (
+    text.startsWith('【输出风格：做成一份信息密度高的图文笔记') &&
+    /按内容自然分节|按时间线自然分节/.test(text) &&
+    text.includes('不要为了凑长度而复述同一件事')
+  );
+}
 
 function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
   const raw = (value || {}) as Partial<SubtitleStyle>;
@@ -1296,7 +1301,7 @@ function normalize(input: unknown): AppSettings {
         ? raw.prompt.summaryFormatRules.trim()
         : '';
     base.prompt.summaryFormatRules =
-      storedRules && storedRules !== LEGACY_DEFAULT_SUMMARY_FORMAT_RULES
+      storedRules && !isBuiltinSummaryFormatRules(storedRules)
         ? storedRules.slice(0, 30000)
         : DEFAULT_SUMMARY_FORMAT_RULES;
     if (typeof raw.prompt?.translate === 'string' && raw.prompt.translate.trim()) {

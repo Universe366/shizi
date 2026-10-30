@@ -66,7 +66,7 @@ export function PromptSection({
 
       <div className="settings-label">总结格式规则</div>
       <div className="settings-hint">
-        最终系统提示词 = 上面的模板 + 术语表 + 这段格式规则 + 内置的时间线顺序规则（正文按字幕时间顺序、章节标题带起始时间戳）。留空则使用内置默认。
+        留空则不追加任何格式规则：最终系统提示词只有上面的模板（以及配置了才有的术语表）。
       </div>
       <textarea
         className="settings-textarea"
