@@ -4121,3 +4121,55 @@
     padding: 0 0 24px;
   }
 }
+
+/* ---------- 窄窗口：分组栏保持纵向列表，不要挤成一行 ---------- */
+@media (max-width: 1080px) {
+  .start-sidebar .start-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    height: 100%;
+    padding: 14px;
+    border-radius: 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .start-sidebar .start-tabs::before {
+    display: block;
+  }
+
+  .start-sidebar .start-tab {
+    width: 100%;
+    flex: 0 0 auto;
+    height: 38px;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .start-sidebar .start-tab-count {
+    margin-left: auto;
+  }
+
+  .start-sidebar .start-tab-actions {
+    margin-top: auto;
+    padding-top: 12px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    border-top: 1px solid color-mix(in srgb, var(--start-border) 55%, transparent);
+  }
+
+  .start-sidebar .start-density {
+    width: 100%;
+    flex-direction: row;
+  }
+
+  .start-sidebar .start-density-btn {
+    width: auto;
+    flex: 1;
+  }
+
+  .start-sidebar .start-selection {
+    flex-wrap: wrap;
+  }
+}
