@@ -166,6 +166,35 @@ const server1 = { id: 's1', name: 'Fake', url: URL_, transport: 'http', token: '
   check('工具结果进入事件', events.some((e) => e.phase === 'end' && /echo:视频主题/.test(e.text || '')), JSON.stringify(events.filter((e) => e.phase === 'end').map((e) => e.text)));
 }
 
+// ---------- 5b. 工具审批拒绝后不执行 ----------
+{
+  let round = 0;
+  const chatFn = async () => {
+    round += 1;
+    if (round === 1) {
+      return Object.assign('', { text: '', message: { role: 'assistant', tool_calls: [{ id: 'c1', function: { name: 'Fake__echo', arguments: '{"text":"x"}' } }] } });
+    }
+    return Object.assign('已取消', { text: '已取消', message: { content: '已取消' } });
+  };
+  const events = [];
+  const tools = [
+    { qualifiedName: 'Fake__echo', name: 'echo', serverName: 'Fake', server: server1, description: '写操作', inputSchema: { type: 'object', properties: {} } }
+  ];
+  const out = await T.chatWithTools(
+    { id: 'x', name: 'X', baseUrl: 'https://api.deepseek.com/v1', model: 'm', apiKey: 'k' },
+    [{ role: 'user', content: 'hi' }],
+    tools,
+    {
+      onToolEvent: (e) => events.push(e),
+      toolTimeoutMs: 5000,
+      chatFn,
+      onToolApproval: async () => false
+    }
+  );
+  check('工具审批拒绝记为失败', events.some((e) => e.phase === 'end' && e.ok === false && /拒绝/.test(e.text || '')), JSON.stringify(events));
+  check('拒绝后仍返回最终回答', out.text === '已取消', out.text);
+}
+
 // ---------- 6. 未知工具不崩，而是作为错误回填 ----------
 {
   let n = 0;

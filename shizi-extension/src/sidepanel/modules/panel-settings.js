@@ -496,6 +496,20 @@ function mcpGroup(d) {
       })
     );
 
+    body.appendChild(
+      field(
+        '工具审批',
+        select(d.mcp.approvalMode || 'write', [
+          { value: 'off', label: '不询问' },
+          { value: 'write', label: '写操作前询问（推荐）' },
+          { value: 'all', label: '每次调用都询问' }
+        ], (v) => {
+          d.mcp.approvalMode = v;
+          markDirty();
+        }),
+        '与桌面端一致：write 只对写/发送/执行类工具弹确认。'
+      )
+    );
     const list = h('div', { class: 'platform-list' });
     d.mcp.servers.forEach((sv, i) => {
       const card = h('div', { class: 'platform-card' });

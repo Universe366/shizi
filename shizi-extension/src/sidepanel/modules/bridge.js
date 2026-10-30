@@ -305,6 +305,13 @@ export class Stream {
     if (callbacks.onProgress) this.handlers.set('stream:progress', (m) => callbacks.onProgress(m.info));
     if (callbacks.onReplace) this.handlers.set('stream:replace', (m) => callbacks.onReplace(m.text));
     if (callbacks.onTool) this.handlers.set('stream:tool', (m) => callbacks.onTool(m.event));
+    if (callbacks.onApproval) {
+      this.handlers.set('stream:approval', (m) => {
+        Promise.resolve(callbacks.onApproval(m.request))
+          .then((allow) => this._post({ kind: 'stream:approval:result', rid: this.rid, id: m.id, allow: Boolean(allow) }))
+          .catch(() => this._post({ kind: 'stream:approval:result', rid: this.rid, id: m.id, allow: false }));
+      });
+    }
     if (callbacks.onReasoning) this.handlers.set('stream:reasoning', (m) => callbacks.onReasoning(m.text));
     if (callbacks.onError) this.handlers.set(RPC.KIND_ERROR, (m) => callbacks.onError(m.error));
     this.handlers.set(RPC.KIND_END, (m) => {

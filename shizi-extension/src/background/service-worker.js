@@ -22,6 +22,9 @@ import { stripQuery } from '../shared/storage.js';
 // 免费引擎有限流、付费引擎按次计费，缓存能同时缓解两者。
 const searchCache = new SC.ResultCache({ max: 50, ttlMs: 5 * 60 * 1000 });
 
+// 流式对话里的 MCP 工具审批：panel 收到 stream:approval 后回 result。
+const streamApprovals = new Map();
+
 // 汇总所有「已启用」MCP 服务的工具，统一命名空间为「服务名__工具名」。
 // 单个服务失败只记录、不中断其它服务。
 async function collectMcpTools(mcpCfg, opts = {}) {
@@ -1579,6 +1582,14 @@ chrome.runtime.onConnect.addListener((port) => {
       }
       return;
     }
+    if (msg.kind === 'stream:approval:result') {
+      const pending = streamApprovals.get(msg.id);
+      if (pending) {
+        streamApprovals.delete(msg.id);
+        pending.resolve(Boolean(msg.allow));
+      }
+      return;
+    }
     if (msg.kind === 'stream:cancel') {
       const st = states.get(msg.rid);
       if (st) st.controller.abort();
@@ -1590,6 +1601,12 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onDisconnect.addListener(() => {
     for (const [, st] of states) st.controller.abort();
+    for (const [id, pending] of streamApprovals) {
+      if (pending.port === port) {
+        pending.resolve(false);
+        streamApprovals.delete(id);
+      }
+    }
     states.clear();
   });
 });
@@ -1602,7 +1619,25 @@ async function runStreamRoute(msg, port, controller) {
     progress: (info) => port.postMessage({ kind: 'stream:progress', rid, info }),
     replace: (text) => port.postMessage({ kind: 'stream:replace', rid, text }),
     tool: (event) => port.postMessage({ kind: 'stream:tool', rid, event }),
-    reasoning: (text) => port.postMessage({ kind: 'stream:reasoning', rid, text })
+    reasoning: (text) => port.postMessage({ kind: 'stream:reasoning', rid, text }),
+    approval: (request) =>
+      new Promise((resolve) => {
+        const id = `ap_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        const timer = setTimeout(() => {
+          if (streamApprovals.has(id)) {
+            streamApprovals.delete(id);
+            resolve(false);
+          }
+        }, 120000);
+        streamApprovals.set(id, {
+          port,
+          resolve: (allow) => {
+            clearTimeout(timer);
+            resolve(allow);
+          }
+        });
+        port.postMessage({ kind: 'stream:approval', rid, id, request });
+      })
   };
   const settings = await ST.loadSettings();
 
@@ -1654,7 +1689,21 @@ async function runStreamRoute(msg, port, controller) {
         timeoutMs,
         maxToolRounds: settings.mcp && settings.mcp.maxToolRounds,
         toolTimeoutMs: settings.mcp && settings.mcp.callTimeoutMs,
-        onToolEvent: (e) => send.tool(e)
+        onToolEvent: (e) => send.tool(e),
+        onToolApproval: async (event) => {
+          const mode = (settings.mcp && settings.mcp.approvalMode) || 'write';
+          if (mode === 'off') return true;
+          const isWrite = /write|create|update|delete|remove|send|post|put|patch|execute|run|add|set|upload|insert|modify|move|rename|publish/i.test(
+            `${event.name} ${event.description || ''}`
+          );
+          if (mode === 'write' && !isWrite) return true;
+          return send.approval({
+            name: event.name,
+            detail: event.description || '',
+            args: event.args || {},
+            serverName: event.serverName || ''
+          });
+        }
       });
       // 工具循环本身是整段返回的，这里一次性推给面板
       if (out.text) send.delta(out.text);

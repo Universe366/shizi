@@ -129,6 +129,15 @@ export async function chatWithTools(platform, messages, tools, opts = {}) {
       let ok = true;
       try {
         if (!tool) throw new Error(`未知工具：${call.name}`);
+        if (typeof opts.onToolApproval === 'function') {
+          const allowed = await opts.onToolApproval({
+            name: call.name,
+            args: call.args,
+            serverName: tool.serverName || '',
+            description: tool.description || ''
+          });
+          if (!allowed) throw new Error('用户拒绝了这次工具调用');
+        }
         if (typeof tool.handler === 'function') {
           // 本地工具（联网检索/读网页等）直接执行，不走 MCP。
           text = String((await tool.handler(call.args, { signal: opts.signal })) || '');

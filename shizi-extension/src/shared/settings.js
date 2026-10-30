@@ -817,7 +817,9 @@ export function defaultSettings() {
       enabled: false,
       servers: [],
       callTimeoutMs: 60000,
-      maxToolRounds: 6
+      maxToolRounds: 6,
+      // off：不询问；write：写操作前询问；all：每次工具调用都询问。
+      approvalMode: 'write'
     },
     // ---- Skills：可复用的提示词 / 工作流 ----
     skills: {
