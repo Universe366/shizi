@@ -1,4 +1,4 @@
-import type { PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
+import type { ChatToolEvent, PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
 import { chat } from './chat';
 import { buildSummaryChatPrompt } from './ai';
 
@@ -10,6 +10,7 @@ export interface SummarizeChatOptions {
   onDelta?: (delta: string) => void;
   onReasoning?: (delta: string) => void;
   onStatus?: (status: string) => void;
+  onTool?: (event: Omit<ChatToolEvent, 'requestId'>) => void;
 }
 
 export interface SummarizeChatResult {
@@ -37,7 +38,8 @@ export async function summarizeChat(options: SummarizeChatOptions): Promise<Summ
     signal: options.signal,
     onDelta: options.onDelta,
     onReasoning: options.onReasoning,
-    onStatus: options.onStatus
+    onStatus: options.onStatus,
+    onTool: options.onTool
   });
   if (!result.text.trim()) throw new Error('AI 返回为空');
   const verification = result.references?.length

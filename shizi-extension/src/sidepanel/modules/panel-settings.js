@@ -203,7 +203,12 @@ function renderBody() {
   const d = draft();
 
   // ---- 常驻提示：为什么现在不能用（第七章）----
-  const issues = (st.readiness && st.readiness.issues) || [];
+  const issues = ((st.readiness && st.readiness.issues) || []).filter((issue) => {
+    if (st.desktopAsrReady && issue.area === 'asr' && st.settings?.desktop?.useDesktopAsr !== false) {
+      return false;
+    }
+    return true;
+  });
   if (issues.length) {
     const box = h('div', { class: 'group' });
     const inner = h('div', { class: 'group-body', style: { background: 'var(--warn-soft)' } });
@@ -2628,7 +2633,7 @@ async function save() {
     await persistDraft({ silent: true });
     const saved = await call('settings.get');
     store.set({ settings: saved, readiness: saved.__readiness || { ok: {}, issues: [] } });
-    toast({ title: '设置已保存', detail: '密钥等敏感信息只保存在本机。' }, 'ok');
+    // 保存成功由工具栏「已保存」状态表达，不再每次弹 toast。
     render();
   } catch (err) {
     showError(err, '保存设置失败');

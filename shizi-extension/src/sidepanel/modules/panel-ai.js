@@ -1679,6 +1679,7 @@ async function generateSummaryLocalNew() {
     ];
     const stream = new Stream();
     state.stream = stream;
+    const localRefs = [];
     let streamedChars = 0;
     task.set(50, '正在生成总结…');
     stream.start(
@@ -1692,8 +1693,21 @@ async function generateSummaryLocalNew() {
       },
       {
         onLog: (_level, text) => task.set(50, String(text || '联网中…')),
+        onReasoning: () => task.set(50, '模型思考中…'),
         onTool: (event) => {
-          if (event && event.phase === 'start') task.set(50, `调用工具：${event.name}`);
+          if (!event) return;
+          if (event.phase === 'start') task.set(50, `调用工具：${event.name}`);
+          if (event.phase === 'end' && event.name === 'web_search' && event.text) {
+            const lines = String(event.text).split('\n');
+            for (let i = 0; i < lines.length; i += 1) {
+              const hit = /^\[\d+\]\s*(.*)$/.exec(lines[i].trim());
+              const url = (lines[i + 1] || '').trim();
+              if (hit && /^https?:\/\//i.test(url) && !localRefs.some((ref) => ref.url === url)) {
+                localRefs.push({ title: hit[1] || url, url });
+              }
+            }
+            store.set({ summaryReferences: localRefs.slice(0, 12) });
+          }
         },
         onDelta: (text) => {
           const cur = store.get();
@@ -1821,7 +1835,7 @@ export async function generateSummary(opts = {}) {
   const stream = new DesktopStream();
   state.stream = stream;
   let streamedChars = 0;
-  task.set(60, '桌面端生成中…');
+  task.set(10, '桌面端准备中…');
   stream.start(
     'ai.summarize',
     {
@@ -1833,6 +1847,12 @@ export async function generateSummary(opts = {}) {
       web: true
     },
     {
+      onLog: (_level, text) => task.set(20, String(text || '桌面端准备中…')),
+      onReasoning: () => task.set(35, '桌面端模型思考中…'),
+      onTool: (event) => {
+        if (!event) return;
+        if (event.phase === 'start') task.set(45, `桌面端调用工具：${event.name || '工具'}`);
+      },
       onDelta: (text) => {
         const cur = store.get();
         store.set({ summaryStream: (cur.summaryStream || '') + text });

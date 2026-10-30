@@ -325,10 +325,19 @@ export async function maybeOfferSettingsMigration() {
   const settings = store.get().settings;
   if (!settings || !settings.desktop) return;
   const cfg = settings.desktop;
-  if (cfg.settingsAuthority || cfg.migrationDismissed) return;
+  if (cfg.migrationDismissed) return;
   if (linkStatus().state !== 'connected') return;
   offering = true;
   try {
+    // 主端是桌面时，每次连接都拉一次共享设置，保证搜索/ASR Key 等与桌面一致。
+    if (cfg.settingsAuthority === 'desktop') {
+      const shared = await fetchSharedSettings(cfg.migrateKeys !== false);
+      const next = importSharedSettings(settings, shared);
+      next.desktop = { ...(next.desktop || {}), settingsAuthority: 'desktop' };
+      await saveSettings(next);
+      return;
+    }
+    if (cfg.settingsAuthority) return;
     const shared = await fetchSharedSettings(false);
     // 不做时间/“谁有 Key”判断：首次连接一律让用户选择主端。
     showChoiceDialog(shared);

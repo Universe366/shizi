@@ -91,7 +91,10 @@ export async function probeDesktopAi(force = false) {
     } finally {
       clearTimeout(timer);
     }
-    store.set({ desktopAiReady: probeCache.ready });
+    store.set({
+      desktopAiReady: probeCache.ready,
+      desktopAsrReady: !!(probeCache.asr && probeCache.asr.ready)
+    });
     return probeCache;
   })().finally(() => {
     probing = null;
@@ -368,7 +371,9 @@ onLinkChange((status) => {
       platforms: [],
       asr: null
     };
-    if (store.get().desktopAiReady) store.set({ desktopAiReady: false });
+    if (store.get().desktopAiReady || store.get().desktopAsrReady) {
+      store.set({ desktopAiReady: false, desktopAsrReady: false });
+    }
     return;
   }
   // 刚连上：清掉「未连接」缓存并主动探一次，别让第一次总结还走本地。

@@ -40,7 +40,8 @@ function emptyState() {
     contentTabs: [],
     // 桌面库只读镜像（连接桌面端后自动拉取；离线时显示上次缓存）
     desktopLibrary: { items: [], total: 0, syncedAt: 0, offline: false, error: '' },
-    desktopAiReady: false
+    desktopAiReady: false,
+    desktopAsrReady: false
   };
 }
 

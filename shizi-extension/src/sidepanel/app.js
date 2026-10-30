@@ -352,9 +352,13 @@ function renderReadiness(extra) {
   const st = store.get();
   clear(el);
   // 桌面端 AI 可用时，插件自己没配 Key 不算「不可用」。
-  const issues = ((st.readiness && st.readiness.issues) || []).filter(
-    (issue) => !(st.desktopAiReady && issue.area === 'ai')
-  );
+  const issues = ((st.readiness && st.readiness.issues) || []).filter((issue) => {
+    if (st.desktopAiReady && issue.area === 'ai') return false;
+    if (st.desktopAsrReady && issue.area === 'asr' && st.settings?.desktop?.useDesktopAsr !== false) {
+      return false;
+    }
+    return true;
+  });
   const list = extra ? [{ level: 'error', text: `${extra.title}：${extra.detail || ''}`, area: 'ai' }, ...issues] : issues;
   if (!list.length) {
     setBoolAttr(el, 'data-visible', false);

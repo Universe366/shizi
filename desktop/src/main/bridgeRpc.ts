@@ -215,7 +215,8 @@ export async function runRpc(
       signal,
       onDelta: (text) => emit({ type: 'delta', text }),
       onReasoning: (text) => emit({ type: 'reasoning', text }),
-      onStatus: (text) => emit({ type: 'status', text })
+      onStatus: (text) => emit({ type: 'status', text }),
+      onTool: (event) => emit({ type: 'tool', event })
     });
     emit({
       type: 'done',

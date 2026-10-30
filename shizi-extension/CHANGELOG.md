@@ -2,6 +2,17 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.8（2026-10-30）
+
+### 总结进度、参考来源与 ASR 状态修复
+
+- 桌面总结的 status/reasoning/tool 事件接入插件进度；
+- 本地总结收集 web_search 参考网址；
+- 桌面为主端时每次连接自动同步共享设置（含搜索/ASR Key）；
+- 桌面本地 Whisper 可用时不再误报未配置 Key；
+- 保存设置不再重复弹提示。
+- 测试：panel-test 488 项 0 失败。
+
 ## 2.20.7（2026-10-30）
 
 ### MCP 工具审批
