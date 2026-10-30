@@ -73,6 +73,39 @@ describe('任务槽位 / 用量设置', () => {
     expect(loaded.ai.taskModels.verify?.model).toBe('deepseek-chat');
   });
 
+  it('文字识别任务槽位可单独选视觉模型', () => {
+    const settings = loadSettings();
+    settings.ai.taskModels = {
+      ocr: { platformId: 'deepseek', model: 'vision-model' }
+    };
+    saveSettings(settings);
+    const loaded = loadSettings();
+    const resolved = platformForTask('ocr', loaded);
+    expect(resolved.id).toBe('deepseek');
+    expect(resolved.model).toBe('vision-model');
+  });
+
+  it('OCR 引擎接受 ai，图片设置可持久化且导出清空 Key', () => {
+    const settings = loadSettings();
+    settings.ocr.engine = 'ai';
+    settings.image = {
+      ...settings.image,
+      enabled: true,
+      provider: 'a1111',
+      baseUrl: 'http://127.0.0.1:7860',
+      apiKey: 'image-secret',
+      size: '768x768',
+      steps: 12
+    };
+    saveSettings(settings);
+    const loaded = loadSettings();
+    expect(loaded.ocr.engine).toBe('ai');
+    expect(loaded.image.provider).toBe('a1111');
+    expect(loaded.image.size).toBe('768x768');
+    expect(stripSecrets(loaded).image.apiKey).toBe('');
+    expect(settingsSnapshot().settings.image.apiKey).toContain('••••');
+  });
+
   it('多 Key 持久化，导出时清空', () => {
     const settings = loadSettings();
     const platform = settings.ai.platforms.find((item) => item.id === 'deepseek')!;

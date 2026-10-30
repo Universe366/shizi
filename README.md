@@ -85,13 +85,15 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | 能力 | 说明 |
 |---|---|
 | 模型平台 | 35 个 AI 平台预设；OpenAI 兼容、Anthropic、Gemini 原生、Azure OpenAI、Ollama、LM Studio |
-| 按任务选模型 | 总结 / 对话 / 翻译 / 校对 / 章节可分别指定平台与模型 |
+| 按任务选模型 | 总结 / 对话 / 翻译 / 校对 / 章节 / 文字识别 / 语音朗读 / 图片生成可分别指定平台与模型 |
 | 总结 | 与桌面端共享提示词/格式规则/术语表；官方分段优先；对话式联网工具循环 |
 | 总结展示 | 流式 Markdown、思考过程折叠、[n] 引用、KaTeX 公式、参考网址、失败重试 |
 | 对话 | 基于字幕/页面提问；工具调用；上下文压缩；对话历史 |
 | 检索 | DeepSeek / Tavily / 博查 / Serper / 智谱 / 秘塔 / 千帆 / Brave / Exa / Firecrawl / Querit / Jina / SearXNG |
 | MCP | HTTP / SSE；工具审批（不询问 / 写操作前 / 每次）；工具循环 |
 | Skills | SKILL.md 单文件 / 文件夹 / 链接导入；指令型技能 |
+| 图片生成 | OpenAI 兼容（OpenAI / 硅基流动 / LocalAI）、本地 SD WebUI、本地 ComfyUI 工作流 |
+| 文字识别 | Windows OCR / PaddleOCR / 视觉大模型 |
 
 ### 桌面端
 
@@ -180,7 +182,7 @@ node browser-smoke-test.js   # 需要本机 Edge/Chrome + 网络
 
 当前基线：
 
-- 桌面：180 个测试文件 / 1065 个用例（1 跳过）；冒烟 E2E 19/19；
+- 桌面：180 个测试文件 / 1067 个用例（1 跳过）；冒烟 E2E 19/19；
 - 插件：panel-test 488 项；真实浏览器冒烟 13 项；
 - 发布：tag 触发 GitHub Actions，构建安装版、绿色版与插件 zip。
 
