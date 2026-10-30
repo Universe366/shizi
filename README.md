@@ -222,6 +222,7 @@ shizi-extension/
 | 插件重构计划 | [docs/EXTENSION-REFACTOR-PLAN.md](docs/EXTENSION-REFACTOR-PLAN.md) |
 | 发布 / 签名 / 更新 | [docs/MAINTAINERS.md](docs/MAINTAINERS.md) |
 | 质量基线与重构顺序 | [docs/QUALITY.md](docs/QUALITY.md) |
+| 遇到故障 / 更新失败 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
 | 全部文档索引 / 历史归档 | [docs/README.md](docs/README.md) |
 
 ## 隐私

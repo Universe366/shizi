@@ -10,6 +10,7 @@
 | [UI-GUIDE.md](UI-GUIDE.md) | 起始页 / 设置 / 对话 / 成片 / 浏览器的界面结构与改动入口 |
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite 表、迁移、备份与恢复 |
 | [QUALITY.md](QUALITY.md) | 当前测试基线、技术债与拆分顺序 |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 桌面/插件/桥/字幕/AI/ASR/更新/发布的故障排查 |
 | [MAINTAINERS.md](MAINTAINERS.md) | 发布、签名、版本与 Release 检查 |
 | [SIGNING.md](SIGNING.md) | Windows 签名与安装包说明 |
 | [../desktop/docs/ARCHITECTURE.md](../desktop/docs/ARCHITECTURE.md) | 桌面端模块边界与数据流 |
