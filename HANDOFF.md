@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-10-30
-> 适用版本：桌面 **0.162.8** / 插件 **2.20.8**
-> 当前发布基线：tag `v0.162.8`
-> 最新 Release：`v0.162.8`
+> 适用版本：桌面 **0.162.9** / 插件 **2.20.9**
+> 当前发布基线：tag `v0.162.9`
+> 最新 Release：`v0.162.9`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -26,15 +26,22 @@
 | 插件 `panel-test` | 487 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.8` 通过 |
+| 发布 CI | `v0.162.9` 通过 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.8，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.9，`/releases/latest` 已确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.9（2026-10-30，总结过程展示）
+
+- 总结生成时显示状态、工具调用与可折叠思考过程。
+- 连接桌面时重新探测本地 Whisper。
+- 测试：桌面 check/smoke 通过；插件 panel-test 488 项；真实浏览器 13 项。
+- Release：`v0.162.9`，CI 构建并发布。
 
 ### 0.162.8（2026-10-30，总结进度/参考来源与 ASR 状态修复）
 
