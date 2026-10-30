@@ -312,6 +312,7 @@ export function AddressBar({
             window.setTimeout(() => setSuggestOpen(false), 120);
             window.setTimeout(() => setSelectionMenu(null), 160);
           }}
+          onSelect={showSelectionMenu}
           onMouseUp={showSelectionMenu}
           onKeyUp={showSelectionMenu}
           onKeyDown={(event) => {

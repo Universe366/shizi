@@ -14934,28 +14934,19 @@ sup:has(> .cite-ref) {
   }
 }
 
-/* 折叠态：标签页直接带 X，不再要求右键菜单 */
-.tab-strip.is-collapsed:not(.is-peeking) .tab {
-  padding-right: 20px;
-}
-
+/* 折叠态不显示关闭按钮；悬停展开后常驻显示在标签右侧 */
 .tab-strip.is-collapsed:not(.is-peeking) .tab-close {
-  display: flex;
-  position: absolute;
-  right: 1px;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  transform: translateY(-50%);
-  border-radius: 50%;
-  opacity: 0.55;
-  z-index: 2;
+  display: none;
 }
 
-.tab-strip.is-collapsed:not(.is-peeking) .tab:hover .tab-close,
-.tab-strip.is-collapsed:not(.is-peeking) .tab.is-active .tab-close {
-  opacity: 1;
-  background: color-mix(in srgb, var(--text) 14%, transparent);
+.tab-strip.is-collapsed.is-peeking .tab {
+  justify-content: flex-start;
+  padding: 0 8px;
+  gap: 8px;
+}
+
+.tab-strip.is-collapsed.is-peeking .tab-close {
+  display: flex;
 }
 
 .tab-strip.is-collapsed:not(.is-peeking) .tab-audio {
@@ -14989,16 +14980,20 @@ sup:has(> .cite-ref) {
   border-bottom: 0;
 }
 
-/* 垂直标签页：关闭按钮常驻，不用右键再点关闭 */
+/* 垂直标签页：展开态关闭按钮常驻，不用悬停/右键 */
 .app-shell.vertical-tabs .tab-close {
+  display: flex;
   flex: none;
-  opacity: 0.62;
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
 }
 
 .app-shell.vertical-tabs .tab:hover .tab-close,
 .app-shell.vertical-tabs .tab.is-active .tab-close,
 .app-shell.vertical-tabs .tab-close:focus-visible {
   opacity: 1;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 /* ---------- 网页右键菜单 ---------- */
