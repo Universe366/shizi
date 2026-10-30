@@ -18,7 +18,8 @@ import {
   loadHistory,
   restoreHistory,
   exportSubtitles,
-  copyAllSubtitles
+  copyAllSubtitles,
+  setLines
 } from './context.js';
 import { call } from './bridge.js';
 import { openOverlay, closeOverlays, popoverMenu, confirmDialog } from './ui.js';
@@ -26,6 +27,8 @@ import { engineLabel } from './search.js';
 import { subtitleSpan, searchCapabilityOf } from './panel-ai.js';
 import * as TIMELINE from './timeline.js';
 import { sendToDesktop } from './desktop-bridge.js';
+import { parseSubtitleText } from './subtitles.js';
+import { resegmentByRules } from '../../shared/resegment.js';
 
 async function pushToDesktop() {
   try {
@@ -118,6 +121,34 @@ export function runQualityCheck() {
   return contextQualityCheck();
 }
 
+function openResegment() {
+  const st = store.get();
+  if (!(st.subtitles || []).length) return;
+  const body = h('div');
+  body.appendChild(h('div', { class: 'note', text: '合并碎句、拆分长句；只改断句，不改写字幕文字。' }));
+  const input = h('input', { class: 'input', type: 'number', min: '8', max: '80', value: '24' });
+  const row = h('div', { class: 'row tight', style: { gap: '8px', marginTop: '8px' } }, [
+    h('span', { text: '每行最多字符' }),
+    input
+  ]);
+  body.appendChild(row);
+  openOverlay('断句', body, [
+    { label: '取消', onClick: () => closeOverlays() },
+    {
+      label: '应用',
+      primary: true,
+      onClick: () => {
+        const maxChars = Math.max(8, Math.min(80, Number(input.value) || 24));
+        const next = resegmentByRules(st.subtitles, { maxChars });
+        closeOverlays();
+        setLines(next, { label: '规则断句', detail: `${st.subtitles.length} → ${next.length} 行` });
+        toast({ title: '断句完成', detail: `${st.subtitles.length} → ${next.length} 行` }, 'ok', 3000);
+        render();
+      }
+    }
+  ], { width: 'min(420px, 92vw)' });
+}
+
 // 统一的「语音转录」入口：**先关掉可能挡着的浮层再跑**。
 //
 // 为什么需要：失败明细、候选轨明细、失败提示这几个浮层里都有
@@ -160,6 +191,30 @@ export function render() {
     host.appendChild(button('② 获取字幕', () => contextHarvest(), { primary: true, title: '优先官方字幕轨；也接受页面已捕获的 AI 字幕。没有就改用「语音转录」' }));
     // 走 runTranscribe（统一入口，会先关掉可能挡着的浮层）
     host.appendChild(button('语音转录', () => runTranscribe(), { cls: 'btn-accent', title: '没有可用字幕时，把音轨转成文字' }));
+    const importInput = h('input', {
+      type: 'file',
+      accept: '.srt,.vtt,.json,text/plain,application/json',
+      style: { display: 'none' }
+    });
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files && importInput.files[0];
+      importInput.value = '';
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        const lines = parseSubtitleText(text, ext === 'json' ? 'json' : ext);
+        if (!lines.length) throw new Error('文件里没有识别到字幕行');
+        setLines(lines, { label: '导入字幕', detail: file.name });
+        store.set({ video: { ...(store.get().video || {}), source: 'import' } });
+        toast({ title: '字幕已导入', detail: `${lines.length} 行 · ${file.name}` }, 'ok', 3000);
+        render();
+      } catch (err) {
+        toast({ title: '导入字幕失败', detail: String((err && err.message) || err) }, 'warn', 4000);
+      }
+    });
+    host.appendChild(importInput);
+    host.appendChild(button('导入字幕', () => importInput.click(), { title: '导入本地 .srt / .vtt / .json 字幕文件（不联网）' }));
   } else {
     host.appendChild(
       button(hasSummary ? '重新生成总结' : '③ 生成总结', () => summarize(), {
@@ -202,6 +257,7 @@ export function render() {
     { divider: true },
     { heading: '加工字幕' },
     { icon: '✨', label: '优化字幕（AI）', title: '只修正字幕文本（错别字/术语/时间/数据/逻辑），不改写内容', disabled: !hasLines, onClick: () => optimizeWithAi() },
+    { icon: '✂️', label: '断句', title: '合并碎句、拆分长句，不改写字幕文字', disabled: !hasLines, onClick: () => openResegment() },
     { icon: '🔁', label: '应用替换规则', title: '按当前替换规则组一键全部替换', disabled: !hasLines, onClick: () => applyActiveRules() },
     { icon: '📑', label: '生成章节', title: '把视频按内容切成若干段并可跳转', disabled: !hasLines, onClick: () => generateChapters() },
     { icon: '🩺', label: '质量自检', title: '检查漏段与时间异常', disabled: !hasLines, onClick: () => runQualityCheck() },

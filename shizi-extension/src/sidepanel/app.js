@@ -515,10 +515,10 @@ function wireStore() {
       }
     }
     renderReadiness();
-    actionsPanel.render();
-    // 字幕面板自行按签名渲染（含虚拟滚动），避免频繁重建
+    // actionsPanel / subtitlesPanel 各自在 init 里订阅 store 并有签名守卫；
+    // 这里不能再直调 render，否则每次播放时间变化都会重建工具栏，搜索框和菜单会失焦。
     subtitlesPanel.render();
-    if (st.activeTab === 'ai') aiPanel.render();
+    if (st.activeTab === 'summary' || st.activeTab === 'chat') aiPanel.render();
   });
 }
 

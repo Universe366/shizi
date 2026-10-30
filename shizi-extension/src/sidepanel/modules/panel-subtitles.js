@@ -84,6 +84,7 @@ function signatureOf(st) {
     st.subtitles ? st.subtitles.length : 0,
     st.ui.search || '',
     st.subtitleFilter || 'all',
+    st.subtitleView || 'translated',
     (st.optimize && st.optimize.corrections ? st.optimize.corrections.length : 0),
     st.video ? st.video.signature : ''
   ].join('|');
@@ -92,11 +93,16 @@ function signatureOf(st) {
 export function render() {
   const st = store.get();
   const sig = signatureOf(st);
+  const toolbarSig = `${sig}|${st.followPaused ? 1 : 0}`;
   if (sig === state.lastSignature) {
-    renderToolbar();
+    if (toolbarSig !== state.lastToolbarSignature) {
+      state.lastToolbarSignature = toolbarSig;
+      renderToolbar();
+    }
     return;
   }
   state.lastSignature = sig;
+  state.lastToolbarSignature = toolbarSig;
   state.editing = null;
   buildItems(st);
   renderToolbar();
@@ -203,6 +209,16 @@ function renderWindow(force = false) {
   }
 }
 
+function displayLineText(line) {
+  const original = String(line.original || '');
+  const translated = String(line.text || '');
+  if (!original) return translated;
+  const view = store.get().subtitleView || 'translated';
+  if (view === 'original') return original;
+  if (view === 'bilingual') return `${original} ｜ ${translated}`;
+  return translated;
+}
+
 function buildRow(line, index, pos) {
   const row = h('div', {
     class: 'subtitle-row',
@@ -218,8 +234,9 @@ function buildRow(line, index, pos) {
   });
   row.appendChild(time);
 
-  const textEl = h('span', { class: 'st-text', title: `${String(line.text || '')}\n（左右拖动查看完整字幕）` });
-  renderTextWithHighlight(textEl, String(line.text || ''), state.searchRe);
+  const shown = displayLineText(line);
+  const textEl = h('span', { class: 'st-text', title: `${shown}\n（左右拖动查看完整字幕）` });
+  renderTextWithHighlight(textEl, shown, state.searchRe);
   row.appendChild(textEl);
 
   const stats = lineStats(line);
@@ -339,7 +356,7 @@ function jumpTo(from) {
 }
 
 async function copyLine(line) {
-  await copyText(line.text);
+  await copyText(displayLineText(line));
   toast({ title: '已复制这一行' }, 'ok', 1200);
 }
 
@@ -420,6 +437,10 @@ function renderToolbar() {
   const st = store.get();
   const bar = state.host.querySelector('.pane-toolbar');
   if (!bar) return;
+  const active = document.activeElement;
+  const searchFocused = Boolean(active && active.matches && active.matches('input[type="search"]'));
+  const selectionStart = searchFocused ? active.selectionStart : null;
+  const selectionEnd = searchFocused ? active.selectionEnd : null;
   clear(bar);
 
   const searchWrap = h('span', { class: 'row tight', style: { flex: '1 1 150px', minWidth: '120px' } });
@@ -444,6 +465,15 @@ function renderToolbar() {
   });
   searchWrap.appendChild(input);
   bar.appendChild(searchWrap);
+  if (searchFocused) {
+    const restored = searchWrap.querySelector('input[type="search"]');
+    if (restored) {
+      restored.focus();
+      if (selectionStart != null && selectionEnd != null) {
+        try { restored.setSelectionRange(selectionStart, selectionEnd); } catch (err) { /* ignore */ }
+      }
+    }
+  }
 
   if (st.ui.search) {
     const hits = state.items.filter((l) => String(l.text || '').toLowerCase().includes(String(st.ui.search).toLowerCase())).length;
@@ -483,6 +513,24 @@ function renderToolbar() {
     }
     select.value = currentLang || Array.from(trackMap.keys())[0];
     bar.appendChild(select);
+  }
+
+  if ((st.subtitles || []).some((line) => line.original)) {
+    const view = st.subtitleView || 'translated';
+    const viewSelect = h('select', {
+      class: 'input',
+      title: '原文 / 译文 / 双语',
+      style: { maxWidth: '100px', flex: '0 0 auto' },
+      onchange: (e) => store.set({ subtitleView: e.target.value })
+    });
+    for (const item of [
+      { value: 'original', label: '原文' },
+      { value: 'translated', label: '译文' },
+      { value: 'bilingual', label: '双语' }
+    ]) {
+      viewSelect.appendChild(h('option', { value: item.value, text: item.label, selected: item.value === view }));
+    }
+    bar.appendChild(viewSelect);
   }
 
   bar.appendChild(
@@ -818,7 +866,7 @@ export function exportDialog() {
 
   app.overlays.export = openOverlay('导出字幕', body, [
     { label: '复制到剪贴板', onClick: () => copyAllSubtitles(cfg) },
-    { label: '导出文件', primary: true, onClick: () => { exportSubtitles(cfg); closeOverlay('export'); } }
+    { label: '导出文件', primary: true, onClick: () => { exportSubtitles(cfg); closeOverlays(); } }
   ]);
 }
 
@@ -897,7 +945,7 @@ export function statsDialog() {  const st = store.get();
       body.appendChild(h('div', { class: `alert ${i.level === 'error' ? 'error' : i.level === 'warn' ? 'warn' : 'info'}`, style: { marginBottom: '4px' } }, [h('div', { text: i.text })]));
     }
   }
-  app.overlays.stats = openOverlay('字幕统计', body, [{ label: '关闭', onClick: () => closeOverlay('stats') }]);
+  app.overlays.stats = openOverlay('字幕统计', body, [{ label: '关闭', onClick: () => closeOverlays() }]);
 }
 
 export function attemptsDialog() {

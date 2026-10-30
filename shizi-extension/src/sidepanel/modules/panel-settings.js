@@ -671,6 +671,26 @@ function skillsGroup(d) {
     });
     body.appendChild(fileInput);
     body.appendChild(
+      button('从链接导入 SKILL.md', () => {
+        promptDialog('从链接导入 SKILL.md', 'https://raw.githubusercontent.com/.../SKILL.md', async (url) => {
+          const target = String(url || '').trim();
+          if (!target) return;
+          try {
+            const out = await call('search.fetch-page', { url: target }, { timeoutMs: 60000 });
+            const text = String((out && out.text) || '').trim();
+            if (!text) throw new Error('链接没有返回正文');
+            const sk = SKILLS.skillFromMarkdown(text, { folderName: 'imported', icon: '📄' });
+            d.skills.items.push(sk);
+            markDirty();
+            render();
+            toast({ title: '已导入技能', detail: sk.name || 'SKILL.md' }, 'ok', 3000);
+          } catch (err) {
+            toast({ title: '导入失败', detail: String((err && err.message) || err) }, 'warn', 4000);
+          }
+        });
+      }, { small: true })
+    );
+    body.appendChild(
       button('导入 SKILL.md', () => fileInput.click(), { small: true })
     );
     body.appendChild(

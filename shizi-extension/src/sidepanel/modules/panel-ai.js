@@ -230,6 +230,13 @@ export function render() {
 
 // 新总结流程不再本地分段；这里不再预估调用次数。
 
+let summaryWeb = true;
+try {
+  summaryWeb = localStorage.getItem('summary-web') !== '0';
+} catch (err) {
+  summaryWeb = true;
+}
+
 function renderToolbar() {
   const st = store.get();
   const bar = state.root.querySelector('#ai-toolbar');
@@ -265,6 +272,36 @@ function renderToolbar() {
   if (state.streaming || state.summaryStreaming) {
     bar.appendChild(button('停止', () => stopStream(), { small: true, danger: true }));
   }
+  bar.appendChild(
+    button('转写', () => app.panels.actions && app.panels.actions.runTranscribe(), {
+      small: true,
+      title: '没有官方字幕时，用视频音轨转写后再总结'
+    })
+  );
+  bar.appendChild(
+    button('章节', () => app.panels.actions && app.panels.actions.generateChapters(), {
+      small: true,
+      disabled: !hasLines,
+      title: '用 AI 生成可跳转章节'
+    })
+  );
+  const webLabel = h('label', { class: 'note', style: { display: 'inline-flex', alignItems: 'center', gap: '3px' } });
+  const webBox = h('input', {
+    type: 'checkbox',
+    checked: summaryWeb,
+    onchange: (e) => {
+      summaryWeb = !!e.target.checked;
+      try {
+        localStorage.setItem('summary-web', summaryWeb ? '1' : '0');
+      } catch (err) {
+        /* ignore */
+      }
+      renderToolbar();
+    }
+  });
+  webLabel.appendChild(webBox);
+  webLabel.appendChild(h('span', { text: '联网' }));
+  bar.appendChild(webLabel);
   bar.appendChild(button('复制总结', () => copySummary(), { small: true, disabled: !st.summary, title: '复制总结全文（Markdown）' }));
   bar.appendChild(button('导出总结', () => exportSummary(), { small: true, disabled: !st.summary, title: '下载为 Markdown 文件' }));
   bar.appendChild(
@@ -378,12 +415,14 @@ function renderSummary() {
   if (refs.length) {
     const refBox = h('details', { class: 'verify-queries' });
     refBox.appendChild(h('summary', { text: `外部资料（${refs.length}）` }));
+    let refIndex = 0;
     for (const ref of refs.slice(0, 12)) {
       const url = /^https?:/i.test(String((ref && ref.url) || '')) ? String(ref.url) : '';
       if (!url) continue;
+      refIndex += 1;
       const row = h('div', { class: 'verify-query' });
       row.appendChild(
-        button(String((ref && ref.title) || url), () => {
+        button(`[${refIndex}] ${String((ref && ref.title) || url)}`, () => {
           call('tab.open', { url }).catch(() => {});
         }, { small: true })
       );
@@ -1552,7 +1591,7 @@ async function generateSummaryLocalNew() {
         platformId: settings.ai.activeId,
         temperature: settings.ai.temperature,
         maxTokens: settings.ai.maxTokens,
-        webTools: searchCapabilityOf(settings).webCapable
+        webTools: summaryWeb && searchCapabilityOf(settings).webCapable
       },
       {
         onLog: (_level, text) => task.set(50, String(text || '联网中…')),

@@ -1275,6 +1275,18 @@ async function main() {
     const defaults = api.settingsLib.defaultSettings();
     check('默认每次核实 12 条', defaults.search.verifyItemCount === 12, String(defaults.search.verifyItemCount));
     check('默认开启页面内嵌面板', defaults.page.embedPanel === true, String(defaults.page.embedPanel));
+    const aiIds = defaults.ai.platforms.map((platform) => platform.id);
+    check(
+      'AI 平台目录补齐桌面端条目',
+      ['perplexity', 'aihubmix', '302ai', 'ollama', 'lmstudio'].every((id) => aiIds.includes(id)),
+      aiIds.join(',')
+    );
+    const searchIds = defaults.search.platforms.map((platform) => platform.id);
+    check(
+      '检索平台目录补齐 Firecrawl / Querit',
+      ['firecrawl-search', 'querit'].every((id) => searchIds.includes(id)),
+      searchIds.join(',')
+    );
 
     check('不再有「总结末尾附来源」配置', defaults.summary.attachSources === undefined, String(defaults.summary.attachSources));
     check(
@@ -1386,6 +1398,13 @@ async function main() {
         /翻译字幕/.test(subSrc) &&
         /translateSubtitles/.test(ctxSrc) &&
         /opts\.lang/.test(subtitleSrc),
+      ''
+    );
+    check(
+      '翻译保留原文并支持原文/译文/双语',
+      /next\[idx\]\.original = lines\[idx\]\.text/.test(ctxSrc) &&
+        /subtitleView/.test(subSrc) &&
+        /双语/.test(subSrc),
       ''
     );
     check(

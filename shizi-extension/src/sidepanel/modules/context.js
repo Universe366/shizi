@@ -291,7 +291,10 @@ export async function translateSubtitles(targetLang, opts = {}) {
           out.lines.forEach((line, i) => {
             const idx = start + i;
             const value = String((line && line.text) || '').trim();
-            if (value) next[idx].text = value;
+            if (value) {
+              if (!next[idx].original) next[idx].original = lines[idx].text;
+              next[idx].text = value;
+            }
           });
           continue;
         } catch (err) {
@@ -324,7 +327,10 @@ export async function translateSubtitles(targetLang, opts = {}) {
         const idx = Number(item && item.i);
         if (!Number.isInteger(idx) || idx < 0 || idx >= next.length) continue;
         const value = item && item.text;
-        if (typeof value === 'string' && value.trim()) next[idx].text = value.trim();
+        if (typeof value === 'string' && value.trim()) {
+          if (!next[idx].original) next[idx].original = lines[idx].text;
+          next[idx].text = value.trim();
+        }
       }
     }
     const translated = next.filter((l, i) => l.text !== lines[i].text).length;
@@ -338,6 +344,7 @@ export async function translateSubtitles(targetLang, opts = {}) {
     store.set({
       subtitles: next,
       video,
+      subtitleView: 'bilingual',
       subtitlesRevision: (store.get().subtitlesRevision || 0) + 1
     });
     await syncOverlayLines().catch(() => {});

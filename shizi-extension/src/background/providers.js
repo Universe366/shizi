@@ -1298,6 +1298,33 @@ export async function searchProvider(platform, query, opts = {}) {
         ...(tp.startPublishedDate ? { startPublishedDate: tp.startPublishedDate } : {})
       })
     };
+  } else if (kind === 'firecrawl') {
+    init = {
+      method: 'POST',
+      headers: safeHeaders({
+        'content-type': 'application/json',
+        authorization: `Bearer ${platform.apiKey}`
+      }),
+      body: JSON.stringify({
+        query,
+        limit: Math.max(1, Math.min(100, max))
+      })
+    };
+  } else if (kind === 'querit') {
+    init = {
+      method: 'POST',
+      headers: safeHeaders({
+        'content-type': 'application/json',
+        authorization: `Bearer ${platform.apiKey}`
+      }),
+      body: JSON.stringify({
+        query,
+        count: Math.max(1, Math.min(100, max)),
+        needContent: !!opts.fetchPageContent,
+        highlights: true,
+        ...(opts.fetchPageContent ? { contentMaxChars: 2000 } : {})
+      })
+    };
   } else if (kind === 'jina') {
     // Jina 搜索：GET https://s.jina.ai/<query>，可选抓正文
     url = `${base.replace(/\/+$/, '')}/${encodeURIComponent(query)}`;
@@ -1396,6 +1423,13 @@ export async function searchProvider(platform, query, opts = {}) {
     for (const r of data.web.results) {
       const snip = [r.description, ...(Array.isArray(r.extra_snippets) ? r.extra_snippets : [])].filter(Boolean).join(' ');
       push(r.title, r.url, snip, '');
+    }
+  }
+  // Querit：{ results: { result: [{ title, url, highlights/content }] } }
+  if (!results.length && data.results && Array.isArray(data.results.result)) {
+    for (const r of data.results.result) {
+      const snip = Array.isArray(r.highlights) ? r.highlights.join(' ') : r.snippet || r.content;
+      push(r.title, r.url, snip, r.content);
     }
   }
   // Exa：{ results: [{ title, url, text, summary }] }（已在上面处理），另有 { data: [...] }

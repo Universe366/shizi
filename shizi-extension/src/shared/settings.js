@@ -245,6 +245,36 @@ export function defaultAiPlatforms() {
       models: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
     },
     {
+      id: 'perplexity',
+      name: 'Perplexity（自带联网）',
+      homepage: 'https://www.perplexity.ai/',
+      keyUrl: 'https://www.perplexity.ai/settings/api',
+      baseUrl: 'https://api.perplexity.ai',
+      model: 'sonar',
+      apiKey: '',
+      models: ['sonar', 'sonar-pro', 'sonar-reasoning']
+    },
+    {
+      id: 'aihubmix',
+      name: 'AiHubMix（聚合）',
+      homepage: 'https://aihubmix.com/',
+      keyUrl: 'https://aihubmix.com/token',
+      baseUrl: 'https://aihubmix.com/v1',
+      model: 'gpt-4o-mini',
+      apiKey: '',
+      models: ['gpt-4o-mini', 'claude-sonnet-4-5', 'gemini-2.5-pro']
+    },
+    {
+      id: '302ai',
+      name: '302.AI（聚合）',
+      homepage: 'https://302.ai/',
+      keyUrl: 'https://302.ai/apis/',
+      baseUrl: 'https://api.302.ai/v1',
+      model: 'gpt-4o-mini',
+      apiKey: '',
+      models: ['gpt-4o-mini', 'deepseek-chat', 'claude-sonnet-4-5']
+    },
+    {
       id: 'mistral',
       name: 'Mistral',
       homepage: 'https://mistral.ai/',
@@ -317,6 +347,26 @@ export function defaultAiPlatforms() {
         'longcat-2.0',
         'seed-2.1-pro'
       ]
+    },
+    {
+      id: 'ollama',
+      name: 'Ollama（本地）',
+      homepage: 'https://ollama.com/',
+      keyUrl: '',
+      baseUrl: 'http://127.0.0.1:11434/v1',
+      model: 'qwen2.5:7b',
+      apiKey: '',
+      models: ['qwen2.5:7b', 'qwen2.5:14b', 'llama3.1:8b', 'deepseek-r1:7b']
+    },
+    {
+      id: 'lmstudio',
+      name: 'LM Studio（本地）',
+      homepage: 'https://lmstudio.ai/',
+      keyUrl: '',
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      model: 'local-model',
+      apiKey: '',
+      models: ['local-model']
     },
     {
       id: 'custom-ai',
@@ -492,6 +542,26 @@ export function defaultSearchPlatforms() {
       baseUrl: 'https://api.exa.ai/search',
       apiKey: '',
       kind: 'exa',
+      models: []
+    },
+    {
+      id: 'firecrawl-search',
+      name: 'Firecrawl 搜索（需 Key）',
+      homepage: 'https://firecrawl.dev/',
+      keyUrl: 'https://www.firecrawl.dev/app/api-keys',
+      baseUrl: 'https://api.firecrawl.dev/v1/search',
+      apiKey: '',
+      kind: 'firecrawl',
+      models: []
+    },
+    {
+      id: 'querit',
+      name: 'Querit 搜索（需 Key）',
+      homepage: 'https://www.querit.ai/',
+      keyUrl: 'https://www.querit.ai/',
+      baseUrl: 'https://api.querit.ai/v1/search',
+      apiKey: '',
+      kind: 'querit',
       models: []
     },
     {
