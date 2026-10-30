@@ -299,32 +299,33 @@ export default function App() {
     []
   );
 
-  useEffect(
-    () =>
-      window.bsub.onSelectionAction((payload) => {
-        if (payload.action === 'copy') {
-          void window.bsub.writeClipboard(payload.text);
-          return;
-        }
-        if (payload.action === 'speak') {
-          void speakText(payload.text);
-          return;
-        }
-        if (payload.action === 'search') {
-          void window.bsub.newTab(payload.text);
-          return;
-        }
-        setSection('chat');
-        window.setTimeout(
-          () =>
-            window.dispatchEvent(
-              new CustomEvent('bsub:selection-action', { detail: payload })
-            ),
-          150
-        );
-      }),
+  const handleSelectionAction = useCallback(
+    (payload: { action: string; text: string }) => {
+      if (payload.action === 'copy') {
+        void window.bsub.writeClipboard(payload.text);
+        return;
+      }
+      if (payload.action === 'speak') {
+        void speakText(payload.text);
+        return;
+      }
+      if (payload.action === 'search') {
+        void window.bsub.newTab(payload.text);
+        return;
+      }
+      setSection('chat');
+      window.setTimeout(
+        () =>
+          window.dispatchEvent(
+            new CustomEvent('bsub:selection-action', { detail: payload })
+          ),
+        150
+      );
+    },
     []
   );
+
+  useEffect(() => window.bsub.onSelectionAction(handleSelectionAction), [handleSelectionAction]);
 
   useEffect(
     () =>
@@ -701,6 +702,7 @@ export default function App() {
         focusSignal={addressFocus}
         bookmarked={bookmarked}
         onToggleBookmark={() => void toggleBookmark()}
+        onSelectionAction={handleSelectionAction}
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
         onOpenStart={() => {

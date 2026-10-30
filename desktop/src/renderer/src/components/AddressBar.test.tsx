@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { TabInfo } from '../../../shared/types';
 import { AddressBar } from './AddressBar';
 
@@ -58,6 +58,7 @@ function props(overrides: Record<string, unknown> = {}) {
     tab,
     bookmarked: false,
     onToggleBookmark: vi.fn(),
+    onSelectionAction: vi.fn(),
     onOpenHub: vi.fn(),
     onOpenReader: vi.fn(),
     onOpenStart: vi.fn(),
@@ -70,6 +71,19 @@ function props(overrides: Record<string, unknown> = {}) {
 describe('AddressBar', () => {
   beforeEach(() => installBsub());
   afterEach(cleanup);
+
+  it('选中地址栏网址时显示划词工具条并可复制', () => {
+    const onSelectionAction = vi.fn();
+    const { container } = render(<AddressBar {...props({ onSelectionAction })} />);
+    const input = container.querySelector('.address-field input') as HTMLInputElement;
+    fireEvent.focus(input);
+    input.setSelectionRange(0, 18);
+    fireEvent.mouseUp(input);
+    const toolbar = document.querySelector('.address-selection-toolbar') as HTMLElement;
+    expect(toolbar).toBeTruthy();
+    fireEvent.click(within(toolbar).getByRole('button', { name: '复制' }));
+    expect(onSelectionAction).toHaveBeenCalledWith({ action: 'copy', text: expect.any(String) });
+  });
 
   it('展示紧凑 URL、缩放与书签状态', () => {
     render(<AddressBar {...props()} />);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, Globe, Home, Library, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
 import type { Bookmark as BookmarkItem, BrowserToolbarSettings, HistoryEntry, TabInfo } from '../../../shared/types';
 import { DEFAULT_BROWSER_TOOLBAR } from '../../../shared/browserToolbar';
@@ -13,6 +14,7 @@ export function AddressBar({
   focusSignal = 0,
   bookmarked,
   onToggleBookmark,
+  onSelectionAction,
   onOpenHub,
   onOpenReader,
   onOpenStart,
@@ -25,6 +27,7 @@ export function AddressBar({
   focusSignal?: number;
   bookmarked: boolean;
   onToggleBookmark: () => void;
+  onSelectionAction: (payload: { action: string; text: string }) => void;
   onOpenHub: (section: HubSection) => void;
   onOpenReader: () => void;
   onOpenStart: () => void;
@@ -43,7 +46,29 @@ export function AddressBar({
   const [engine, setEngine] = useState<SearchEngineId>('bing');
   const [engineOpen, setEngineOpen] = useState(false);
   const engineRef = useRef<HTMLDivElement>(null);
+  const [selectionMenu, setSelectionMenu] = useState<{
+    text: string;
+    left: number;
+    top: number;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const showSelectionMenu = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    const text = String(input.value || '').slice(input.selectionStart ?? 0, input.selectionEnd ?? 0).trim();
+    if (text.length < 2) {
+      setSelectionMenu(null);
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    const width = 360;
+    setSelectionMenu({
+      text: text.slice(0, 4000),
+      left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8)),
+      top: Math.min(rect.bottom + 6, window.innerHeight - 52)
+    });
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -285,7 +310,10 @@ export function AddressBar({
             setEditing(false);
             setValue(tab?.url ?? '');
             window.setTimeout(() => setSuggestOpen(false), 120);
+            window.setTimeout(() => setSelectionMenu(null), 160);
           }}
+          onMouseUp={showSelectionMenu}
+          onKeyUp={showSelectionMenu}
           onKeyDown={(event) => {
             if (event.key === 'ArrowDown' && suggestions.length) {
               event.preventDefault();
@@ -310,6 +338,39 @@ export function AddressBar({
           }}
         />
       </div>
+
+      {selectionMenu &&
+        createPortal(
+          <div
+            className="address-selection-toolbar"
+            style={{ left: selectionMenu.left, top: selectionMenu.top }}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {[
+              { id: 'copy', label: '复制' },
+              { id: 'ask', label: '提问' },
+              { id: 'explain', label: '解释' },
+              { id: 'translate', label: '翻译' },
+              { id: 'summarize', label: '总结' },
+              { id: 'search', label: '搜索' },
+              { id: 'speak', label: '朗读' }
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  const text = selectionMenu.text;
+                  setSelectionMenu(null);
+                  inputRef.current?.blur();
+                  onSelectionAction({ action: item.id, text });
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
 
       {suggestOpen && value.trim() && !/^https?:\/\//i.test(value) && !/^BV[0-9A-Za-z]{10}$/i.test(value.trim()) && (
         <div className="address-suggest">
