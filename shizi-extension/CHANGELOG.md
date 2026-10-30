@@ -2,6 +2,13 @@
 
 > 完整逐轮复盘（含「当时为什么想错」）见 [`docs/history/DEVELOPMENT-LOG.md`](docs/history/DEVELOPMENT-LOG.md)。
 
+## 2.20.11（2026-10-30）
+
+### 重新发布
+
+- 0.162.10 发布 CI 失败，本版重新触发；代码不变。
+- 测试：panel-test 488 项 0 失败。
+
 ## 2.20.10（2026-10-30）
 
 ### 只同步桌面 Key
