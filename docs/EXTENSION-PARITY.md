@@ -1,6 +1,6 @@
 # 插件—桌面端差异清单
 
-> 更新：2026-10-30（桌面 0.162.11 / 插件 2.20.11）
+> 更新：2026-10-30（桌面 0.162.22 / 插件 2.20.11）
 > 用途：验收“插件端与桌面端细节是否一致”时逐项对照；不是像素级 UI 复刻。
 
 ## 字幕
@@ -38,7 +38,9 @@
 - 两端共用 35 个 AI 平台目录：OpenAI 兼容、Anthropic、Gemini 原生、Azure OpenAI、Ollama、LM Studio 等；
 - 检索支持 DeepSeek、Tavily、博查、Serper、智谱、秘塔、千帆、Brave、Exa、Firecrawl、Querit、Jina、SearXNG；
 - 插件不保存桌面 DPAPI 加密的 Key；迁移或「只同步 Key」时由用户触发；
-- Gemini 原生暂不参与 MCP 工具循环。
+- Gemini 原生暂不参与 MCP 工具循环；
+- 桌面新增视觉大模型 OCR、图片生成（OpenAI 兼容 / SD WebUI / ComfyUI）和更多 OpenAI 兼容 TTS 预设；
+- 插件暂未加图片生成，OCR 仍以浏览器能力/桌面为主。
 
 ## 语音识别
 
