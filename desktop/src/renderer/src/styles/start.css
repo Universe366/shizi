@@ -4069,3 +4069,93 @@
     animation: none;
   }
 }
+
+/* ---------- 窄窗口：分组栏保持左侧，不跳到顶部 ---------- */
+@media (max-width: 1080px) {
+  .start-body {
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0 20px;
+    gap: 12px;
+  }
+
+  .start-sidebar {
+    position: static;
+    left: auto;
+    top: auto;
+    bottom: auto;
+    flex: 0 0 208px;
+    width: 208px;
+    max-height: none;
+    height: auto;
+    transform: none;
+  }
+
+  .start-sidebar::after {
+    display: none;
+  }
+
+  .start-main {
+    padding: 0 0 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .start-body {
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .start-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 118px;
+  }
+
+  .start-sidebar .start-tabs {
+    height: auto;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 8px;
+    border-radius: 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .start-sidebar .start-tabs::before {
+    display: none;
+  }
+
+  .start-sidebar .start-tab {
+    width: auto;
+    flex: 0 0 auto;
+    height: 34px;
+  }
+
+  .start-sidebar .start-tab-count {
+    margin-left: 4px;
+  }
+
+  .start-sidebar .start-tab-actions {
+    margin-top: 0;
+    padding-top: 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    border-top: 0;
+  }
+
+  .start-sidebar .start-density {
+    width: auto;
+  }
+
+  .start-sidebar .start-density-btn {
+    width: 34px;
+    flex: 0 0 auto;
+  }
+
+  .start-sidebar .start-selection {
+    flex-wrap: nowrap;
+  }
+}
