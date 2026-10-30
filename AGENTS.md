@@ -15,7 +15,7 @@
 插件可以独立运行；桌面端复用插件的 `page-bridge.js`，但面板层是两套实现。
 
 当前版本：**桌面 0.162.21 / 插件 2.20.11**
-最新 Release：`v0.162.20`
+最新 Release：`v0.162.21`
 `appId`：`com.shizi.desktop`  
 仓库：`Universe366/shizi`
 
