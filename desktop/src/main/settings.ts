@@ -69,6 +69,10 @@ function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
 }
 
 export const DEFAULT_PROMPT =
+  '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
+
+/** 0.162.25 及更早版本的默认模板；升级时自动换成新默认，用户改过的保持不动。 */
+export const LEGACY_DEFAULT_PROMPT =
   '整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
 
 const DEFAULT_CHAT_PROMPT = `你是一个严谨的中文视频助手。请只依据提供的字幕回答用户的问题。
@@ -1272,6 +1276,9 @@ function normalize(input: unknown): AppSettings {
     }
     if (templates.length) {
       const defaultTemplate = templates.find((template) => template.id === 'default');
+      if (defaultTemplate && defaultTemplate.text.trim() === LEGACY_DEFAULT_PROMPT) {
+        defaultTemplate.text = DEFAULT_PROMPT;
+      }
       if (defaultTemplate && /^你是一个严谨的中文视频笔记助手/.test(defaultTemplate.text.trim())) {
         defaultTemplate.text = DEFAULT_PROMPT;
         defaultTemplate.name = '默认（视频整理）';

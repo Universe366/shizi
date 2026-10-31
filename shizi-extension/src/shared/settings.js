@@ -1,5 +1,5 @@
 // 默认配置。仅存 chrome.storage.local —— API Key 绝不同步到其它设备（3.3）。
-import { DEFAULT_SYSTEM_PROMPT, ASR_LIMITS } from './constants.js';
+import { DEFAULT_SYSTEM_PROMPT, LEGACY_DEFAULT_SYSTEM_PROMPT, ASR_LIMITS } from './constants.js';
 
 export function newId(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -920,6 +920,10 @@ export function migrateSettings(raw) {
   }
   const hadDefault = merged.prompt.templates.find((t) => t.id === 'default');
   if (hadDefault && !hadDefault.text) hadDefault.text = DEFAULT_SYSTEM_PROMPT;
+  // 旧默认模板升级；用户改过的模板不动。
+  if (hadDefault && String(hadDefault.text).trim() === LEGACY_DEFAULT_SYSTEM_PROMPT) {
+    hadDefault.text = DEFAULT_SYSTEM_PROMPT;
+  }
   if (!Array.isArray(merged.ai.platforms) || !merged.ai.platforms.length) {
     merged.ai.platforms = defaultAiPlatforms();
   } else {

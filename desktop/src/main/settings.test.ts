@@ -13,7 +13,14 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { isBuiltinSummaryFormatRules, loadSettings, saveSettings, setTabsLayout } from './settings';
+import {
+  DEFAULT_PROMPT,
+  LEGACY_DEFAULT_PROMPT,
+  isBuiltinSummaryFormatRules,
+  loadSettings,
+  saveSettings,
+  setTabsLayout
+} from './settings';
 
 describe('设置的持久化字段', () => {
   beforeAll(() => {
@@ -162,6 +169,26 @@ describe('设置的持久化字段', () => {
       '· 唯一要避免的是**重复与灌水** —— 不要为了凑长度而复述同一件事。'
     ].join('\n');
     expect(isBuiltinSummaryFormatRules(legacy)).toBe(true);
+  });
+
+  it('旧的默认总结模板升级为新模板，自定义模板不动', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        prompt: {
+          templates: [
+            { id: 'default', name: '默认（视频整理）', text: LEGACY_DEFAULT_PROMPT },
+            { id: 'custom', name: '自定义', text: '我的模板' }
+          ],
+          activeId: 'default'
+        }
+      }),
+      'utf8'
+    );
+    const loaded = loadSettings();
+    expect(loaded.prompt.templates.find((t) => t.id === 'default')?.text).toBe(DEFAULT_PROMPT);
+    expect(DEFAULT_PROMPT.startsWith('按照字幕顺序')).toBe(true);
+    expect(loaded.prompt.templates.find((t) => t.id === 'custom')?.text).toBe('我的模板');
   });
 
   it('用户自定义的总结格式规则不会被迁移覆盖', () => {

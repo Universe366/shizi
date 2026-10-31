@@ -408,7 +408,7 @@ async function main() {
   check('settings.get 返回默认配置', res.ok && res.data.ai.activeId === 'deepseek' && res.data.asr.activeId === 'siliconflow', JSON.stringify(res.error));
   check('默认 AI 平台是 DeepSeek', res.data.ai.platforms.some((p) => p.id === 'deepseek'));
   check('默认语音识别平台是 硅基流动', res.data.asr.platforms[0].name.includes('硅基流动'));
-  check('默认系统提示词原文照录', res.data.prompt.templates.find((t) => t.id === 'default').text === '整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）');
+  check('默认系统提示词原文照录', res.data.prompt.templates.find((t) => t.id === 'default').text === '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）');
   check('返回给界面的密钥是掩码', res.data.ai.platforms.find((p) => p.id === 'deepseek').apiKey === '');
 
   // ---- 2. 密钥保存 / 留空不改动 / 掩码回写 ----

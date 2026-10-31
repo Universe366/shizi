@@ -54,7 +54,7 @@ const items = [
   ['AI', '密钥本机保存 + 掩码 + 留空不改动', /storage\.local/.test(ALL) && /maskSecret/.test(ALL) && /留空/.test(ALL)],
   ['AI', '自定义地址申请域名权限', /permissions\.request/.test(ALL) && /申请域名权限/.test(ALL)],
 
-  ['提示词', '指定的默认系统提示词（原文照录）', src['src/shared/constants.js'].includes('整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）')],
+  ['提示词', '指定的默认系统提示词（原文照录）', src['src/shared/constants.js'].includes('按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）')],
   ['提示词', '可修改', /prompt\.templates/.test(ALL) && /textarea/.test(ALL)],
   ['提示词', '多套模板', /defaultPrompts/.test(ALL) && /新建模板/.test(ALL)],
 

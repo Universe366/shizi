@@ -1,7 +1,7 @@
 // 共享常量：版本、消息协议、默认提示词、默认平台。
 // 本文件被 service worker 与侧边栏同时以 ES module 方式引入。
 
-export const VERSION = '2.20.14';
+export const VERSION = '2.20.15';
 
 // 内容脚本声明的版本。扩展侧探测到版本不一致时重新注入（稳定性 #6）。
 export const CONTENT_VERSION = VERSION;
@@ -142,6 +142,10 @@ export const DEFAULT_RPC_TIMEOUT = 30000;
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_SYSTEM_PROMPT =
+  '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
+
+/** 2.20.14 及更早版本的默认模板；升级时自动换成新默认，用户改过的保持不动。 */
+export const LEGACY_DEFAULT_SYSTEM_PROMPT =
   '整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
 
 export const BILIBILI_LANGUAGES = [
