@@ -35,6 +35,20 @@ export function videoKeyOf(url?: string): string {
   }
 }
 
+/** PageInfo 的身份 key：优先用页面状态里的 bvid/epId，没有才退回 URL。 */
+export function pageInfoKey(info: PageInfo | null | undefined): string {
+  if (!info) return '';
+  const urlKey = videoKeyOf(info.url);
+  // 番剧页：状态里的 epId 可能是数字（123），URL 里是 ep123。
+  if (info.epId && urlKey.startsWith('e:')) {
+    const id = String(info.epId);
+    return `e:${/^ep\d+$/i.test(id) ? id : /^\d+$/.test(id) ? `ep${id}` : id}`;
+  }
+  if (info.bvid) return `v:${info.bvid}:p${Number(info.page) || 1}`;
+  if (info.epId) return `e:${info.epId}`;
+  return urlKey;
+}
+
 export interface TrackPreference {
   lan: string;
   source?: string;

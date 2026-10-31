@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PageInfo, SubtitleTrack } from '../../../shared/types';
-import { pickTrack, videoKeyOf } from './video';
+import { pageInfoKey, pickTrack, videoKeyOf } from './video';
 
 function track(partial: Partial<SubtitleTrack> & { url: string }): SubtitleTrack {
   return {
@@ -54,6 +54,40 @@ describe('pickTrack', () => {
     const en = track({ url: 'https://example.com/en.json', lan: 'en-US' });
     const zh = track({ url: 'https://example.com/zh.json', lan: 'zh-CN' });
     expect(pickTrack([en, zh], null)?.lan).toBe('zh-CN');
+  });
+});
+
+describe('pageInfoKey', () => {
+  it('页面状态里的 bvid 与 URL 一致时，和 videoKeyOf 得到同一个 key', () => {
+    const page = {
+      bvid: 'BV1xx411c7mD',
+      cid: 1,
+      page: 1,
+      url: 'https://www.bilibili.com/video/BV1xx411c7mD?spm_id_from=333'
+    } as PageInfo;
+    expect(pageInfoKey(page)).toBe(videoKeyOf(page.url));
+  });
+
+  it('分 P 不同 key 不同', () => {
+    const page = { bvid: 'BV1xx411c7mD', cid: 2, page: 2, url: 'https://www.bilibili.com/video/BV1xx411c7mD?p=2' } as PageInfo;
+    expect(pageInfoKey(page)).toBe('v:BV1xx411c7mD:p2');
+  });
+
+  it('页面状态仍是上一个视频时，key 与新 URL 不一致（用于拦截旧总结）', () => {
+    const stale = {
+      bvid: 'BV1old411c7mD',
+      cid: 1,
+      page: 1,
+      url: 'https://www.bilibili.com/video/BV1new411c7mD'
+    } as PageInfo;
+    expect(pageInfoKey(stale)).not.toBe(videoKeyOf(stale.url));
+  });
+
+  it('番剧用 epId，数字与 ep 前缀都归一', () => {
+    const page = { epId: 'ep123', url: 'https://www.bilibili.com/bangumi/play/ep123' } as unknown as PageInfo;
+    expect(pageInfoKey(page)).toBe('e:ep123');
+    const numeric = { epId: 123, url: 'https://www.bilibili.com/bangumi/play/ep123' } as unknown as PageInfo;
+    expect(pageInfoKey(numeric)).toBe('e:ep123');
   });
 });
 

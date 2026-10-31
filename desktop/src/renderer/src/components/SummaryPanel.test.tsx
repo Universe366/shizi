@@ -109,6 +109,24 @@ describe('SummaryPanel', () => {
     expect(screen.getByLabelText('联网')).toBeTruthy();
   });
 
+  it('页面信息还是上一个视频时，不会把旧总结当成新视频的', async () => {
+    const newUrl = 'https://www.bilibili.com/video/BV1yy411c7mD';
+    const stale = { ...info, url: newUrl } as PageInfo;
+    const fresh = { ...info, bvid: 'BV1yy411c7mD', url: newUrl } as PageInfo;
+    const { api } = installBsub({ saved: true });
+    api.getPageInfo
+      .mockResolvedValueOnce({ ok: true as const, data: stale })
+      .mockResolvedValue({ ok: true as const, data: fresh });
+    render(
+      <SummaryPanel activeTab={{ ...tab, url: newUrl }} onOpenSettings={() => {}} />
+    );
+    expect(await screen.findByText('已保存的总结', undefined, { timeout: 4000 })).toBeTruthy();
+    const calls = api.getSummary.mock.calls as unknown as Array<[{ bvid?: string }]>;
+    const asked = calls.map((call) => call[0]?.bvid);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((bvid) => bvid === 'BV1yy411c7mD')).toBe(true);
+  });
+
   it('联网开关默认开启', async () => {
     installBsub({ saved: true });
     render(<SummaryPanel activeTab={tab} onOpenSettings={() => {}} />);

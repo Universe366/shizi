@@ -14,7 +14,7 @@ import { EmptyState } from './ui/EmptyState';
 import { SourcesCard } from './SourcesCard';
 import { VerifyCard } from './VerifyCard';
 import { ExportMenu } from './ExportMenu';
-import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
+import { pickTrack, isVideoKey, pageInfoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
 import { formatTokens } from '../lib/usageStats';
@@ -161,15 +161,32 @@ export function SummaryPanel({
     void (async () => {
       try {
         let response = await window.bsub.getPageInfo();
-        for (let attempt = 0; attempt < 6; attempt += 1) {
+        // 单页应用切视频时，页面桥可能先返回上一个视频的信息；
+        // 必须等到返回的身份和当前标签页一致，否则会把旧总结当成新视频的。
+        let failures = 0;
+        for (let attempt = 0; attempt < 20; attempt += 1) {
           if (cancelled) return;
-          if (response.ok && response.data.bvid && response.data.cid) break;
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          const ready =
+            response.ok &&
+            Boolean(response.data.bvid || response.data.epId) &&
+            Boolean(response.data.cid) &&
+            pageInfoKey(response.data) === videoKey;
+          if (ready) break;
+          // 读取失败通常是页面还没就绪，重试几次就够；身份不一致则可能是在切视频，多等一会。
+          if (!response.ok) {
+            failures += 1;
+            if (failures >= 5) break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, failures ? 400 : 600));
           response = await window.bsub.getPageInfo();
         }
         if (cancelled) return;
         if (!response.ok) {
           setError(response.error);
+          return;
+        }
+        if (pageInfoKey(response.data) !== videoKey) {
+          setError('页面还在切换视频，请稍后再试');
           return;
         }
         setInfo(response.data);

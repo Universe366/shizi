@@ -774,7 +774,8 @@ export function SubtitlesPanel({
     };
   }, [track?.url, trackNonce]);
 
-  // 跟随播放：每秒取一次当前时间（面板隐藏时暂停轮询）
+  // 跟随播放：每 250ms 取一次当前时间（面板隐藏时暂停轮询）
+  // 1s 轮询在拖动进度条后会明显慢半拍；直读 <video> 不经过页面桥队列，可以更密。
   useEffect(() => {
     if (!active) return;
     if (!track || lines.length === 0) return;
@@ -799,7 +800,7 @@ export function SubtitlesPanel({
         });
     };
     tick();
-    const timer = window.setInterval(tick, 1000);
+    const timer = window.setInterval(tick, 250);
     return () => {
       alive = false;
       window.clearInterval(timer);

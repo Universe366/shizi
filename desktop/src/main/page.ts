@@ -417,6 +417,41 @@ export async function getTrackBody(url: string): Promise<TrackBody> {
   return result;
 }
 
+/** 直接读页面里最大的 <video>：不经过页面桥的串行队列，拖动进度条后立刻能反映。 */
+const READ_CLOCK_SCRIPT = `(() => {
+  const videos = Array.from(document.querySelectorAll('video'));
+  let best = null;
+  let bestArea = -1;
+  for (const video of videos) {
+    const rect = video.getBoundingClientRect();
+    const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+    if (area > bestArea) { bestArea = area; best = video; }
+  }
+  if (!best || !Number.isFinite(best.currentTime)) return null;
+  return {
+    currentTime: best.currentTime,
+    duration: Number.isFinite(best.duration) ? best.duration : 0
+  };
+})()`;
+
+async function readVideoClock(
+  wc: WebContents
+): Promise<{ currentTime: number; duration: number } | null> {
+  try {
+    const data = (await wc.executeJavaScript(READ_CLOCK_SCRIPT, true)) as {
+      currentTime?: number;
+      duration?: number;
+    } | null;
+    if (!data || !Number.isFinite(Number(data.currentTime))) return null;
+    return {
+      currentTime: Number(data.currentTime) || 0,
+      duration: Number(data.duration) || 0
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getTime(wc: WebContents): Promise<{ currentTime: number; duration: number }> {
   if (isYouTubeUrl(wc.getURL())) {
     try {
@@ -432,10 +467,14 @@ export async function getTime(wc: WebContents): Promise<{ currentTime: number; d
       return { currentTime: 0, duration: 0 };
     }
   }
+  // 先直读 <video>：页面桥一次只能处理一个请求，长任务会让进度更新排队。
+  const direct = await readVideoClock(wc);
+  if (direct) return direct;
   const data = await callPage<{ currentTime: number; duration: number }>(wc, 'getTime', {}, 8000);
+  if (!data || !Number.isFinite(Number(data.currentTime))) throw new Error('读取播放进度失败');
   return {
-    currentTime: Number(data && data.currentTime) || 0,
-    duration: Number(data && data.duration) || 0
+    currentTime: Number(data.currentTime) || 0,
+    duration: Number(data.duration) || 0
   };
 }
 
