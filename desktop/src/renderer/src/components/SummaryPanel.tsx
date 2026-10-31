@@ -14,6 +14,7 @@ import { EmptyState } from './ui/EmptyState';
 import { SourcesCard } from './SourcesCard';
 import { VerifyCard } from './VerifyCard';
 import { ExportMenu } from './ExportMenu';
+import { ErrorBoundary } from './ErrorBoundary';
 import { pickTrack, isVideoKey, pageInfoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
 import { formatDuration } from '../lib/format';
@@ -124,11 +125,12 @@ export function SummaryPanel({
   activeTabRef.current = activeTab;
 
   useEffect(() => {
-    if (streamingRef.current) return;
+    // 切视频时中止上一个视频的生成：否则它的流式结果会继续写进新视频的面板。
     if (requestRef.current) {
       void window.bsub.cancelSummary(requestRef.current);
       requestRef.current = '';
     }
+    streamingRef.current = false;
     setInfo(null);
     setSummary('');
     setVerification(null);
@@ -811,11 +813,18 @@ export function SummaryPanel({
 
       {!streaming && summary && (
         <div className="summary-content">
-          <Markdown
-            content={summary}
-            citations={verification?.sources}
-            citePrefix="summary"
-          />
+          {/* Markdown 出错时退回纯文本，不要让整个侧栏变成错误卡。 */}
+          <ErrorBoundary
+            key={summary}
+            label="总结正文"
+            fallback={<pre className="summary-plain">{summary}</pre>}
+          >
+            <Markdown
+              content={summary}
+              citations={verification?.sources}
+              citePrefix="summary"
+            />
+          </ErrorBoundary>
         </div>
       )}
 

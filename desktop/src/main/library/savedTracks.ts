@@ -44,6 +44,7 @@ export function listSavedTracks(info: PageInfo): SubtitleTrack[] {
     // 页面脚本偶尔拿不到 bvid（SPA 刚切页/插件未注入），从 URL 里补一次。
     const bvid =
       info.bvid || (/BV[0-9A-Za-z]{10}/.exec(String(info.url || ''))?.[0] ?? '');
+    const cid = Number(info.cid) || 0;
     const exact = database.prepare('SELECT id FROM videos WHERE uid = ?').get(uidOf(info)) as
       | { id?: number }
       | undefined;
@@ -52,8 +53,21 @@ export function listSavedTracks(info: PageInfo): SubtitleTrack[] {
       if (tracks.length) return tracks;
     }
 
-    // 同 bvid/epId：优先找确实有本地字幕的那条（例如旧版本按 cid=0 存过一次）。
+    // 旧版本可能按 cid=0 存过：这条记录本身「cid 未知」，可以兜底。
     if (bvid || info.epId) {
+      const legacyUid = bvid ? `v:${bvid}:0` : `e:${info.epId}:0`;
+      const legacy = database.prepare('SELECT id FROM videos WHERE uid = ?').get(legacyUid) as
+        | { id?: number }
+        | undefined;
+      if (legacy?.id) {
+        const tracks = tracksOf(legacy.id);
+        if (tracks.length) return tracks;
+      }
+    }
+
+    // 只有当前页面拿不到 cid 时，才允许按 bvid 猜同稿件的记录；
+    // cid 已知时必须精确匹配，否则 P2 会显示 P1 的转写。
+    if (!cid && (bvid || info.epId)) {
       const siblings = database
         .prepare(
           'SELECT id FROM videos WHERE (bvid = ? OR ep_id = ?) AND id != ? ORDER BY updated_at DESC LIMIT 6'
@@ -68,10 +82,12 @@ export function listSavedTracks(info: PageInfo): SubtitleTrack[] {
       }
     }
 
-    // 老库的 bvid 字段可能为空，但 URL 里有 BV 号。
-    if (bvid) {
+    // 老库的 bvid 字段可能为空，但 URL 里有 BV 号；同样只在 cid 未知时按 URL 猜。
+    if (!cid && bvid) {
       const byBvUrl = database
-        .prepare('SELECT id FROM videos WHERE url LIKE ? ORDER BY updated_at DESC LIMIT 1')
+        .prepare(
+          'SELECT id FROM videos WHERE url LIKE ? AND (cid IS NULL OR cid = 0) ORDER BY updated_at DESC LIMIT 1'
+        )
         .get(`%${bvid}%`) as { id?: number } | undefined;
       if (byBvUrl?.id) {
         const tracks = tracksOf(byBvUrl.id);

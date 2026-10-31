@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { Copy, Pencil } from 'lucide-react';
 import type { SubtitleLine } from '../../../shared/types';
 import { formatDuration } from '../lib/format';
@@ -20,6 +21,8 @@ interface SubtitleLineRowProps {
   onEditCommit: () => void;
   onEditCancel: () => void;
   onCopy: (text: string) => void;
+  /** 当前播放行挂 ref，供面板滚动到可视区域。 */
+  rowRef?: Ref<HTMLDivElement>;
 }
 
 /** 单行字幕：时间轴、原文/译文、行内编辑与复制。 */
@@ -37,13 +40,15 @@ export function SubtitleLineRow({
   onEditText,
   onEditCommit,
   onEditCancel,
-  onCopy
+  onCopy,
+  rowRef
 }: SubtitleLineRowProps) {
   const displayText = viewMode === 'translated' ? translatedText || line.text : line.text;
   const hasQuery = query.trim().length > 0;
 
   return (
     <div
+      ref={rowRef}
       className={`sub-line${active ? ' is-active' : ''}`}
       onClick={() => onJump(line)}
     >

@@ -1488,6 +1488,15 @@ button:disabled {
   padding: 0 4px;
 }
 
+.summary-plain {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
 .summary-verify-hint {
   flex-shrink: 0;
   display: flex;

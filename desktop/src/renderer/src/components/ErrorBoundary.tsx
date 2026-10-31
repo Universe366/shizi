@@ -3,6 +3,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   label?: string;
+  /** 局部兜底：只替换这一块内容，不显示整窗错误卡。 */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -23,6 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children;
+    if (this.props.fallback !== undefined) return this.props.fallback;
     return (
       <div className="app-crash">
         <div className="app-crash-card">

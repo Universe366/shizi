@@ -14,6 +14,7 @@ import type {
 import {
   pickTrack,
   isVideoKey,
+  pageInfoKey,
   videoKeyOf,
   readTrackChoice,
   writeTrackChoice,
@@ -535,6 +536,8 @@ export function SubtitlesPanel({
             ? subtitlesResult.data.identity || ''
             : '';
           const identityMatches = !identity || !bundleIdentity || identity === bundleIdentity;
+          // 页面信息必须属于当前标签页，否则会把上一个视频的转写/字幕显示出来。
+          const tabMatches = infoResult.ok && (!videoKey || pageInfoKey(infoResult.data) === videoKey);
           // 播放器还没切到当前视频时，B 站接口可能仍返回上一个视频的字幕。
           // 用播放器实际时长与页面信息时长做一道「加载完成」校验。
           let playerReady = true;
@@ -558,6 +561,7 @@ export function SubtitlesPanel({
             infoResult.ok &&
             infoResult.data.bvid &&
             subtitlesResult.ok &&
+            tabMatches &&
             identityMatches &&
             (subtitlesResult.data.needLogin ||
               wbiEmpty ||
@@ -571,6 +575,14 @@ export function SubtitlesPanel({
           );
         }
         if (cancelled) return;
+        if (infoResult.ok && videoKey && pageInfoKey(infoResult.data) !== videoKey) {
+          setInfo(null);
+          setBundle(null);
+          setTrack(null);
+          setLines([]);
+          setError('页面还在切换视频，请稍后再试');
+          return;
+        }
         if (
           infoResult.ok &&
           subtitlesResult.ok &&
@@ -1574,6 +1586,7 @@ export function SubtitlesPanel({
                 setEditingText('');
               }}
               onCopy={copyLine}
+              rowRef={index === currentIndex ? activeLineRef : undefined}
             />
           ))}
         </div>

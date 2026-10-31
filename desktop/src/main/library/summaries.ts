@@ -103,13 +103,42 @@ export function getSummaryFor(ref: SummaryRef): StoredSummary | null {
     | { content_md: string; model: string; updated_at: number; verification_json?: string | null }
     | undefined;
 
-  // 页面 cid 可能取不到/变化；按 bvid 兜底，避免重开视频找不到已保存总结。
+  // 旧版本可能按 cid=0 存过总结；只回退到这条，不能按 bvid 模糊匹配，
+  // 否则同一个稿件的不同分 P 会互相串总结。
   if (!row && ref.bvid) {
+    row = database
+      .prepare(
+        'SELECT content_md, model, updated_at, verification_json FROM summaries WHERE uid = ?'
+      )
+      .get(`v:${ref.bvid}:0`) as
+      | { content_md: string; model: string; updated_at: number; verification_json?: string | null }
+      | undefined;
+  }
+  if (!row && ref.epId) {
+    row = database
+      .prepare(
+        'SELECT content_md, model, updated_at, verification_json FROM summaries WHERE uid = ?'
+      )
+      .get(`e:${ref.epId}:0`) as
+      | { content_md: string; model: string; updated_at: number; verification_json?: string | null }
+      | undefined;
+  }
+  // 当前页面拿不到 cid：只能按 bvid/epId 找最近一条；cid 已知时不做这种模糊匹配。
+  if (!row && !ref.cid && ref.bvid) {
     row = database
       .prepare(
         'SELECT content_md, model, updated_at, verification_json FROM summaries WHERE uid LIKE ? ORDER BY updated_at DESC LIMIT 1'
       )
       .get(`v:${ref.bvid}:%`) as
+      | { content_md: string; model: string; updated_at: number; verification_json?: string | null }
+      | undefined;
+  }
+  if (!row && !ref.cid && ref.epId) {
+    row = database
+      .prepare(
+        'SELECT content_md, model, updated_at, verification_json FROM summaries WHERE uid LIKE ? ORDER BY updated_at DESC LIMIT 1'
+      )
+      .get(`e:${ref.epId}:%`) as
       | { content_md: string; model: string; updated_at: number; verification_json?: string | null }
       | undefined;
   }

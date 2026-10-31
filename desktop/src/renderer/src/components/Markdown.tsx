@@ -11,7 +11,7 @@ interface InlineOptions {
 function inline(text: string, keyPrefix: string, options: InlineOptions = {}): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
   const pattern =
-    /(\$\$[^$]+\$\$|\$[^$\n]+\$|\\\([^)]+\\\)|\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\d{1,2}\])/g;
+    /(\$\$[^$]+\$\$|\$[^$\n]+\$|\\\([^)]+\\\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\[\d{1,2}\])/g;
   let last = 0;
   let index = 0;
   let match: RegExpExecArray | null;
@@ -27,6 +27,12 @@ function inline(text: string, keyPrefix: string, options: InlineOptions = {}): R
         : token.startsWith('$')
           ? token.slice(1, -1)
           : token.slice(2, -2);
+      // 中文句子里的 $5 到 $10 会被误判成公式；含中文的就不当公式。
+      if (!display && /[\u4e00-\u9fff]/.test(expr)) {
+        nodes.push(token);
+        last = match.index + token.length;
+        continue;
+      }
       nodes.push(
         <span
           key={`${keyPrefix}-math-${index++}`}
@@ -121,7 +127,11 @@ export function Markdown({
 }) {
   const renderInline = (text: string, keyPrefix: string) =>
     inline(text, keyPrefix, { citations, citePrefix });
-  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  // 模型偶尔输出 <br> 或单独的 CR；先归一化，避免整段渲染成一行。
+  const lines = content
+    .replace(/\r\n?/g, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .split('\n');
   const blocks: React.ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
   let code: string[] | null = null;
@@ -246,15 +256,13 @@ export function Markdown({
       continue;
     }
 
-    const heading = /^(#{1,4})\s+(.*)$/.exec(line);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       flushList();
       const body = renderInline(heading[2], `h-${key}`);
-      const level = heading[1].length;
-      if (level === 1) blocks.push(<h1 key={`h-${key++}`}>{body}</h1>);
-      else if (level === 2) blocks.push(<h2 key={`h-${key++}`}>{body}</h2>);
-      else if (level === 3) blocks.push(<h3 key={`h-${key++}`}>{body}</h3>);
-      else blocks.push(<h4 key={`h-${key++}`}>{body}</h4>);
+      const level = Math.min(6, heading[1].length);
+      const tag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+      blocks.push(React.createElement(tag, { key: `h-${key++}` }, body));
       continue;
     }
 
@@ -285,7 +293,7 @@ export function Markdown({
       continue;
     }
 
-    if (/^---+$/.test(line)) {
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(line)) {
       flushList();
       blocks.push(<hr key={`hr-${key++}`} />);
       continue;

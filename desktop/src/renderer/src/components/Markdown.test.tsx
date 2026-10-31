@@ -42,6 +42,37 @@ describe('Markdown 引用', () => {
     anchor.remove();
   });
 
+  it('中文句子里的金额不会被当成公式', () => {
+    const { container } = render(<Markdown content={'价格 $5 到 $10 之间，公式 $x^2$ 正常'} />);
+    expect(document.querySelectorAll('.katex').length).toBe(1);
+    expect(container.textContent).toContain('$5 到 $10');
+  });
+
+  it('加粗与行内代码不跨行', () => {
+    render(<Markdown content={'**第一段\n第二段**\n\u0060a\nb\u0060'} />);
+    expect(document.querySelector('strong')).toBeNull();
+    expect(document.querySelector('code')).toBeNull();
+  });
+
+  it('<br> 会换行而不是原样显示', () => {
+    render(<Markdown content={'第一行<br>第二行'} />);
+    expect(document.body.textContent).not.toContain('<br>');
+    expect(screen.getByText('第一行')).toBeTruthy();
+    expect(screen.getByText('第二行')).toBeTruthy();
+  });
+
+  it('支持 5 级标题与 *** 分割线', () => {
+    render(<Markdown content={'##### 小标题\n\n***'} />);
+    expect(document.querySelector('h5')?.textContent).toBe('小标题');
+    expect(document.querySelector('hr')).toBeTruthy();
+  });
+
+  it('表格渲染成表格', () => {
+    render(<Markdown content={'| A | B |\n| --- | --- |\n| 1 | 2 |'} />);
+    expect(document.querySelectorAll('table th').length).toBe(2);
+    expect(document.querySelectorAll('table td').length).toBe(2);
+  });
+
   it('没有来源时保留原文 [1]', () => {
     render(<Markdown content="普通文本 [1]" />);
     expect(document.querySelector('.cite-ref')).toBeNull();

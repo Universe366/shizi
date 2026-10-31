@@ -17,6 +17,7 @@ import {
   addVideoToCollection,
   closeLibrary,
   deleteTrash,
+  getSummaryFor,
   getLibraryDetail,
   initLibrary,
   ingestVideo,
@@ -235,3 +236,70 @@ describe('旧转写 URL 兼容', () => {
     if (entry) deleteTrash(entry.id);
   });
 });
+
+describe('同一个稿件的不同分 P 不串数据', () => {
+  it('P1 的转写不会显示在 P2', () => {
+    const p1 = {
+      ...info,
+      bvid: 'BV1part00001',
+      cid: 11,
+      page: 1,
+      title: 'P1',
+      url: 'https://www.bilibili.com/video/BV1part00001?p=1'
+    };
+    const result = ingestVideo({
+      info: p1,
+      track: { ...track, url: 'library://pending-p1' },
+      lines: [{ start: 0, end: 1, text: 'P1 第一句' }]
+    });
+    setTrackUrl(result.trackId, 'library://track/' + result.trackId);
+    const p2 = {
+      ...p1,
+      cid: 22,
+      page: 2,
+      url: 'https://www.bilibili.com/video/BV1part00001?p=2'
+    };
+    expect(listSavedTracks(p2)).toEqual([]);
+    expect(listSavedTracks(p1)).toHaveLength(1);
+  });
+
+  it('P1 的总结不会显示在 P2', () => {
+    const p1 = {
+      ...info,
+      bvid: 'BV1part00002',
+      cid: 33,
+      page: 1,
+      title: 'P1 总结',
+      url: 'https://www.bilibili.com/video/BV1part00002?p=1'
+    };
+    ingestVideo({
+      info: p1,
+      track: { ...track, url: 'library://pending-s1' },
+      lines: [{ start: 0, end: 1, text: '一句' }]
+    });
+    saveSummary(p1, '# P1 总结', 'm');
+    const p2 = { ...p1, cid: 44, page: 2, url: 'https://www.bilibili.com/video/BV1part00002?p=2' };
+    expect(getSummaryFor({ bvid: p2.bvid, cid: p2.cid, epId: null })).toBeNull();
+    expect(getSummaryFor({ bvid: p1.bvid, cid: p1.cid, epId: null })?.content).toBe('# P1 总结');
+  });
+
+  it('旧版按 cid=0 存的记录仍能被已知 cid 找到', () => {
+    const legacy = {
+      ...info,
+      bvid: 'BV1part00003',
+      cid: 0,
+      page: 1,
+      title: '旧记录',
+      url: 'https://www.bilibili.com/video/BV1part00003'
+    };
+    ingestVideo({
+      info: legacy,
+      track: { ...track, url: 'library://pending-l1' },
+      lines: [{ start: 0, end: 1, text: '旧转写' }]
+    });
+    saveSummary(legacy, '# 旧总结', 'm');
+    expect(listSavedTracks({ ...legacy, cid: 99 })).toHaveLength(1);
+    expect(getSummaryFor({ bvid: 'BV1part00003', cid: 99, epId: null })?.content).toBe('# 旧总结');
+  });
+});
+

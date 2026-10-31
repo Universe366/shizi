@@ -86,6 +86,8 @@ interface TabRecord {
   muted?: boolean;
   groupId?: string;
   lastHttpUrl?: string;
+  /** 单页应用地址兜底轮询（B 站切换视频偶尔不触发 did-navigate-in-page）。 */
+  urlWatch?: ReturnType<typeof setInterval>;
   loadPromise?: Promise<void>;
   /** 会话恢复的标签：用户操作前不让页面自动播放。 */
   suppressAutoplay?: boolean;
@@ -368,6 +370,26 @@ export class TabManager {
     const wc = view.webContents;
     const touch = () => this.emit();
     const ownerWindow = () => BrowserWindow.fromWebContents(wc);
+
+    // 单页应用地址兜底：B 站切换视频时偶尔不触发 did-navigate-in-page，
+    // 侧栏会停在上一个视频。每秒对一次 wc.getURL()，地址变了就通知渲染层。
+    if (!record.urlWatch) {
+      record.urlWatch = setInterval(() => {
+        if (wc.isDestroyed()) return;
+        let current = '';
+        try {
+          current = wc.getURL();
+        } catch {
+          return;
+        }
+        if (!current || current === 'about:blank' || current === record.url) return;
+        record.url = current;
+        if (/^https?:/i.test(current)) record.lastHttpUrl = current;
+        this.previewShots.delete(record.id);
+        this.emit();
+      }, 1000);
+      record.urlWatch.unref?.();
+    }
 
     wc.debugger.on('message', (_event, method, params) => {
       if (method !== 'Runtime.bindingCalled' || params?.name !== '__bsubMediaAction') return;
@@ -916,6 +938,10 @@ export class TabManager {
   }
 
   private releaseView(record: TabRecord): void {
+    if (record.urlWatch) {
+      clearInterval(record.urlWatch);
+      record.urlWatch = undefined;
+    }
     const view = record.view;
     record.view = null;
     if (!view) return;
