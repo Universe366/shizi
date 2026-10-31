@@ -29,7 +29,7 @@
 
 > 非官方项目，与哔哩哔哩无关联。自有代码 MIT；内置 FFmpeg core 按 GPL 分发，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：**桌面 0.162.27 / 插件 2.20.15**。
+当前版本：**桌面 0.162.28 / 插件 2.20.15**。
 
 ## 为什么做这个
 
@@ -45,8 +45,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 ### 桌面端（推荐）
 
 1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载：
-   - 安装版 `shizi-setup-0.162.27.exe`
-   - 绿色版 `shizi-0.162.27-win-x64-green.zip`
+   - 安装版 `shizi-setup-0.162.28.exe`
+   - 绿色版 `shizi-0.162.28-win-x64-green.zip`
 2. 打开「设置 → AI 与模型」：选择平台、填写 Base URL、模型和 API Key，点「测试连接」。
 3. 打开 B 站视频，在侧栏抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -182,7 +182,7 @@ node browser-smoke-test.js   # 需要本机 Edge/Chrome + 网络
 
 当前基线：
 
-- 桌面：180 个测试文件 / 1081 个用例（1 跳过）；冒烟 E2E 19/19；
+- 桌面：180 个测试文件 / 1089 个用例（1 跳过）；冒烟 E2E 19/19；
 - 插件：panel-test 478 项；真实浏览器冒烟 13 项；
 - 发布：tag 触发 GitHub Actions，构建安装版、绿色版与插件 zip。
 
@@ -236,7 +236,7 @@ shizi-extension/
 
 ## 版本
 
-- 桌面端：**0.162.27**（2026-10-31）
+- 桌面端：**0.162.28**（2026-10-31）
 - 插件：**2.20.15**
 - 变更记录：[desktop/CHANGELOG.md](desktop/CHANGELOG.md)、[shizi-extension/CHANGELOG.md](shizi-extension/CHANGELOG.md)
 
