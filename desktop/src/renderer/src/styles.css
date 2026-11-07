@@ -129,19 +129,6 @@ button:disabled {
   height: 100%;
 }
 
-/* 网页视频全屏：收起应用自己的标签/地址栏/侧栏，让视频铺满窗口内容区；
-   窗口标题栏（最小化/关闭）保留，不进入 Windows 原生全屏。 */
-.app-shell.is-page-fullscreen .tab-strip,
-.app-shell.is-page-fullscreen .address-bar,
-.app-shell.is-page-fullscreen .sidebar,
-.app-shell.is-page-fullscreen .sidebar-resizer {
-  display: none;
-}
-
-.app-shell.is-page-fullscreen .app-body {
-  border-radius: 0;
-}
-
 /* ---------- 标签栏 ---------- */
 .tab-strip {
   height: 42px;

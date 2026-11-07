@@ -213,8 +213,6 @@ export interface BsubApi {
   exitFullscreen(): void;
   refreshView(): void;
   onTabs(cb: (tabs: TabInfo[]) => void): () => void;
-  /** 网页进入/退出 HTML 全屏（视频全屏）；用于收起/恢复应用自己的标签与侧栏。 */
-  onPageFullscreen(cb: (active: boolean) => void): () => void;
   reopenClosedTab(): Promise<string | null>;
 
   listBrowseHistory(query?: string, limit?: number): Promise<Result<HistoryEntry[]>>;

@@ -277,7 +277,6 @@ const api: BsubApi = {
   exitFullscreen: () => ipcRenderer.send('tabs:exit-fullscreen'),
   refreshView: () => ipcRenderer.send('tabs:refresh-view'),
   onTabs: (cb: (tabs: TabInfo[]) => void) => on<TabInfo[]>('tabs:changed', cb),
-  onPageFullscreen: (cb: (active: boolean) => void) => on<boolean>('page:fullscreen', cb),
   setTabMuted: (id: string, muted: boolean) =>
     ipcRenderer.invoke('tab:set-muted', id, muted) as Promise<void>,
   sleepTab: (id: string) => ipcRenderer.invoke('tab:sleep', id) as Promise<boolean>,

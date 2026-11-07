@@ -475,23 +475,21 @@ export class TabManager {
     });
 
     wc.on('enter-html-full-screen', () => {
-      // 网页视频全屏：不再把原生窗口切成全屏（Windows 全屏会连标题栏一起隐藏，
-      // 最小化/关闭都按不到）。改为让渲染层收起标签、地址栏和侧栏，
-      // 视频铺满窗口内容区，但保留窗口标题栏。
+      // Electron 默认会把窗口切成全屏（enter-html-full-screen 触发时窗口已经全屏），
+      // Windows 全屏会连标题栏一起隐藏，最小化/关闭都按不到。
+      // 这里立刻退出「窗口全屏」，但页面自身的 HTML 全屏会保留，视频继续铺满网页区域。
       record.htmlFullscreen = true;
-      try {
-        this.win.webContents.send('page:fullscreen', true);
-      } catch {
-        // 窗口正在关闭时忽略
-      }
+      const win = ownerWindow();
+      if (win?.isFullScreen()) win.setFullScreen(false);
+      // 个别机器上事件早于窗口全屏完成，稍后再确认一次。
+      setTimeout(() => {
+        if (record.htmlFullscreen && win && !win.isDestroyed() && win.isFullScreen()) {
+          win.setFullScreen(false);
+        }
+      }, 120).unref?.();
     });
     wc.on('leave-html-full-screen', () => {
       record.htmlFullscreen = false;
-      try {
-        this.win.webContents.send('page:fullscreen', false);
-      } catch {
-        // 窗口正在关闭时忽略
-      }
       // 退出全屏是尺寸/合成器状态变化最大的一步：等布局恢复后再重报一次，
       // 否则原生视图可能停在旧尺寸上，表现成整块白屏。
       setTimeout(() => {
@@ -512,11 +510,6 @@ export class TabManager {
             )
             .catch(() => undefined);
           record.htmlFullscreen = false;
-          try {
-            this.win.webContents.send('page:fullscreen', false);
-          } catch {
-            // 窗口正在关闭时忽略
-          }
           return;
         }
         if (!win?.isFullScreen()) return;
@@ -1121,11 +1114,6 @@ export class TabManager {
     if (!record?.view) return;
     const win = BrowserWindow.fromWebContents(record.view.webContents);
     record.htmlFullscreen = false;
-    try {
-      this.win.webContents.send('page:fullscreen', false);
-    } catch {
-      // 窗口正在关闭时忽略
-    }
     void record.view.webContents
       .executeJavaScript(
         'document.fullscreenElement ? document.exitFullscreen().catch(() => null) : null'

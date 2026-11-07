@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DEFAULT_SUMMARY_FORMAT_RULES,
-  buildSummaryPrompt,
-  officialSegmentsBlock,
-  stripMetaPreamble
-} from './summary';
+import { DEFAULT_SUMMARY_FORMAT_RULES, buildSummaryPrompt, officialSegmentsBlock } from './summary';
 
 describe('shared summary core', () => {
   it('官方分段块含起止时间与标题', () => {
@@ -67,21 +62,6 @@ describe('shared summary core', () => {
       formatRules: '自定义格式规则'
     });
     expect(built.system).toBe('模板\n自定义格式规则');
-  });
-
-  it('去掉开头「我会先核对…」的计划句', () => {
-    const text =
-      '我会先核对几个与官方文档有关的技术细节（如 Main 的签名、`dotnet run` 传递参数的方式），然后按照字幕顺序整理出笔记。\n\n# 标题\n\n正文';
-    expect(stripMetaPreamble(text)).toBe('# 标题\n\n正文');
-  });
-
-  it('去掉「好的，我先检索…：」这类开场', () => {
-    expect(stripMetaPreamble('好的，我先检索一下相关资料：\n## 一\n内容')).toBe('## 一\n内容');
-  });
-
-  it('正常开头不会被误删，只剩计划句时保留原文', () => {
-    expect(stripMetaPreamble('本期视频讲了三个部分。')).toBe('本期视频讲了三个部分。');
-    expect(stripMetaPreamble('我会先核实一下。')).toBe('我会先核实一下。');
   });
 
   it('useVideoMeta=false 时不带简介', () => {

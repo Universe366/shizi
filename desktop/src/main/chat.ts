@@ -421,7 +421,7 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
   const searchLimit = Math.max(1, Math.min(20, Number(settings.search.toolSearchLimit) || 5));
   const fetchLimit = Math.max(1, Math.min(10, Number(settings.search.toolFetchLimit) || 3));
   const webToolSystem = useWebTool
-    ? `本轮已开启联网：需要外部事实时调用 web_search（最多 ${searchLimit} 次，可以换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 ${fetchLimit} 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。`
+    ? `本轮已开启联网：需要外部事实时调用 web_search（最多 ${searchLimit} 次，可以换关键词）；需要核对具体页面时用 web_fetch 打开搜索结果里的链接（最多 ${fetchLimit} 次）。引用时把结果里的 index 写成 [n]，回答末尾用「参考：」列出实际用到的链接，不要编造编号。直接给出最终结果，不要写「我会先核实…」这类检索/核对过程说明。`
     : '';
   const citationSystem = webBlock
     ? '引用外部事实时在句末用 [n] 标注来源；回答末尾用「参考：」列出实际用到的链接（只列用到的），不要编造编号。'

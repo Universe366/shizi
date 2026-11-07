@@ -8,26 +8,6 @@
 /** 默认不追加任何格式规则：系统提示词只有用户模板（以及配置了才有的术语表）。 */
 export const DEFAULT_SUMMARY_FORMAT_RULES = '';
 
-/** 模型在正文前自说自话的计划句，例如「我会先核对…，然后按字幕顺序整理出笔记。」 */
-const META_PREAMBLE =
-  /^(?:好的|好|明白|收到)?[，,。:：\s]*(?:我)?(?:会|将|要|需要|应该)?\s*(?:先|首先|接下来)?\s*(?:核对|核实|检索|搜索|查(?:一下|一查|找|阅)?|确认|查看|查阅|浏览)[^\n。！？]{0,140}[。！？:：]\s*/;
-
-/** 去掉开头的「我会先核实…」计划句；只处理开头，且不会把正文删空。 */
-export function stripMetaPreamble(text: string): string {
-  let value = String(text || '')
-    .replace(/^\uFEFF/, '')
-    .replace(/^\s+/, '');
-  for (let i = 0; i < 3; i += 1) {
-    const match = META_PREAMBLE.exec(value);
-    if (!match) break;
-    const rest = value.slice(match[0].length).replace(/^\s+/, '');
-    // 只剩计划句时保留原文，避免把总结清空。
-    if (!rest.trim()) break;
-    value = rest;
-  }
-  return value;
-}
-
 export interface SummaryPointLike {
   start?: number;
   end?: number;

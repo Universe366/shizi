@@ -1,7 +1,6 @@
 import type { ChatToolEvent, PageInfo, SubtitleLine, VerificationSummary } from '../shared/types';
 import { chat } from './chat';
 import { buildSummaryChatPrompt } from './ai';
-import { stripMetaPreamble } from '../shared/core/summary';
 
 export interface SummarizeChatOptions {
   info: PageInfo;
@@ -42,9 +41,7 @@ export async function summarizeChat(options: SummarizeChatOptions): Promise<Summ
     onStatus: options.onStatus,
     onTool: options.onTool
   });
-  // 模型偶尔在正文前写一句「我会先核对…」的计划；它不是笔记内容，直接去掉。
-  const text = stripMetaPreamble(result.text);
-  if (!text.trim()) throw new Error('AI 返回为空');
+  if (!result.text.trim()) throw new Error('AI 返回为空');
   const verification = result.references?.length
     ? {
         items: [],
@@ -57,5 +54,5 @@ export async function summarizeChat(options: SummarizeChatOptions): Promise<Summ
         sources: result.references
       }
     : undefined;
-  return { text, model: result.model, verification };
+  return { text: result.text, model: result.model, verification };
 }
