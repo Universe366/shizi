@@ -86,6 +86,8 @@ interface TabRecord {
   muted?: boolean;
   groupId?: string;
   lastHttpUrl?: string;
+  /** 页面是否处于 HTML 全屏（视频全屏）；Esc 优先退出它。 */
+  htmlFullscreen?: boolean;
   /** 单页应用地址兜底轮询（B 站切换视频偶尔不触发 did-navigate-in-page）。 */
   urlWatch?: ReturnType<typeof setInterval>;
   loadPromise?: Promise<void>;
@@ -473,13 +475,24 @@ export class TabManager {
     });
 
     wc.on('enter-html-full-screen', () => {
-      const win = ownerWindow();
-      if (win && !win.isFullScreen()) win.setFullScreen(true);
+      // 网页视频全屏：不再把原生窗口切成全屏（Windows 全屏会连标题栏一起隐藏，
+      // 最小化/关闭都按不到）。改为让渲染层收起标签、地址栏和侧栏，
+      // 视频铺满窗口内容区，但保留窗口标题栏。
+      record.htmlFullscreen = true;
+      try {
+        this.win.webContents.send('page:fullscreen', true);
+      } catch {
+        // 窗口正在关闭时忽略
+      }
     });
     wc.on('leave-html-full-screen', () => {
-      const win = ownerWindow();
-      if (win?.isFullScreen()) win.setFullScreen(false);
-      // 退出全屏是尺寸/合成器状态变化最大的一步：等窗口真正缩回去再重报一次，
+      record.htmlFullscreen = false;
+      try {
+        this.win.webContents.send('page:fullscreen', false);
+      } catch {
+        // 窗口正在关闭时忽略
+      }
+      // 退出全屏是尺寸/合成器状态变化最大的一步：等布局恢复后再重报一次，
       // 否则原生视图可能停在旧尺寸上，表现成整块白屏。
       setTimeout(() => {
         if (record.view && !record.view.webContents.isDestroyed()) {
@@ -491,6 +504,21 @@ export class TabManager {
       if (input.type !== 'keyDown') return;
       const win = ownerWindow();
       if (input.key === 'Escape') {
+        if (record.htmlFullscreen) {
+          event.preventDefault();
+          void wc
+            .executeJavaScript(
+              'document.fullscreenElement ? document.exitFullscreen().catch(() => null) : null'
+            )
+            .catch(() => undefined);
+          record.htmlFullscreen = false;
+          try {
+            this.win.webContents.send('page:fullscreen', false);
+          } catch {
+            // 窗口正在关闭时忽略
+          }
+          return;
+        }
         if (!win?.isFullScreen()) return;
         event.preventDefault();
         void wc
@@ -1092,6 +1120,12 @@ export class TabManager {
     const record = this.activeRecord();
     if (!record?.view) return;
     const win = BrowserWindow.fromWebContents(record.view.webContents);
+    record.htmlFullscreen = false;
+    try {
+      this.win.webContents.send('page:fullscreen', false);
+    } catch {
+      // 窗口正在关闭时忽略
+    }
     void record.view.webContents
       .executeJavaScript(
         'document.fullscreenElement ? document.exitFullscreen().catch(() => null) : null'

@@ -65,6 +65,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(initialSection === 'library');
   const [closeOpen, setCloseOpen] = useState(false);
+  // 网页视频全屏：收起标签/地址栏/侧栏，让视频铺满窗口，但保留窗口标题栏。
+  const [pageFullscreen, setPageFullscreen] = useState(false);
   // 垂直标签栏折叠后悬停展开时，地址栏和网页一起让位，避免标签栏盖住前进/后退按钮。
   const [tabPeek, setTabPeek] = useState<{ open: boolean; width: number }>({
     open: false,
@@ -231,6 +233,8 @@ export default function App() {
       off();
     };
   }, []);
+
+  useEffect(() => window.bsub.onPageFullscreen((active) => setPageFullscreen(active)), []);
 
   // 焦点在网页（原生 WebContentsView）里时，renderer 收不到 Ctrl+K，
   // 由主进程 before-input-event 转发过来。
@@ -691,7 +695,9 @@ export default function App() {
     <div
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
-      }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
+      }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}${
+        pageFullscreen ? ' is-page-fullscreen' : ''
+      }`}
       style={
         verticalTabs
           ? ({ '--tab-peek-width': `${tabPeek.width}px` } as CSSProperties)
