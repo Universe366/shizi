@@ -533,6 +533,16 @@ export const SEARCH_PRESETS: SearchPlatform[] = [
     "reuseAiKey": "deepseek"
   },
   {
+    "id": "tencent-wsa",
+    "name": "腾讯云元宝搜索（国内，需 SecretId:SecretKey）",
+    "kind": "tencent-wsa",
+    "baseUrl": "https://wsa.tencentcloudapi.com",
+    "apiKey": "",
+    "homepage": "https://cloud.tencent.com/document/product/1806/121811",
+    "keyUrl": "https://console.cloud.tencent.com/cam/capi",
+    "reuseAiKey": ""
+  },
+  {
     "id": "tavily",
     "name": "Tavily",
     "kind": "tavily",

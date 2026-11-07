@@ -15,6 +15,7 @@ import { searchSerper } from './serper';
 import { searchTavily } from './tavily';
 import { searchZhipu } from './zhipu';
 import { searchAnySearch } from './anysearch';
+import { searchTencent } from './tencent';
 
 export type ProviderKind =
   | 'deepseek-search'
@@ -32,6 +33,7 @@ export type ProviderKind =
   | 'anysearch'
   | 'jina'
   | 'searxng'
+  | 'tencent-wsa'
   | 'custom';
 
 export interface ProviderSpec {
@@ -57,6 +59,7 @@ const SPECS: Record<ProviderKind, ProviderSpec> = {
   anysearch: { kind: 'anysearch', label: 'AnySearch', search: searchAnySearch },
   jina: { kind: 'jina', label: 'Jina', search: searchJina },
   searxng: { kind: 'searxng', label: 'SearXNG', search: searchSearxng },
+  'tencent-wsa': { kind: 'tencent-wsa', label: '腾讯云元宝搜索', search: searchTencent },
   custom: { kind: 'custom', label: '自定义搜索', search: searchCustom }
 };
 

@@ -64,6 +64,16 @@ export function keyOf(settings: AppSettings, platform: SearchPlatform): string {
   return '';
 }
 
+/** 把「复用 AI Key」解析成平台自身的 Key；抓取入口拿不到 settings，需要在调用前补一次。 */
+export function withResolvedKey(
+  settings: AppSettings,
+  platform?: SearchPlatform
+): SearchPlatform | undefined {
+  if (!platform || platform.apiKey) return platform;
+  const key = keyOf(settings, platform);
+  return key ? { ...platform, apiKey: key } : platform;
+}
+
 export interface SearchRow {
   title?: string;
   url?: string;

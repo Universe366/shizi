@@ -21,6 +21,7 @@ import { glossaryTerms } from './correction';
 import { buildChatQuery, parseAutoSearchIntent, shouldAutoSearch } from './search';
 import { retrieveEvidence } from './web/retrieve';
 import { fetchWebPage } from './web/fetch';
+import { withResolvedKey } from './web/providers/shared';
 import type { WebSearchMeta } from './web';
 import { listMcpTools, callMcpToolDetailed } from './mcp';
 import type { ChatToolEvent, McpServer, McpTool } from '../shared/types';
@@ -652,7 +653,12 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
               settings.search.fetchPlatforms?.find(
                 (item) => item.id === settings.search.fetchActiveId
               ) || settings.search.fetchPlatforms?.[0];
-            const page = await fetchWebPage(url, 3200, options.signal, fetchPlatform);
+            const page = await fetchWebPage(
+              url,
+              3200,
+              options.signal,
+              withResolvedKey(settings, fetchPlatform)
+            );
             if (!page.text.trim()) return finish('网页没有可用正文', false);
             const payload = JSON.stringify({
               url: page.url,

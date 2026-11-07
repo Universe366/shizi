@@ -272,6 +272,13 @@ export function SearchSection({
               </button>
             </div>
 
+            {activeSearch.kind === 'tencent-wsa' && (
+              <div className="settings-hint">
+                腾讯云需要两段密钥：按「SecretId:SecretKey」填写（访问管理 → API
+                密钥）。不要把 SecretKey 单独填进来。
+              </div>
+            )}
+
             <div className="settings-label">复用 AI Key（可选）</div>
             <select
               className="settings-input"
@@ -307,7 +314,7 @@ export function SearchSection({
       <div className="settings-group">
         <div className="settings-group-title">2. URL 获取服务商</div>
         <div className="settings-group-desc">
-          决定 web_fetch 怎么打开网页：内置抓取免 Key；Jina 免费；Tavily / Exa / Firecrawl 需要 Key。第三方读取失败会自动回退内置抓取。
+          决定 web_fetch 怎么打开网页：内置抓取免 Key；Jina 免费；Tavily / Exa / Firecrawl / DeepSeek 需要 Key。第三方读取失败会自动回退内置抓取。
         </div>
         <select
           className="settings-input"
@@ -320,6 +327,10 @@ export function SearchSection({
               tavily: { name: 'Tavily Extract', baseUrl: 'https://api.tavily.com' },
               exa: { name: 'Exa Contents', baseUrl: 'https://api.exa.ai' },
               firecrawl: { name: 'Firecrawl', baseUrl: 'https://api.firecrawl.dev' },
+              'deepseek-fetch': {
+                name: 'DeepSeek 抓取',
+                baseUrl: 'https://api.deepseek.com/v1/tools/fetch'
+              },
               custom: { name: '自定义 URL 获取', baseUrl: '' }
             };
             const preset = presets[kind] || presets.direct;
@@ -331,7 +342,9 @@ export function SearchSection({
                   name: preset.name,
                   kind,
                   baseUrl: preset.baseUrl,
-                  apiKey: ''
+                  apiKey: '',
+                  // DeepSeek 抓取优先复用 DeepSeek AI Key，用户也可以单独填。
+                  reuseAiKey: kind === 'deepseek-fetch' ? 'deepseek' : ''
                 };
             updateSearch({
               fetchActiveId: kind,
@@ -347,6 +360,7 @@ export function SearchSection({
           <option value="tavily">Tavily Extract</option>
           <option value="exa">Exa Contents</option>
           <option value="firecrawl">Firecrawl</option>
+          <option value="deepseek-fetch">DeepSeek 抓取（需 Key，可复用 DeepSeek AI Key）</option>
           <option value="custom">自定义 URL 获取（{'{url}'} 占位）</option>
         </select>
         {fetchPlatform && fetchPlatform.kind !== 'direct' && (
@@ -369,6 +383,11 @@ export function SearchSection({
                 })
               }
             />
+            {fetchPlatform.kind === 'deepseek-fetch' && (
+              <div className="settings-hint">
+                留空则自动复用 DeepSeek AI 平台的 Key；也可以单独填一个。
+              </div>
+            )}
             <details className="settings-advanced">
               <summary>接口地址（一般不用改）</summary>
               <input

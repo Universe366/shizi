@@ -45,6 +45,30 @@ describe('web_fetch', () => {
     expect(String(state.fetch.mock.calls[0][0])).toContain('https://r.jina.ai/https://example.com/j');
   });
 
+  it('DeepSeek 抓取：POST /tools/fetch 并取 Markdown 正文', async () => {
+    state.fetch.mockClear();
+    state.fetch.mockResolvedValue(
+      new Response(JSON.stringify({ title: '抓取标题', content: '# 正文\n\n内容' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
+    const page = await fetchWebPage('https://example.com/ds', 3000, undefined, {
+      id: 'deepseek-fetch',
+      name: 'DeepSeek 抓取',
+      kind: 'deepseek-fetch',
+      baseUrl: 'https://api.deepseek.com/v1/tools/fetch',
+      apiKey: 'sk-test'
+    });
+    expect(page.title).toBe('抓取标题');
+    expect(page.text).toContain('内容');
+    expect(page.via).toBe('deepseek-fetch');
+    const [url, init] = state.fetch.mock.calls.at(-1) as [string, RequestInit];
+    expect(String(url)).toBe('https://api.deepseek.com/v1/tools/fetch');
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer sk-test');
+    expect(JSON.parse(String(init.body)).url).toBe('https://example.com/ds');
+  });
+
   it('内置抓取可以解析 PDF 正文', async () => {
     const pdf = fs.readFileSync('node_modules/pdf-parse/test/data/01-valid.pdf');
     state.fetch.mockResolvedValue(

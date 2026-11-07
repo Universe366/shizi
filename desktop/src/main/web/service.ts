@@ -13,6 +13,7 @@ import {
   withSearchSignal
 } from '../search';
 import { fetchWebPage } from './fetch';
+import { withResolvedKey } from './providers/shared';
 import { cachedDocument, rememberDocument } from './documents';
 import { recordSearch } from './metrics';
 import type { SearchPlanItem } from './plan';
@@ -401,7 +402,7 @@ export async function searchWebPlan(
             ? 20000
             : Math.max(600, settings.search.snippetChars || 2000),
           options.signal,
-          fetchPlatform
+          withResolvedKey(settings, fetchPlatform)
         )
       );
       const text = page?.text || '';

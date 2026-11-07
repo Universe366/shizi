@@ -29,7 +29,7 @@
 
 > 非官方项目，与哔哩哔哩无关联。自有代码 MIT；内置 FFmpeg core 按 GPL 分发，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：**桌面 0.162.29 / 插件 2.20.15**。
+当前版本：**桌面 0.162.30 / 插件 2.20.15**。
 
 ## 为什么做这个
 
@@ -45,8 +45,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 ### 桌面端（推荐）
 
 1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载：
-   - 安装版 `shizi-setup-0.162.29.exe`
-   - 绿色版 `shizi-0.162.29-win-x64-green.zip`
+   - 安装版 `shizi-setup-0.162.30.exe`
+   - 绿色版 `shizi-0.162.30-win-x64-green.zip`
 2. 打开「设置 → AI 与模型」：选择平台、填写 Base URL、模型和 API Key，点「测试连接」。
 3. 打开 B 站视频，在侧栏抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -89,7 +89,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | 总结 | 与桌面端共享提示词/格式规则/术语表；官方分段优先；对话式联网工具循环 |
 | 总结展示 | 流式 Markdown、思考过程折叠、[n] 引用、KaTeX 公式、参考网址、失败重试 |
 | 对话 | 基于字幕/页面提问；工具调用；上下文压缩；对话历史 |
-| 检索 | DeepSeek / Tavily / 博查 / Serper / 智谱 / 秘塔 / 千帆 / Brave / Exa / Firecrawl / Querit / Jina / SearXNG |
+| 检索 | DeepSeek / 腾讯云元宝 / Tavily / 博查 / Serper / 智谱 / 秘塔 / 千帆 / Brave / Exa / Firecrawl / Querit / Jina / SearXNG |
 | MCP | HTTP / SSE；工具审批（不询问 / 写操作前 / 每次）；工具循环 |
 | Skills | SKILL.md 单文件 / 文件夹 / 链接导入；指令型技能 |
 | 图片生成 | OpenAI 兼容（OpenAI / 硅基流动 / LocalAI）、本地 SD WebUI、本地 ComfyUI 工作流 |
@@ -182,7 +182,7 @@ node browser-smoke-test.js   # 需要本机 Edge/Chrome + 网络
 
 当前基线：
 
-- 桌面：180 个测试文件 / 1092 个用例（1 跳过）；冒烟 E2E 19/19；
+- 桌面：180 个测试文件 / 1095 个用例（1 跳过）；冒烟 E2E 19/19；
 - 插件：panel-test 478 项；真实浏览器冒烟 13 项；
 - 发布：tag 触发 GitHub Actions，构建安装版、绿色版与插件 zip。
 
@@ -236,7 +236,7 @@ shizi-extension/
 
 ## 版本
 
-- 桌面端：**0.162.29**（2026-11-07）
+- 桌面端：**0.162.30**（2026-11-07）
 - 插件：**2.20.15**
 - 变更记录：[desktop/CHANGELOG.md](desktop/CHANGELOG.md)、[shizi-extension/CHANGELOG.md](shizi-extension/CHANGELOG.md)
 

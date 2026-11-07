@@ -3,7 +3,7 @@
 > 与插件 `settings.js` 的默认平台目录对齐；密钥一律为空，由用户填写。
 
 - AI：**28 家**（Anthropic 走原生 `/v1/messages` 协议，其余为 OpenAI 兼容）
-- 检索：**12 家**
+- 检索：**16 家**
 - ASR：**4 家**（含本地 whisper.cpp）
 
 ## AI 平台
@@ -49,6 +49,7 @@
 | ID | 名称 | 协议 | 默认地址 | 复用 AI Key |
 |---|---|---|---|---|
 | `deepseek-search` | DeepSeek 搜索（官方，推荐） | `deepseek-search` | https://api.deepseek.com/v1/tools/search | deepseek |
+| `tencent-wsa` | 腾讯云元宝搜索（国内，需 SecretId:SecretKey） | `tencent-wsa` | https://wsa.tencentcloudapi.com | — |
 | `tavily` | Tavily | `tavily` | https://api.tavily.com/search | — |
 | `bocha` | 博查 Bocha | `bocha` | https://api.bochaai.com/v1/web-search | — |
 | `serper` | Serper（Google） | `serper` | https://google.serper.dev/search | — |
@@ -57,11 +58,29 @@
 | `baidu-ai-search` | 百度千帆 AI 搜索（国内） | `baidu` | https://qianfan.baidubce.com/v2/ai_search/web_search | — |
 | `brave` | Brave Search | `brave` | https://api.search.brave.com/res/v1/web/search | — |
 | `exa` | Exa（语义搜索） | `exa` | https://api.exa.ai/search | — |
+| `exa-api` | Exa API（需 Key，语义搜索） | `exa-api` | https://api.exa.ai/search | — |
+| `firecrawl-search` | Firecrawl 搜索（需 Key） | `firecrawl` | https://api.firecrawl.dev/v1/search | — |
+| `querit` | Querit 搜索（需 Key） | `querit` | https://api.querit.ai/v1/search | — |
 | `jina-search` | Jina 搜索 + 正文提取 | `jina` | https://s.jina.ai/ | — |
 | `searxng` | SearXNG（自建 / 免 Key） | `searxng` | https://searx.be/search | — |
 | `custom-search` | 自定义搜索接口 | `custom` | — | — |
 
 每个平台可配置：名称、协议、接口地址、API Key、官网、获取 Key、复用 AI Key。
+
+腾讯云元宝搜索（wsa）走腾讯云 API v3 签名：Key 需要填「SecretId:SecretKey」（访问管理 → API 密钥），
+接口为 `POST https://wsa.tencentcloudapi.com`、`Action=SearchPro`、`Version=2025-05-08`。
+
+## URL 获取服务商（web_fetch）
+
+| 协议 | 名称 | 默认地址 | 说明 |
+|---|---|---|---|
+| `direct` | 内置抓取 | — | 直接抓 HTML 去标签；PDF 走 pdf-parse；强 JS 页面回退隐藏浏览器渲染 |
+| `jina` | Jina Reader | https://r.jina.ai | 免 Key，返回 Markdown |
+| `tavily` | Tavily Extract | https://api.tavily.com | 需 Key |
+| `exa` | Exa Contents | https://api.exa.ai | 需 Key |
+| `firecrawl` | Firecrawl Scrape | https://api.firecrawl.dev | 需 Key |
+| `deepseek-fetch` | DeepSeek 抓取（官方） | https://api.deepseek.com/v1/tools/fetch | 需 DeepSeek Key，默认复用 AI Key；返回 Markdown |
+| `custom` | 自定义 URL 获取 | — | GET，`{url}` 占位 |
 
 ## ASR 平台
 

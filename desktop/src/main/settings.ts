@@ -1494,7 +1494,12 @@ function normalize(input: unknown): AppSettings {
       }
       // 新增的 Exa API / Firecrawl 搜索预设补进老配置，已有同名项不覆盖。
       for (const preset of SEARCH_PRESETS) {
-        if (!['exa-api', 'firecrawl-search', 'querit'].includes(preset.id)) continue;
+        if (
+          !['exa-api', 'firecrawl-search', 'querit', 'deepseek-search', 'tencent-wsa'].includes(
+            preset.id
+          )
+        )
+          continue;
         if (!base.search.platforms.some((platform) => platform.id === preset.id)) {
           base.search.platforms.push({ ...preset });
         }
@@ -1505,7 +1510,7 @@ function normalize(input: unknown): AppSettings {
         ? activeId
         : base.search.platforms[0].id;
 
-      const fetchKinds = ['direct', 'jina', 'tavily', 'exa', 'firecrawl', 'custom'];
+      const fetchKinds = ['direct', 'jina', 'tavily', 'exa', 'firecrawl', 'deepseek-fetch', 'custom'];
       let fetchPlatforms: SearchPlatform[] = [];
       if (Array.isArray(raw.search.fetchPlatforms)) {
         const seen = new Set<string>();

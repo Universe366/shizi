@@ -82,9 +82,13 @@ export function exportSharedSettings(includeSecrets: boolean): SharedSettingsPay
       fetchPageContent: settings.search.includeContent,
       timeRange: settings.search.timeRange,
       cacheMinutes: settings.search.cacheMinutes,
-      platforms: settings.search.platforms.map((platform) =>
-        stripPlatform(platform as unknown as Record<string, unknown>, includeSecrets)
-      )
+      // 腾讯云元宝搜索需要腾讯云 TC3 签名，插件端暂未实现；不下发，
+      // 避免插件里出现一个选中后不能用的平台。
+      platforms: settings.search.platforms
+        .filter((platform) => platform.kind !== 'tencent-wsa')
+        .map((platform) =>
+          stripPlatform(platform as unknown as Record<string, unknown>, includeSecrets)
+        )
     },
     asr: {
       activeId: settings.asr.activeId,

@@ -12,7 +12,7 @@ export interface WebPage {
   url: string;
   title: string;
   text: string;
-  /** 实际读取方式：jina/tavily/exa/firecrawl/custom/direct */
+  /** 实际读取方式：jina/tavily/exa/firecrawl/deepseek-fetch/custom/direct */
   via?: string;
   /** 第三方失败后回退时记录原服务商 */
   fallbackFrom?: string;
@@ -174,6 +174,28 @@ async function fetchViaProvider(
     const text = textOf(first.text);
     if (!text.trim()) throw new Error('Exa 没有返回正文');
     return { url: target.href, title: textOf(first.title), text: text.slice(0, maxChars) };
+  }
+
+  if (kind === 'deepseek-fetch') {
+    const base = providerBase(provider, 'https://api.deepseek.com/v1/tools/fetch');
+    const endpoint = /\/tools\/fetch$/.test(base)
+      ? base
+      : `${base.replace(/\/+$/, '')}/tools/fetch`;
+    if (!key) throw new Error('DeepSeek 抓取需要 API Key（可复用 DeepSeek AI Key）');
+    const response = await session.defaultSession.fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + key
+      },
+      body: JSON.stringify({ url: target.href }),
+      signal
+    });
+    if (!response.ok) throw new Error('DeepSeek 抓取失败（HTTP ' + response.status + '）');
+    const json = await jsonOf(response);
+    const text = textOf(json.content);
+    if (!text.trim()) throw new Error('DeepSeek 没有返回正文');
+    return { url: target.href, title: textOf(json.title), text: text.slice(0, maxChars) };
   }
 
   if (kind === 'firecrawl') {
