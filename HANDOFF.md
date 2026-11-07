@@ -1,9 +1,9 @@
 # HANDOFF —— 当前状态与交接说明
 
 > 更新日期：2026-11-07
-> 适用版本：桌面 **0.162.29** / 插件 **2.20.15**
-> 当前发布基线：tag `v0.162.29`
-> 最新 Release：`v0.162.29`
+> 适用版本：桌面 **0.162.30** / 插件 **2.20.15**
+> 当前发布基线：tag `v0.162.30`
+> 最新 Release：`v0.162.30`
 > 历史验收：[docs/archive/ACCEPTANCE-0.37.7.md](docs/archive/ACCEPTANCE-0.37.7.md)（仅作历史参考，不再维护）
 > 工作区：clean
 
@@ -21,20 +21,27 @@
 |---|---|
 | 桌面 `typecheck` | 通过 |
 | 桌面 `lint` | **0 error / 0 warning** |
-| 桌面单测 | 180 个文件 / 1092 个用例（1 跳过）（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
+| 桌面单测 | 180 个文件 / 1095 个用例（1 跳过）（主进程、shared 与渲染层；覆盖 AI 协议/用量、本地模型/向量服务/Ollama 拉取/ONNX 内置向量、对话库/分支/多模型、本地 ASR、Skills/MCP、MCP 提示词/资源/通知流/参数树/图片结果、OAuth、外观与设置页） |
 | 桌面冒烟 | `SMOKE OK ...` + `E2E OK 19/19`（含诊断/权限/更新/桥状态只读通道、标签增强、垂直栏交互、设置页/起始页、桌宠窗口与布局、框选截图、隐藏落设置、关闭确认弹窗） |
 | 插件 `panel-test` | 478 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.162.29` 通过 |
+| 发布 CI | `v0.162.30` 构建中，发布后回填结果 |
 | 安装包 | 未签名；SmartScreen 会提示 |
-| 自动更新 | `latest.yml` 指向 0.162.29，`/releases/latest` 已确认 |
+| 自动更新 | `latest.yml` 指向 0.162.29；0.162.30 发布后需确认 |
 
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
 
 ---
+
+### 0.162.30（2026-11-07，新增腾讯云元宝搜索与 DeepSeek 抓取）
+
+- 检索平台新增「腾讯云元宝搜索」：wsa SearchPro，腾讯云 API v3 签名，Key 填 SecretId:SecretKey；
+- URL 获取服务商新增「DeepSeek 抓取」：/v1/tools/fetch 返回 Markdown，默认复用 DeepSeek AI Key；
+- 老配置自动补上 DeepSeek 搜索 / 腾讯云元宝搜索预设；腾讯云平台不下发给插件；
+- 测试：桌面 180 文件 / 1095 用例（1 跳过）；冒烟 19/19；插件 panel-test 478 项。
 
 ### 0.162.29（2026-11-07，修复总结偶发为空、去掉检索前说明）
 
@@ -464,9 +471,9 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.162.29 测试/冒烟通过
+- [x] 0.162.30 测试/冒烟通过
 - [x] 插件 488 项通过
-- [x] 最新 Release 指向 `v0.162.29`
+- [ ] 最新 Release 指向 `v0.162.30`（发布后确认）
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
 

@@ -1,3 +1,13 @@
+## 0.162.30（2026-11-07）
+
+### 新增腾讯云元宝搜索与 DeepSeek 抓取
+
+- 检索平台新增「腾讯云元宝搜索」：wsa SearchPro，腾讯云 API v3（TC3-HMAC-SHA256）签名，Key 填「SecretId:SecretKey」；
+- URL 获取服务商新增「DeepSeek 抓取」：POST /v1/tools/fetch，返回 Markdown，默认复用 DeepSeek AI Key；
+- 老配置启动时自动补上 DeepSeek 搜索 / 腾讯云元宝搜索预设；
+- 腾讯云需先在控制台开通「元宝搜索」并创建 API 密钥；插件端暂未实现腾讯云签名，该平台不下发给插件；
+- 测试：桌面 check/smoke 通过；插件 panel-test 478 项。
+
 ## 0.162.29（2026-11-07）
 
 ### 修复总结偶发为空、去掉工具调用前的说明文字
