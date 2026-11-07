@@ -842,6 +842,20 @@ async function readSseEvents(
   const decoder = new TextDecoder();
   let buffer = '';
   let finished = false;
+  const handleLine = (line: string) => {
+    if (!line.startsWith('data:')) return;
+    const data = line.slice(5).trim();
+    if (!data) return;
+    if (data === '[DONE]') {
+      finished = true;
+      return;
+    }
+    try {
+      onEvent(JSON.parse(data) as Record<string, unknown>);
+    } catch {
+      // 忽略非 JSON 事件
+    }
+  };
   while (!finished) {
     const chunk = await reader.read();
     if (chunk.done) break;
@@ -849,18 +863,16 @@ async function readSseEvents(
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
     for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (!data) continue;
-      if (data === '[DONE]') {
-        finished = true;
-        break;
-      }
-      try {
-        onEvent(JSON.parse(data) as Record<string, unknown>);
-      } catch {
-        // 忽略非 JSON 事件
-      }
+      if (finished) break;
+      handleLine(line);
+    }
+  }
+  // 部分网关最后一条 data: 不带换行，留在 buffer 里；不处理会丢掉最后一段内容。
+  if (!finished) {
+    buffer += decoder.decode();
+    for (const line of buffer.split(/\r?\n/)) {
+      if (finished) break;
+      handleLine(line);
     }
   }
   return true;
@@ -930,7 +942,6 @@ async function chatAnthropicToolLoopStream(
           calls.set(index, { id: String(block.id || ''), name: String(block.name || ''), json: '' });
         } else if (block.type === 'text' && block.text) {
           roundText += String(block.text);
-          text += String(block.text);
           options.onDelta?.(String(block.text));
         }
       } else if (type === 'content_block_delta') {
@@ -938,7 +949,6 @@ async function chatAnthropicToolLoopStream(
         const index = Number(json.index ?? 0) || 0;
         if (delta.type === 'text_delta') {
           roundText += String(delta.text || '');
-          text += String(delta.text || '');
           options.onDelta?.(String(delta.text || ''));
         } else if (delta.type === 'thinking_delta') {
           reasoning += String(delta.thinking || '');
@@ -950,7 +960,10 @@ async function chatAnthropicToolLoopStream(
       }
     });
     if (!ok) return chatToolLoop(platform, messages, tools, options, runTool);
-    if (!calls.size) return finish();
+    if (!calls.size) {
+      text += roundText;
+      return finish();
+    }
     const ordered = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, call]) => call);
     const content: Array<Record<string, unknown>> = [];
     if (roundText) content.push({ type: 'text', text: roundText });
@@ -1043,14 +1056,16 @@ async function chatGeminiToolLoopStream(
       for (const part of Array.isArray(parts) ? parts : []) {
         if (part.text) {
           roundText += String(part.text);
-          text += String(part.text);
           options.onDelta?.(String(part.text));
         }
         if (part.functionCall) calls.push(part);
       }
     });
     if (!ok) return chatToolLoop(platform, messages, tools, options, runTool);
-    if (!calls.length) return finish();
+    if (!calls.length) {
+      text += roundText;
+      return finish();
+    }
     const modelParts: Array<Record<string, unknown>> = [];
     if (roundText) modelParts.push({ text: roundText });
     modelParts.push(...calls);
@@ -1116,6 +1131,8 @@ export async function chatToolLoopStream(
   let text = '';
   let reasoning = '';
   let usage: AiUsage | undefined;
+  /** 最后一轮没有工具调用、但正文为空：走收尾请求再要一次。 */
+  let emptyFinal = false;
 
   const finish = (): AiChatResult => {
     if (!text.trim()) throw new Error('AI 返回为空');
@@ -1148,11 +1165,13 @@ export async function chatToolLoopStream(
       const message = json?.choices?.[0]?.message;
       const calls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
       const roundText = String(message?.content || '');
-      if (roundText) {
+      if (roundText) options.onDelta?.(roundText);
+      if (!calls.length) {
+        // 只把最后一轮（不再调工具）的内容当作答案：模型调用工具前常先写
+        // 一句「我先核实…」，不能拼进最终总结。
         text += roundText;
-        options.onDelta?.(roundText);
+        return finish();
       }
-      if (!calls.length) return finish();
       convo.push({
         role: 'assistant',
         content: roundText || null,
@@ -1208,6 +1227,45 @@ export async function chatToolLoopStream(
     let roundText = '';
     const calls = new Map<number, { id: string; name: string; args: string }>();
     let done = false;
+    const handleLine = (line: string) => {
+      if (!line.startsWith('data:')) return;
+      const data = line.slice(5).trim();
+      if (!data) return;
+      if (data === '[DONE]') {
+        done = true;
+        return;
+      }
+      let json: Record<string, unknown>;
+      try {
+        json = JSON.parse(data) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
+      const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
+      const delta = (choice?.delta || {}) as Record<string, unknown>;
+      const content = String(delta.content || '');
+      if (content) {
+        roundText += content;
+        options.onDelta?.(content);
+      }
+      const think = String(delta.reasoning_content || '');
+      if (think) {
+        reasoning += think;
+        options.onReasoning?.(think);
+      }
+      const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
+      for (const raw of toolCalls) {
+        const item = raw as Record<string, unknown>;
+        const index = Number(item.index ?? 0) || 0;
+        const current = calls.get(index) || { id: '', name: '', args: '' };
+        if (item.id) current.id = String(item.id);
+        const fnPart = (item.function || {}) as Record<string, unknown>;
+        if (fnPart.name) current.name += String(fnPart.name);
+        if (fnPart.arguments) current.args += String(fnPart.arguments);
+        calls.set(index, current);
+      }
+    };
     while (!done) {
       const chunk = await reader.read();
       if (chunk.done) break;
@@ -1215,48 +1273,29 @@ export async function chatToolLoopStream(
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() || '';
       for (const line of lines) {
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim();
-        if (!data) continue;
-        if (data === '[DONE]') {
-          done = true;
-          break;
-        }
-        let json: Record<string, unknown>;
-        try {
-          json = JSON.parse(data) as Record<string, unknown>;
-        } catch {
-          continue;
-        }
-        usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
-        const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
-        const delta = (choice?.delta || {}) as Record<string, unknown>;
-        const content = String(delta.content || '');
-        if (content) {
-          roundText += content;
-          text += content;
-          options.onDelta?.(content);
-        }
-        const think = String(delta.reasoning_content || '');
-        if (think) {
-          reasoning += think;
-          options.onReasoning?.(think);
-        }
-        const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
-        for (const raw of toolCalls) {
-          const item = raw as Record<string, unknown>;
-          const index = Number(item.index ?? 0) || 0;
-          const current = calls.get(index) || { id: '', name: '', args: '' };
-          if (item.id) current.id = String(item.id);
-          const fnPart = (item.function || {}) as Record<string, unknown>;
-          if (fnPart.name) current.name += String(fnPart.name);
-          if (fnPart.arguments) current.args += String(fnPart.arguments);
-          calls.set(index, current);
-        }
+        if (done) break;
+        handleLine(line);
+      }
+    }
+    // 流结束时 buffer 里可能还剩最后一条没有换行的 data:（部分网关不发结尾换行），
+    // 不处理会丢掉最后一段正文，表现就是「总结返回为空」。
+    if (!done) {
+      buffer += decoder.decode();
+      for (const line of buffer.split(/\r?\n/)) {
+        if (done) break;
+        handleLine(line);
       }
     }
 
-    if (!calls.size) return finish();
+    if (!calls.size) {
+      if (roundText.trim()) {
+        text += roundText;
+        return finish();
+      }
+      // 模型只回了空内容：不要立刻报错，先走一次「不要工具」的收尾请求。
+      emptyFinal = true;
+      break;
+    }
     const ordered = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, call], index) => ({
       id: call.id || 'call_' + index,
       name: call.name,
@@ -1299,38 +1338,55 @@ export async function chatToolLoopStream(
       });
     }
   }
-  // 工具轮次用尽：再要一次「不带工具」的收尾回答，而不是把错误直接丢给用户。
-  const finalBody: Record<string, unknown> = {
-    model: platform.model.trim(),
-    max_tokens: Math.max(1, options.maxTokens || 8192),
-    temperature: options.temperature,
-    stream: true,
-    stream_options: { include_usage: true },
-    messages: convo
+  // 工具轮次用尽 / 模型空回复：再要一次「不带工具」的收尾回答。
+  const requestFinal = async (nudge?: string): Promise<void> => {
+    const finalBody: Record<string, unknown> = {
+      model: platform.model.trim(),
+      max_tokens: Math.max(1, options.maxTokens || 8192),
+      temperature: options.temperature,
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: nudge ? [...convo, { role: 'user', content: nudge }] : convo
+    };
+    const finalResponse = await postJson(platform, finalBody, options);
+    if (!finalResponse.ok) {
+      const detail = await finalResponse.text().catch(() => '');
+      throw new Error(errorForStatus(finalResponse.status, detail));
+    }
+    const finalSse = await readSseEvents(finalResponse, (json) => {
+      usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
+      const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
+      const delta = (choice?.delta || {}) as Record<string, unknown>;
+      const content = String(delta.content || '');
+      if (content) {
+        text += content;
+        options.onDelta?.(content);
+      }
+      const think = String(delta.reasoning_content || '');
+      if (think) {
+        reasoning += think;
+        options.onReasoning?.(think);
+      }
+    });
+    if (!finalSse) {
+      const json = (await finalResponse.json()) as AiPayload;
+      const content = String(json?.choices?.[0]?.message?.content || '');
+      if (content) {
+        text += content;
+        options.onDelta?.(content);
+      }
+      usage = mergeUsage(usage, usageFromPayload(json?.usage as Record<string, unknown>));
+    }
   };
-  const finalResponse = await postJson(platform, finalBody, options);
-  if (!finalResponse.ok) {
-    const detail = await finalResponse.text().catch(() => '');
-    throw new Error(errorForStatus(finalResponse.status, detail));
+
+  if (emptyFinal) {
+    await requestFinal('请直接输出最终结果：不要说明检索或工具过程，也不要再调用工具。');
+  } else {
+    await requestFinal();
   }
-  const finalSse = await readSseEvents(finalResponse, (json) => {
-    usage = mergeUsage(usage, usageFromPayload(json.usage as Record<string, unknown>));
-    const choice = (json.choices as Array<Record<string, unknown>> | undefined)?.[0];
-    const delta = (choice?.delta || {}) as Record<string, unknown>;
-    const content = String(delta.content || '');
-    if (content) {
-      text += content;
-      options.onDelta?.(content);
-    }
-  });
-  if (!finalSse) {
-    const json = (await finalResponse.json()) as AiPayload;
-    const content = String(json?.choices?.[0]?.message?.content || '');
-    if (content) {
-      text += content;
-      options.onDelta?.(content);
-    }
-    usage = mergeUsage(usage, usageFromPayload(json?.usage as Record<string, unknown>));
+  if (!text.trim()) {
+    // 仍为空：明确要求「只输出正文」，再试一次；避免把「AI 返回为空」直接丢给用户。
+    await requestFinal('上一次回复为空。请直接用中文输出最终正文，不要输出思考过程，不要再调用工具。');
   }
   return finish();
 }

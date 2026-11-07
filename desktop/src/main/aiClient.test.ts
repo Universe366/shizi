@@ -318,6 +318,79 @@ describe('流式工具循环', () => {
       true
     );
   });
+
+  it('工具调用前的说明文字不会拼进最终总结', async () => {
+    state.queue.push(
+      sse([
+        'data: {"choices":[{"delta":{"content":"我先核实一下字幕里没有展开的外部事实："}}]}\n\n',
+        'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"app__web_search","arguments":"{\\"query\\":\\"测试\\"}"}}]}}]}\n\n',
+        'data: [DONE]\n\n'
+      ])
+    );
+    state.queue.push(
+      sse([
+        'data: {"choices":[{"delta":{"content":"整理好的笔记"}}]}\n\n',
+        'data: [DONE]\n\n'
+      ])
+    );
+    const result = await chatToolLoopStream(
+      platform({ kind: 'openai' }),
+      [{ role: 'user', content: '总结' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: { query: { type: 'string' } } }
+        }
+      ],
+      { task: 'summary', maxRounds: 3 },
+      async () => '{"results":[]}'
+    );
+    expect(result.text).toBe('整理好的笔记');
+    expect(result.text).not.toContain('我先核实');
+  });
+
+  it('流结束时没有换行的最后一条 data 也会被解析', async () => {
+    state.queue.push(sse(['data: {"choices":[{"delta":{"content":"没有换行的结尾"}}]}']));
+    const result = await chatToolLoopStream(
+      platform({ kind: 'openai' }),
+      [{ role: 'user', content: 'hi' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: {} }
+        }
+      ],
+      { task: 'summary', maxRounds: 1 },
+      async () => '{}'
+    );
+    expect(result.text).toBe('没有换行的结尾');
+  });
+
+  it('模型返回空内容时会再要一次收尾回答', async () => {
+    state.queue.push(sse(['data: {"choices":[{"delta":{"content":""}}]}\n\n', 'data: [DONE]\n\n']));
+    state.queue.push(
+      sse(['data: {"choices":[{"delta":{"content":"重试后的正文"}}]}\n\n', 'data: [DONE]\n\n'])
+    );
+    const result = await chatToolLoopStream(
+      platform({ kind: 'openai' }),
+      [{ role: 'user', content: '总结' }],
+      [
+        {
+          name: 'app__web_search',
+          description: '搜索',
+          parameters: { type: 'object', properties: {} }
+        }
+      ],
+      { task: 'summary', maxRounds: 3 },
+      async () => '{}'
+    );
+    expect(result.text).toBe('重试后的正文');
+    const finalBody = JSON.parse(String(state.calls[1].init.body));
+    expect(finalBody.tools).toBeUndefined();
+    expect(JSON.stringify(finalBody.messages)).toContain('不要说明检索');
+  });
 });
 
 describe('Anthropic / Gemini 流式工具循环', () => {
