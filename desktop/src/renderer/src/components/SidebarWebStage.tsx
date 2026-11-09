@@ -7,11 +7,15 @@ import type { SidebarPage } from '../../../shared/types';
  */
 export function SidebarWebStage({
   page,
-  layoutKey
+  layoutKey,
+  side = 'left'
 }: {
   page: SidebarPage;
   layoutKey: string;
+  side?: 'left' | 'right';
 }) {
+  // 给侧栏边缘的拖拽条留出命中区域：原生视图盖在上面时，DOM 的 6–10px 边缘拖不动。
+  const EDGE_GUTTER = 10;
   const { id, title, url } = page;
   const ref = useRef<HTMLDivElement>(null);
   const reportRef = useRef<() => void>(() => undefined);
@@ -23,10 +27,13 @@ export function SidebarWebStage({
     const report = () => {
       const rect = element.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
+      const x = side === 'right' ? rect.left + EDGE_GUTTER : rect.left;
+      const width = Math.max(0, rect.width - EDGE_GUTTER);
+      if (width <= 0) return;
       window.bsub.sidebarWebBounds({
-        x: Math.round(rect.left),
+        x: Math.round(x),
         y: Math.round(rect.top),
-        width: Math.round(rect.width),
+        width: Math.round(width),
         height: Math.round(rect.height)
       });
     };
@@ -40,7 +47,7 @@ export function SidebarWebStage({
       window.removeEventListener('resize', report);
       window.bsub.sidebarWebDeactivate();
     };
-  }, [id, title, url]);
+  }, [id, title, url, side]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => reportRef.current());

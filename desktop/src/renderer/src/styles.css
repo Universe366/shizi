@@ -645,6 +645,15 @@ button:disabled {
   padding: 0 8px 4px;
 }
 
+/* 折叠时全局规则会隐藏导航项里的 span（给主按钮留图标用），
+   网页入口没有 svg，必须把字母图标放出来，否则看起来像没添加。 */
+.sidebar.is-collapsed .side-nav-web .side-nav-letter {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+}
+
 .side-nav-letter {
   display: inline-grid;
   place-items: center;
@@ -5148,7 +5157,7 @@ html[data-density='compact'] .chat-history-row {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 6px;
+  width: 10px;
   cursor: col-resize;
   z-index: 20;
   transition: background 0.15s;

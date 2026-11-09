@@ -360,7 +360,7 @@ export function Sidebar({
 
         {!collapsed && webPage && (
           <div className="side-panel is-active">
-            <SidebarWebStage page={webPage} layoutKey={layoutKey} />
+            <SidebarWebStage page={webPage} layoutKey={layoutKey} side={position} />
           </div>
         )}
 
