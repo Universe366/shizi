@@ -6,9 +6,12 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  Plus,
   Sparkles
 } from 'lucide-react';
-import type { BridgeStatus, JobRecord, Section, TabInfo } from '../../../shared/types';
+import type { BridgeStatus, JobRecord, Section, SidebarPage, TabInfo } from '../../../shared/types';
+import { SidebarPagesDialog } from './SidebarPagesDialog';
+import { SidebarWebStage } from './SidebarWebStage';
 import { SubtitlesPanel } from './SubtitlesPanel';
 const ChatPanel = lazy(() =>
   import('./ChatPanel').then((module) => ({ default: module.ChatPanel }))
@@ -44,6 +47,7 @@ export function Sidebar({
   onDragSnapshot,
   onOpenSummary,
   onOpenChapters,
+  pages = [],
 }: {
   onOpenSettings: () => void;
   section: Section;
@@ -61,11 +65,13 @@ export function Sidebar({
   onDragSnapshot?: (snapshot: string | null) => void;
   onOpenSummary?: () => void;
   onOpenChapters?: () => void;
+  pages?: SidebarPage[];
 }) {
   const [version, setVersion] = useState('');
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
   const [visited, setVisited] = useState<Set<Section>>(() => new Set([section]));
   const dragActiveRef = useRef(false);
 
@@ -163,7 +169,8 @@ export function Sidebar({
       const delta = startPosition === 'left' ? clientX - startX : startX - clientX;
       return startWidth + delta;
     };
-    const maxWidth = () => Math.max(320, Math.min(900, window.innerWidth - 320));
+    // 侧栏可以拖得很宽（网页模式下尤其需要），只给右侧网页区留最小可用宽度。
+  const maxWidth = () => Math.max(320, Math.min(2000, window.innerWidth - 240));
     const move = (moveEvent: MouseEvent) => {
       const raw = rawWidthAt(moveEvent.clientX);
       const width = crossedAt(moveEvent.clientX)
@@ -241,6 +248,10 @@ export function Sidebar({
     : position === 'left'
       ? ChevronLeft
       : ChevronRight;
+  const webPage = section.startsWith('web:')
+    ? pages.find((page) => `web:${page.id}` === section)
+    : undefined;
+  const layoutKey = `${sidebarWidth}-${position}-${fontScale}`;
 
   return (
     <aside
@@ -281,6 +292,36 @@ export function Sidebar({
         ))}
       </nav>
 
+      {(pages.length > 0 || !collapsed) && (
+        <nav className={`side-nav side-nav-web${collapsed ? ' is-collapsed' : ''}`}>
+          {pages.map((page) => {
+            const id = `web:${page.id}` as Section;
+            return (
+              <button
+                key={page.id}
+                className={`side-nav-item${section === id ? ' is-active' : ''}`}
+                title={`${page.title}\n${page.url}`}
+                onClick={() => {
+                  if (collapsed) onToggleCollapse?.(false);
+                  onSelect(id);
+                }}
+              >
+                <span className="side-nav-letter">{page.title.slice(0, 1).toUpperCase()}</span>
+                {!collapsed && <span>{page.title}</span>}
+              </button>
+            );
+          })}
+          <button
+            className="side-nav-item side-nav-add"
+            title="添加侧栏网页"
+            onClick={() => setPagesOpen(true)}
+          >
+            <Plus size={14} />
+            {!collapsed && <span>添加</span>}
+          </button>
+        </nav>
+      )}
+
       {!collapsed && (
         <div
           className="sidebar-resizer"
@@ -317,6 +358,12 @@ export function Sidebar({
           )}
         </div>
 
+        {!collapsed && webPage && (
+          <div className="side-panel is-active">
+            <SidebarWebStage page={webPage} layoutKey={layoutKey} />
+          </div>
+        )}
+
       </div>
 
       <div className="side-footer" title={bridge?.error || bridgeLabel}>
@@ -337,6 +384,8 @@ export function Sidebar({
       {!collapsed && (
         <TaskCenter open={taskOpen} jobs={jobs} onClose={() => setTaskOpen(false)} />
       )}
+
+      <SidebarPagesDialog open={pagesOpen} pages={pages} onClose={() => setPagesOpen(false)} />
     </aside>
   );
 }

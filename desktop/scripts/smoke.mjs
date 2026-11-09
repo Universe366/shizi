@@ -364,6 +364,30 @@ try {
     return result.error;
   });
 
+  // 8b. 侧栏网页通道（只验证 IPC 与视图生命周期，不依赖页面内容）
+  await step('侧栏网页通道', async () => {
+    const result = await run(
+      ws,
+      `
+      const saved = await window.bsub.saveSidebarPages([
+        { id: 'smoke', title: 'Smoke', url: 'https://example.com/' }
+      ]);
+      if (!saved.ok) throw new Error('sidebar-pages:save ' + saved.error);
+      if (saved.data.length !== 1) throw new Error('sidebar pages 未保存');
+      const activated = await window.bsub.sidebarWebActivate(saved.data[0]);
+      if (!activated.ok) throw new Error('sidebar-web:activate ' + activated.error);
+      window.bsub.sidebarWebBounds({ x: 40, y: 120, width: 260, height: 400 });
+      window.bsub.sidebarWebVisible(false);
+      window.bsub.sidebarWebVisible(true);
+      window.bsub.sidebarWebDeactivate();
+      const cleared = await window.bsub.clearSidebarWebData();
+      if (!cleared.ok) throw new Error('sidebar-web:clear ' + cleared.error);
+      return JSON.stringify({ pages: saved.data.length });
+      `
+    );
+    return `pages=${result.pages}`;
+  });
+
   // 9. 历史与导出记录
   await step('历史与导出记录', async () => {
     const result = await run(

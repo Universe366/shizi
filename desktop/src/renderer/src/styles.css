@@ -625,6 +625,147 @@ button:disabled {
   min-height: 0;
 }
 
+/* ---------- 侧栏网页 ---------- */
+.side-nav-web {
+  display: flex;
+  flex-wrap: wrap;
+  grid-template-columns: none;
+  gap: 2px;
+  padding: 0 10px 4px;
+}
+
+.side-nav-web .side-nav-item {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.side-nav-web.is-collapsed {
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 4px;
+}
+
+.side-nav-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.side-nav-item.is-active .side-nav-letter {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.side-nav-add {
+  color: var(--faint);
+}
+
+/* 网页视图自己铺满，不要侧栏的 10px 内边距 */
+.side-content:has(.sidebar-web-stage) {
+  padding: 0;
+}
+
+.sidebar-web-stage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- 侧栏网页管理弹窗 ---------- */
+.sidebar-pages-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.sidebar-pages-card {
+  width: min(520px, 92vw);
+  max-height: min(80vh, 640px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.sidebar-pages-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-pages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-pages-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.sidebar-pages-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-pages-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.sidebar-pages-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
+.sidebar-pages-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sidebar-pages-add .settings-input {
+  flex: 1 1 160px;
+}
+
+.sidebar-pages-error {
+  font-size: var(--fs-xs);
+  color: var(--danger);
+}
+
+.sidebar-pages-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .panel {
   display: flex;
   flex-direction: column;

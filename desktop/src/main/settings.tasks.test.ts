@@ -394,6 +394,29 @@ describe('任务槽位 / 用量设置', () => {
     saveSettings(settings);
   });
 
+  it('侧栏网页默认预置，保存后按 url 规范化', () => {
+    const settings = loadSettings();
+    expect(settings.general.sidebarPages.map((page) => page.id)).toEqual([
+      'deepseek',
+      'doubao',
+      'kimi',
+      'qwen',
+      'chatgpt'
+    ]);
+    settings.general.sidebarPages = [
+      { id: 'custom', title: '', url: 'https://example.com/a' },
+      { id: 'bad', title: 'bad', url: 'javascript:alert(1)' }
+    ];
+    saveSettings(settings);
+    const loaded = loadSettings();
+    expect(loaded.general.sidebarPages).toEqual([
+      { id: 'custom', title: 'example.com', url: 'https://example.com/a' }
+    ]);
+    settings.general.sidebarPages = [];
+    saveSettings(settings);
+    expect(loadSettings().general.sidebarPages).toEqual([]);
+  });
+
   it('MCP 审批模式保存', () => {
     const settings = loadSettings();
     settings.mcp.approvalMode = 'all';

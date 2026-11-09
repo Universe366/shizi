@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { BrowserToolbarSettings, FindResult, Section, SettingsSnapshot, TabInfo } from '../../shared/types';
+import type {
+  BrowserToolbarSettings,
+  FindResult,
+  Section,
+  SettingsSnapshot,
+  SidebarPage,
+  TabInfo
+} from '../../shared/types';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/browserToolbar';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
@@ -51,6 +58,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
@@ -136,6 +144,7 @@ export default function App() {
         sidebarWidth: number;
         sidebarPosition: 'left' | 'right';
         sidebarCollapsed: boolean;
+        sidebarPages?: SidebarPage[];
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
@@ -145,6 +154,7 @@ export default function App() {
     setSidebarWidth(snapshot.settings.general.sidebarWidth);
     setSidebarPosition(snapshot.settings.general.sidebarPosition);
     setSidebarCollapsed(snapshot.settings.general.sidebarCollapsed);
+    setSidebarPages(snapshot.settings.general.sidebarPages || []);
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
     setBrowserToolbar(
       normalizeBrowserToolbar(
@@ -162,6 +172,16 @@ export default function App() {
     });
     return window.bsub.onUpdateStatus((status) => apply(status.state));
   }, []);
+
+  // 删掉当前正在看的侧栏网页时，回到对话，避免停在一个不存在的视图上。
+  useEffect(() => {
+    if (
+      section.startsWith('web:') &&
+      !sidebarPages.some((page) => `web:${page.id}` === section)
+    ) {
+      setSection('chat');
+    }
+  }, [section, sidebarPages]);
 
   const commitSidebarWidth = (width: number) => {
     setSidebarWidth(width);
@@ -771,6 +791,7 @@ export default function App() {
             setSection('summary');
             window.setTimeout(() => requestSummaryPanel('chapters'), 0);
           }}
+          pages={sidebarPages}
         />
         <BrowserStage
           hasTab={Boolean(active)}

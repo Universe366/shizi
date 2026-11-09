@@ -146,7 +146,15 @@ export type Section =
   | 'subtitles'
   | 'summary'
   | 'chat'
-  | 'library';
+  | 'library'
+  | `web:${string}`;
+
+/** 侧栏里的自定义网页（如 DeepSeek、豆包）。 */
+export interface SidebarPage {
+  id: string;
+  title: string;
+  url: string;
+}
 
 export interface VideoPart {
   index: number;
@@ -1247,6 +1255,8 @@ export interface AppSettings {
     /** 顶部地址栏按钮显示配置 */
     browserToolbar: BrowserToolbarSettings;
     sidebarCollapsed: boolean;
+    /** 侧栏网页：预置 + 用户自定义 */
+    sidebarPages: SidebarPage[];
     autoFollow: boolean;
     /** 默认播放倍速（没有站点规则时使用） */
     mediaRate: number;

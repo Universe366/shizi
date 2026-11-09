@@ -20,6 +20,7 @@ import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../shared/browserToolbar';
 import { AI_TASKS } from '../shared/aiTasks';
 import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_TEMPLATES } from '../shared/prompts';
+import { SIDEBAR_PAGE_PRESETS, normalizeSidebarPages } from '../shared/sidebarPages';
 import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { isSearchEngineId } from '../shared/searchEngines';
 import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
@@ -135,6 +136,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     verticalTabsCollapsed: false,
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
     sidebarCollapsed: false,
+    sidebarPages: SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page })),
     autoFollow: true,
     mediaRate: 1,
     mediaRememberSite: true,
@@ -497,10 +499,14 @@ function normalize(input: unknown): AppSettings {
       }
       const sidebarWidth = Number(raw.general.sidebarWidth);
       if (Number.isFinite(sidebarWidth)) {
-        base.general.sidebarWidth = Math.min(900, Math.max(260, Math.round(sidebarWidth)));
+        base.general.sidebarWidth = Math.min(2000, Math.max(260, Math.round(sidebarWidth)));
       }
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
+      base.general.sidebarPages =
+        raw.general.sidebarPages === undefined
+          ? SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page }))
+          : normalizeSidebarPages(raw.general.sidebarPages);
       base.general.verticalTabs = raw.general.verticalTabs !== false;
       const paneWidth = Number(raw.general.verticalTabsWidth);
       base.general.verticalTabsWidth = Number.isFinite(paneWidth)

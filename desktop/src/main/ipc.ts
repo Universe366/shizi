@@ -25,6 +25,8 @@ import { registerChatHistoryIpc } from './ipc/chatHistory';
 import { registerDictationIpc } from './ipc/dictation';
 import { registerKnowledgeIpc } from './ipc/knowledge';
 import { registerWebIpc } from './ipc/web';
+import { registerSidebarWebIpc } from './ipc/sidebarWeb';
+import { SidebarWebManager } from './sidebarWeb';
 import { registerConvertIpc } from './ipc/convert';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
@@ -47,6 +49,9 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
     }
   };
   const ctx: IpcContext = { win, send, tabs, aiControllers };
+  const sidebarWeb = new SidebarWebManager(win);
+  win.on('closed', () => sidebarWeb.dispose());
+  registerSidebarWebIpc(ctx, sidebarWeb);
   registerJobsIpc(ctx);
 
   registerBrowserIpc(ctx);

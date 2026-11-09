@@ -59,6 +59,7 @@ import type {
   SummaryRef,
   TrackBody,
   TabInfo,
+  SidebarPage,
   WebReference,
   UpdateStatus,
   ExportPayload,
@@ -210,6 +211,18 @@ export interface BsubApi {
   reload(): Promise<void>;
   stop(): Promise<void>;
   setLayout(rect: LayoutRect): void;
+  /** 保存侧栏网页列表（预置 + 自定义）。 */
+  saveSidebarPages(pages: SidebarPage[]): Promise<Result<SidebarPage[]>>;
+  /** 激活某个侧栏网页（必要时创建视图并加载）。 */
+  sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
+  /** 离开侧栏网页：视图保留，开始休眠计时。 */
+  sidebarWebDeactivate(): void;
+  /** 侧栏网页视图的位置（窗口坐标）。 */
+  sidebarWebBounds(rect: LayoutRect): void;
+  /** 浮层/设置页出现时临时隐藏侧栏网页。 */
+  sidebarWebVisible(visible: boolean): void;
+  /** 清空侧栏网页分区的登录态与缓存。 */
+  clearSidebarWebData(): Promise<Result<boolean>>;
   exitFullscreen(): void;
   refreshView(): void;
   onTabs(cb: (tabs: TabInfo[]) => void): () => void;

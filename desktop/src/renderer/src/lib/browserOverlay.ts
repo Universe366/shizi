@@ -47,6 +47,8 @@ export function useBrowserOverlayAuto(): void {
       if (visible === last) return;
       last = visible;
       void window.bsub.setBrowserVisible(visible);
+      // 侧栏网页也是原生视图，浮层出现时要一起让位。
+      window.bsub.sidebarWebVisible(visible);
     };
 
     const schedule = () => {
