@@ -27,6 +27,7 @@ import {
   localVideoTitle
 } from './localVideo';
 import { listSavedTracks, savedTrackLines } from './library/savedTracks';
+import { probePageVideo } from './pageVideo';
 import {
   clampMediaRate,
   mediaSiteKey,
@@ -105,6 +106,12 @@ interface TabRecord {
   localFile?: string;
   /** 把已入库字幕推给本地播放页的定时器。 */
   localTimer?: ReturnType<typeof setInterval>;
+  /** 通用网页视频探测结果（侧栏据此把页面当视频页）。 */
+  hasVideo?: boolean;
+  videoTitle?: string;
+  videoDuration?: number;
+  videoTimer?: ReturnType<typeof setInterval>;
+  probingVideo?: boolean;
 }
 
 /** 后台标签的 WebContentsView 不可见时 capturePage 取不到画面，切走前先留一张缩略图。 */
@@ -251,6 +258,7 @@ export class TabManager {
       title: localFile ? localVideoTitle(localFile) : '新标签页',
       url,
       localFile,
+      hasVideo: Boolean(localFile),
       suppressAutoplay: options.suppressAutoplay === true,
       lastHttpUrl: /^https?:/i.test(url) ? url : undefined,
       loading: true,
@@ -447,6 +455,16 @@ export class TabManager {
       push();
       record.localTimer = setInterval(push, 2000);
       record.localTimer.unref?.();
+    }
+
+    // 通用网页视频：只探测当前标签，避免每个后台页都跑脚本。
+    if (!record.localFile && !record.videoTimer) {
+      const probe = () => {
+        if (this.activeId === record.id) void this.probeVideo(record);
+      };
+      probe();
+      record.videoTimer = setInterval(probe, 2000);
+      record.videoTimer.unref?.();
     }
 
     wc.on('context-menu', (_event, params) => {
@@ -709,7 +727,10 @@ export class TabManager {
     }
     this.activeId = id;
     const active = this.tabs.get(id);
-    if (active) active.lastActiveAt = Date.now();
+    if (active) {
+      active.lastActiveAt = Date.now();
+      void this.probeVideo(active);
+    }
 
     for (const [tabId, record] of this.tabs) {
       if (!record.view) continue;
@@ -1013,6 +1034,28 @@ export class TabManager {
     };
   }
 
+  /** 探测当前页面的主视频；结果变化时通知渲染层（侧栏据此显示视频面板）。 */
+  private async probeVideo(record: TabRecord): Promise<void> {
+    if (record.probingVideo) return;
+    const wc = record.view?.webContents;
+    if (!wc || wc.isDestroyed()) return;
+    record.probingVideo = true;
+    try {
+      const video = await probePageVideo(wc);
+      const has = Boolean(video);
+      const changed =
+        record.hasVideo !== has || (has && record.videoDuration !== (video?.duration || 0));
+      record.hasVideo = has;
+      if (video) {
+        record.videoDuration = video.duration;
+        record.videoTitle = video.title;
+      }
+      if (changed) this.emit();
+    } finally {
+      record.probingVideo = false;
+    }
+  }
+
   /** 把本地视频已入库的字幕推给播放页；没有转写时推空数组。 */
   private pushLocalLines(record: TabRecord): void {
     if (this.activeId !== record.id) return;
@@ -1046,6 +1089,10 @@ export class TabManager {
     if (record.localTimer) {
       clearInterval(record.localTimer);
       record.localTimer = undefined;
+    }
+    if (record.videoTimer) {
+      clearInterval(record.videoTimer);
+      record.videoTimer = undefined;
     }
     const view = record.view;
     record.view = null;
@@ -1581,6 +1628,7 @@ export class TabManager {
         playbackRate: record.rate,
         pinned: record.pinned === true,
         groupId: record.groupId,
+        hasVideo: record.hasVideo === true,
         audible: (() => {
           try {
             return record.view && !record.suspended

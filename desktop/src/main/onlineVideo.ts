@@ -17,12 +17,12 @@ import { overallPercent, parseYtDlpItem, parseYtDlpProgress } from './ytdlp';
  * 只处理用户主动输入、且其有权下载的内容；不解析 DRM。
  */
 const YTDLP = {
-  version: '2026.10.21',
-  size: 17880111,
-  sha256: '33121d192d706e62f684a06f80918e3f3a8ba52ac3a65213b6951c39c7d9f555',
+  version: '2026.10.26',
+  size: 23575744,
+  sha256: 'f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d',
   urls: [
-    'https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp.exe',
-    'https://ghproxy.net/https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp.exe'
+    'https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe',
+    'https://ghproxy.net/https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe'
   ]
 };
 
@@ -122,10 +122,33 @@ async function downloadFile(
   throw new Error(`yt-dlp 下载失败：${lastError?.message || '网络中断'}`);
 }
 
+/** 安装包里自带的 yt-dlp（resources/yt-dlp），没有才走按需下载。 */
+function bundledYtDlp(): string {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'yt-dlp', 'yt-dlp.exe') : '',
+    path.join(app.getAppPath(), 'resources', 'yt-dlp', 'yt-dlp.exe')
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).size > 10 * 1024 * 1024) {
+        return candidate;
+      }
+    } catch {
+      // 试下一个
+    }
+  }
+  return '';
+}
+
 export async function ensureYtDlp(
   onProgress: (percent: number, message: string) => void,
   signal?: AbortSignal
 ): Promise<string> {
+  const bundled = bundledYtDlp();
+  if (bundled) {
+    onProgress(100, '已随应用安装');
+    return bundled;
+  }
   const target = path.join(toolsDir(), `yt-dlp-${YTDLP.version}.exe`);
   if (fs.existsSync(target) && fs.statSync(target).size === YTDLP.size) return target;
   let lastError: Error | null = null;

@@ -11,6 +11,7 @@ import { fetchViewPoints } from './biliExtra';
 import { requireDb } from './library/db';
 import { listSavedTracks, savedTrackLines } from './library/savedTracks';
 import { localFileFromPageUrl, localVideoInfo } from './localVideo';
+import { isBilibiliUrl, probePageVideo, webVideoInfo } from './pageVideo';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
 const CHROME = process.versions.chrome;
@@ -235,6 +236,13 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
     throw new Error('没有读取到 YouTube 视频信息');
   }
 
+  const currentUrl = wc.getURL();
+  // 非 B 站页面：有主视频就按通用网页视频处理，不再等 B 站页面桥超时。
+  if (/^https?:/i.test(currentUrl) && !isBilibiliUrl(currentUrl)) {
+    const video = await probePageVideo(wc);
+    if (video) return webVideoInfo(currentUrl, video);
+  }
+
   let raw: PageInfo & { ok?: boolean };
   try {
     raw = await callPage<PageInfo & { ok?: boolean }>(wc, 'getInfo', {}, 12000);
@@ -306,6 +314,21 @@ export async function getSubtitles(
         identityUnstable: false,
         reason: tracks.length ? '' : 'youtube-no-captions'
       }
+    };
+  }
+
+  const localPageUrl = wc.getURL();
+  if (/^https?:/i.test(localPageUrl) && !isBilibiliUrl(localPageUrl)) {
+    const video = await probePageVideo(wc);
+    const info = webVideoInfo(localPageUrl, video);
+    const tracks = listSavedTracks(info);
+    return {
+      needLogin: false,
+      tracks,
+      sources: tracks.length ? ['library'] : [],
+      errors: tracks.length ? [] : [{ source: 'web', message: '这个页面还没有转写' }],
+      identity: info.signature,
+      diagnostics: { reason: tracks.length ? '' : 'web-no-transcript' }
     };
   }
 
@@ -517,6 +540,14 @@ export async function seek(wc: WebContents, time: number): Promise<void> {
     return;
   }
   if (isYouTubeUrl(wc.getURL())) {
+    await wc.executeJavaScript(
+      `(() => { const v = document.querySelector('video'); if (v) v.currentTime = ${Number(time) || 0}; })()`,
+      true
+    );
+    return;
+  }
+  const seekUrl = wc.getURL();
+  if (/^https?:/i.test(seekUrl) && !isBilibiliUrl(seekUrl)) {
     await wc.executeJavaScript(
       `(() => { const v = document.querySelector('video'); if (v) v.currentTime = ${Number(time) || 0}; })()`,
       true

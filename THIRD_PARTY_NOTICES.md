@@ -1,5 +1,13 @@
 # 第三方素材许可
 
+## yt-dlp
+
+桌面端随安装包分发 [yt-dlp](https://github.com/yt-dlp/yt-dlp)（Unlicense，公共领域）的
+Windows 版本（2026.10.26），用于在线视频下载和网页视频音频提取；构建时从官方 Release 下载并做
+SHA-256 校验，不提交进仓库。产品形态与打包方式参考了
+[VidBee](https://github.com/nexmoe/VidBee)（MIT）和
+[mediago](https://github.com/mediago-dev/mediago)（MIT），未复制其代码。
+
 ## ONNX Runtime
 
 桌面端依赖 [onnxruntime-node](https://github.com/microsoft/onnxruntime)（MIT，Copyright (c) Microsoft Corporation）

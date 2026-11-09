@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
+import http from 'node:http';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -399,7 +400,7 @@ try {
         '-f',
         'lavfi',
         '-i',
-        'color=c=black:s=160x120:d=1',
+        'color=c=black:s=320x240:d=6',
         '-c:v',
         'libx264',
         '-pix_fmt',
@@ -438,6 +439,69 @@ try {
       `
     );
     return `title=${result.title} duration=${result.duration}`;
+  });
+
+  // 8d. 通用网页视频：本地 HTML + <video>，验证探测与 PageInfo
+  await step('通用网页视频通道', async () => {
+    const sample = path.join(userData, 'smoke-local.mp4');
+    const server = http.createServer((req, res) => {
+      if (req.url === '/' || req.url === '/index.html') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(
+          '<!doctype html><title>通用视频页面</title><style>video{width:640px;height:360px;display:block}</style>' +
+            '<video src="/sample.mp4" preload="metadata" controls></video>'
+        );
+        return;
+      }
+      if (req.url === '/sample.mp4') {
+        const stat = fs.statSync(sample);
+        const range = req.headers.range;
+        if (range) {
+          const match = /bytes=(\d+)-(\d*)/.exec(String(range));
+          const start = Number(match?.[1] || 0);
+          const end = match?.[2] ? Number(match[2]) : stat.size - 1;
+          res.writeHead(206, {
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+            'Content-Length': end - start + 1
+          });
+          fs.createReadStream(sample, { start, end }).pipe(res);
+        } else {
+          res.writeHead(200, { 'Content-Type': 'video/mp4', 'Content-Length': stat.size });
+          fs.createReadStream(sample).pipe(res);
+        }
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+    try {
+      const result = await run(
+        ws,
+        `
+        const tabId = await window.bsub.newTab('http://127.0.0.1:${port}/');
+        if (!tabId) throw new Error('newTab 没有返回标签 id');
+        await new Promise((resolve) => setTimeout(resolve, 3200));
+        const tabs = await window.bsub.listTabs();
+        const tab = tabs.find((item) => item.active);
+        if (!tab) throw new Error('没有活动标签');
+        if (!tab.hasVideo) throw new Error('没有探测到视频');
+        const info = await window.bsub.getPageInfo();
+        if (!info.ok) throw new Error('page:info ' + info.error);
+        if (info.data.kind !== 'web') throw new Error('kind=' + info.data.kind);
+        const time = await window.bsub.getTime();
+        if (!time.ok) throw new Error('getTime ' + time.error);
+        await window.bsub.closeTab(tab.id);
+        return JSON.stringify({ title: info.data.title, kind: info.data.kind, duration: info.data.duration });
+        `
+      );
+      return `kind=${result.kind} duration=${result.duration}`;
+    } finally {
+      server.close();
+    }
   });
 
   // 9. 历史与导出记录

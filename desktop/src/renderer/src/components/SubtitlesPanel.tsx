@@ -158,7 +158,7 @@ export function SubtitlesPanel({
 
   const refresh = useCallback(() => setReloadKey((value) => value + 1), []);
   const videoKey = videoKeyOf(activeTab?.url);
-  const isVideoPage = isVideoKey(videoKey);
+  const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
   infoRef.current = info;
   videoKeyRef.current = videoKey;
   bundleRef.current = bundle;

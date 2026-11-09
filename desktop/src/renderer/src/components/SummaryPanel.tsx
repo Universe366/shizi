@@ -120,7 +120,7 @@ export function SummaryPanel({
   }, [flushStreams]);
 
   const videoKey = videoKeyOf(activeTab?.url);
-  const isVideoPage = isVideoKey(videoKey);
+  const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
   videoKeyRef.current = videoKey;
   activeTabRef.current = activeTab;
 

@@ -341,7 +341,7 @@ export function ChatPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const videoKey = videoKeyOf(activeTab?.url);
-  const isVideoPage = isVideoKey(videoKey);
+  const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
   const currentProfile = profiles.find((profile) => profile.id === profileId);
   const defaultPlatform = platforms.find(
     (platform) => platform.id === defaultModel?.platformId && platform.enabled !== false

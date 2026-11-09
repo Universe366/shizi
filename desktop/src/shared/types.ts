@@ -119,6 +119,8 @@ export interface TabInfo {
   muted?: boolean;
   /** 所属标签组 */
   groupId?: string;
+  /** 当前页面检测到可播放的主视频（用于通用网页视频） */
+  hasVideo?: boolean;
 }
 
 export interface TabGroup {

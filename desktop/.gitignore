@@ -2,6 +2,7 @@ node_modules/
 resources/page-bridge.js
 resources/tray.png
 resources/extension/
+resources/yt-dlp/
 out/
 dist/
 release/

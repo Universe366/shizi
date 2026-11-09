@@ -18,6 +18,11 @@ import { loadSettings } from './settings';
 import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
 import { resolveLocalWhisperPaths, runLocalWhisper, toSimplified } from './localAsr';
+import {
+  removeCookieFile,
+  writeCookieFile,
+  ytdlpDownloadAudio
+} from './ytdlpMedia';
 
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
@@ -814,6 +819,29 @@ export async function transcribe(
 ): Promise<{ lines: SubtitleLine[]; model: string; duration: number }> {
   const settings = loadSettings();
   activeAsr(settings);
+  // 通用网页视频 / YouTube 无字幕：用 yt-dlp 提取音频，再走同一套 ASR。
+  if ((info.kind === 'web' || info.kind === 'youtube') && /^https?:/i.test(info.url || '')) {
+    const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'bsub-web-asr-'));
+    let cookieFile: string | undefined;
+    try {
+      cookieFile = await writeCookieFile(wc.session, dir);
+      onProgress('download', 0, '提取音频…');
+      const audio = await ytdlpDownloadAudio(info.url, dir, cookieFile, {
+        signal,
+        onProgress: (percent, message) => onProgress('download', Math.min(95, percent), message)
+      });
+      onProgress('download', 100, '音频就绪，开始转写…');
+      const result = await transcribeFile(audio, info, onProgress, signal, settings);
+      return { ...result, lines: applyCorrectionToLines(result.lines, settings) };
+    } finally {
+      removeCookieFile(cookieFile);
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
+  }
   // 本地视频直接读文件，不再走页面音轨抓取。
   if (/^file:\/\//i.test(info.url || '')) {
     const result = await transcribeFile(fileURLToPath(info.url), info, onProgress, signal, settings);
