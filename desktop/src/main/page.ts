@@ -243,8 +243,8 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
     const video = await probePageVideo(wc);
     if (video) {
       const info = webVideoInfo(currentUrl, video);
-      // performance 可能只覆盖主框架；用 webRequest 嗅探到的直链兜底。
-      if (!info.mediaUrl) info.mediaUrl = mediaUrlFor(wc.id) || undefined;
+      // 只信 webRequest 嗅探：页面 performance 可能残留上一个视频的地址。
+      info.mediaUrl = mediaUrlFor(wc.id) || undefined;
       return info;
     }
   }
@@ -325,8 +325,8 @@ export async function getSubtitles(
 
   const localPageUrl = wc.getURL();
   if (/^https?:/i.test(localPageUrl) && !isBilibiliUrl(localPageUrl)) {
-    const video = await probePageVideo(wc);
-    const info = webVideoInfo(localPageUrl, video);
+    // 字幕列表只需要身份；不要再跑一次页面探测（getPageInfo 已经探过）。
+    const info = webVideoInfo(localPageUrl, null);
     const tracks = listSavedTracks(info);
     return {
       needLogin: false,

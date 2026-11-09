@@ -34,13 +34,11 @@ describe('generic page video', () => {
         width: 720,
         height: 1280,
         author: '',
-        videoUrl: 'https://www.douyin.com/video/7586126975555685666',
-        mediaUrl: 'https://v11-weba.douyinvod.com/audio.m4a'
+        videoUrl: 'https://www.douyin.com/video/7586126975555685666'
       }
     );
     expect(info.url).toBe('https://www.douyin.com/video/7586126975555685666');
     expect(info.signature).toBe('web:https://www.douyin.com/video/7586126975555685666');
-    expect(info.mediaUrl).toBe('https://v11-weba.douyinvod.com/audio.m4a');
   });
 
   it('没有标题时回退到「网页视频」', () => {

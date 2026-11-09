@@ -120,6 +120,8 @@ export function SummaryPanel({
   }, [flushStreams]);
 
   const videoKey = videoKeyOf(activeTab?.url);
+  // 通用网页视频同一 URL 可能换片（合集/弹窗），用指纹触发重新读取。
+  const videoStamp = isVideoKey(videoKey) ? '' : activeTab?.videoStamp || '';
   const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
   videoKeyRef.current = videoKey;
   activeTabRef.current = activeTab;
@@ -152,7 +154,7 @@ export function SummaryPanel({
       void window.bsub.cancelTranscribe(asrRequestRef.current);
       asrRequestRef.current = '';
     }
-  }, [activeTab?.id, videoKey]);
+  }, [activeTab?.id, videoKey, videoStamp]);
 
   useEffect(() => {
     if (streamingRef.current) return;
@@ -168,11 +170,14 @@ export function SummaryPanel({
         let failures = 0;
         for (let attempt = 0; attempt < 20; attempt += 1) {
           if (cancelled) return;
+          const genericVideo = Boolean(response.ok && response.data.kind === 'web');
           const ready =
             response.ok &&
-            Boolean(response.data.bvid || response.data.epId) &&
-            Boolean(response.data.cid) &&
-            pageInfoKey(response.data) === videoKey;
+            (genericVideo
+              ? pageInfoKey(response.data) === videoKey
+              : Boolean(response.data.bvid || response.data.epId) &&
+                Boolean(response.data.cid) &&
+                pageInfoKey(response.data) === videoKey);
           if (ready) break;
           // 读取失败通常是页面还没就绪，重试几次就够；身份不一致则可能是在切视频，多等一会。
           if (!response.ok) {
@@ -192,6 +197,8 @@ export function SummaryPanel({
           return;
         }
         setInfo(response.data);
+        // 通用网页视频没有 bvid/cid，不查旧总结；避免用空条件误命中别的记录。
+        if (response.data.kind === 'web') return;
         const saved = await window.bsub.getSummary({
           bvid: response.data.bvid,
           cid: response.data.cid,
@@ -212,7 +219,7 @@ export function SummaryPanel({
     return () => {
       cancelled = true;
     };
-  }, [activeTab?.id, activeTab?.loading, videoKey, isVideoPage]);
+  }, [activeTab?.id, activeTab?.loading, videoKey, videoStamp, isVideoPage]);
 
   useEffect(() => {
     const offDelta = window.bsub.onAiDelta((event) => {

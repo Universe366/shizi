@@ -158,6 +158,9 @@ export function SubtitlesPanel({
 
   const refresh = useCallback(() => setReloadKey((value) => value + 1), []);
   const videoKey = videoKeyOf(activeTab?.url);
+  // 通用网页视频同一 URL 可能切换视频（合集/弹窗），用视频指纹触发重新读取。
+  const reloadToken = isVideoKey(videoKey) ? '' : activeTab?.videoStamp || '';
+  const loadKey = `${videoKey}#${reloadToken}`;
   const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
   infoRef.current = info;
   videoKeyRef.current = videoKey;
@@ -513,7 +516,7 @@ export function SubtitlesPanel({
   // 页面加载完成后读取视频信息与字幕轨
   useEffect(() => {
     if (!activeTab || activeTab.loading || !isVideoPage) return;
-    if (loadedRef.current.key === videoKey && loadedRef.current.reload === reloadKey) return;
+    if (loadedRef.current.key === loadKey && loadedRef.current.reload === reloadKey) return;
     let cancelled = false;
 
     const timer = window.setTimeout(async () => {
@@ -560,15 +563,19 @@ export function SubtitlesPanel({
           const localVideo = Boolean(
             infoResult.ok && /^file:/i.test(infoResult.data.url || '')
           );
+          // 通用网页视频没有官方字幕轨，拿到匹配的页面信息就够；不要再等轨/播放器而空转重试。
+          const genericVideo = Boolean(infoResult.ok && infoResult.data.kind === 'web');
+          if (genericVideo) lastPlayerReady = true;
           const ready =
             infoResult.ok &&
-            (infoResult.data.bvid || localVideo) &&
             subtitlesResult.ok &&
             tabMatches &&
             identityMatches &&
-            (subtitlesResult.data.needLogin ||
-              wbiEmpty ||
-              (subtitlesResult.data.tracks.length > 0 && playerReady));
+            (genericVideo ||
+              ((infoResult.data.bvid || localVideo) &&
+                (subtitlesResult.data.needLogin ||
+                  wbiEmpty ||
+                  (subtitlesResult.data.tracks.length > 0 && playerReady))));
           if (wbiEmpty) lastPlayerReady = true;
           if (ready) break;
           await new Promise((resolve) => setTimeout(resolve, 450));
@@ -702,7 +709,7 @@ export function SubtitlesPanel({
           setError((previous) => previous ?? subtitlesResult.error);
         }
         if (infoResult.ok && subtitlesResult.ok) {
-          loadedRef.current = { key: videoKey, reload: reloadKey };
+          loadedRef.current = { key: loadKey, reload: reloadKey };
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -713,7 +720,7 @@ export function SubtitlesPanel({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [activeTab?.id, activeTab?.loading, videoKey, isVideoPage, reloadKey]);
+  }, [activeTab?.id, activeTab?.loading, videoKey, loadKey, isVideoPage, reloadKey]);
 
   // 选中的字幕轨下载正文；失败或空正文时自动尝试下一条候选轨（最多 3 条）。
   useEffect(() => {

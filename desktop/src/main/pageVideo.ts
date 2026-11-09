@@ -10,25 +10,26 @@ export interface DetectedVideo {
   author: string;
   /** 规范化后的视频地址（抖音用户页 + modal_id 要还原成 /video/<id>）。 */
   videoUrl?: string;
-  /** 页面实际加载的媒体直链（优先音频），用于绕过站点签名/反爬直接下载。 */
-  mediaUrl?: string;
+  /** 主视频是否正在播放（用于在多个 <video> 里优先选当前视频）。 */
+  playing?: boolean;
 }
 
 /** 找当前页面“主视频”：可见、面积最大、时长 > 5s，忽略广告小窗。 */
 export const VIDEO_PROBE_SCRIPT = `(() => {
   const videos = Array.from(document.querySelectorAll('video'));
   let best = null;
-  let bestArea = 0;
+  let bestScore = -1;
   for (const video of videos) {
     const rect = video.getBoundingClientRect();
     if (rect.width < 120 || rect.height < 80) continue;
     const duration = Number(video.duration) || 0;
     if (duration > 0 && duration < 5) continue;
-    if (video.readyState < 1 && duration === 0) continue;
-    const area = rect.width * rect.height;
-    if (area > bestArea) {
+    const playing = !video.paused && !video.ended;
+    // 合集/弹窗里常有上一个视频的 video 留在 DOM 里；正在播放的优先。
+    const score = rect.width * rect.height * (playing ? 3 : 1);
+    if (score > bestScore) {
       best = video;
-      bestArea = area;
+      bestScore = score;
     }
   }
   if (!best) return null;
@@ -44,16 +45,6 @@ export const VIDEO_PROBE_SCRIPT = `(() => {
     const id = /^[0-9]+$/.test(modal) ? modal : fromPath;
     if (id) videoUrl = 'https://www.douyin.com/video/' + id;
   }
-  const resources = performance.getEntriesByType('resource').map((item) => item.name);
-  // 取最新的媒体请求：同一标签切换视频后，旧视频的地址还留在 performance 里。
-  const audio = resources.filter((item) => /media-audio|audio-und|mime_type=audio/i.test(item)).pop();
-  const videoResource = resources.filter((item) => /media-video|mime_type=video/i.test(item)).pop();
-  const direct =
-    best.currentSrc && !best.currentSrc.startsWith('blob:') && !best.currentSrc.startsWith('data:')
-      ? best.currentSrc
-      : '';
-  // 抖音的 currentSrc 是 2.6s 占位视频；没有 MSE 的音频/视频地址时不要用它。
-  const mediaUrl = audio || videoResource || (host === 'douyin.com' ? '' : direct);
   return {
     title: String(document.title || ''),
     ogTitle: pick('meta[property="og:title"]') || pick('meta[name="twitter:title"]'),
@@ -62,7 +53,7 @@ export const VIDEO_PROBE_SCRIPT = `(() => {
     height: Math.round(best.getBoundingClientRect().height),
     author: pick('meta[name="author"]') || pick('meta[property="og:site_name"]'),
     videoUrl,
-    mediaUrl
+    playing: !best.paused && !best.ended
   };
 })()`;
 
@@ -78,7 +69,7 @@ export async function probePageVideo(wc: WebContents): Promise<DetectedVideo | n
       height: Number(data.height) || 0,
       author: String(data.author || ''),
       videoUrl: String(data.videoUrl || ''),
-      mediaUrl: String(data.mediaUrl || '')
+      playing: data.playing === true
     };
   } catch {
     return null;
@@ -101,12 +92,30 @@ function cleanTitle(value: string): string {
     .slice(0, 300);
 }
 
+/** 不探测页面时也能得到规范视频地址（抖音 modal_id → /video/<id>）。 */
+export function canonicalVideoUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (/(^|\.)douyin\.com$/i.test(parsed.hostname)) {
+      const modal = parsed.searchParams.get('modal_id') || '';
+      const fromPath = (parsed.pathname.split('/video/')[1] || '').split('/')[0] || '';
+      const id = /^[0-9]+$/.test(modal) ? modal : fromPath;
+      if (id) return `https://www.douyin.com/video/${id}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 /** 通用网页视频的 PageInfo：身份用页面 URL，字幕/转写走资料库。 */
 export function webVideoInfo(url: string, video: DetectedVideo | null): PageInfo {
   const title = cleanTitle(video?.ogTitle || video?.title || '') || '网页视频';
   // 抖音用户页通过 modal_id 播放视频；身份与 yt-dlp 都需要 /video/<id>。
   const canonical =
-    video?.videoUrl && /^https?:\/\//i.test(video.videoUrl) ? video.videoUrl : url;
+    video?.videoUrl && /^https?:\/\//i.test(video.videoUrl)
+      ? video.videoUrl
+      : canonicalVideoUrl(url);
   return {
     kind: 'web',
     bvid: null,
@@ -122,7 +131,6 @@ export function webVideoInfo(url: string, video: DetectedVideo | null): PageInfo
     desc: '',
     duration: Number(video?.duration) || 0,
     url: canonical,
-    signature: `web:${canonical}`,
-    mediaUrl: video?.mediaUrl && /^https?:\/\//i.test(video.mediaUrl) ? video.mediaUrl : undefined
+    signature: `web:${canonical}`
   };
 }

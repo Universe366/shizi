@@ -121,6 +121,8 @@ export interface TabInfo {
   groupId?: string;
   /** 当前页面检测到可播放的主视频（用于通用网页视频） */
   hasVideo?: boolean;
+  /** 通用网页视频的指纹（标题/时长/视频地址），SPA 换片时用来刷新侧栏 */
+  videoStamp?: string;
 }
 
 export interface TabGroup {

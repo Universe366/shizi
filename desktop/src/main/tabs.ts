@@ -127,8 +127,10 @@ interface TabRecord {
   localTimer?: ReturnType<typeof setInterval>;
   /** 通用网页视频探测结果（侧栏据此把页面当视频页）。 */
   hasVideo?: boolean;
+  videoStamp?: string;
   videoTitle?: string;
   videoDuration?: number;
+  videoIdentity?: string;
   videoTimer?: ReturnType<typeof setInterval>;
   probingVideo?: boolean;
 }
@@ -452,6 +454,7 @@ export class TabManager {
           return;
         }
         if (!current || current === 'about:blank' || current === record.url) return;
+        clearMediaFor(wc.id);
         record.url = current;
         if (/^https?:/i.test(current)) record.lastHttpUrl = current;
         this.previewShots.delete(record.id);
@@ -467,6 +470,7 @@ export class TabManager {
 
     wc.on('dom-ready', () => {
       void this.pushMediaState(record);
+      if (!record.localFile) void this.probeVideo(record);
     });
 
     // 本地视频：定时把已入库的字幕推给播放页做悬浮层（转写完成后下一轮就出现）。
@@ -483,7 +487,7 @@ export class TabManager {
         if (this.activeId === record.id) void this.probeVideo(record);
       };
       probe();
-      record.videoTimer = setInterval(probe, 2000);
+      record.videoTimer = setInterval(probe, 1000);
       record.videoTimer.unref?.();
     }
 
@@ -671,6 +675,7 @@ export class TabManager {
         return;
       }
       if (!url || url === 'about:blank') return;
+      clearMediaFor(wc.id);
       record.url = url;
       if (/^https?:/i.test(url)) record.lastHttpUrl = url;
       if (/^https?:/i.test(url)) {
@@ -687,6 +692,7 @@ export class TabManager {
         return;
       }
       if (!url || url === 'about:blank') return;
+      clearMediaFor(wc.id);
       record.url = url;
       if (/^https?:/i.test(url)) record.lastHttpUrl = url;
       if (/^https?:/i.test(url)) {
@@ -696,11 +702,14 @@ export class TabManager {
     });
     wc.on('did-start-loading', () => {
       record.loading = true;
+      // 重新加载同一地址时，旧页面的媒体地址已经不可靠。
+      if (!record.localFile) clearMediaFor(wc.id);
       touch();
     });
     wc.on('did-stop-loading', () => {
       record.loading = false;
       void this.pushMediaState(record);
+      if (this.activeId === record.id) void this.probeVideo(record);
       if (this.activeId === record.id) {
         const timer = setTimeout(() => {
           void this.capturePreview(record);
@@ -1063,13 +1072,36 @@ export class TabManager {
     try {
       const video = await probePageVideo(wc);
       const has = Boolean(video);
+      const stamp = video
+        ? `${video.title.slice(0, 120)}|${video.duration}|${video.videoUrl || ''}`
+        : '';
+      const stampChanged = record.videoStamp !== stamp;
       const changed =
-        record.hasVideo !== has || (has && record.videoDuration !== (video?.duration || 0));
+        record.hasVideo !== has ||
+        (has && record.videoDuration !== (video?.duration || 0)) ||
+        stampChanged;
+
+      const identity = video ? video.videoUrl || record.url : '';
+      const previousDuration = record.videoDuration || 0;
+      const nextDuration = video?.duration || 0;
+      // 0→真实时长、占位视频 2.6s→真实时长都不算换片；两个真实视频时长差 >2s 才清媒体。
+      const durationJump =
+        previousDuration > 5 &&
+        nextDuration > 5 &&
+        Math.abs(previousDuration - nextDuration) > 2;
+      const identityChanged = Boolean(
+        record.videoIdentity && identity && record.videoIdentity !== identity
+      );
+
       record.hasVideo = has;
+      record.videoStamp = stamp;
+      record.videoIdentity = identity;
       if (video) {
         record.videoDuration = video.duration;
         record.videoTitle = video.title;
       }
+      // 同一个标签换了视频：清掉旧视频的媒体直链，避免转写/下载到上一条。
+      if (identityChanged || durationJump) clearMediaFor(wc.id);
       if (changed) this.emit();
     } finally {
       record.probingVideo = false;
@@ -1654,6 +1686,7 @@ export class TabManager {
         pinned: record.pinned === true,
         groupId: record.groupId,
         hasVideo: record.hasVideo === true,
+        videoStamp: record.videoStamp,
         audible: (() => {
           try {
             return record.view && !record.suspended
