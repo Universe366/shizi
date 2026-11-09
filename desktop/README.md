@@ -5,7 +5,7 @@ Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。�
 能力概览：
 
 - 字幕：WBI 签名接口、多轨、跟随、翻译、校对、ASR（在线 + 本地 whisper）、本地视频工作台、6 格式导出；
-- AI：40+ 平台（OpenAI 兼容 / Anthropic / Gemini / Azure）、按任务选模型、助手档案、多 Key、代理、用量与成本；
+- AI：40+ 平台（OpenAI 兼容 / Anthropic / Gemini / Azure）、助手档案、多 Key、代理、用量与成本；
 - 对话：独立 `chat.db`、历史/搜索/重命名/导出、消息分支、编辑重发、多模型对比、MCP 工具与审批、Skills、联网；
 - 语音与 OCR：Edge / SAPI / 云端 TTS、全局听写、Windows OCR + PaddleOCR 服务；
 - 知识库：字幕/总结/笔记 embedding，跨视频提问与引用；

@@ -23,7 +23,7 @@ export function OcrSection({ value, onChange }: Props) {
         >
           <option value="system">Windows 系统 OCR（推荐）</option>
           <option value="paddle">PaddleOCR 服务（自建）</option>
-          <option value="ai">视觉大模型（按任务选模型）</option>
+          <option value="ai">视觉大模型（当前 AI 平台）</option>
         </select>
       </div>
       <div className="settings-inline">
@@ -44,8 +44,8 @@ export function OcrSection({ value, onChange }: Props) {
       </div>
       {value.engine === 'ai' && (
         <div className="settings-hint">
-          视觉模型在「AI 与模型 → 按任务选模型 → 文字识别」里单独选择；
-          需要模型支持图片输入，否则请求会失败。
+          使用「AI 与模型」里当前选中的平台与模型；
+          需要该模型支持图片输入，否则请求会失败。
         </div>
       )}
       {value.engine === 'paddle' && (

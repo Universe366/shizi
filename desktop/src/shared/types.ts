@@ -1439,8 +1439,6 @@ export interface AppSettings {
     presetVersion: number;
     /** 允许模型调用本地只读工具（搜库/读条目） */
     appTools: boolean;
-    /** 按任务覆盖模型；缺省跟随当前平台 */
-    taskModels: Partial<Record<AiTask, AiTaskModel>>;
     /** 助手档案 */
     profiles: AssistantProfile[];
     /** 按「平台/模型」覆盖自动识别的能力（图片/音频） */
@@ -1462,7 +1460,7 @@ export interface AppSettings {
   tts: TtsSettings;
   image: ImageSettings;
   ocr: {
-    /** system = Windows 自带 OCR；paddle = 自建 PaddleOCR；ai = 视觉大模型（按任务选模型里的“文字识别”） */
+    /** system = Windows 自带 OCR；paddle = 自建 PaddleOCR；ai = 视觉大模型（使用当前 AI 平台与模型） */
     engine: 'system' | 'paddle' | 'ai';
     /** Windows OCR 语言标签（auto 用系统默认） */
     lang: string;

@@ -1,6 +1,5 @@
 import { session } from 'electron';
 import type { AppSettings } from '../shared/types';
-import { platformForTask } from './settings';
 
 export interface ImageGenResult {
   dataUrl: string;
@@ -163,18 +162,7 @@ export async function generateImage(
   if (!clean) throw new Error('请先输入图片描述');
   if (!settings.image.enabled) throw new Error('图片生成未启用');
   const started = Date.now();
-  let config = settings.image;
-  if (config.provider === 'openai' && settings.ai.taskModels?.image) {
-    const taskPlatform = platformForTask('image', settings);
-    if (taskPlatform) {
-      config = {
-        ...config,
-        baseUrl: taskPlatform.baseUrl,
-        apiKey: taskPlatform.apiKey,
-        model: settings.ai.taskModels.image?.model || taskPlatform.model
-      };
-    }
-  }
+  const config = settings.image;
   const result =
     config.provider === 'a1111'
       ? await a1111Image(clean, config)

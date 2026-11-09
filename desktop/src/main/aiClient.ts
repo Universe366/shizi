@@ -70,7 +70,7 @@ export interface AiChatOptions {
   maxTokens?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
-  /** 任务类型，用于按任务选模型与用量统计；不传则不记用量。 */
+  /** 任务类型，用于用量统计；不传则不记用量。 */
   task?: AiTask;
   /** 使用模型厂商内置的 Web 搜索工具（Gemini google_search / Claude web_search） */
   builtinWeb?: boolean;

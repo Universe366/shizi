@@ -29,62 +29,6 @@ describe('任务槽位 / 用量设置', () => {
     fs.rmSync(state.dir, { recursive: true, force: true });
   });
 
-  it('按任务覆盖模型并持久化', () => {
-    const settings = loadSettings();
-    settings.ai.taskModels = {
-      summary: { platformId: 'deepseek', model: 'deepseek-reasoner' }
-    };
-    saveSettings(settings);
-
-    const loaded = loadSettings();
-    expect(loaded.ai.taskModels.summary).toEqual({
-      platformId: 'deepseek',
-      model: 'deepseek-reasoner'
-    });
-    const resolved = platformForTask('summary', loaded);
-    expect(resolved.id).toBe('deepseek');
-    expect(resolved.model).toBe('deepseek-reasoner');
-    // 没配置的任务仍跟随当前平台
-    const chat = platformForTask('chat', loaded);
-    const active = loaded.ai.platforms.find((item) => item.id === loaded.ai.activeId)!;
-    expect(chat.id).toBe(active.id);
-    expect(chat.model).toBe(active.model);
-  });
-
-  it('只覆盖模型名时沿用当前平台的地址与 Key', () => {
-    const settings = loadSettings();
-    const active = settings.ai.platforms.find((item) => item.id === settings.ai.activeId)!;
-    settings.ai.taskModels = { translate: { platformId: '', model: 'cheap-model' } };
-    const resolved = platformForTask('translate', settings);
-    expect(resolved.id).toBe(active.id);
-    expect(resolved.baseUrl).toBe(active.baseUrl);
-    expect(resolved.model).toBe('cheap-model');
-  });
-
-  it('指向不存在平台的槽位会被丢弃', () => {
-    const settings = loadSettings();
-    settings.ai.taskModels = {
-      chat: { platformId: 'not-exist', model: 'x' },
-      verify: { platformId: 'deepseek', model: 'deepseek-chat' }
-    };
-    saveSettings(settings);
-    const loaded = loadSettings();
-    expect(loaded.ai.taskModels.chat).toBeUndefined();
-    expect(loaded.ai.taskModels.verify?.model).toBe('deepseek-chat');
-  });
-
-  it('文字识别任务槽位可单独选视觉模型', () => {
-    const settings = loadSettings();
-    settings.ai.taskModels = {
-      ocr: { platformId: 'deepseek', model: 'vision-model' }
-    };
-    saveSettings(settings);
-    const loaded = loadSettings();
-    const resolved = platformForTask('ocr', loaded);
-    expect(resolved.id).toBe('deepseek');
-    expect(resolved.model).toBe('vision-model');
-  });
-
   it('OCR 引擎接受 ai，图片设置可持久化且导出清空 Key', () => {
     const settings = loadSettings();
     settings.ocr.engine = 'ai';

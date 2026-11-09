@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AppSettings, TtsSettings } from '../shared/types';
-import { platformForTask } from './settings';
 
 // ---------------------------------------------------------------------------
 // 文字朗读（TTS）：
@@ -323,18 +322,7 @@ export async function synthesizeSpeech(
   }
 
   if (engine === 'openai') {
-    let openaiConfig = config.openai;
-    if (settings.ai.taskModels?.tts) {
-      const taskPlatform = platformForTask('tts', settings);
-      if (taskPlatform) {
-        openaiConfig = {
-          baseUrl: taskPlatform.baseUrl,
-          apiKey: taskPlatform.apiKey,
-          model: settings.ai.taskModels.tts?.model || taskPlatform.model,
-          voice: config.openai.voice
-        };
-      }
-    }
+    const openaiConfig = config.openai;
     const audio = await openaiSynthesize(clean, openaiConfig, { rate: config.rate });
     return {
       dataUrl: `data:audio/mpeg;base64,${audio.toString('base64')}`,

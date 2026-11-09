@@ -4,7 +4,6 @@ import path from 'node:path';
 import type {
   AiPlatform,
   AiTask,
-  AiTaskModel,
   AsrPlatform,
   AppSettings,
   ExportFormat,
@@ -15,7 +14,6 @@ import type {
   ThemeMode,
   WheelActionId
 } from '../shared/types';
-import { AI_TASKS } from '../shared/aiTasks';
 import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../shared/presets';
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../shared/browserToolbar';
@@ -290,7 +288,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sendOnEnter: true,
     expandReasoning: false,
     appTools: true,
-    taskModels: {},
     profiles: [],
     capabilities: {},
     presetVersion: AI_PRESET_VERSION,
@@ -1013,24 +1010,6 @@ function normalize(input: unknown): AppSettings {
     base.ai.sendOnEnter = raw.ai?.sendOnEnter !== false;
     base.ai.appTools = raw.ai?.appTools !== false;
     base.ai.expandReasoning = raw.ai?.expandReasoning === true;
-
-    const rawTasks = raw.ai?.taskModels;
-    if (rawTasks && typeof rawTasks === 'object') {
-      const taskModels: Partial<Record<AiTask, AiTaskModel>> = {};
-      const table = rawTasks as Record<string, { platformId?: unknown; model?: unknown }>;
-      for (const task of AI_TASKS) {
-        const item = table[task.id];
-        if (!item || typeof item !== 'object') continue;
-        const platformId = String(item.platformId || '').trim();
-        const model = String(item.model || '').trim().slice(0, 120);
-        if (!platformId && !model) continue;
-        if (platformId && !base.ai.platforms.some((platform) => platform.id === platformId)) {
-          continue;
-        }
-        taskModels[task.id] = { platformId, model };
-      }
-      base.ai.taskModels = taskModels;
-    }
 
     if (raw.ai?.capabilities && typeof raw.ai.capabilities === 'object') {
       const capabilities: Record<
@@ -1937,28 +1916,14 @@ export function activePlatform(settings: AppSettings = loadSettings()): AiPlatfo
   );
 }
 
-/** 按任务取平台：任务槽位 > 当前平台；只覆盖模型名时沿用当前平台的地址与 Key。 */
-export function platformForTask(task: AiTask, settings: AppSettings = loadSettings()): AiPlatform {
-  const active = activePlatform(settings);
-  const fallback = settings.ai.defaultModel;
-  const preferred = fallback?.platformId
-    ? settings.ai.platforms.find(
-        (platform) => platform.id === fallback.platformId && platform.enabled !== false
-      )
-    : undefined;
-  const base = preferred
-    ? { ...preferred, model: fallback?.model || preferred.model }
-    : active;
-  const override = settings.ai.taskModels?.[task];
-  if (!override) return base;
-  const platform = override.platformId
-    ? settings.ai.platforms.find(
-        (item) => item.id === override.platformId && item.enabled !== false
-      )
-    : undefined;
-  const target = platform || base;
-  const model = override.model.trim() || (platform ? platform.model : base.model);
-  return { ...target, model };
+/**
+ * 取任务使用的平台。
+ *
+ * 已经移除「按任务选模型」：所有任务统一使用「AI 与模型」里选中的平台与模型，
+ * 避免设置页里两个地方各选一次、结果互相打架。
+ */
+export function platformForTask(_task: AiTask, settings: AppSettings = loadSettings()): AiPlatform {
+  return activePlatform(settings);
 }
 
 export function activePrompt(settings: AppSettings = loadSettings()): PromptTemplate {

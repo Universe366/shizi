@@ -31,7 +31,6 @@ import { McpSection } from './settings/McpSection';
 import { ExportDefaultsSection } from './settings/ExportDefaultsSection';
 import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
-import { TaskModelSection } from './settings/TaskModelSection';
 import { TtsSection } from './settings/TtsSection';
 import { VoiceInputSection } from './settings/VoiceInputSection';
 import { UsageSection } from './settings/UsageSection';
@@ -1461,10 +1460,6 @@ export function SettingsPanel({
         setEditingAiId={setEditingAiId}
         platformStatus={platformStatusNode}
       />
-      )}
-
-      {show('ai') && (
-        <TaskModelSection value={draft.ai} updateAi={(patch) => updateAi(patch)} />
       )}
 
       {show('ai') && (

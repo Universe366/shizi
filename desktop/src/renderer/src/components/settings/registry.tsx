@@ -49,10 +49,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'ai',
     label: 'AI 与模型',
-    description: '平台、按任务选模型、上下文、助手与提示词',
+    description: '平台与模型、上下文、助手与提示词',
     tips: [
       '先选一个 OpenAI 兼容或 Anthropic 平台，填 Base URL、模型和 Key，点「测试连接」。',
-      '想省钱：在「按任务选模型」里让翻译/校对用便宜模型。',
+      '想省钱：直接把「AI 平台」里的模型换成便宜模型，所有任务会一起使用。',
       '「助手档案」可以把提示词、模型、技能、工具打包，在对话框里一键切换。'
     ],
     icon: Bot
