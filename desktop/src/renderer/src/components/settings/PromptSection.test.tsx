@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AppSettings } from '../../../../shared/types';
+import { DEFAULT_SUMMARY_PROMPT } from '../../../../shared/prompts';
 import { PromptSection } from './PromptSection';
 
 const value = {
@@ -72,6 +73,22 @@ describe('PromptSection', () => {
     expect(p.onPatch).toHaveBeenCalledWith({ translate: '新翻译' });
     fireEvent.change(screen.getByDisplayValue('章节提示词'), { target: { value: '新章节' } });
     expect(p.onPatch).toHaveBeenCalledWith({ chapters: '新章节' });
+  });
+
+  it('内置模板可以一键恢复默认内容', () => {
+    const p = props({
+      value: {
+        ...value,
+        activeId: 'default',
+        templates: [{ id: 'default', name: '改过的名字', text: '改过的内容' }]
+      }
+    });
+    render(<PromptSection {...p} />);
+    fireEvent.click(screen.getByTitle('恢复这个模板的默认内容'));
+    expect(p.onUpdateTemplate).toHaveBeenCalledWith({
+      name: '默认（视频整理）',
+      text: DEFAULT_SUMMARY_PROMPT
+    });
   });
 
   it('新增/删除模板回调，只剩一个模板时删除禁用', () => {

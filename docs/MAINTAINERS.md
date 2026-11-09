@@ -181,7 +181,7 @@ npm run dist                      # NSIS + 绿色包 + latest.yml
 
 **总结链路**（`desktop/src/main/summaryChat.ts`、`chat.ts`）：
 
-- 生产入口是 `summarizeChat`：原总结提示词 + 术语表 + 可编辑格式规则，交给 `chat()` 的 `app__web_search` / `app__web_fetch` 工具循环。
+- 生产入口是 `summarizeChat`：总结提示词（设置里只保留一个输入框）+ 术语表，交给 `chat()` 的 `app__web_search` / `app__web_fetch` 工具循环；旧版独立的格式规则已并入模板。
 - 长字幕不再分段；总结只保存来源列表，没有逐项支持/反驳报告。
 - 联网次数/读取网页/工具轮次在设置中可调；提示词和工具超限提示必须使用设置值。
 - 旧 `summarize` / `verify.ts` / `summaryCache.ts` 已删除，不要接回生产总结。

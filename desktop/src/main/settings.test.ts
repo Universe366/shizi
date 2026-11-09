@@ -191,13 +191,16 @@ describe('设置的持久化字段', () => {
     expect(loaded.prompt.templates.find((t) => t.id === 'custom')?.text).toBe('我的模板');
   });
 
-  it('用户自定义的总结格式规则不会被迁移覆盖', () => {
+  it('自定义的总结格式规则并入总结模板，不再单独保存', () => {
     fs.writeFileSync(
       path.join(state.dir, 'settings.json'),
       JSON.stringify({ prompt: { summaryFormatRules: '我的自定义格式规则' } }),
       'utf8'
     );
-    expect(loadSettings().prompt.summaryFormatRules).toBe('我的自定义格式规则');
+    const loaded = loadSettings();
+    expect(loaded.prompt.summaryFormatRules).toBe('');
+    const active = loaded.prompt.templates.find((t) => t.id === loaded.prompt.activeId)!;
+    expect(active.text).toContain('我的自定义格式规则');
     expect(isBuiltinSummaryFormatRules('我的自定义格式规则')).toBe(false);
   });
 });

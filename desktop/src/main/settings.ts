@@ -19,6 +19,7 @@ import { AI_PRESETS, AI_PRESET_VERSION, ASR_PRESETS, SEARCH_PRESETS } from '../s
 import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../shared/browserToolbar';
 import { AI_TASKS } from '../shared/aiTasks';
+import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_TEMPLATES } from '../shared/prompts';
 import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { isSearchEngineId } from '../shared/searchEngines';
 import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
@@ -68,8 +69,7 @@ function sanitizeSubtitleStyle(value: unknown): SubtitleStyle {
   };
 }
 
-export const DEFAULT_PROMPT =
-  '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
+export const DEFAULT_PROMPT = DEFAULT_SUMMARY_PROMPT;
 
 /** 0.162.25 及更早版本的默认模板；升级时自动换成新默认，用户改过的保持不动。 */
 export const LEGACY_DEFAULT_PROMPT =
@@ -102,26 +102,6 @@ const DEFAULT_CHAPTERS_PROMPT = `你是视频章节编辑。根据字幕把视�
 - 只输出 JSON 数组：[{"start":0,"end":120,"title":"开场"}, ...]
 - start/end 使用秒数，不要输出 Markdown 代码块或解释。`;
 
-const DEFAULT_TEMPLATES: PromptTemplate[] = [
-  { id: 'default', name: '默认（视频整理）', text: DEFAULT_PROMPT },
-  {
-    id: 'brief',
-    name: '精简',
-    text: '用 Markdown 输出简洁总结，先给结论再列要点；保留关键数字、结论与步骤，不要为了短而删信息，也不要重复灌水。只依据字幕，不要编造；不确定的地方标注「不确定」。'
-  },
-  {
-    id: 'detailed',
-    name: '详细',
-    text: `输出一份详细学习笔记，Markdown 格式，包含：
-## 一句话总结
-## 核心观点（3-8 条）
-## 章节脉络（带 [mm:ss] 时间戳）
-## 关键细节与数据
-## 术语解释
-## 可行动建议
-只依据字幕，不要编造；不确定的地方标注「不确定」。`
-  }
-];
 
 const AI_PRESET_ALIASES: Record<string, string> = {
   siliconflow: 'siliconflow-ai',
@@ -422,7 +402,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   prompt: {
     activeId: 'default',
-    templates: DEFAULT_TEMPLATES,
+    templates: DEFAULT_SUMMARY_TEMPLATES.map((template) => ({ ...template })),
     chat: DEFAULT_CHAT_PROMPT,
     translate: DEFAULT_TRANSLATE_PROMPT,
     optimize: DEFAULT_OPTIMIZE_PROMPT,
@@ -1303,14 +1283,21 @@ function normalize(input: unknown): AppSettings {
     if (typeof raw.prompt?.chat === 'string' && raw.prompt.chat.trim()) {
       base.prompt.chat = raw.prompt.chat.trim();
     }
+    // 「总结格式规则」不再单独暴露：旧版本存过的自定义规则并入当前模板，
+    // 保证设置里只有一个输入框，同时不丢用户写过的东西；内置默认大段规则直接丢弃。
     const storedRules =
       typeof raw.prompt?.summaryFormatRules === 'string'
         ? raw.prompt.summaryFormatRules.trim()
         : '';
-    base.prompt.summaryFormatRules =
-      storedRules && !isBuiltinSummaryFormatRules(storedRules)
-        ? storedRules.slice(0, 30000)
-        : DEFAULT_SUMMARY_FORMAT_RULES;
+    base.prompt.summaryFormatRules = '';
+    if (storedRules && !isBuiltinSummaryFormatRules(storedRules)) {
+      const activeTemplate =
+        base.prompt.templates.find((template) => template.id === base.prompt.activeId) ||
+        base.prompt.templates[0];
+      if (activeTemplate && !activeTemplate.text.includes(storedRules)) {
+        activeTemplate.text = `${activeTemplate.text.trim()}\n\n${storedRules.slice(0, 30000)}`.trim();
+      }
+    }
     if (typeof raw.prompt?.translate === 'string' && raw.prompt.translate.trim()) {
       base.prompt.translate = raw.prompt.translate.trim();
     }

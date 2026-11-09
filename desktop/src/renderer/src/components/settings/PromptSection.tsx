@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../../../../shared/types';
-import { DEFAULT_SUMMARY_FORMAT_RULES } from '../../../../shared/summaryFormat';
+import { builtinSummaryTemplate } from '../../../../shared/prompts';
 import { SettingsSection } from './SettingsSection';
 import { TaskModelField } from './TaskModelField';
 
@@ -27,6 +27,8 @@ export function PromptSection({
   onUpdateTemplate
 }: PromptSectionProps) {
   const activeTemplate = value.templates.find((item) => item.id === value.activeId) || value.templates[0];
+  // 内置模板才有默认内容可恢复；自定义模板不显示这个按钮。
+  const builtinTemplate = builtinSummaryTemplate(value.activeId);
 
   return (
     <SettingsSection title="总结提示词模板" defaultOpen={false}>
@@ -54,6 +56,17 @@ export function PromptSection({
         >
           <Trash2 size={12} />
         </button>
+        {builtinTemplate && (
+          <button
+            className="mini-btn"
+            title="恢复这个模板的默认内容"
+            onClick={() =>
+              onUpdateTemplate({ name: builtinTemplate.name, text: builtinTemplate.text })
+            }
+          >
+            恢复默认
+          </button>
+        )}
       </div>
 
       <div className="settings-label">模板名称</div>
@@ -70,16 +83,9 @@ export function PromptSection({
         onChange={(event) => onUpdateTemplate({ text: event.target.value })}
       />
 
-      <div className="settings-label">总结格式规则</div>
       <div className="settings-hint">
-        留空则不追加任何格式规则：最终系统提示词只有上面的模板（以及配置了才有的术语表）。
+        这段就是总结的系统提示词，保存后直接生效。
       </div>
-      <textarea
-        className="settings-textarea"
-        rows={14}
-        value={value.summaryFormatRules ?? DEFAULT_SUMMARY_FORMAT_RULES}
-        onChange={(event) => onPatch({ summaryFormatRules: event.target.value })}
-      />
 
       <TaskModelField
         ai={ai}
