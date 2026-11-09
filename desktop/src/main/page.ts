@@ -240,13 +240,18 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
   const currentUrl = wc.getURL();
   // 非 B 站页面：有主视频就按通用网页视频处理，不再等 B 站页面桥超时。
   if (/^https?:/i.test(currentUrl) && !isBilibiliUrl(currentUrl)) {
-    const video = await probePageVideo(wc);
-    if (video) {
-      const info = webVideoInfo(currentUrl, video);
-      // 只信 webRequest 嗅探：页面 performance 可能残留上一个视频的地址。
-      info.mediaUrl = mediaUrlFor(wc.id) || undefined;
-      return info;
+    let video = await probePageVideo(wc);
+    if (!video) {
+      // SPA 切换视频时 <video> 可能短暂消失；再给一次机会，仍没有就快速失败，
+      // 不要回退到 B 站页面桥（会白等十几秒才超时）。
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      video = await probePageVideo(wc);
     }
+    if (!video) throw new Error('页面没有检测到可播放的视频');
+    const info = webVideoInfo(currentUrl, video);
+    // 只信 webRequest 嗅探：页面 performance 可能残留上一个视频的地址。
+    info.mediaUrl = mediaUrlFor(wc.id) || undefined;
+    return info;
   }
 
   let raw: PageInfo & { ok?: boolean };

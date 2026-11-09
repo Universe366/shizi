@@ -139,6 +139,8 @@ export function SubtitlesPanel({
   const [subtitleQuery, setSubtitleQuery] = useState('');
   const [searchIndex, setSearchIndex] = useState(0);
   const [customTarget, setCustomTarget] = useState('');
+  // 主进程 hasVideo 可能因页面刚加载而延迟；侧栏自己再探测一次。
+  const [webVideoDetected, setWebVideoDetected] = useState(false);
 
   const autoApplyAfterRef = useRef(false);
   const autoOptimizePendingRef = useRef(false);
@@ -155,13 +157,47 @@ export function SubtitlesPanel({
     followRef.current = follow;
   }, [follow]);
   const loadedRef = useRef<{ key: string; reload: number }>({ key: '', reload: -1 });
+  // 页面视频比侧栏晚出现时，信息读取失败会自动再试几次。
+  const videoRetryRef = useRef(0);
 
   const refresh = useCallback(() => setReloadKey((value) => value + 1), []);
   const videoKey = videoKeyOf(activeTab?.url);
   // 通用网页视频同一 URL 可能切换视频（合集/弹窗），用视频指纹触发重新读取。
   const reloadToken = isVideoKey(videoKey) ? '' : activeTab?.videoStamp || '';
   const loadKey = `${videoKey}#${reloadToken}`;
-  const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
+  const isVideoPage =
+    isVideoKey(videoKey) || activeTab?.hasVideo === true || webVideoDetected;
+
+  useEffect(() => {
+    if (
+      !activeTab ||
+      isVideoKey(videoKey) ||
+      activeTab.hasVideo === true ||
+      !/^https?:/i.test(activeTab.url)
+    ) {
+      setWebVideoDetected(false);
+      return;
+    }
+    let cancelled = false;
+    let attempts = 0;
+    let timer = 0;
+    const check = async () => {
+      if (cancelled) return;
+      const response = await window.bsub.getPageInfo();
+      if (cancelled) return;
+      if (response.ok && response.data.kind === 'web') {
+        setWebVideoDetected(true);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 20) timer = window.setTimeout(check, 1000);
+    };
+    void check();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeTab?.id, activeTab?.url, activeTab?.hasVideo, videoKey]);
   infoRef.current = info;
   videoKeyRef.current = videoKey;
   bundleRef.current = bundle;
@@ -515,7 +551,9 @@ export function SubtitlesPanel({
 
   // 页面加载完成后读取视频信息与字幕轨
   useEffect(() => {
-    if (!activeTab || activeTab.loading || !isVideoPage) return;
+    if (!activeTab || !isVideoPage) return;
+    // 通用网页视频可能一直有媒体流，loading 长时间不结束；不要因此卡住不读。
+    if (activeTab.loading && isVideoKey(videoKey)) return;
     if (loadedRef.current.key === loadKey && loadedRef.current.reload === reloadKey) return;
     let cancelled = false;
 
@@ -608,10 +646,17 @@ export function SubtitlesPanel({
           return;
         }
 
-        if (infoResult.ok) setInfo(infoResult.data);
-        else {
+        if (infoResult.ok) {
+          videoRetryRef.current = 0;
+          setInfo(infoResult.data);
+        } else {
           setInfo(null);
           setError(infoResult.error);
+          // 新视频的 <video> 可能比侧栏晚几百毫秒出现：失败后自动重试 3 次。
+          if (videoRetryRef.current < 12) {
+            videoRetryRef.current += 1;
+            window.setTimeout(() => setReloadKey((value) => value + 1), 1000);
+          }
         }
 
         if (subtitlesResult.ok) {

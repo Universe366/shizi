@@ -76,6 +76,8 @@ export function SummaryPanel({
   const [chapterError, setChapterError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // 主进程 hasVideo 延迟时，总结页自己也探测一次。
+  const [webVideoDetected, setWebVideoDetected] = useState(false);
 
   const [reasoning, setReasoning] = useState('');
   const [reasoningOpen, setReasoningOpen] = useState(false);
@@ -122,7 +124,39 @@ export function SummaryPanel({
   const videoKey = videoKeyOf(activeTab?.url);
   // 通用网页视频同一 URL 可能换片（合集/弹窗），用指纹触发重新读取。
   const videoStamp = isVideoKey(videoKey) ? '' : activeTab?.videoStamp || '';
-  const isVideoPage = isVideoKey(videoKey) || activeTab?.hasVideo === true;
+  const isVideoPage =
+    isVideoKey(videoKey) || activeTab?.hasVideo === true || webVideoDetected;
+
+  useEffect(() => {
+    if (
+      !activeTab ||
+      isVideoKey(videoKey) ||
+      activeTab.hasVideo === true ||
+      !/^https?:/i.test(activeTab.url)
+    ) {
+      setWebVideoDetected(false);
+      return;
+    }
+    let cancelled = false;
+    let attempts = 0;
+    let timer = 0;
+    const check = async () => {
+      if (cancelled) return;
+      const response = await window.bsub.getPageInfo();
+      if (cancelled) return;
+      if (response.ok && response.data.kind === 'web') {
+        setWebVideoDetected(true);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 20) timer = window.setTimeout(check, 1000);
+    };
+    void check();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeTab?.id, activeTab?.url, activeTab?.hasVideo, videoKey]);
   videoKeyRef.current = videoKey;
   activeTabRef.current = activeTab;
 
@@ -158,7 +192,8 @@ export function SummaryPanel({
 
   useEffect(() => {
     if (streamingRef.current) return;
-    if (!activeTab || activeTab.loading || !isVideoPage) return;
+    if (!activeTab || !isVideoPage) return;
+    if (activeTab.loading && isVideoKey(videoKey)) return;
     let cancelled = false;
     setLoading(true);
 
