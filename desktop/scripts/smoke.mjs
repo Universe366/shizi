@@ -492,6 +492,9 @@ try {
         const info = await window.bsub.getPageInfo();
         if (!info.ok) throw new Error('page:info ' + info.error);
         if (info.data.kind !== 'web') throw new Error('kind=' + info.data.kind);
+        if (!String(info.data.mediaUrl || '').includes('/sample.mp4')) {
+          throw new Error('没有提取到媒体直链: ' + info.data.mediaUrl);
+        }
         const time = await window.bsub.getTime();
         if (!time.ok) throw new Error('getTime ' + time.error);
         await window.bsub.closeTab(tab.id);

@@ -19,6 +19,7 @@ import { needsApiKey } from './platformKey';
 import { applyCorrectionToLines } from './correction';
 import { resolveLocalWhisperPaths, runLocalWhisper, toSimplified } from './localAsr';
 import {
+  downloadMediaUrl,
   removeCookieFile,
   writeCookieFile,
   ytdlpDownloadAudio
@@ -825,18 +826,33 @@ export async function transcribe(
     let cookieFile: string | undefined;
     try {
       cookieFile = await writeCookieFile(wc.session, dir);
-      onProgress('download', 0, '提取音频…');
-      const audio = await ytdlpDownloadAudio(info.url, dir, cookieFile, {
-        signal,
-        onProgress: (percent, message) => onProgress('download', Math.min(95, percent), message)
-      }).catch((error: Error) => {
-        if (/(^|\.)douyin\.com$/i.test(new URL(info.url).hostname)) {
-          throw new Error(
-            `${error.message}\n抖音需要先在应用里打开该视频页、等页面加载完再点转写；仍失败可能是登录/地区限制。`
-          );
+      let audio = '';
+      // 页面已经加载出的媒体直链（抖音 MSE 音频等）最稳，优先直接下载。
+      if (info.mediaUrl && /^https?:/i.test(info.mediaUrl)) {
+        try {
+          audio = await downloadMediaUrl(wc, info.mediaUrl, dir, info.url, {
+            signal,
+            onProgress: (percent, message) =>
+              onProgress('download', Math.min(95, percent), message)
+          });
+        } catch (error) {
+          console.warn('[asr] 直链下载失败，回退 yt-dlp:', (error as Error).message);
         }
-        throw error;
-      });
+      }
+      if (!audio) {
+        onProgress('download', 0, '提取音频…');
+        audio = await ytdlpDownloadAudio(info.url, dir, cookieFile, {
+          signal,
+          onProgress: (percent, message) => onProgress('download', Math.min(95, percent), message)
+        }).catch((error: Error) => {
+          if (/(^|\.)douyin\.com$/i.test(new URL(info.url).hostname)) {
+            throw new Error(
+              `${error.message}\n抖音需要先播放一下视频、等音频加载后再点转写；仍失败可能是登录/地区限制。`
+            );
+          }
+          throw error;
+        });
+      }
       onProgress('download', 100, '音频就绪，开始转写…');
       const result = await transcribeFile(audio, info, onProgress, signal, settings);
       return { ...result, lines: applyCorrectionToLines(result.lines, settings) };

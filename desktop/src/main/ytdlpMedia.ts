@@ -64,6 +64,53 @@ export function makeTempDir(prefix = 'shizi-ytdlp-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
+const BROWSER_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36 Edg/${process.versions.chrome}`;
+
+/**
+ * 直接下载页面已经加载的媒体地址（抖音 MSE 的音频/视频直链等）。
+ * 走标签页的 session.fetch，自动带上该站 Cookie。
+ */
+export async function downloadMediaUrl(
+  wc: { session: Session },
+  url: string,
+  dir: string,
+  referer: string,
+  options: { signal?: AbortSignal; onProgress?: (percent: number, message: string) => void } = {}
+): Promise<string> {
+  const response = await wc.session.fetch(url, {
+    headers: { 'User-Agent': BROWSER_UA, Referer: referer, Accept: '*/*' },
+    signal: options.signal
+  });
+  if (!response.ok) throw new Error(`媒体下载失败（HTTP ${response.status}）`);
+  const total = Number(response.headers.get('content-length')) || 0;
+  const chunks: Buffer[] = [];
+  let received = 0;
+  const reader = response.body?.getReader();
+  if (!reader) {
+    chunks.push(Buffer.from(await response.arrayBuffer()));
+  } else {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      chunks.push(Buffer.from(value));
+      received += value.byteLength;
+      if (received > 400 * 1024 * 1024) throw new Error('媒体文件过大，已停止下载');
+      if (total > 0) {
+        options.onProgress?.(
+          Math.min(95, Math.round((received / total) * 95)),
+          '下载音频…'
+        );
+      }
+    }
+  }
+  if (!chunks.length) throw new Error('媒体下载为空');
+  const file = path.join(dir, 'media.bin');
+  fs.writeFileSync(file, Buffer.concat(chunks));
+  options.onProgress?.(100, '音频就绪，开始转写…');
+  return file;
+}
+
 interface RunResult {
   code: number;
   stdout: string;
@@ -164,10 +211,9 @@ export async function ytdlpDownloadAudio(
       return '';
     }
   })();
-  const browserUa = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36 Edg/${process.versions.chrome}`;
   const args = [
     '--user-agent',
-    browserUa,
+    BROWSER_UA,
     ...(/(^|\.)douyin\.com$/i.test(host)
       ? ['--add-header', 'Referer:https://www.douyin.com/']
       : []),

@@ -10,6 +10,8 @@ export interface DetectedVideo {
   author: string;
   /** 规范化后的视频地址（抖音用户页 + modal_id 要还原成 /video/<id>）。 */
   videoUrl?: string;
+  /** 页面实际加载的媒体直链（优先音频），用于绕过站点签名/反爬直接下载。 */
+  mediaUrl?: string;
 }
 
 /** 找当前页面“主视频”：可见、面积最大、时长 > 5s，忽略广告小窗。 */
@@ -42,6 +44,16 @@ export const VIDEO_PROBE_SCRIPT = `(() => {
     const id = /^[0-9]+$/.test(modal) ? modal : fromPath;
     if (id) videoUrl = 'https://www.douyin.com/video/' + id;
   }
+  const resources = performance.getEntriesByType('resource').map((item) => item.name);
+  // 取最新的媒体请求：同一标签切换视频后，旧视频的地址还留在 performance 里。
+  const audio = resources.filter((item) => /media-audio|audio-und|mime_type=audio/i.test(item)).pop();
+  const videoResource = resources.filter((item) => /media-video|mime_type=video/i.test(item)).pop();
+  const direct =
+    best.currentSrc && !best.currentSrc.startsWith('blob:') && !best.currentSrc.startsWith('data:')
+      ? best.currentSrc
+      : '';
+  // 抖音的 currentSrc 是 2.6s 占位视频；没有 MSE 的音频/视频地址时不要用它。
+  const mediaUrl = audio || videoResource || (host === 'douyin.com' ? '' : direct);
   return {
     title: String(document.title || ''),
     ogTitle: pick('meta[property="og:title"]') || pick('meta[name="twitter:title"]'),
@@ -49,7 +61,8 @@ export const VIDEO_PROBE_SCRIPT = `(() => {
     width: Math.round(best.getBoundingClientRect().width),
     height: Math.round(best.getBoundingClientRect().height),
     author: pick('meta[name="author"]') || pick('meta[property="og:site_name"]'),
-    videoUrl
+    videoUrl,
+    mediaUrl
   };
 })()`;
 
@@ -64,7 +77,8 @@ export async function probePageVideo(wc: WebContents): Promise<DetectedVideo | n
       width: Number(data.width) || 0,
       height: Number(data.height) || 0,
       author: String(data.author || ''),
-      videoUrl: String(data.videoUrl || '')
+      videoUrl: String(data.videoUrl || ''),
+      mediaUrl: String(data.mediaUrl || '')
     };
   } catch {
     return null;
@@ -108,6 +122,7 @@ export function webVideoInfo(url: string, video: DetectedVideo | null): PageInfo
     desc: '',
     duration: Number(video?.duration) || 0,
     url: canonical,
-    signature: `web:${canonical}`
+    signature: `web:${canonical}`,
+    mediaUrl: video?.mediaUrl && /^https?:\/\//i.test(video.mediaUrl) ? video.mediaUrl : undefined
   };
 }

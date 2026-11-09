@@ -191,6 +191,8 @@ export interface PageInfo {
   cover?: string;
   stat?: { view: number; danmaku: number };
   pubdate?: number;
+  /** 通用网页视频实际加载的媒体直链（优先音频），用于直接下载转写。 */
+  mediaUrl?: string;
   /** B 站官方分段/章节（view_points）；有值时总结按它组织，不再让 AI 另造章节。 */
   viewPoints?: VideoPoint[];
 }
