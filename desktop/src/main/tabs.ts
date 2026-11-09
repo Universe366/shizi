@@ -28,6 +28,7 @@ import {
 } from './localVideo';
 import { listSavedTracks, savedTrackLines } from './library/savedTracks';
 import { probePageVideo } from './pageVideo';
+import { clearMediaFor, noteMediaRequest } from './mediaSniffer';
 import {
   clampMediaRate,
   mediaSiteKey,
@@ -37,6 +38,21 @@ import {
 
 // 后台标签闲置多久后释放渲染进程。环境变量用于测试覆盖。
 const ENV_SUSPEND_MS = Number(process.env.BSUB_SUSPEND_MS) || 0;
+
+let mediaSnifferInstalled = false;
+
+/** 全局只装一次：记录每个标签页最近一次音视频 CDN 请求，供抖音等 MSE 站点直链下载。 */
+function installMediaSniffer(): void {
+  if (mediaSnifferInstalled) return;
+  mediaSnifferInstalled = true;
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['*://*/*'], types: ['media', 'xhr', 'object'] },
+    (details, callback) => {
+      if (details.webContentsId) noteMediaRequest(details.webContentsId, details.url);
+      callback({});
+    }
+  );
+}
 const DEFAULT_SUSPEND_MS = 5 * 60 * 1000;
 
 const KEY_TO_CODE: Record<string, string> = {
@@ -185,6 +201,7 @@ export class TabManager {
     private readonly onFindResult?: (result: FindResult) => void,
     private readonly onVisited?: (visit: { url: string; title: string; favicon?: string }) => void
   ) {
+    installMediaSniffer();
     this.startSuspendTimer();
     this.audioTimer = setInterval(() => this.refreshAudioState(), 1000);
     this.audioTimer.unref?.();
@@ -1099,6 +1116,11 @@ export class TabManager {
     if (!view) return;
     try {
       this.win.contentView.removeChildView(view);
+    } catch {
+      // ignore
+    }
+    try {
+      clearMediaFor(view.webContents.id);
     } catch {
       // ignore
     }

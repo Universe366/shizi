@@ -12,6 +12,7 @@ import { requireDb } from './library/db';
 import { listSavedTracks, savedTrackLines } from './library/savedTracks';
 import { localFileFromPageUrl, localVideoInfo } from './localVideo';
 import { isBilibiliUrl, probePageVideo, webVideoInfo } from './pageVideo';
+import { mediaUrlFor } from './mediaSniffer';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
 const CHROME = process.versions.chrome;
@@ -240,7 +241,12 @@ export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
   // 非 B 站页面：有主视频就按通用网页视频处理，不再等 B 站页面桥超时。
   if (/^https?:/i.test(currentUrl) && !isBilibiliUrl(currentUrl)) {
     const video = await probePageVideo(wc);
-    if (video) return webVideoInfo(currentUrl, video);
+    if (video) {
+      const info = webVideoInfo(currentUrl, video);
+      // performance 可能只覆盖主框架；用 webRequest 嗅探到的直链兜底。
+      if (!info.mediaUrl) info.mediaUrl = mediaUrlFor(wc.id) || undefined;
+      return info;
+    }
   }
 
   let raw: PageInfo & { ok?: boolean };

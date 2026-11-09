@@ -1,3 +1,4 @@
+import { net } from 'electron';
 import type { Session } from 'electron';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -77,11 +78,20 @@ export async function downloadMediaUrl(
   referer: string,
   options: { signal?: AbortSignal; onProgress?: (percent: number, message: string) => void } = {}
 ): Promise<string> {
-  const response = await wc.session.fetch(url, {
-    headers: { 'User-Agent': BROWSER_UA, Referer: referer, Accept: '*/*' },
-    signal: options.signal
-  });
-  if (!response.ok) throw new Error(`媒体下载失败（HTTP ${response.status}）`);
+  const headers = { 'User-Agent': BROWSER_UA, Referer: referer, Accept: '*/*' };
+  const attempt = async (fetcher: () => Promise<Response>): Promise<Response | null> => {
+    try {
+      const response = await fetcher();
+      return response.ok ? response : null;
+    } catch {
+      return null;
+    }
+  };
+  // 优先带标签页 Cookie；CDN 不认 Cookie 时再用无会话的 net.fetch。
+  const response =
+    (await attempt(() => wc.session.fetch(url, { headers, signal: options.signal }))) ||
+    (await attempt(() => net.fetch(url, { headers, signal: options.signal })));
+  if (!response) throw new Error('媒体下载失败（网络或状态码异常）');
   const total = Number(response.headers.get('content-length')) || 0;
   const chunks: Buffer[] = [];
   let received = 0;

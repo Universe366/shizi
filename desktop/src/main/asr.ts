@@ -24,6 +24,7 @@ import {
   writeCookieFile,
   ytdlpDownloadAudio
 } from './ytdlpMedia';
+import { mediaUrlFor } from './mediaSniffer';
 
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
@@ -827,10 +828,20 @@ export async function transcribe(
     try {
       cookieFile = await writeCookieFile(wc.session, dir);
       let audio = '';
+      let mediaUrl = info.mediaUrl || mediaUrlFor(wc.id) || '';
+      const isDouyin = /(^|\.)douyin\.com$/i.test(new URL(info.url).hostname);
+      if (!mediaUrl && isDouyin) {
+        // 用户可能刚点开视频：给页面一点时间发出音频请求。
+        onProgress('download', 0, '等待视频音频加载…');
+        for (let attempt = 0; attempt < 10 && !mediaUrl; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          mediaUrl = mediaUrlFor(wc.id);
+        }
+      }
       // 页面已经加载出的媒体直链（抖音 MSE 音频等）最稳，优先直接下载。
-      if (info.mediaUrl && /^https?:/i.test(info.mediaUrl)) {
+      if (mediaUrl && /^https?:/i.test(mediaUrl)) {
         try {
-          audio = await downloadMediaUrl(wc, info.mediaUrl, dir, info.url, {
+          audio = await downloadMediaUrl(wc, mediaUrl, dir, info.url, {
             signal,
             onProgress: (percent, message) =>
               onProgress('download', Math.min(95, percent), message)
