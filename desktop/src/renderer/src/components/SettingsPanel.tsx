@@ -1391,15 +1391,24 @@ export function SettingsPanel({
           <OcrSection
             value={draft.ocr}
             onChange={(patch) => setDraft({ ...draft, ocr: { ...draft.ocr, ...patch } })}
+            ai={draft.ai}
+            onAiChange={(patch) => updateAi(patch)}
           />
         </>
       )}
 
       {show('subtitles') && (
         <>
-          <SubtitleGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <SubtitleGroup
+            value={draft.general}
+            onChange={(patch) => updateGeneral(patch)}
+            ai={draft.ai}
+            onAiChange={(patch) => updateAi(patch)}
+          />
           <CorrectionSection
             value={draft.correction}
+            ai={draft.ai}
+            onAiChange={(patch) => updateAi(patch)}
             testText={correctionTest}
             preview={correctionPreview}
             testing={correctionTesting}
@@ -1489,6 +1498,8 @@ export function SettingsPanel({
       {show('ai') && (
       <PromptSection
         value={draft.prompt}
+        ai={draft.ai}
+        onAiChange={(patch) => updateAi(patch)}
         onPatch={(patch) => setDraft({ ...draft, prompt: { ...draft.prompt, ...patch } })}
         onAddTemplate={addTemplate}
         onRemoveTemplate={removeTemplate}

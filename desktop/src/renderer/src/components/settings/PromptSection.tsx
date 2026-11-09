@@ -2,11 +2,14 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../../../../shared/types';
 import { DEFAULT_SUMMARY_FORMAT_RULES } from '../../../../shared/summaryFormat';
 import { SettingsSection } from './SettingsSection';
+import { TaskModelField } from './TaskModelField';
 
 type PromptSettings = AppSettings['prompt'];
 
 interface PromptSectionProps {
   value: PromptSettings;
+  ai: AppSettings['ai'];
+  onAiChange: (patch: Partial<AppSettings['ai']>) => void;
   onPatch: (patch: Partial<PromptSettings>) => void;
   onAddTemplate: () => void;
   onRemoveTemplate: () => void;
@@ -16,6 +19,8 @@ interface PromptSectionProps {
 /** 提示词模板：模板选择/新增/删除、模板正文，以及对话/翻译/优化/章节提示词。 */
 export function PromptSection({
   value,
+  ai,
+  onAiChange,
   onPatch,
   onAddTemplate,
   onRemoveTemplate,
@@ -28,6 +33,7 @@ export function PromptSection({
       <div className="settings-inline">
         <select
           className="settings-input"
+          aria-label="总结模板"
           value={value.activeId}
           onChange={(event) => onPatch({ activeId: event.target.value })}
         >
@@ -75,6 +81,14 @@ export function PromptSection({
         onChange={(event) => onPatch({ summaryFormatRules: event.target.value })}
       />
 
+      <TaskModelField
+        ai={ai}
+        onChange={onAiChange}
+        task="summary"
+        label="总结使用的平台 / 模型（可选）"
+        hint="留空则跟随「AI 与模型」当前选中的平台与模型；想让总结用更强/更便宜的模型时再单独指定。"
+      />
+
       <div className="settings-label">对话提示词</div>
       <textarea
         className="settings-textarea"
@@ -105,6 +119,14 @@ export function PromptSection({
         rows={5}
         value={value.chapters}
         onChange={(event) => onPatch({ chapters: event.target.value })}
+      />
+
+      <TaskModelField
+        ai={ai}
+        onChange={onAiChange}
+        task="chapters"
+        label="章节与断句使用的平台 / 模型（可选）"
+        hint="留空则跟随「AI 与模型」当前选中的平台与模型。"
       />
     </SettingsSection>
   );

@@ -1439,6 +1439,8 @@ export interface AppSettings {
     presetVersion: number;
     /** 允许模型调用本地只读工具（搜库/读条目） */
     appTools: boolean;
+    /** 按任务覆盖平台/模型（在对应功能的设置里配置）；缺省跟随当前平台 */
+    taskModels: Partial<Record<AiTask, AiTaskModel>>;
     /** 助手档案 */
     profiles: AssistantProfile[];
     /** 按「平台/模型」覆盖自动识别的能力（图片/音频） */

@@ -12,16 +12,19 @@ import {
   formatMediaRate
 } from '../../../../shared/media';
 import { SettingsSection } from './SettingsSection';
+import { TaskModelField } from './TaskModelField';
 
 type General = AppSettings['general'];
 
 interface Props {
   value: General;
   onChange: (patch: Partial<General>) => void;
+  ai: AppSettings['ai'];
+  onAiChange: (patch: Partial<AppSettings['ai']>) => void;
 }
 
 /** 字幕与播放：字幕行为、缓存、倍速、翻译、成片样式与工具栏。 */
-export function SubtitleGroup({ value, onChange }: Props) {
+export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
   const rate = clampMediaRate(value.mediaRate);
   const siteCount = Object.keys(value.mediaSiteRates || {}).length;
 
@@ -135,6 +138,13 @@ export function SubtitleGroup({ value, onChange }: Props) {
 
       <SettingsSection title="字幕与翻译">
         <div className="settings-hint">翻译默认行为；断句和成片参数在对应弹窗里单独调。</div>
+        <TaskModelField
+          ai={ai}
+          onChange={onAiChange}
+          task="translate"
+          label="翻译使用的平台 / 模型（可选）"
+          hint="留空则跟随「AI 与模型」当前选中的平台与模型；想让翻译用更便宜/更快的模型时再单独指定。"
+        />
         <label className="settings-check">
           <input
             type="checkbox"

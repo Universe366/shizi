@@ -1,11 +1,14 @@
 import { Download, Loader2, Plus, Search, Trash2, Upload } from 'lucide-react';
 import type { AppSettings, CorrectionRuleGroup } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
+import { TaskModelField } from './TaskModelField';
 
 type CorrectionSettings = AppSettings['correction'];
 
 interface CorrectionSectionProps {
   value: CorrectionSettings;
+  ai: AppSettings['ai'];
+  onAiChange: (patch: Partial<AppSettings['ai']>) => void;
   testText: string;
   preview: string;
   testing: boolean;
@@ -33,6 +36,8 @@ interface CorrectionSectionProps {
 /** 字幕校对与术语表：规则组/规则表格、术语表、预览。 */
 export function CorrectionSection({
   value,
+  ai,
+  onAiChange,
   testText,
   preview,
   testing,
@@ -54,6 +59,13 @@ export function CorrectionSection({
 }: CorrectionSectionProps) {
   return (
     <SettingsSection title="字幕校对与术语表" defaultOpen={false}>
+      <TaskModelField
+        ai={ai}
+        onChange={onAiChange}
+        task="proofread"
+        label="校对使用的平台 / 模型（可选）"
+        hint="留空则跟随「AI 与模型」当前选中的平台与模型；校对通常用便宜模型就够。"
+      />
       <label className="settings-check">
         <input
           type="checkbox"

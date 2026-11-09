@@ -16,9 +16,26 @@ const value = {
   chapters: '章节提示词'
 } as AppSettings['prompt'];
 
+const ai = {
+  activeId: 'deepseek',
+  platforms: [
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      apiKey: '',
+      model: 'deepseek-chat',
+      models: ['deepseek-chat']
+    }
+  ],
+  taskModels: {}
+} as unknown as AppSettings['ai'];
+
 function props(overrides: Record<string, unknown> = {}) {
   return {
     value,
+    ai,
+    onAiChange: vi.fn(),
     onPatch: vi.fn(),
     onAddTemplate: vi.fn(),
     onRemoveTemplate: vi.fn(),
@@ -41,7 +58,7 @@ describe('PromptSection', () => {
   it('切换模板与编辑名称/正文', () => {
     const p = props();
     render(<PromptSection {...p} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 't2' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '总结模板' }), { target: { value: 't2' } });
     expect(p.onPatch).toHaveBeenCalledWith({ activeId: 't2' });
     const nameInput = document.querySelector('input.settings-input') as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: '新名称' } });

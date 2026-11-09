@@ -1,5 +1,6 @@
 import type { AppSettings } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
+import { TaskModelField } from './TaskModelField';
 
 interface Props {
   value: AppSettings['ai'];
@@ -11,6 +12,13 @@ export function ContextSection({ value, onChange }: Props) {
   const enabled = value.contextAutoCompress !== false;
   return (
     <SettingsSection title="对话上下文" defaultOpen={false}>
+      <TaskModelField
+        ai={value}
+        onChange={onChange}
+        task="chat"
+        label="对话使用的平台 / 模型（可选）"
+        hint="留空则跟随「AI 与模型」当前选中的平台与模型；对话面板里仍可临时切换单个会话的模型。"
+      />
       <div className="settings-hint">
         对话很长时，自动把较早消息压缩成摘要，只保留最近几条，避免超出模型上下文窗口。
       </div>

@@ -19,9 +19,26 @@ const value = {
   glossary: { enabled: true, terms: [{ id: 't1', from: 'GPU', to: '显卡', note: '' }] }
 } as AppSettings['correction'];
 
+const ai = {
+  activeId: 'deepseek',
+  platforms: [
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      apiKey: '',
+      model: 'deepseek-chat',
+      models: ['deepseek-chat']
+    }
+  ],
+  taskModels: {}
+} as unknown as AppSettings['ai'];
+
 function props(overrides: Record<string, unknown> = {}) {
   return {
     value,
+    ai,
+    onAiChange: vi.fn(),
     testText: '这是一段测试字幕',
     preview: '',
     testing: false,

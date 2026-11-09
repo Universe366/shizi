@@ -1,13 +1,16 @@
 import type { AppSettings } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
+import { TaskModelField } from './TaskModelField';
 
 interface Props {
   value: AppSettings['ocr'];
   onChange: (patch: Partial<AppSettings['ocr']>) => void;
+  ai: AppSettings['ai'];
+  onAiChange: (patch: Partial<AppSettings['ai']>) => void;
 }
 
 /** 文字识别：系统 OCR（离线）、自建 PaddleOCR，或视觉大模型。 */
-export function OcrSection({ value, onChange }: Props) {
+export function OcrSection({ value, onChange, ai, onAiChange }: Props) {
   return (
     <SettingsSection title="文字识别（OCR）" defaultOpen={false}>
       <div className="settings-hint">
@@ -43,10 +46,18 @@ export function OcrSection({ value, onChange }: Props) {
         </div>
       </div>
       {value.engine === 'ai' && (
-        <div className="settings-hint">
-          使用「AI 与模型」里当前选中的平台与模型；
-          需要该模型支持图片输入，否则请求会失败。
-        </div>
+        <>
+          <TaskModelField
+            ai={ai}
+            onChange={onAiChange}
+            task="ocr"
+            label="文字识别使用的平台 / 模型（可选）"
+            hint="留空则跟随「AI 与模型」当前选中的平台与模型；需要模型支持图片输入。"
+          />
+          <div className="settings-hint">
+            需要所选模型支持图片输入，否则请求会失败。
+          </div>
+        </>
       )}
       {value.engine === 'paddle' && (
         <>
