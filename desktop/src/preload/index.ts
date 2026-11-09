@@ -275,6 +275,8 @@ const api: BsubApi = {
   stopFind: () => ipcRenderer.invoke('tab:stop-find') as Promise<void>,
   onFindResult: (cb: (result: FindResult) => void) => on<FindResult>('find:result', cb),
   setLayout: (rect: LayoutRect) => ipcRenderer.send('layout:set', rect),
+  openLocalVideo: (path?: string) =>
+    ipcRenderer.invoke('local:open', path ? { path } : undefined),
   saveSidebarPages: (pages: SidebarPage[]) => ipcRenderer.invoke('sidebar-pages:save', pages),
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),

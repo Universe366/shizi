@@ -26,6 +26,7 @@ import { registerDictationIpc } from './ipc/dictation';
 import { registerKnowledgeIpc } from './ipc/knowledge';
 import { registerWebIpc } from './ipc/web';
 import { registerSidebarWebIpc } from './ipc/sidebarWeb';
+import { registerLocalVideoIpc } from './ipc/localVideo';
 import { SidebarWebManager } from './sidebarWeb';
 import { registerConvertIpc } from './ipc/convert';
 import { abortControllers } from './ipc/shared';
@@ -52,6 +53,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   const sidebarWeb = new SidebarWebManager(win);
   win.on('closed', () => sidebarWeb.dispose());
   registerSidebarWebIpc(ctx, sidebarWeb);
+  registerLocalVideoIpc(ctx);
   registerJobsIpc(ctx);
 
   registerBrowserIpc(ctx);

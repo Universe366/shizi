@@ -9,7 +9,8 @@ import type {
 import { loadSettings } from './settings';
 import { fetchViewPoints } from './biliExtra';
 import { requireDb } from './library/db';
-import { savedTrackLines } from './library/savedTracks';
+import { listSavedTracks, savedTrackLines } from './library/savedTracks';
+import { localFileFromPageUrl, localVideoInfo } from './localVideo';
 import { isYouTubeUrl, parseJson3, parseTimedTextXml, readYouTubeData } from './youtube';
 
 const CHROME = process.versions.chrome;
@@ -212,6 +213,22 @@ async function fetchView(bvid: string): Promise<BiliViewData | null> {
 }
 
 export async function getPageInfo(wc: WebContents): Promise<PageInfo> {
+  const localFile = localFileFromPageUrl(wc.getURL());
+  if (localFile) {
+    let duration = 0;
+    try {
+      duration =
+        Number(
+          await wc.executeJavaScript(
+            '(() => { const v = document.querySelector("video"); return v ? v.duration || 0 : 0; })()',
+            true
+          )
+        ) || 0;
+    } catch {
+      // 播放器还没就绪时先按 0 处理，下次读取会补上
+    }
+    return localVideoInfo(localFile, duration);
+  }
   if (isYouTubeUrl(wc.getURL())) {
     const youtube = await readYouTubeData(wc);
     if (youtube) return youtube.info;
@@ -252,6 +269,19 @@ export async function getSubtitles(
   wc: WebContents,
   expectSignature?: string
 ): Promise<SubtitleBundle> {
+  const localFile = localFileFromPageUrl(wc.getURL());
+  if (localFile) {
+    const info = localVideoInfo(localFile);
+    const tracks = listSavedTracks(info);
+    return {
+      needLogin: false,
+      tracks,
+      sources: tracks.length ? ['library'] : [],
+      errors: tracks.length ? [] : [{ source: 'local', message: '本地视频还没有转写' }],
+      identity: info.signature,
+      diagnostics: { reason: tracks.length ? '' : 'local-no-transcript' }
+    };
+  }
   if (isYouTubeUrl(wc.getURL())) {
     const youtube = await readYouTubeData(wc);
     const tracks = youtube?.tracks || [];
@@ -479,6 +509,13 @@ export async function getTime(wc: WebContents): Promise<{ currentTime: number; d
 }
 
 export async function seek(wc: WebContents, time: number): Promise<void> {
+  if (localFileFromPageUrl(wc.getURL())) {
+    await wc.executeJavaScript(
+      `(() => { const v = document.querySelector('video'); if (v) v.currentTime = ${Number(time) || 0}; })()`,
+      true
+    );
+    return;
+  }
   if (isYouTubeUrl(wc.getURL())) {
     await wc.executeJavaScript(
       `(() => { const v = document.querySelector('video'); if (v) v.currentTime = ${Number(time) || 0}; })()`,

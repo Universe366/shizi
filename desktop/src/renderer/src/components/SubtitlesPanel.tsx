@@ -557,9 +557,12 @@ export function SubtitlesPanel({
           const sources = subtitlesResult.ok ? subtitlesResult.data.sources : [];
           // 签名接口明确返回「空」时直接认定无字幕，不必再等播放器/重试。
           const wbiEmpty = sources.some((source) => source.includes('player/wbi/v2（空）'));
+          const localVideo = Boolean(
+            infoResult.ok && /^file:/i.test(infoResult.data.url || '')
+          );
           const ready =
             infoResult.ok &&
-            infoResult.data.bvid &&
+            (infoResult.data.bvid || localVideo) &&
             subtitlesResult.ok &&
             tabMatches &&
             identityMatches &&
@@ -1391,7 +1394,12 @@ export function SubtitlesPanel({
       {!activeTab && <div className="panel-empty">打开一个视频页后显示字幕</div>}
 
       {activeTab && !isVideoPage && (
-        <div className="panel-empty">当前页面不是视频页</div>
+        <div className="panel-empty">
+          当前页面不是视频页
+          <button className="mini-btn" onClick={() => void window.bsub.openLocalVideo()}>
+            打开本地视频
+          </button>
+        </div>
       )}
 
       {activeTab && loading && !info && (

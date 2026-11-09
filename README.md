@@ -29,7 +29,7 @@
 
 > 非官方项目，与哔哩哔哩无关联。自有代码 MIT；内置 FFmpeg core 按 GPL 分发，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：**桌面 0.162.38 / 插件 2.20.16**。
+当前版本：**桌面 0.162.39 / 插件 2.20.16**。
 
 ## 为什么做这个
 
@@ -45,8 +45,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 ### 桌面端（推荐）
 
 1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载：
-   - 安装版 `shizi-setup-0.162.38.exe`
-   - 绿色版 `shizi-0.162.38-win-x64-green.zip`
+   - 安装版 `shizi-setup-0.162.39.exe`
+   - 绿色版 `shizi-0.162.39-win-x64-green.zip`
 2. 打开「设置 → AI 与模型」：选择平台、填写 Base URL、模型和 API Key，点「测试连接」。
 3. 打开 B 站视频，在侧栏抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -87,6 +87,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 | 模型平台 | 35 个 AI 平台预设；OpenAI 兼容、Anthropic、Gemini 原生、Azure OpenAI、Ollama、LM Studio |
 | 按功能选模型 | 总结/对话/翻译/校对/章节/文字识别可在各自设置里单独指定平台与模型，留空跟随 AI 平台 |
 | 侧栏网页 | 侧栏可直接打开 DeepSeek / 豆包 / Kimi / 通义 / ChatGPT，支持自定义添加；独立登录分区、不活跃休眠 |
+| 本地视频 | 标签栏打开本地视频，在浏览器区播放并带字幕悬浮层；自动入库，侧栏照常转写/总结；仅支持 mp4/webm 等可直接播放格式 |
 | 总结 | 与桌面端共享提示词/格式规则/术语表；官方分段优先；对话式联网工具循环 |
 | 总结展示 | 流式 Markdown、思考过程折叠、[n] 引用、KaTeX 公式、参考网址、失败重试 |
 | 对话 | 基于字幕/页面提问；工具调用；上下文压缩；对话历史 |
@@ -183,7 +184,7 @@ node browser-smoke-test.js   # 需要本机 Edge/Chrome + 网络
 
 当前基线：
 
-- 桌面：182 个测试文件 / 1104 个用例（1 跳过）；冒烟 E2E 20/20；
+- 桌面：183 个测试文件 / 1108 个用例（1 跳过）；冒烟 E2E 21/21；
 - 插件：panel-test 478 项；真实浏览器冒烟 13 项；
 - 发布：tag 触发 GitHub Actions，构建安装版、绿色版与插件 zip。
 
@@ -237,7 +238,7 @@ shizi-extension/
 
 ## 版本
 
-- 桌面端：**0.162.38**（2026-11-09）
+- 桌面端：**0.162.39**（2026-11-09）
 - 插件：**2.20.16**
 - 变更记录：[desktop/CHANGELOG.md](desktop/CHANGELOG.md)、[shizi-extension/CHANGELOG.md](shizi-extension/CHANGELOG.md)
 

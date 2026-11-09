@@ -212,6 +212,8 @@ export interface BsubApi {
   stop(): Promise<void>;
   setLayout(rect: LayoutRect): void;
   /** 保存侧栏网页列表（预置 + 自定义）。 */
+  /** 选择本地视频并在浏览器区域打开播放（自动入库）。 */
+  openLocalVideo(path?: string): Promise<Result<{ tabId: string; title: string } | null>>;
   saveSidebarPages(pages: SidebarPage[]): Promise<Result<SidebarPage[]>>;
   /** 激活某个侧栏网页（必要时创建视图并加载）。 */
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;

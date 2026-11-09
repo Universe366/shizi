@@ -1,7 +1,12 @@
 import type { PageInfo, SubtitleTrack } from '../../../shared/types';
 
 export function isVideoKey(key: string): boolean {
-  return key.startsWith('v:') || key.startsWith('e:') || key.startsWith('y:');
+  return (
+    key.startsWith('v:') ||
+    key.startsWith('e:') ||
+    key.startsWith('y:') ||
+    key.startsWith('f:')
+  );
 }
 
 function youtubeId(parsed: URL): string {
@@ -17,10 +22,29 @@ function youtubeId(parsed: URL): string {
 
 // B 站是单页应用，?vd_source / ?spm_id_from 这类 query 变化不应触发重新抓取。
 // 只按「视频 + 分 P」生成 key；YouTube 按 videoId，忽略 t / list 参数。
+function localFileKey(parsed: URL): string {
+  if (parsed.protocol !== 'file:') return '';
+  // 本地播放页的地址是 local-player.html?src=file://…，身份用里面的视频文件。
+  if (/\/local-player\.html$/i.test(parsed.pathname)) {
+    const src = parsed.searchParams.get('src') || '';
+    if (/^file:/i.test(src)) {
+      try {
+        return `f:${new URL(src).pathname}`;
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  }
+  return `f:${parsed.pathname}`;
+}
+
 export function videoKeyOf(url?: string): string {
   if (!url || url === 'about:blank') return '';
   try {
     const parsed = new URL(url);
+    const local = localFileKey(parsed);
+    if (local) return local;
     const youtube = youtubeId(parsed);
     if (youtube) return `y:${youtube}`;
     if (!/(^|\.)bilibili\.com$/i.test(parsed.hostname)) return `u:${parsed.href}`;

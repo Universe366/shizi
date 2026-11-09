@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import ffmpegStatic from 'ffmpeg-static';
 import type {
   AppSettings,
@@ -813,6 +814,11 @@ export async function transcribe(
 ): Promise<{ lines: SubtitleLine[]; model: string; duration: number }> {
   const settings = loadSettings();
   activeAsr(settings);
+  // 本地视频直接读文件，不再走页面音轨抓取。
+  if (/^file:\/\//i.test(info.url || '')) {
+    const result = await transcribeFile(fileURLToPath(info.url), info, onProgress, signal, settings);
+    return { ...result, lines: applyCorrectionToLines(result.lines, settings) };
+  }
   const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'bsub-asr-'));
   try {
     const downloaded = await downloadAudio(wc, info, dir, onProgress, signal);

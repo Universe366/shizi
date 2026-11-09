@@ -3,6 +3,7 @@ import type { MenuItemConstructorOptions, WebContents, WebFrameMain } from 'elec
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { FindResult, LayoutRect, TabGroup, TabInfo } from '../shared/types';
 import type { SearchEngineId } from '../shared/searchEngines';
 import { normalizeUrl } from './url';
@@ -19,6 +20,13 @@ import {
 } from '../shared/shortcuts';
 import { strokeFromEvent } from '../shared/shortcutKeys';
 import { loadSettings, saveSettings } from './settings';
+import {
+  isPlayableVideoFile,
+  localPlayerUrl,
+  localVideoInfo,
+  localVideoTitle
+} from './localVideo';
+import { listSavedTracks, savedTrackLines } from './library/savedTracks';
 import {
   clampMediaRate,
   mediaSiteKey,
@@ -93,6 +101,10 @@ interface TabRecord {
   loadPromise?: Promise<void>;
   /** 会话恢复的标签：用户操作前不让页面自动播放。 */
   suppressAutoplay?: boolean;
+  /** 本地视频文件；有值时页面加载的是本地播放页。 */
+  localFile?: string;
+  /** 把已入库字幕推给本地播放页的定时器。 */
+  localTimer?: ReturnType<typeof setInterval>;
 }
 
 /** 后台标签的 WebContentsView 不可见时 capturePage 取不到画面，切走前先留一张缩略图。 */
@@ -208,15 +220,37 @@ export class TabManager {
 
   async create(
     input = 'https://www.bilibili.com/',
-    options: { activate?: boolean; wait?: boolean; suppressAutoplay?: boolean } = {}
+    options: {
+      activate?: boolean;
+      wait?: boolean;
+      suppressAutoplay?: boolean;
+      localFile?: string;
+    } = {}
   ): Promise<string> {
     const id = randomUUID();
-    const url = normalizeUrl(input, searchPref());
+    // 会话恢复会把本地标签的 file:// 地址原样传回来；识别成本地视频而不是搜索词。
+    const restoredLocal =
+      !options.localFile && /^file:\/\//i.test(String(input || '').trim())
+        ? (() => {
+            try {
+              return fileURLToPath(String(input).trim());
+            } catch {
+              return '';
+            }
+          })()
+        : '';
+    const localFile =
+      options.localFile ||
+      (restoredLocal && isPlayableVideoFile(restoredLocal) ? restoredLocal : undefined);
+    const url = localFile
+      ? pathToFileURL(localFile).toString()
+      : normalizeUrl(input, searchPref());
     const record: TabRecord = {
       id,
       view: null,
-      title: '新标签页',
+      title: localFile ? localVideoTitle(localFile) : '新标签页',
       url,
+      localFile,
       suppressAutoplay: options.suppressAutoplay === true,
       lastHttpUrl: /^https?:/i.test(url) ? url : undefined,
       loading: true,
@@ -285,13 +319,16 @@ export class TabManager {
 
       // prepare 会先导航到 about:blank 来挂 CDP；这里先把目标地址记下来，
       // 避免 about:blank 的导航事件把 record.url 覆盖掉。
-      const target = record.url || 'about:blank';
+      // 本地视频实际加载播放页，record.url 仍保存视频文件地址。
+      const target = record.localFile
+        ? localPlayerUrl(record.localFile)
+        : record.url || 'about:blank';
 
       // 必须先加载一次，CDP 才能正常挂上；随后注入 page-bridge。
       await this.prepare(view, record.suppressAutoplay === true);
       // 拦截脚本只对「恢复出来的这一页」生效；之后用户自己导航/休眠重建不再拦。
       record.suppressAutoplay = false;
-      record.url = target;
+      if (!record.localFile) record.url = target;
 
       void view.webContents
         .loadURL(target)
@@ -378,6 +415,8 @@ export class TabManager {
     if (!record.urlWatch) {
       record.urlWatch = setInterval(() => {
         if (wc.isDestroyed()) return;
+        // 本地视频的 wc 地址是播放页，不能覆盖 record.url（它保存视频文件地址）。
+        if (record.localFile) return;
         let current = '';
         try {
           current = wc.getURL();
@@ -401,6 +440,14 @@ export class TabManager {
     wc.on('dom-ready', () => {
       void this.pushMediaState(record);
     });
+
+    // 本地视频：定时把已入库的字幕推给播放页做悬浮层（转写完成后下一轮就出现）。
+    if (record.localFile && !record.localTimer) {
+      const push = () => this.pushLocalLines(record);
+      push();
+      record.localTimer = setInterval(push, 2000);
+      record.localTimer.unref?.();
+    }
 
     wc.on('context-menu', (_event, params) => {
       const selected = String(params.selectionText || '').trim();
@@ -581,6 +628,10 @@ export class TabManager {
       touch();
     });
     wc.on('did-navigate', (_event, url) => {
+      if (record.localFile) {
+        touch();
+        return;
+      }
       if (!url || url === 'about:blank') return;
       record.url = url;
       if (/^https?:/i.test(url)) record.lastHttpUrl = url;
@@ -593,6 +644,10 @@ export class TabManager {
       touch();
     });
     wc.on('did-navigate-in-page', (_event, url) => {
+      if (record.localFile) {
+        touch();
+        return;
+      }
       if (!url || url === 'about:blank') return;
       record.url = url;
       if (/^https?:/i.test(url)) record.lastHttpUrl = url;
@@ -958,10 +1013,39 @@ export class TabManager {
     };
   }
 
+  /** 把本地视频已入库的字幕推给播放页；没有转写时推空数组。 */
+  private pushLocalLines(record: TabRecord): void {
+    if (this.activeId !== record.id) return;
+    const wc = record.view?.webContents;
+    const file = record.localFile;
+    if (!wc || wc.isDestroyed() || !file) return;
+    try {
+      const info = localVideoInfo(file);
+      const tracks = listSavedTracks(info);
+      const track =
+        tracks.find((item) => item.source === 'asr') ||
+        tracks.find((item) => item.source === 'import') ||
+        tracks[0];
+      const match = track ? /track\/(\d+)/.exec(track.url) : null;
+      const lines = match ? savedTrackLines(Number(match[1])) : [];
+      void wc
+        .executeJavaScript(
+          `window.__bsubLocalLines && window.__bsubLocalLines(${JSON.stringify(lines)})`
+        )
+        .catch(() => undefined);
+    } catch {
+      // 播放页还没就绪时忽略，下一轮再推
+    }
+  }
+
   private releaseView(record: TabRecord): void {
     if (record.urlWatch) {
       clearInterval(record.urlWatch);
       record.urlWatch = undefined;
+    }
+    if (record.localTimer) {
+      clearInterval(record.localTimer);
+      record.localTimer = undefined;
     }
     const view = record.view;
     record.view = null;

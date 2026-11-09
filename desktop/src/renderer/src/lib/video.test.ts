@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PageInfo, SubtitleTrack } from '../../../shared/types';
-import { pageInfoKey, pickTrack, videoKeyOf } from './video';
+import { isVideoKey, pageInfoKey, pickTrack, videoKeyOf } from './video';
 
 function track(partial: Partial<SubtitleTrack> & { url: string }): SubtitleTrack {
   return {
@@ -106,6 +106,14 @@ describe('videoKeyOf', () => {
 
   it('非 B 站地址按完整 URL 区分', () => {
     expect(videoKeyOf('https://example.com/a')).toBe('u:https://example.com/a');
+  });
+
+  it('本地文件与播放页地址都生成 f: 身份', () => {
+    expect(videoKeyOf('file:///C:/videos/a.mp4')).toBe('f:/C:/videos/a.mp4');
+    expect(
+      videoKeyOf('file:///C:/u/local-player.html?src=file%3A%2F%2FC%3A%2Fvideos%2Fa.mp4')
+    ).toBe('f:/C:/videos/a.mp4');
+    expect(isVideoKey('f:/C:/videos/a.mp4')).toBe(true);
   });
 
   it('YouTube 按 videoId 生成 key，忽略 t 参数', () => {

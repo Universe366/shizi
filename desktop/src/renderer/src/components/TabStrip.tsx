@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import {
   ChevronDown,
   ChevronRight,
+  Film,
   Globe,
   Loader2,
   Moon,
@@ -792,6 +793,13 @@ export function TabStrip({
               >
                 <Plus size={14} />
               </button>
+              <button
+                className="tab-head-new"
+                title="打开本地视频"
+                onClick={() => void window.bsub.openLocalVideo()}
+              >
+                <Film size={13} />
+              </button>
               <div className="tab-actions-wrap" ref={actionsRef}>
                 <button
                   className={`tab-head-new${actionsOpen ? ' is-active' : ''}`}
@@ -810,6 +818,14 @@ export function TabStrip({
                       }}
                     >
                       新建标签页
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActionsOpen(false);
+                        void window.bsub.openLocalVideo();
+                      }}
+                    >
+                      打开本地视频
                     </button>
                     <button
                       onClick={() => {
@@ -1053,6 +1069,13 @@ export function TabStrip({
             onClick={() => (onNewTab ? onNewTab() : void window.bsub.newTab())}
           >
             <Plus size={15} />
+          </button>
+          <button
+            className="tab-new"
+            title="打开本地视频"
+            onClick={() => void window.bsub.openLocalVideo()}
+          >
+            <Film size={15} />
           </button>
         </>
       )}

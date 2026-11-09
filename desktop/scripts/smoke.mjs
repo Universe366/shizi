@@ -388,6 +388,58 @@ try {
     return `pages=${result.pages}`;
   });
 
+  // 8c. 本地视频：打开 → 本地 PageInfo → 读取播放进度
+  await step('本地视频通道', async () => {
+    const sample = path.join(userData, 'smoke-local.mp4');
+    const ffmpeg = require('ffmpeg-static');
+    const made = spawnSync(
+      ffmpeg,
+      [
+        '-y',
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=black:s=160x120:d=1',
+        '-c:v',
+        'libx264',
+        '-pix_fmt',
+        'yuv420p',
+        sample
+      ],
+      { stdio: 'ignore' }
+    );
+    if (made.status !== 0 || !fs.existsSync(sample)) throw new Error('无法生成测试视频');
+    const result = await run(
+      ws,
+      `
+      const opened = await window.bsub.openLocalVideo(${JSON.stringify(sample)});
+      if (!opened.ok) throw new Error('local:open ' + opened.error);
+      if (!opened.data?.tabId) throw new Error('没有创建本地标签');
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const info = await window.bsub.getPageInfo();
+      if (!info.ok) throw new Error('page:info ' + info.error);
+      if (info.data.kind !== 'local') throw new Error('不是本地视频: ' + info.data.kind);
+      const time = await window.bsub.getTime();
+      if (!time.ok) throw new Error('getTime ' + time.error);
+      const subs = await window.bsub.getSubtitles(info.data.signature);
+      if (!subs.ok) throw new Error('getSubtitles ' + subs.error);
+      if (subs.data.needLogin) throw new Error('本地视频不应要求登录');
+      const saved = await window.bsub.savedSubtitles(info.data);
+      if (!saved.ok) throw new Error('savedSubtitles ' + saved.error);
+      if (saved.data.length) throw new Error('未转写时不应有本地轨');
+      const lib = await window.bsub.listLibrary();
+      if (!lib.ok) throw new Error('listLibrary ' + lib.error);
+      if (!lib.data.videos.some((item) => item.url.startsWith('file:'))) throw new Error('本地视频没有入库');
+      const tabs = await window.bsub.listTabs();
+      const local = tabs.find((tab) => tab.url.startsWith('file:') && tab.active);
+      if (!local) throw new Error('没有激活的本地标签');
+      await window.bsub.closeTab(local.id);
+      return JSON.stringify({ title: info.data.title, duration: info.data.duration, current: time.data.currentTime });
+      `
+    );
+    return `title=${result.title} duration=${result.duration}`;
+  });
+
   // 9. 历史与导出记录
   await step('历史与导出记录', async () => {
     const result = await run(
