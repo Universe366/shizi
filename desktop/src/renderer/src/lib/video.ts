@@ -39,12 +39,22 @@ function localFileKey(parsed: URL): string {
   return `f:${parsed.pathname}`;
 }
 
+function douyinVideoId(parsed: URL): string {
+  if (!/(^|\.)douyin\.com$/i.test(parsed.hostname)) return '';
+  // 用户页/收藏页用 modal_id 打开视频，身份要按真实视频 id 走。
+  const modal = parsed.searchParams.get('modal_id') || '';
+  if (/^\d+$/.test(modal)) return modal;
+  return (parsed.pathname.match(/\/video\/(\d+)/) || [])[1] || '';
+}
+
 export function videoKeyOf(url?: string): string {
   if (!url || url === 'about:blank') return '';
   try {
     const parsed = new URL(url);
     const local = localFileKey(parsed);
     if (local) return local;
+    const douyin = douyinVideoId(parsed);
+    if (douyin) return `u:https://www.douyin.com/video/${douyin}`;
     const youtube = youtubeId(parsed);
     if (youtube) return `y:${youtube}`;
     if (!/(^|\.)bilibili\.com$/i.test(parsed.hostname)) return `u:${parsed.href}`;

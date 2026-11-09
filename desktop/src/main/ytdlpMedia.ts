@@ -157,7 +157,20 @@ export async function ytdlpDownloadAudio(
   } = {}
 ): Promise<string> {
   const binary = await ensureYtDlp(() => undefined);
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  })();
+  const browserUa = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36 Edg/${process.versions.chrome}`;
   const args = [
+    '--user-agent',
+    browserUa,
+    ...(/(^|\.)douyin\.com$/i.test(host)
+      ? ['--add-header', 'Referer:https://www.douyin.com/']
+      : []),
     '-f',
     'bestaudio/best',
     '--no-playlist',

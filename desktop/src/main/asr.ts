@@ -829,6 +829,13 @@ export async function transcribe(
       const audio = await ytdlpDownloadAudio(info.url, dir, cookieFile, {
         signal,
         onProgress: (percent, message) => onProgress('download', Math.min(95, percent), message)
+      }).catch((error: Error) => {
+        if (/(^|\.)douyin\.com$/i.test(new URL(info.url).hostname)) {
+          throw new Error(
+            `${error.message}\n抖音需要先在应用里打开该视频页、等页面加载完再点转写；仍失败可能是登录/地区限制。`
+          );
+        }
+        throw error;
       });
       onProgress('download', 100, '音频就绪，开始转写…');
       const result = await transcribeFile(audio, info, onProgress, signal, settings);

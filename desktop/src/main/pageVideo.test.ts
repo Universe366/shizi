@@ -24,6 +24,23 @@ describe('generic page video', () => {
     expect(info.url).toBe('https://www.douyin.com/video/123');
   });
 
+  it('抖音 modal_id 归一到 /video/<id>', () => {
+    const info = webVideoInfo(
+      'https://www.douyin.com/user/self?modal_id=7586126975555685666&showTab=favorite_collection',
+      {
+        title: '收藏 - 抖音',
+        ogTitle: '',
+        duration: 30,
+        width: 720,
+        height: 1280,
+        author: '',
+        videoUrl: 'https://www.douyin.com/video/7586126975555685666'
+      }
+    );
+    expect(info.url).toBe('https://www.douyin.com/video/7586126975555685666');
+    expect(info.signature).toBe('web:https://www.douyin.com/video/7586126975555685666');
+  });
+
   it('没有标题时回退到「网页视频」', () => {
     expect(webVideoInfo('https://example.com/a', null).title).toBe('网页视频');
   });

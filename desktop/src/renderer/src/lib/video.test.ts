@@ -108,6 +108,17 @@ describe('videoKeyOf', () => {
     expect(videoKeyOf('https://example.com/a')).toBe('u:https://example.com/a');
   });
 
+  it('抖音用户页 + modal_id 归一到视频地址', () => {
+    expect(
+      videoKeyOf(
+        'https://www.douyin.com/user/self?from_tab_name=main&modal_id=7586126975555685666&showSubTab=compilation&showTab=favorite_collection'
+      )
+    ).toBe('u:https://www.douyin.com/video/7586126975555685666');
+    expect(videoKeyOf('https://www.douyin.com/video/7586126975555685666')).toBe(
+      'u:https://www.douyin.com/video/7586126975555685666'
+    );
+  });
+
   it('本地文件与播放页地址都生成 f: 身份', () => {
     expect(videoKeyOf('file:///C:/videos/a.mp4')).toBe('f:/C:/videos/a.mp4');
     expect(

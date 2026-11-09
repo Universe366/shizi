@@ -8,6 +8,8 @@ export interface DetectedVideo {
   width: number;
   height: number;
   author: string;
+  /** 规范化后的视频地址（抖音用户页 + modal_id 要还原成 /video/<id>）。 */
+  videoUrl?: string;
 }
 
 /** 找当前页面“主视频”：可见、面积最大、时长 > 5s，忽略广告小窗。 */
@@ -32,13 +34,22 @@ export const VIDEO_PROBE_SCRIPT = `(() => {
     const element = document.querySelector(selector);
     return element ? String(element.getAttribute('content') || '') : '';
   };
+  const host = location.hostname.startsWith('www.') ? location.hostname.slice(4) : location.hostname;
+  let videoUrl = '';
+  if (host === 'douyin.com') {
+    const modal = new URLSearchParams(location.search).get('modal_id') || '';
+    const fromPath = (location.pathname.split('/video/')[1] || '').split('/')[0] || '';
+    const id = /^[0-9]+$/.test(modal) ? modal : fromPath;
+    if (id) videoUrl = 'https://www.douyin.com/video/' + id;
+  }
   return {
     title: String(document.title || ''),
     ogTitle: pick('meta[property="og:title"]') || pick('meta[name="twitter:title"]'),
     duration: Number(best.duration) || 0,
     width: Math.round(best.getBoundingClientRect().width),
     height: Math.round(best.getBoundingClientRect().height),
-    author: pick('meta[name="author"]') || pick('meta[property="og:site_name"]')
+    author: pick('meta[name="author"]') || pick('meta[property="og:site_name"]'),
+    videoUrl
   };
 })()`;
 
@@ -52,7 +63,8 @@ export async function probePageVideo(wc: WebContents): Promise<DetectedVideo | n
       duration: Number(data.duration) || 0,
       width: Number(data.width) || 0,
       height: Number(data.height) || 0,
-      author: String(data.author || '')
+      author: String(data.author || ''),
+      videoUrl: String(data.videoUrl || '')
     };
   } catch {
     return null;
@@ -78,6 +90,9 @@ function cleanTitle(value: string): string {
 /** 通用网页视频的 PageInfo：身份用页面 URL，字幕/转写走资料库。 */
 export function webVideoInfo(url: string, video: DetectedVideo | null): PageInfo {
   const title = cleanTitle(video?.ogTitle || video?.title || '') || '网页视频';
+  // 抖音用户页通过 modal_id 播放视频；身份与 yt-dlp 都需要 /video/<id>。
+  const canonical =
+    video?.videoUrl && /^https?:\/\//i.test(video.videoUrl) ? video.videoUrl : url;
   return {
     kind: 'web',
     bvid: null,
@@ -92,7 +107,7 @@ export function webVideoInfo(url: string, video: DetectedVideo | null): PageInfo
     owner: video?.author || '',
     desc: '',
     duration: Number(video?.duration) || 0,
-    url,
-    signature: `web:${url}`
+    url: canonical,
+    signature: `web:${canonical}`
   };
 }
