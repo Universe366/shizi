@@ -24,7 +24,7 @@ import {
   writeCookieFile,
   ytdlpDownloadAudio
 } from './ytdlpMedia';
-import { mediaUrlFor } from './mediaSniffer';
+import { mediaCandidatesFor } from './mediaSniffer';
 
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
@@ -828,9 +828,19 @@ export async function transcribe(
     try {
       cookieFile = await writeCookieFile(wc.session, dir);
       let audio = '';
-      let mediaUrl = info.mediaUrl || mediaUrlFor(wc.id) || '';
+      let candidates = mediaCandidatesFor(wc.id);
+      if (
+        info.mediaUrl &&
+        /^https?:/i.test(info.mediaUrl) &&
+        !candidates.some((item) => item.url === info.mediaUrl)
+      ) {
+        candidates = [
+          { url: info.mediaUrl, headers: {}, at: Date.now(), kind: 'audio' },
+          ...candidates
+        ];
+      }
       const isDouyin = /(^|\.)douyin\.com$/i.test(new URL(info.url).hostname);
-      if (!mediaUrl && isDouyin) {
+      if (!candidates.length && isDouyin) {
         // 用户可能刚点开视频：尝试让页面播放（不强制静音），并等音频请求出现。
         onProgress('download', 0, '等待视频音频加载…');
         await wc
@@ -839,33 +849,59 @@ export async function transcribe(
             true
           )
           .catch(() => undefined);
-        for (let attempt = 0; attempt < 16 && !mediaUrl; attempt += 1) {
+        for (let attempt = 0; attempt < 16 && !candidates.length; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 500));
-          mediaUrl = mediaUrlFor(wc.id);
+          candidates = mediaCandidatesFor(wc.id);
         }
       }
-      if (!mediaUrl && isDouyin) {
+      if (!candidates.length && isDouyin) {
         throw new Error(
           `没有捕获到这个抖音视频的音频请求（拾字 v${app.getVersion()}）。请先在页面里播放几秒，再点转写；如果已经播放过仍失败，请把这条错误发我。`
         );
       }
-      // 页面已经加载出的媒体直链（抖音 MSE 音频等）最稳，优先直接下载。
-      if (mediaUrl && /^https?:/i.test(mediaUrl)) {
-        try {
-          audio = await downloadMediaUrl(wc, mediaUrl, dir, info.url, {
-            signal,
-            onProgress: (percent, message) =>
-              onProgress('download', Math.min(95, percent), message)
-          });
-        } catch (error) {
-          if (isDouyin) {
-            throw new Error(
-              `音频下载失败（拾字 v${app.getVersion()}）：${(error as Error).message}。请稍后重试；如果持续失败，请把这条错误发我。`,
-              { cause: error }
-            );
+      // 依次尝试最近捕获的音频/视频直链；过期或某一条 403 时还能换下一条。
+      const mediaFailure: { error?: Error } = {};
+      const tried = new Set<string>();
+      const tryList = async (list: typeof candidates) => {
+        for (const candidate of list) {
+          if (tried.has(candidate.url)) continue;
+          tried.add(candidate.url);
+          try {
+            audio = await downloadMediaUrl(wc, candidate.url, dir, info.url, {
+              headers: candidate.headers,
+              signal,
+              onProgress: (percent, message) =>
+                onProgress('download', Math.min(95, percent), message)
+            });
+            if (audio) return;
+          } catch (error) {
+            mediaFailure.error = error as Error;
           }
-          console.warn('[asr] 直链下载失败，回退 yt-dlp:', (error as Error).message);
         }
+      };
+      await tryList(candidates.slice(0, 6));
+      if (!audio && isDouyin) {
+        // 地址可能已经过期：重新触发播放，等新的媒体请求后再试。
+        onProgress('download', 0, '重新捕获音频地址…');
+        await wc
+          .executeJavaScript(
+            "(() => { const v = document.querySelector('video'); if (!v) return false; v.play().catch(() => undefined); return true; })()",
+            true
+          )
+          .catch(() => undefined);
+        for (let attempt = 0; attempt < 16 && !audio; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          await tryList(mediaCandidatesFor(wc.id));
+        }
+      }
+      if (!audio && isDouyin) {
+        throw new Error(
+          `音频下载失败（拾字 v${app.getVersion()}）：${mediaFailure.error?.message || '没有可用音频地址'}。请稍后重试；如果持续失败，请把这条错误发我。`,
+          { cause: mediaFailure.error }
+        );
+      }
+      if (!audio) {
+        console.warn('[asr] 直链下载失败，回退 yt-dlp:', mediaFailure.error?.message);
       }
       if (!audio) {
         onProgress('download', 0, '提取音频…');

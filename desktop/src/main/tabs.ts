@@ -45,11 +45,14 @@ let mediaSnifferInstalled = false;
 function installMediaSniffer(): void {
   if (mediaSnifferInstalled) return;
   mediaSnifferInstalled = true;
-  session.defaultSession.webRequest.onBeforeRequest(
+  session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['*://*/*'], types: ['media', 'xhr', 'object'] },
     (details, callback) => {
-      if (details.webContentsId) noteMediaRequest(details.webContentsId, details.url);
-      callback({});
+      // 连原始请求头一起记下来：CDN 有时只认页面发出的 Referer/Cookie 组合。
+      if (details.webContentsId) {
+        noteMediaRequest(details.webContentsId, details.url, details.requestHeaders);
+      }
+      callback({ requestHeaders: details.requestHeaders });
     }
   );
 }

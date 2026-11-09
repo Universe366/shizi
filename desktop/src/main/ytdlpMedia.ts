@@ -76,47 +76,84 @@ export async function downloadMediaUrl(
   url: string,
   dir: string,
   referer: string,
-  options: { signal?: AbortSignal; onProgress?: (percent: number, message: string) => void } = {}
+  options: {
+    signal?: AbortSignal;
+    onProgress?: (percent: number, message: string) => void;
+    headers?: Record<string, string>;
+  } = {}
 ): Promise<string> {
-  const headers = { 'User-Agent': BROWSER_UA, Referer: referer, Accept: '*/*' };
-  const attempt = async (fetcher: () => Promise<Response>): Promise<Response | null> => {
+  const headers: Record<string, string> = { ...(options.headers || {}) };
+  const has = (name: string) =>
+    Object.keys(headers).some((key) => key.toLowerCase() === name);
+  // Range 会把文件截成一段；Cookie 由 session 自动带；Origin/Referer 等由 fetch 自行处理，
+  // 手动设置部分头会被 Chromium 拒绝，导致下载直接失败。
+  for (const key of Object.keys(headers)) {
+    const lower = key.toLowerCase();
+    if (lower === 'range' || lower === 'cookie' || lower === 'origin') delete headers[key];
+  }
+  if (!has('user-agent')) headers['User-Agent'] = BROWSER_UA;
+  if (!has('referer')) headers.Referer = referer;
+  if (!has('accept')) headers.Accept = '*/*';
+
+  const errors: string[] = [];
+  const attempt = async (
+    label: string,
+    fetcher: () => Promise<Response>
+  ): Promise<Response | null> => {
     try {
       const response = await fetcher();
-      return response.ok ? response : null;
-    } catch {
+      if (response.ok) return response;
+      errors.push(`${label} HTTP ${response.status}`);
+      return null;
+    } catch (error) {
+      errors.push(`${label} ${(error as Error).message.slice(0, 80)}`);
       return null;
     }
   };
   // 优先带标签页 Cookie；CDN 不认 Cookie 时再用无会话的 net.fetch。
   const response =
-    (await attempt(() => wc.session.fetch(url, { headers, signal: options.signal }))) ||
-    (await attempt(() => net.fetch(url, { headers, signal: options.signal })));
-  if (!response) throw new Error('媒体下载失败（网络或状态码异常）');
+    (await attempt('session', () =>
+      wc.session.fetch(url, { headers, signal: options.signal })
+    )) ||
+    (await attempt('net', () => net.fetch(url, { headers, signal: options.signal })));
+  if (!response) throw new Error(`媒体下载失败（${errors.join('；') || '网络异常'}）`);
   const total = Number(response.headers.get('content-length')) || 0;
-  const chunks: Buffer[] = [];
+  const file = path.join(dir, 'media.bin');
+  const sink = fs.createWriteStream(file);
   let received = 0;
-  const reader = response.body?.getReader();
-  if (!reader) {
-    chunks.push(Buffer.from(await response.arrayBuffer()));
-  } else {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      chunks.push(Buffer.from(value));
-      received += value.byteLength;
-      if (received > 400 * 1024 * 1024) throw new Error('媒体文件过大，已停止下载');
-      if (total > 0) {
-        options.onProgress?.(
-          Math.min(95, Math.round((received / total) * 95)),
-          '下载音频…'
-        );
+  try {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      received = buffer.byteLength;
+      sink.write(buffer);
+    } else {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        const chunk = Buffer.from(value);
+        if (!sink.write(chunk)) {
+          await new Promise<void>((resolve) => sink.once('drain', () => resolve()));
+        }
+        received += chunk.byteLength;
+        if (received > 400 * 1024 * 1024) throw new Error('媒体文件过大，已停止下载');
+        if (total > 0) {
+          options.onProgress?.(
+            Math.min(95, Math.round((received / total) * 95)),
+            '下载音频…'
+          );
+        }
       }
     }
+  } finally {
+    sink.end();
+    await new Promise<void>((resolve, reject) => {
+      sink.on('finish', () => resolve());
+      sink.on('error', reject);
+    });
   }
-  if (!chunks.length) throw new Error('媒体下载为空');
-  const file = path.join(dir, 'media.bin');
-  fs.writeFileSync(file, Buffer.concat(chunks));
+  if (!received) throw new Error('媒体下载为空');
   options.onProgress?.(100, '音频就绪，开始转写…');
   return file;
 }
