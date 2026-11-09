@@ -75,6 +75,10 @@ export const DEFAULT_PROMPT = DEFAULT_SUMMARY_PROMPT;
 export const LEGACY_DEFAULT_PROMPT =
   '整理这期视频的内容（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
 
+/** 0.162.26–0.162.35 的默认模板；同样自动升级。 */
+export const PREVIOUS_DEFAULT_PROMPT =
+  '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
+
 const DEFAULT_CHAT_PROMPT = `你是一个严谨的中文视频助手。请只依据提供的字幕回答用户的问题。
 - 字幕里没有的信息，明确说「字幕里没有提到」，不要编造。
 - 回答用 Markdown，先给结论，再给依据。
@@ -1256,7 +1260,11 @@ function normalize(input: unknown): AppSettings {
     }
     if (templates.length) {
       const defaultTemplate = templates.find((template) => template.id === 'default');
-      if (defaultTemplate && defaultTemplate.text.trim() === LEGACY_DEFAULT_PROMPT) {
+      if (
+        defaultTemplate &&
+        (defaultTemplate.text.trim() === LEGACY_DEFAULT_PROMPT ||
+          defaultTemplate.text.trim() === PREVIOUS_DEFAULT_PROMPT)
+      ) {
         defaultTemplate.text = DEFAULT_PROMPT;
       }
       if (defaultTemplate && /^你是一个严谨的中文视频笔记助手/.test(defaultTemplate.text.trim())) {

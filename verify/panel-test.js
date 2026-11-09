@@ -500,7 +500,7 @@ async function main() {
 
   check(
     '默认系统提示词与需求文档一字不差',
-    api.DEFAULT_SYSTEM_PROMPT === '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）',
+    api.DEFAULT_SYSTEM_PROMPT === '按顺序完整梳理整理这期视频的内容（不要为了整理而简洁以至于忽略了很多核心之外的内容），最后形成详细的笔记。（输出时可以用表格、代码块、高亮块、超链接、公式等markdown格式进行输出，适当添加一些图标增加可读性）',
     api.DEFAULT_SYSTEM_PROMPT
   );
   const masked = api.settingsLib.stripSecrets({ ai: { platforms: [{ id: 'p', apiKey: 'sk-1234567890abcd' }] }, asr: { platforms: [] }, search: { platforms: [] } });
@@ -1504,7 +1504,7 @@ async function main() {
     check('官方分段只作参考', /仅供参考/.test(rules) && !/必须沿用/.test(rules), '');
     check('旧的长格式规则已移除', !/管道表格/.test(rules) && !/速览/.test(rules), '');
     // 默认提示词就是用户指定的那一句
-    check('默认提示词是用户指定的原句', /按照字幕顺序整理这期视频的内容形成详实的笔记/.test(api.DEFAULT_SYSTEM_PROMPT), '');
+    check('默认提示词是用户指定的原句', /按顺序完整梳理整理这期视频的内容/.test(api.DEFAULT_SYSTEM_PROMPT), '');
   }
 
   // ---- 溢出菜单组件的行为 ----

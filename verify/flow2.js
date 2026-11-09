@@ -110,7 +110,7 @@ function makeSettings() {
     },
     prompt: {
       activeId: 'default',
-      templates: [{ id: 'default', name: '默认', text: '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）' }],
+      templates: [{ id: 'default', name: '默认', text: '按顺序完整梳理整理这期视频的内容（不要为了整理而简洁以至于忽略了很多核心之外的内容），最后形成详细的笔记。（输出时可以用表格、代码块、高亮块、超链接、公式等markdown格式进行输出，适当添加一些图标增加可读性）' }],
       chatPrefix: '只依据下面的字幕内容回答。'
     },
     optimize: { activeGroupId: 'g', groups: [{ id: 'g', name: 'g', rules: [] }], glossary: [], useSearch: false, searchMaxResults: 3 },

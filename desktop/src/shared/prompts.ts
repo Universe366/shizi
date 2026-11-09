@@ -2,7 +2,7 @@ import type { PromptTemplate } from './types';
 
 /** 默认总结提示词：桌面端设置页、主进程与插件默认值共用这一句。 */
 export const DEFAULT_SUMMARY_PROMPT =
-  '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
+  '按顺序完整梳理整理这期视频的内容（不要为了整理而简洁以至于忽略了很多核心之外的内容），最后形成详细的笔记。（输出时可以用表格、代码块、高亮块、超链接、公式等markdown格式进行输出，适当添加一些图标增加可读性）';
 
 /** 内置总结模板（设置页可直接恢复默认）。 */
 export const DEFAULT_SUMMARY_TEMPLATES: PromptTemplate[] = [

@@ -16,6 +16,7 @@ vi.mock('electron', () => ({
 import {
   DEFAULT_PROMPT,
   LEGACY_DEFAULT_PROMPT,
+  PREVIOUS_DEFAULT_PROMPT,
   isBuiltinSummaryFormatRules,
   loadSettings,
   saveSettings,
@@ -187,8 +188,23 @@ describe('设置的持久化字段', () => {
     );
     const loaded = loadSettings();
     expect(loaded.prompt.templates.find((t) => t.id === 'default')?.text).toBe(DEFAULT_PROMPT);
-    expect(DEFAULT_PROMPT.startsWith('按照字幕顺序')).toBe(true);
+    expect(DEFAULT_PROMPT.startsWith('按顺序完整梳理')).toBe(true);
     expect(loaded.prompt.templates.find((t) => t.id === 'custom')?.text).toBe('我的模板');
+  });
+
+  it('0.162.26–0.162.35 的默认模板升级为新默认', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        prompt: {
+          templates: [{ id: 'default', name: '默认（视频整理）', text: PREVIOUS_DEFAULT_PROMPT }],
+          activeId: 'default'
+        }
+      }),
+      'utf8'
+    );
+    const loaded = loadSettings();
+    expect(loaded.prompt.templates.find((t) => t.id === 'default')?.text).toBe(DEFAULT_PROMPT);
   });
 
   it('自定义的总结格式规则并入总结模板，不再单独保存', () => {
