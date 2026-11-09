@@ -831,12 +831,23 @@ export async function transcribe(
       let mediaUrl = info.mediaUrl || mediaUrlFor(wc.id) || '';
       const isDouyin = /(^|\.)douyin\.com$/i.test(new URL(info.url).hostname);
       if (!mediaUrl && isDouyin) {
-        // 用户可能刚点开视频：给页面一点时间发出音频请求。
+        // 用户可能刚点开视频：尝试让页面播放（不强制静音），并等音频请求出现。
         onProgress('download', 0, '等待视频音频加载…');
-        for (let attempt = 0; attempt < 10 && !mediaUrl; attempt += 1) {
+        await wc
+          .executeJavaScript(
+            "(() => { const v = document.querySelector('video'); if (!v) return false; v.play().catch(() => undefined); return true; })()",
+            true
+          )
+          .catch(() => undefined);
+        for (let attempt = 0; attempt < 16 && !mediaUrl; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 500));
           mediaUrl = mediaUrlFor(wc.id);
         }
+      }
+      if (!mediaUrl && isDouyin) {
+        throw new Error(
+          `没有捕获到这个抖音视频的音频请求（拾字 v${app.getVersion()}）。请先在页面里播放几秒，再点转写；如果已经播放过仍失败，请把这条错误发我。`
+        );
       }
       // 页面已经加载出的媒体直链（抖音 MSE 音频等）最稳，优先直接下载。
       if (mediaUrl && /^https?:/i.test(mediaUrl)) {
@@ -847,6 +858,12 @@ export async function transcribe(
               onProgress('download', Math.min(95, percent), message)
           });
         } catch (error) {
+          if (isDouyin) {
+            throw new Error(
+              `音频下载失败（拾字 v${app.getVersion()}）：${(error as Error).message}。请稍后重试；如果持续失败，请把这条错误发我。`,
+              { cause: error }
+            );
+          }
           console.warn('[asr] 直链下载失败，回退 yt-dlp:', (error as Error).message);
         }
       }
@@ -856,7 +873,7 @@ export async function transcribe(
           signal,
           onProgress: (percent, message) => onProgress('download', Math.min(95, percent), message)
         }).catch((error: Error) => {
-          if (/(^|\.)douyin\.com$/i.test(new URL(info.url).hostname)) {
+          if (isDouyin) {
             throw new Error(
               `${error.message}\n抖音需要先播放一下视频、等音频加载后再点转写；仍失败可能是登录/地区限制。`
             );
