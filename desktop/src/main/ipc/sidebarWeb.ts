@@ -33,6 +33,8 @@ export function registerSidebarWebIpc(ctx: IpcContext, manager: SidebarWebManage
 
   ipcMain.on('sidebar-web:deactivate', () => manager.deactivate());
 
+  ipcMain.on('sidebar-web:reload', () => manager.reloadActive());
+
   ipcMain.on('sidebar-web:bounds', (_event, rect: { x?: number; y?: number; width?: number; height?: number }) => {
     manager.setBounds({
       x: Number(rect?.x) || 0,

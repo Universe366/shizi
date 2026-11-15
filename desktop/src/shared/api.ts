@@ -219,6 +219,8 @@ export interface BsubApi {
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
   /** 离开侧栏网页：视图保留，开始休眠计时。 */
   sidebarWebDeactivate(): void;
+  /** 重新加载当前侧栏网页。 */
+  sidebarWebReload(): void;
   /** 侧栏网页视图的位置（窗口坐标）。 */
   sidebarWebBounds(rect: LayoutRect): void;
   /** 浮层/设置页出现时临时隐藏侧栏网页。 */

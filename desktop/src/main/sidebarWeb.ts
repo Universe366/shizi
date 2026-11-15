@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView, session } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, session } from 'electron';
 import type { Rectangle } from 'electron';
 import type { SidebarPage } from '../shared/types';
 
@@ -39,8 +39,8 @@ export class SidebarWebManager {
   private readonly ses = session.fromPartition(SIDEBAR_WEB_PARTITION);
 
   constructor(private readonly win: BrowserWindow) {
-    // 渲染进程刷新/崩溃时，原生视图不会自己消失；先藏起来，等页面重新激活。
-    win.webContents.on('did-start-loading', () => this.setVisible(false));
+    // 渲染进程刷新/崩溃时，原生视图不会自己消失；先离开并计时休眠，避免残留在最上层。
+    win.webContents.on('did-start-loading', () => this.deactivate());
     this.ses.setPermissionRequestHandler((_webContents, permission, callback) => {
       callback(ALLOWED_PERMISSIONS.has(permission));
     });
@@ -52,11 +52,15 @@ export class SidebarWebManager {
   /** 显示某个页面（必要时创建视图）。 */
   activate(page: SidebarPage): void {
     if (this.win.isDestroyed()) return;
-    this.visible = true;
+    // 不要在这里强行 visible=true：编辑弹窗打开时，浮层已经让视图让位，
+    // 强行显示会让原生网页盖住弹窗。可见性由浮层 hook / setVisible 控制。
+    // 先让上一个页面的视图离开，再做容量淘汰，避免淘汰到仍挂在窗口上的视图。
+    const previous = this.activeId ? this.entries.get(this.activeId) : null;
+    if (previous && previous.id !== page.id) this.detach(previous);
     const entry = this.ensureEntry(page);
     if (this.activeId && this.activeId !== entry.id) {
-      const previous = this.entries.get(this.activeId);
-      if (previous) this.detach(previous);
+      const old = this.entries.get(this.activeId);
+      if (old && old !== previous) this.detach(old);
     }
     entry.lastActive = Date.now();
     // 渲染层的 bounds 可能先于 activate 到达：用最近一次量到的位置，避免视图停在 0 尺寸。
@@ -88,6 +92,17 @@ export class SidebarWebManager {
     else this.detach(entry);
   }
 
+  /** 重新加载当前侧栏网页（卡住/登录跳转时用）。 */
+  reloadActive(): void {
+    if (!this.activeId) return;
+    const entry = this.entries.get(this.activeId);
+    try {
+      entry?.view.webContents.reload();
+    } catch {
+      // 视图正在销毁时忽略
+    }
+  }
+
   setBounds(rect: Rectangle): void {
     const bounds: Rectangle = {
       x: Math.max(0, Math.round(rect.x)),
@@ -95,22 +110,29 @@ export class SidebarWebManager {
       width: Math.max(0, Math.round(rect.width)),
       height: Math.max(0, Math.round(rect.height))
     };
-    if (bounds.width === 0 || bounds.height === 0) {
-      this.setVisible(false);
-      return;
-    }
+    // 0 尺寸（窗口最小化、布局过渡）不代表要隐藏；可见性只由 activate/浮层控制。
+    if (bounds.width === 0 || bounds.height === 0) return;
     this.lastBounds = bounds;
     if (!this.activeId) return;
     const entry = this.entries.get(this.activeId);
     if (!entry) return;
     entry.bounds = bounds;
-    if (entry.attached) entry.view.setBounds(bounds);
+    if (this.visible) this.attach(entry);
+    else if (entry.attached) entry.view.setBounds(bounds);
   }
 
+  /** 清登录态：保留视图重新加载，避免清完后侧栏空白。 */
   async clearData(): Promise<void> {
-    for (const id of [...this.entries.keys()]) this.destroy(id);
     await this.ses.clearStorageData();
     await this.ses.clearCache();
+    await this.ses.clearAuthCache().catch(() => undefined);
+    for (const entry of this.entries.values()) {
+      try {
+        entry.view.webContents.reload();
+      } catch {
+        // 视图正在销毁时忽略
+      }
+    }
   }
 
   dispose(): void {
@@ -147,7 +169,12 @@ export class SidebarWebManager {
           width: 520,
           height: 720,
           autoHideMenuBar: true,
-          webPreferences: { partition: SIDEBAR_WEB_PARTITION }
+          webPreferences: {
+            partition: SIDEBAR_WEB_PARTITION,
+            contextIsolation: true,
+            sandbox: true,
+            nodeIntegration: false
+          }
         }
       };
     });
@@ -156,6 +183,49 @@ export class SidebarWebManager {
     };
     wc.on('will-navigate', guard);
     wc.on('will-redirect', guard);
+    // 侧栏网页没有地址栏：补上 Alt+←/→ 后退前进、F5/Ctrl+R 刷新。
+    wc.on('context-menu', (_event, params) => {
+      const menu = Menu.buildFromTemplate([
+        {
+          label: '后退',
+          enabled: wc.navigationHistory.canGoBack(),
+          click: () => wc.navigationHistory.goBack()
+        },
+        {
+          label: '前进',
+          enabled: wc.navigationHistory.canGoForward(),
+          click: () => wc.navigationHistory.goForward()
+        },
+        { label: '重新加载', click: () => wc.reload() },
+        { type: 'separator' },
+        { role: 'copy', enabled: Boolean(params.selectionText) },
+        { role: 'paste', enabled: params.isEditable },
+        { role: 'selectAll' }
+      ]);
+      menu.popup({ window: this.win });
+    });
+    wc.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+      const key = String(input.key || '');
+      const modifier = input.control || input.meta;
+      if (key === 'F5' || (modifier && key.toLowerCase() === 'r')) {
+        event.preventDefault();
+        wc.reload();
+        return;
+      }
+      if (!input.alt) return;
+      if (key === 'Left' || key === 'ArrowLeft') {
+        event.preventDefault();
+        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+      } else if (key === 'Right' || key === 'ArrowRight') {
+        event.preventDefault();
+        if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+      }
+    });
+    // 侧栏网页里的视频全屏同样会触发窗口全屏；退出窗口全屏，保留标题栏。
+    wc.on('enter-html-full-screen', () => {
+      if (this.win.isFullScreen()) this.win.setFullScreen(false);
+    });
     void wc.loadURL(page.url).catch(() => undefined);
 
     const entry: SidebarWebEntry = {

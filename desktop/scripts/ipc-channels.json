@@ -247,6 +247,7 @@
   "sidebar-web:bounds",
   "sidebar-web:clear",
   "sidebar-web:deactivate",
+  "sidebar-web:reload",
   "sidebar-web:visible",
   "skills:import",
   "skills:import-folder",

@@ -300,8 +300,12 @@ export function Sidebar({
               <button
                 key={page.id}
                 className={`side-nav-item${section === id ? ' is-active' : ''}`}
-                title={`${page.title}\n${page.url}`}
+                title={`${page.title}\n${page.url}\n点击打开；再次点击重新加载`}
                 onClick={() => {
+                  if (section === id && !collapsed) {
+                    window.bsub.sidebarWebReload();
+                    return;
+                  }
                   if (collapsed) onToggleCollapse?.(false);
                   onSelect(id);
                 }}

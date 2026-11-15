@@ -16,14 +16,21 @@ export function SidebarWebStage({
 }) {
   // 给侧栏边缘的拖拽条留出命中区域：原生视图盖在上面时，DOM 的 6–10px 边缘拖不动。
   const EDGE_GUTTER = 10;
-  const { id, title, url } = page;
+  const { id, url } = page;
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const ref = useRef<HTMLDivElement>(null);
   const reportRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    void window.bsub.sidebarWebActivate({ id, title, url });
+    const current = pageRef.current;
+    void window.bsub.sidebarWebActivate({
+      id: current.id,
+      title: current.title,
+      url: current.url
+    });
     const report = () => {
       const rect = element.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
@@ -47,7 +54,7 @@ export function SidebarWebStage({
       window.removeEventListener('resize', report);
       window.bsub.sidebarWebDeactivate();
     };
-  }, [id, title, url, side]);
+  }, [id, url, side]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => reportRef.current());

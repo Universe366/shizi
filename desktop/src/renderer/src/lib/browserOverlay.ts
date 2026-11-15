@@ -15,6 +15,7 @@ export const OVERLAY_SELECTORS = [
   '.reader-overlay',
   '.palette-backdrop',
   '.export-popover',
+  '.task-drawer',
   '.address-suggest',
   '.address-engine-menu',
   '.tab-menu',

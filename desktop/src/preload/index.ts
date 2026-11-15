@@ -280,6 +280,7 @@ const api: BsubApi = {
   saveSidebarPages: (pages: SidebarPage[]) => ipcRenderer.invoke('sidebar-pages:save', pages),
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
+  sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),
   sidebarWebBounds: (rect: LayoutRect) => ipcRenderer.send('sidebar-web:bounds', rect),
   sidebarWebVisible: (visible: boolean) => ipcRenderer.send('sidebar-web:visible', visible),
   clearSidebarWebData: () => ipcRenderer.invoke('sidebar-web:clear'),

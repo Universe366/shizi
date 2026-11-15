@@ -737,6 +737,11 @@ button:disabled {
   background: var(--surface-2);
 }
 
+.sidebar-pages-row.is-editing {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .sidebar-pages-info {
   min-width: 0;
   flex: 1;
