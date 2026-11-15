@@ -22,6 +22,7 @@ function installBsub() {
       ok: true as const,
       data: { settings: { general: { searchEngine: 'bing' } }, version: '0.38.13' }
     })),
+    onSettingsChanged: vi.fn(() => () => undefined),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     navigate: vi.fn(async () => ({ ok: true as const, data: null })),
     back: vi.fn(),
@@ -85,6 +86,35 @@ describe('AddressBar', () => {
     expect(onSelectionAction).toHaveBeenCalledWith({ action: 'copy', text: expect.any(String) });
   });
 
+  it('聚焦全选时不再弹出划词工具条', () => {
+    render(<AddressBar {...props()} />);
+    const input = screen.getByDisplayValue('bilibili.com/video/BV1');
+    fireEvent.focus(input);
+    expect(document.querySelector('.address-selection-toolbar')).toBeNull();
+    // 聚焦只选中地址，不立刻弹建议、不让网页视图整块让位。
+    expect(document.querySelector('.address-suggest')).toBeNull();
+  });
+
+  it('搜索、书签、历史合并成一个建议面板', async () => {
+    render(<AddressBar {...props()} />);
+    const input = screen.getByDisplayValue('bilibili.com/video/BV1');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'example' } });
+    await screen.findByText(/书签文章/);
+    expect(document.querySelectorAll('.address-suggest')).toHaveLength(1);
+    expect(screen.getByText(/用必应搜索「example」/)).toBeTruthy();
+    expect(screen.getByText('★ 书签文章')).toBeTruthy();
+  });
+
+  it('可以一键清空地址栏', () => {
+    render(<AddressBar {...props()} />);
+    const input = screen.getByDisplayValue('bilibili.com/video/BV1') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.click(screen.getByTitle('清空地址栏'));
+    expect(input.value).toBe('');
+    expect(document.activeElement).toBe(input);
+  });
+
   it('展示紧凑 URL、缩放与书签状态', () => {
     render(<AddressBar {...props()} />);
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
@@ -115,6 +145,9 @@ describe('AddressBar', () => {
     expect(api.navigate).toHaveBeenCalledWith('BV1xx411c7mD');
 
     fireEvent.change(input, { target: { value: '临时输入' } });
+    // 第一次 Esc 只收起建议，第二次才放弃编辑并复原地址。
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.getByDisplayValue('临时输入')).toBeTruthy();
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
   });
@@ -163,12 +196,12 @@ describe('AddressBar', () => {
     render(<AddressBar {...props()} />);
     const input = screen.getByDisplayValue('bilibili.com/video/BV1');
     fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
 
-    const first = await screen.findByText('历史里的视频', undefined, { timeout: 2000 });
+    const first = await screen.findByText('历史文章', undefined, { timeout: 2000 });
     expect(api.listBrowseHistory).toHaveBeenCalled();
     expect(screen.getByText('历史文章')).toBeTruthy();
 
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(api.navigate).toHaveBeenCalledWith('https://www.bilibili.com/video/BV1');
     expect(first).toBeTruthy();

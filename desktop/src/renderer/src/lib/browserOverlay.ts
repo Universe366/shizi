@@ -18,6 +18,8 @@ export const OVERLAY_SELECTORS = [
   '.task-drawer',
   '.address-suggest',
   '.address-engine-menu',
+  '.address-selection-toolbar',
+  '.address-menu',
   '.tab-menu',
   '.tab-actions-menu',
   '.tab-group-menu',

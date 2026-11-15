@@ -152,6 +152,7 @@ export function SearchBar({
         onChange={(event) => onChange(event.target.value)}
         onFocus={onFocus}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) return;
           if (event.key === 'Enter') {
             event.preventDefault();
             jump();
