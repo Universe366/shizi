@@ -10817,6 +10817,19 @@ html[data-density='compact'] .chat-history-row {
   color: var(--accent);
 }
 
+.tab-filter-count {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--faint);
+  font-size: 10px;
+  display: grid;
+  place-items: center;
+}
+
 .tab-filter-clear {
   border: 0;
   background: transparent;
@@ -10898,6 +10911,8 @@ html[data-density='compact'] .chat-history-row {
 }
 
 .tab-actions-menu {
+  max-height: min(460px, calc(100vh - 80px));
+  overflow-y: auto;
   position: absolute;
   top: 30px;
   right: 0;
@@ -11014,9 +11029,53 @@ html[data-density='compact'] .chat-history-row {
 }
 
 .tab-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   padding: 12px 10px;
   color: var(--faint);
   font-size: var(--fs-xs);
+}
+
+.tab-empty-action {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+
+.tab-empty-action:hover {
+  background: var(--surface-2);
+}
+
+.tab-rail-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 2px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+}
+
+.tab-rail-actions button {
+  width: 36px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--faint);
+  background: transparent;
+}
+
+.tab-rail-actions button:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 
 .tab-menu-label {
@@ -11191,6 +11250,12 @@ body.is-resizing-tabs {
 /* 窄标签栏（160px 左右）不给标题留位置，避免把三个操作按钮挤出去 */
 .tab-strip.is-narrow .tab-vertical-title {
   display: none;
+}
+
+/* 窄栏里操作菜单改为向右展开，避免 left 超出窗口 */
+.tab-strip.is-narrow .tab-actions-menu {
+  right: auto;
+  left: 0;
 }
 
 /* 分组标签在列表里始终带一条颜色标识，收起分组后也能看出归属 */
@@ -15174,6 +15239,21 @@ sup:has(> .cite-ref) {
 /* 折叠态不显示关闭按钮；悬停展开后常驻显示在标签右侧 */
 .tab-strip.is-collapsed:not(.is-peeking) .tab-close {
   display: none;
+}
+
+/* 折叠轨道悬停时给一个关闭角标，不必先展开再关 */
+.tab-strip.is-collapsed:not(.is-peeking) .tab:hover .tab-close {
+  display: grid;
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  z-index: 2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .tab-strip.is-collapsed.is-peeking .tab {

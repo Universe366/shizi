@@ -144,13 +144,48 @@ describe('TabStrip', () => {
     expect(api.moveTabs).toHaveBeenCalledWith(['t1', 't3'], expect.any(Number));
   });
 
-  it('折叠轨道标签直接带关闭按钮，且不再显示无用的加号', () => {
+  it('折叠轨道保留新建/搜索入口，并可关闭标签', () => {
     localStorage.setItem('tabs.collapsed', '1');
     const api = installBsub();
-    const { container } = render(<TabStrip tabs={tabs} vertical />);
-    expect(screen.queryByTitle('新建标签页（Ctrl+T）')).toBeNull();
+    const onNewTab = vi.fn();
+    const { container } = render(<TabStrip tabs={tabs} vertical onNewTab={onNewTab} />);
+    fireEvent.click(screen.getByTitle('新建标签页（Ctrl+T）'));
+    expect(onNewTab).toHaveBeenCalled();
+    fireEvent.click(screen.getByTitle('搜索标签'));
+    expect(screen.getByPlaceholderText('搜索标签…')).toBeTruthy();
     fireEvent.click(container.querySelector('.tab-close') as HTMLElement);
     expect(api.closeTab).toHaveBeenCalled();
+  });
+
+  it('折叠轨道的“标签操作”展开后打开菜单', () => {
+    localStorage.setItem('tabs.collapsed', '1');
+    installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.click(screen.getByTitle('标签操作'));
+    expect(screen.getByText('关闭全部标签')).toBeTruthy();
+  });
+
+  it('分组命名框可以按 Esc 取消', () => {
+    installBsub();
+    render(<TabStrip tabs={tabs} vertical />);
+    fireEvent.contextMenu(screen.getByText('B 站首页'));
+    fireEvent.click(screen.getByText('新建分组…'));
+    expect(screen.getByPlaceholderText(/分组名称/)).toBeTruthy();
+    fireEvent.keyDown(screen.getByPlaceholderText(/分组名称/), { key: 'Escape' });
+    expect(screen.queryByPlaceholderText(/分组名称/)).toBeNull();
+  });
+
+  it('Ctrl+A 全选、空格切换、Shift+F10 打开标签菜单', () => {
+    const api = installBsub();
+    const { container } = render(<TabStrip tabs={tabs} vertical />);
+    const list = container.querySelector('.tab-strip-list') as HTMLElement;
+    fireEvent.keyDown(list, { key: 'a', ctrlKey: true });
+    expect(document.querySelectorAll('.tab.is-selected')).toHaveLength(tabs.length);
+    fireEvent.keyDown(list, { key: ' ' });
+    expect(document.querySelectorAll('.tab.is-selected')).toHaveLength(tabs.length - 1);
+    fireEvent.keyDown(list, { key: 'F10', shiftKey: true });
+    expect(document.querySelector('.tab-menu')).toBeTruthy();
+    expect(api).toBeTruthy();
   });
 
   it('纵向模式可以搜索过滤标签', () => {
@@ -160,6 +195,7 @@ describe('TabStrip', () => {
     fireEvent.change(input, { target: { value: '第三个' } });
     expect(screen.queryByText('B 站首页')).toBeNull();
     expect(screen.getByText('第三个')).toBeTruthy();
+    expect(document.querySelector('.tab-filter-count')?.textContent).toBe('1');
   });
 
   it('右键菜单可固定标签', () => {
