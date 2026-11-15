@@ -21,6 +21,7 @@ beforeEach(() => {
   localStorage.removeItem('start-bing-rotate');
   localStorage.removeItem('start-widget-collapsed');
   localStorage.removeItem('start-search-history');
+  localStorage.removeItem('start-notes');
   localStorage.setItem('start-onboarding-done', '1');
 });
 
@@ -163,6 +164,15 @@ describe('StartPage', () => {
     expect(p.onNavigate).toHaveBeenCalledWith('字幕工具');
   });
 
+  it('可以直接清除搜索历史', async () => {
+    installBsub();
+    localStorage.setItem('start-search-history', JSON.stringify(['旧搜索']));
+    render(<StartPage {...props()} />);
+    const clear = await screen.findByText('清除搜索历史');
+    fireEvent.click(clear);
+    expect(localStorage.getItem('start-search-history')).toBeNull();
+  });
+
   it('编辑模式可以隐藏天气小组件', async () => {
     const api = installBsub();
     render(<StartPage {...props()} />);
@@ -292,6 +302,27 @@ describe('StartPage v2', () => {
     const input = screen.getByPlaceholderText(/在 必应 搜索/) as HTMLInputElement;
     expect(input.value).toBe('b');
     expect(document.activeElement).toBe(input);
+  });
+
+  it('直接输入 e 是搜索，Ctrl+E 才切换编辑', () => {
+    installBsub();
+    render(<StartPage {...props()} />);
+    fireEvent.keyDown(document, { key: 'e' });
+    const input = screen.getByPlaceholderText(/在 必应 搜索/) as HTMLInputElement;
+    expect(input.value).toBe('e');
+    expect(screen.queryByText('完成')).toBeNull();
+    fireEvent.keyDown(document, { key: 'e', ctrlKey: true });
+    expect(screen.getByText('完成')).toBeTruthy();
+  });
+
+  it('关闭起始页时立即保存还在防抖里的便签', () => {
+    installBsub();
+    const { unmount } = render(<StartPage {...props()} />);
+    fireEvent.change(screen.getByLabelText('起始页便签'), {
+      target: { value: '最后一句话' }
+    });
+    unmount();
+    expect(localStorage.getItem('start-notes')).toBe('最后一句话');
   });
 
   it('搜索引擎菜单可用键盘导航和关闭', async () => {

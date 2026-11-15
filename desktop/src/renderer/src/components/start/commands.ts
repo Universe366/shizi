@@ -67,7 +67,7 @@ export function buildStartCommands(context: StartCommandContext): PaletteCommand
       id: 'edit',
       group: '操作',
       label: context.editMode ? '退出编辑' : '编辑快捷方式',
-      hint: 'E',
+      hint: 'Ctrl/⌘+E',
       icon: Pencil,
       run: context.toggleEdit
     },

@@ -15,7 +15,8 @@ import {
   Pin,
   Settings,
   Sparkles,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { parseReminder } from '../../../shared/reminder';
 import { searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
@@ -90,6 +91,7 @@ const GLASS_KEY = 'start-glass';
 const SIDEBAR_SIDE_KEY = 'start-sidebar-side';
 const GROUP_ORDER_KEY = 'start-group-order';
 const DOCK_AUTOHIDE_KEY = 'start-dock-autohide';
+const SIDEBAR_PINNED_KEY = 'start-sidebar-pinned';
 
 export interface StartPageProps {
   onNavigate: (input: string) => void;
@@ -257,7 +259,13 @@ export function StartPage({
   const [folderView, setFolderView] = useState<{ group: string; folder: string } | null>(null);
   const [extraGroups, setExtraGroups] = useState<string[]>(readExtraGroups);
   const [groupOrder, setGroupOrder] = useState<string[]>(readGroupOrder);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_PINNED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [dockEditing, setDockEditing] = useState(false);
   const [dockAutoHide, setDockAutoHide] = useState(() => {
     try {
@@ -361,18 +369,29 @@ export function StartPage({
       return false;
     }
   });
+  // 异步导入/自动补全完成时以 ref 为准，避免闭包里的旧列表覆盖用户刚做的修改。
+  const shortcutsRef = useRef<StartShortcut[]>([]);
+  shortcutsRef.current = shortcuts;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
   const importRef = useRef<HTMLInputElement>(null);
   const bookmarkRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const patchGeneral = async (patch: Record<string, unknown>) => {
-    const snapshot = await window.bsub.getSettings();
-    if (!snapshot.ok) return;
-    const settings = snapshot.data.settings;
-    Object.assign(settings.general, patch);
-    await window.bsub.saveSettings(settings);
+  // 设置写入串行化：多个 patch 同时发生时，后写的不会覆盖先写的。
+  const patchQueue = useRef<Promise<void>>(Promise.resolve());
+  const patchGeneral = (patch: Record<string, unknown>): Promise<void> => {
+    const run = patchQueue.current.then(async () => {
+      const snapshot = await window.bsub.getSettings();
+      if (!snapshot.ok) return;
+      const settings = snapshot.data.settings;
+      Object.assign(settings.general, patch);
+      await window.bsub.saveSettings(settings);
+    });
+    patchQueue.current = run.catch(() => undefined);
+    return run;
   };
 
   const showNotice = (text: string, undo?: () => void) => {
@@ -501,6 +520,18 @@ export function StartPage({
     return () => window.clearTimeout(timer);
   }, [notes]);
 
+  // 关闭起始页时把还在防抖窗口里的便签立即落盘，避免最后几个字丢失。
+  useEffect(
+    () => () => {
+      try {
+        localStorage.setItem(NOTES_KEY, notesRef.current);
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
   useEffect(
     () => () => {
       if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
@@ -604,58 +635,73 @@ export function StartPage({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
+      const key = event.key;
       const target = event.target as HTMLElement | null;
       const typing =
         Boolean(target) &&
         (/^(INPUT|TEXTAREA|SELECT)$/.test(target!.tagName) || target!.isContentEditable);
-      if (meta && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setPaletteOpen((value) => !value);
-        setSearchOpen(false);
-        return;
-      }
-      if (paletteOpen) return;
-      if (!typing && !meta && event.key === '/') {
-        event.preventDefault();
-        searchRef.current?.focus();
-        setSearchOpen(true);
-      }
-      if (!typing && !meta && event.key.toLowerCase() === 'e') {
-        event.preventDefault();
-        setEditMode((value) => !value);
-        setShortcutMenu(null);
-      }
-      if (!typing && !meta && event.key === '?') {
-        event.preventDefault();
-        setOnboarding(true);
-        return;
-      }
-      if (
-        !typing &&
-        !meta &&
-        !event.altKey &&
-        !event.isComposing &&
-        event.key.length === 1 &&
-        event.key !== '/' &&
-        event.key !== ' ' &&
-        event.key.toLowerCase() !== 'e' &&
-        !editMode &&
-        !paletteOpen &&
-        !wallpaperOpen &&
-        !shortcutMenu &&
-        !editing
-      ) {
-        event.preventDefault();
-        setQuery(event.key);
-        setSearchOpen(true);
-        searchRef.current?.focus();
-        return;
-      }
-      if (event.key === 'Escape') {
-        setWallpaperOpen(false);
-        setShortcutMenu(null);
-        setEditing(null);
-        setSearchOpen(false);
+      const modalOpen = Boolean(
+        editing ||
+          detail ||
+          folderView ||
+          batchOpen ||
+          groupDialogOpen ||
+          wallpaperOpen ||
+          paletteOpen ||
+          engineOpen
+      );
+
+      // Esc 按“最上层”依次关闭，最后才关闭起始页，符合桌面习惯。
+      if (key === 'Escape') {
+        // 引擎下拉自己有 Esc 处理，这里让位，避免关了又被 SearchBar 翻回来。
+        if (engineOpen) return;
+        if (paletteOpen) {
+          setPaletteOpen(false);
+          return;
+        }
+        if (editing) {
+          setEditing(null);
+          return;
+        }
+        if (detail) {
+          setDetail(null);
+          return;
+        }
+        if (folderView) {
+          setFolderView(null);
+          return;
+        }
+        if (batchOpen) {
+          setBatchOpen(false);
+          return;
+        }
+        if (groupDialogOpen) {
+          setGroupDialogOpen(false);
+          setGroupSeed(null);
+          return;
+        }
+        if (wallpaperOpen) {
+          setWallpaperOpen(false);
+          return;
+        }
+        if (shortcutMenu) {
+          setShortcutMenu(null);
+          return;
+        }
+        if (onboarding) {
+          setOnboarding(false);
+          try {
+            localStorage.setItem('start-onboarding-done', '1');
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        if (editMode) {
+          setEditMode(false);
+          setSelectedShortcuts([]);
+          return;
+        }
         if (minimal) {
           setMinimal(false);
           try {
@@ -663,12 +709,78 @@ export function StartPage({
           } catch {
             // ignore
           }
+          return;
         }
+        if (searchOpen) {
+          setSearchOpen(false);
+          setSearchActive(-1);
+          setQuery('');
+          return;
+        }
+        onClose();
+        return;
+      }
+
+      if (modalOpen) return;
+
+      if (meta && key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
+        setSearchOpen(false);
+        return;
+      }
+      // 编辑模式用 Ctrl/⌘+E 或 F2，避免和“直接输入字母开始搜索”冲突。
+      if ((meta && key.toLowerCase() === 'e') || key === 'F2') {
+        event.preventDefault();
+        setEditMode((value) => !value);
+        setShortcutMenu(null);
+        return;
+      }
+      if (typing) return;
+      if (!meta && key === '/') {
+        event.preventDefault();
+        searchRef.current?.focus();
+        setSearchOpen(true);
+        return;
+      }
+      if (!meta && key === '?') {
+        event.preventDefault();
+        setOnboarding(true);
+        return;
+      }
+      if (
+        !meta &&
+        !event.altKey &&
+        !event.isComposing &&
+        key.length === 1 &&
+        key !== '/' &&
+        key !== ' ' &&
+        !editMode
+      ) {
+        event.preventDefault();
+        setQuery(key);
+        setSearchOpen(true);
+        searchRef.current?.focus();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [paletteOpen, minimal, editMode, wallpaperOpen, shortcutMenu, editing]);
+  }, [
+    batchOpen,
+    detail,
+    editMode,
+    editing,
+    engineOpen,
+    folderView,
+    groupDialogOpen,
+    minimal,
+    onboarding,
+    paletteOpen,
+    searchOpen,
+    shortcutMenu,
+    wallpaperOpen,
+    onClose
+  ]);
 
   const engineLabel = searchEngineLabel(engine);
 
@@ -887,6 +999,7 @@ export function StartPage({
     extra?: Record<string, unknown>
   ) => {
     setShortcuts(next);
+    shortcutsRef.current = next;
     writeShortcutBackup(next);
     setShortcutBackup(next);
     await patchGeneral({ startShortcuts: next, ...extra });
@@ -897,9 +1010,26 @@ export function StartPage({
     const label = editing.label.trim();
     const group = editing.group.trim() || '常用';
     let url = editing.url.trim();
-    if (!label || !url) return;
+    if (!label || !url) {
+      showNotice('请填写名称和网址');
+      return;
+    }
+    if (/^(javascript|data|file|ftp|mailto|blob|chrome|edge|about):/i.test(url)) {
+      showNotice('只支持 http/https 网址');
+      return;
+    }
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-    if (!/^https?:\/\/[^\s]+$/i.test(url)) return;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        showNotice('只支持 http/https 网址');
+        return;
+      }
+      // 保留用户输入的写法（不强行补结尾斜杠），只借 URL 做合法性校验。
+    } catch {
+      showNotice('网址格式不对');
+      return;
+    }
     const id = editing.id || `s-${Date.now().toString(36)}`;
     const desc = String(editing.desc || '').trim().slice(0, 120);
     const tags = normalizeTags(editing.tagsText || '');
@@ -911,7 +1041,15 @@ export function StartPage({
       ...(tags.length ? { tags } : {})
     };
     const next = editing.id
-      ? shortcuts.map((item) => (item.id === editing.id ? { ...item, ...patch } : item))
+      ? shortcuts.map((item) =>
+          item.id === editing.id
+            ? {
+                ...item,
+                ...patch,
+                ...((item.group || '常用') !== group ? { folder: undefined } : {})
+              }
+            : item
+        )
       : [...shortcuts, { id, ...patch }];
     setEditing(null);
     void persistShortcuts(next);
@@ -936,11 +1074,10 @@ export function StartPage({
 
   const frequent = useMemo(() => topUsed(shortcuts, usage, 8), [shortcuts, usage]);
   const dockShortcuts = useMemo(() => {
-    if (dockIds.length) {
-      return dockIds
-        .map((id) => shortcuts.find((item) => item.id === id))
-        .filter((item): item is StartShortcut => Boolean(item));
-    }
+    const explicit = dockIds
+      .map((id) => shortcuts.find((item) => item.id === id))
+      .filter((item): item is StartShortcut => Boolean(item));
+    if (explicit.length) return explicit;
     return frequent.length ? frequent : shortcuts.slice(0, 6);
   }, [dockIds, shortcuts, frequent]);
   const dockCandidates = useMemo(() => {
@@ -985,7 +1122,10 @@ export function StartPage({
     const toIndex = targetId ? shortcuts.findIndex((item) => item.id === targetId) : -1;
     const next = [...shortcuts];
     const [moved] = next.splice(fromIndex, 1);
+    const changingGroup = (moved.group || '常用') !== group;
     moved.group = group;
+    // 换组时不保留旧组里的文件夹归属，否则会“消失”在目标组的同名文件夹里。
+    if (changingGroup) moved.folder = undefined;
     if (toIndex >= 0) {
       const targetIndex = next.findIndex((item) => item.id === targetId);
       // 向后拖时插到目标之后，避免「拖到下一张却回到原位」。
@@ -1010,6 +1150,16 @@ export function StartPage({
     setDockIds(next);
     void patchGeneral({ startDockIds: next });
     showNotice('已从 Dock 移除');
+  };
+
+  const toggleSidebarPinned = () => {
+    const next = !sidebarPinned;
+    setSidebarPinned(next);
+    try {
+      localStorage.setItem(SIDEBAR_PINNED_KEY, next ? '1' : '0');
+    } catch {
+      // ignore
+    }
   };
 
   const changeDockAutoHide = (value: boolean) => {
@@ -1104,7 +1254,9 @@ export function StartPage({
     saveGroupOrder([...groups.map(([group]) => group), trimmed]);
     if (seed) {
       void persistShortcuts(
-        shortcuts.map((item) => (item.id === seed ? { ...item, group: trimmed } : item))
+        shortcuts.map((item) =>
+          item.id === seed ? { ...item, group: trimmed, folder: undefined } : item
+        )
       );
     }
     setActiveGroup(trimmed);
@@ -1152,7 +1304,9 @@ export function StartPage({
   const batchMoveShortcuts = (group: string) => {
     const ids = new Set(selectedShortcuts);
     if (!ids.size) return;
-    const next = shortcuts.map((item) => (ids.has(item.id) ? { ...item, group } : item));
+    const next = shortcuts.map((item) =>
+      ids.has(item.id) ? { ...item, group, folder: undefined } : item
+    );
     setSelectedShortcuts([]);
     void persistShortcuts(next);
     showNotice(`已移动 ${ids.size} 个到「${group}」`);
@@ -1189,7 +1343,12 @@ export function StartPage({
         8
       );
       if (result.filled) showNotice(`已自动补全 ${result.filled} 个站点`);
-      void persistShortcuts([...shortcuts, ...result.items]);
+      const latest = shortcutsRef.current;
+      const known = new Set(latest.map((item) => item.id));
+      void persistShortcuts([
+        ...latest,
+        ...result.items.filter((item) => !known.has(item.id))
+      ]);
     })();
   };
 
@@ -1257,6 +1416,9 @@ export function StartPage({
     });
     if (!ok) return;
     if (activeGroup === group) setActiveGroup('全部');
+    // 分组删掉后也要从“已创建分组/排序”里移除，否则空分组会重新出现。
+    saveExtraGroups(extraGroups.filter((item) => item !== group));
+    saveGroupOrder(groupOrder.filter((item) => item !== group));
     void persistShortcuts(
       shortcuts.map((item) => ((item.group || '常用') === group ? { ...item, group: '常用' } : item))
     );
@@ -1470,21 +1632,33 @@ export function StartPage({
   };
 
   const syncStartToFolder = async () => {
-    const result = await window.bsub.startSync?.('push', buildBackup());
-    if (result?.ok) showNotice(`已同步到 ${result.data.path || '同步文件夹'}`);
-    else showNotice(result?.error || '同步失败');
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await window.bsub.startSync?.('push', buildBackup());
+      if (result?.ok) showNotice(`已同步到 ${result.data.path || '同步文件夹'}`);
+      else showNotice(result?.error || '同步失败');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const syncStartFromFolder = async () => {
-    const result = await window.bsub.startSync?.('pull');
-    if (!result?.ok) {
-      showNotice(result?.error || '同步失败');
-      return;
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await window.bsub.startSync?.('pull');
+      if (!result?.ok) {
+        showNotice(result?.error || '同步失败');
+        return;
+      }
+      const file = new File([JSON.stringify(result.data.data)], 'shizi-start.json', {
+        type: 'application/json'
+      });
+      await importStart(file);
+    } finally {
+      setBusy(false);
     }
-    const file = new File([JSON.stringify(result.data.data)], 'shizi-start.json', {
-      type: 'application/json'
-    });
-    await importStart(file);
   };
 
   const backupGetter = useRef(buildBackup);
@@ -1528,7 +1702,7 @@ export function StartPage({
       confirmText: '合并导入'
     });
     if (!ok) return;
-    void persistShortcuts(mergeShortcuts(shortcuts, parsed.shortcuts));
+    void persistShortcuts(mergeShortcuts(shortcutsRef.current, parsed.shortcuts));
     showNotice(`已导入 ${parsed.shortcuts.length} 个书签`);
   };
 
@@ -1552,7 +1726,7 @@ export function StartPage({
       confirmText: '合并导入'
     });
     if (!ok) return;
-    void persistShortcuts(mergeShortcuts(shortcuts, incoming));
+    void persistShortcuts(mergeShortcuts(shortcutsRef.current, incoming));
 
     const prefs = parsed.data.prefs;
     if (prefs.wallpaper && WALLPAPERS.some((item) => item.id === prefs.wallpaper)) {
@@ -1741,7 +1915,7 @@ export function StartPage({
           <button
             className={`start-ghost-btn${sidebarPinned ? ' is-active' : ''}`}
             title={sidebarPinned ? '收起分组栏' : '固定分组栏'}
-            onClick={() => setSidebarPinned((value) => !value)}
+            onClick={toggleSidebarPinned}
           >
             <PanelLeft size={14} />
           </button>
@@ -1774,6 +1948,9 @@ export function StartPage({
             onClick={() => setWallpaperOpen(true)}
           >
             <Palette size={15} />
+          </button>
+          <button className="start-icon-btn" title="关闭起始页（Esc）" onClick={onClose}>
+            <X size={15} />
           </button>
         </div>
       </header>
@@ -1849,6 +2026,7 @@ export function StartPage({
                 onClose();
               }
             }}
+            onClearHistory={searchHistory.length ? clearSearchHistory : undefined}
           />
 
           {!minimal && (
@@ -2134,17 +2312,28 @@ export function StartPage({
         onClose={() => setWallpaperOpen(false)}
       />
 
-      {onboarding && (
+      {onboarding && !minimal && (
         <aside className="start-onboarding" aria-label="起始页提示">
+          <button
+            className="start-onboarding-close"
+            title="关闭提示"
+            onClick={dismissOnboarding}
+          >
+            <X size={13} />
+          </button>
           <div className="start-onboarding-title">起始页快捷操作</div>
           <ul>
+            <li>直接输入任意字符，自动聚焦搜索</li>
             <li>
               <kbd>Ctrl/⌘ + K</kbd> 打开指令面板
             </li>
             <li>
-              <kbd>E</kbd> 进入编辑模式
+              <kbd>Ctrl/⌘ + E</kbd> 或 <kbd>F2</kbd> 进入编辑模式
             </li>
-            <li>右键卡片查看更多操作</li>
+            <li>右键卡片更多操作；拖动排序或换组</li>
+            <li>
+              <kbd>Esc</kbd> 关闭弹层 / 退出禅模式
+            </li>
           </ul>
           <button className="start-onboarding-go" onClick={dismissOnboarding}>
             开始使用

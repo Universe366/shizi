@@ -109,6 +109,12 @@ export function Sidebar({
     []
   );
 
+  useEffect(() => {
+    const open = () => setTaskOpen(true);
+    window.addEventListener('shizi:open-tasks', open);
+    return () => window.removeEventListener('shizi:open-tasks', open);
+  }, []);
+
   const activeJobCount = jobs.filter(
     (job) => job.status === 'running' || job.status === 'paused'
   ).length;

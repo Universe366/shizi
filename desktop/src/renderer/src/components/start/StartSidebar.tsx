@@ -127,7 +127,8 @@ export function StartSidebar({
             event.preventDefault();
             const id = event.dataTransfer.getData('text/plain');
             setDropGroup(null);
-            if (id) onNewGroupFrom(id);
+            // 拖分组到「新分组」没有意义，只有快捷方式才用它建组。
+            if (id && !id.startsWith('group:')) onNewGroupFrom(id);
           }}
         >
           <FolderPlus size={12} /> 新分组

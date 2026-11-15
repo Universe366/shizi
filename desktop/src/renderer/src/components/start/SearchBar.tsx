@@ -29,6 +29,7 @@ interface SearchBarProps {
   onActive: (index: number) => void;
   onHover: (index: number) => void;
   onEscape: () => void;
+  onClearHistory?: () => void;
 }
 
 function SuggestionIcon({ kind }: { kind: Suggestion['kind'] }) {
@@ -57,7 +58,8 @@ export function SearchBar({
   onSubmit,
   onActive,
   onHover,
-  onEscape
+  onEscape,
+  onClearHistory
 }: SearchBarProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<HTMLButtonElement>(null);
@@ -200,6 +202,15 @@ export function SearchBar({
               </span>
             </button>
           ))}
+          {onClearHistory && !query.trim() && (
+            <button
+              className="start-suggest-clear"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onClearHistory}
+            >
+              清除搜索历史
+            </button>
+          )}
         </div>
       )}
     </div>

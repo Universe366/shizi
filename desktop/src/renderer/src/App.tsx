@@ -835,7 +835,8 @@ export default function App() {
               }}
               onOpenTasks={() => {
                 setStartOpen(false);
-                setHub('tabs');
+                setHub(null);
+                window.dispatchEvent(new Event('shizi:open-tasks'));
               }}
               onOpenSettings={() => {
                 setStartOpen(false);
