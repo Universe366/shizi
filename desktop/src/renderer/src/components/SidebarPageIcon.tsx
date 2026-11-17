@@ -93,7 +93,7 @@ export function SidebarPageIcon({ page }: { page: SidebarPage }) {
     if (cached) return 'cached';
     return 'direct';
   });
-  const [probeStarted, setProbeStarted] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState('');
 
   useEffect(() => {
     const nextOrigin = originOf(page.url);
@@ -102,12 +102,10 @@ export function SidebarPageIcon({ page }: { page: SidebarPage }) {
     setMode(
       !nextOrigin ? 'fallback' : nextCached === '' ? 'fallback' : nextCached ? 'cached' : 'direct'
     );
-    setProbeStarted(false);
   }, [page.url]);
 
   useEffect(() => {
-    if (mode !== 'probe' || probeStarted) return;
-    setProbeStarted(true);
+    if (mode !== 'probe') return;
     let alive = true;
     void probeIcon(page, origin).then((icon) => {
       if (!alive) return;
@@ -121,7 +119,7 @@ export function SidebarPageIcon({ page }: { page: SidebarPage }) {
     return () => {
       alive = false;
     };
-  }, [mode, origin, page, probeStarted]);
+  }, [mode, origin, page]);
 
   const fail = () => {
     if (mode === 'direct') {
@@ -132,17 +130,25 @@ export function SidebarPageIcon({ page }: { page: SidebarPage }) {
   };
 
   const text = fallbackText(page.title);
+  const loaded = Boolean(src) && loadedSrc === src;
   return (
     <span className="side-nav-icon-wrap">
-      {/* 首字垫底：图标加载慢或失败时也有可点击的稳定尺寸，不会闪空。 */}
-      <span className={`side-nav-letter${text.length > 1 ? ' is-long' : ''}`}>{text}</span>
-      {mode !== 'fallback' && src && (
+      {/* 首字只在图标加载完成前垫底；透明 favicon 加载后必须隐藏，否则会叠出两层。 */}
+      <span
+        className={`side-nav-letter${text.length > 1 ? ' is-long' : ''}${
+          loaded && mode !== 'fallback' ? ' is-hidden' : ''
+        }`}
+      >
+        {text}
+      </span>
+      {(mode === 'direct' || mode === 'cached') && src && (
         <img
           className="side-nav-favicon"
           src={src}
           alt=""
           draggable={false}
           decoding="async"
+          onLoad={() => setLoadedSrc(src)}
           onError={fail}
         />
       )}

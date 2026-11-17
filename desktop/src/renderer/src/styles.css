@@ -702,6 +702,10 @@ button:disabled {
   font-size: 9px;
 }
 
+.side-nav-web .side-nav-letter.is-hidden {
+  visibility: hidden;
+}
+
 /* 添加按钮固定在行尾，不用横向滚到最右才能添加网页。 */
 .side-nav-web .side-nav-add {
   position: sticky;
