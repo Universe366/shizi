@@ -50,7 +50,10 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
     }
   };
   const ctx: IpcContext = { win, send, tabs, aiControllers };
-  const sidebarWeb = new SidebarWebManager(win);
+  const sidebarWeb = new SidebarWebManager(win, (url) => {
+    // 侧栏网页的 target=_blank / window.open 回到主窗口标签页，不再弹独立小窗。
+    void tabs.create(url);
+  });
   win.on('closed', () => sidebarWeb.dispose());
   registerSidebarWebIpc(ctx, sidebarWeb);
   registerLocalVideoIpc(ctx);
@@ -89,7 +92,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
 
   registerConvertIpc();
 
-  registerStartIpc();
+  registerStartIpc(ctx);
 
   registerSyncIpc(ctx);
 

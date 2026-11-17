@@ -1,8 +1,10 @@
 import { ipcMain } from 'electron';
 import { probeSiteMeta } from '../startMeta';
-import { loadSettings } from '../settings';
+import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
 import { pullStartData, pushStartData, startSyncStatus } from '../startSync';
 import { failure } from './shared';
+import type { IpcContext } from './shared';
+import type { StartShortcut } from '../../shared/types';
 
 /** 起始页小组件：天气（Open-Meteo，免 key）与 B 站热搜，都带内存缓存。 */
 
@@ -263,7 +265,7 @@ async function fetchHot(): Promise<string[]> {
     .slice(0, 12);
 }
 
-export function registerStartIpc(): void {
+export function registerStartIpc(ctx: IpcContext): void {
   ipcMain.handle('start:weather', async (_event, rawCity: unknown, force?: unknown) => {
     const city = String(rawCity || '上海').trim().slice(0, 20) || '上海';
     const now = Date.now();
@@ -416,6 +418,40 @@ export function registerStartIpc(): void {
       return { ok: true, data: meta };
     } catch (error) {
       return failure(`站点信息获取失败：${(error as Error).message}`);
+    }
+  });
+
+  /** 顶部地址栏收藏按钮：把当前页加入起始页快捷方式，按 URL 去重。 */
+  ipcMain.handle('start:add-shortcut', (_event, input: unknown) => {
+    try {
+      const raw = (input || {}) as { url?: unknown; title?: unknown };
+      let url: URL;
+      try {
+        url = new URL(String(raw.url || '').trim());
+      } catch {
+        return failure('网址格式不对');
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return failure('只支持 http/https 网址');
+      }
+      const target = url.toString();
+      const settings = loadSettings();
+      const shortcuts = Array.isArray(settings.general.startShortcuts)
+        ? settings.general.startShortcuts
+        : [];
+      const existing = shortcuts.find((item) => item.url === target);
+      if (existing) return { ok: true, data: { id: existing.id, added: false } };
+      const id = `s-${Date.now().toString(36)}`;
+      const label =
+        String(raw.title || '').trim().slice(0, 20) ||
+        url.hostname.replace(/^www\./i, '').slice(0, 20);
+      const shortcut: StartShortcut = { id, label, url: target, group: '常用' };
+      settings.general.startShortcuts = [...shortcuts, shortcut];
+      saveSettings(settings);
+      ctx.send('settings:changed', settingsSnapshot());
+      return { ok: true, data: { id, added: true } };
+    } catch (error) {
+      return failure(error);
     }
   });
 

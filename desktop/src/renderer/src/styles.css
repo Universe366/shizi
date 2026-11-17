@@ -706,6 +706,26 @@ button:disabled {
   visibility: hidden;
 }
 
+.side-nav-web .side-nav-item.is-dragging {
+  opacity: 0.45;
+}
+
+.side-nav-web .side-nav-item.is-drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.side-nav-web .side-nav-item.is-drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
+.side-nav-web.is-collapsed .side-nav-item.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.side-nav-web.is-collapsed .side-nav-item.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 /* 添加按钮固定在行尾，不用横向滚到最右才能添加网页。 */
 .side-nav-web .side-nav-add {
   position: sticky;

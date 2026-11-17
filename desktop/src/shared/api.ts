@@ -215,6 +215,11 @@ export interface BsubApi {
   /** 选择本地视频并在浏览器区域打开播放（自动入库）。 */
   openLocalVideo(path?: string): Promise<Result<{ tabId: string; title: string } | null>>;
   saveSidebarPages(pages: SidebarPage[]): Promise<Result<SidebarPage[]>>;
+  /** 把当前网页直接加入侧栏（去重、带上限）。 */
+  addSidebarPage(input: {
+    title?: string;
+    url: string;
+  }): Promise<Result<{ page: SidebarPage; added: boolean }>>;
   /** 激活某个侧栏网页（必要时创建视图并加载）。 */
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
   /** 离开侧栏网页：视图保留，开始休眠计时。 */
@@ -553,6 +558,11 @@ export interface BsubApi {
   pickDownloadDir(): Promise<Result<string | null>>;
   /** 起始页：抓取站点标题/描述/图标 */
   startProbeSite(url: string): Promise<Result<SiteMeta>>;
+  /** 把当前网页一键收藏为起始页快捷方式（按 URL 去重）。 */
+  startAddShortcut(input: {
+    url: string;
+    title?: string;
+  }): Promise<Result<{ id: string; added: boolean }>>;
   /** 云同步：选择文件夹 */
   chooseSyncFolder(): Promise<Result<string | null>>;
   syncStatus(folder: string): Promise<

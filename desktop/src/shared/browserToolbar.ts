@@ -7,6 +7,7 @@ export const DEFAULT_BROWSER_TOOLBAR: BrowserToolbarSettings = {
   engine: true,
   speed: true,
   bookmark: true,
+  startFavorite: true,
   library: true,
   home: true,
   settings: true,

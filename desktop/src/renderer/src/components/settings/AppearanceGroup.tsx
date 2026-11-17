@@ -273,6 +273,7 @@ export function AppearanceGroup({ value, onChange }: Props) {
           ['engine', '搜索引擎切换'],
           ['speed', '播放倍速'],
           ['bookmark', '收藏'],
+          ['startFavorite', '收藏到起始页'],
           ['library', '工作台'],
           ['home', '起始页'],
           ['settings', '设置'],

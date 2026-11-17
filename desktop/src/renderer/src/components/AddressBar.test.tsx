@@ -23,6 +23,11 @@ function installBsub() {
       data: { settings: { general: { searchEngine: 'bing' } }, version: '0.38.13' }
     })),
     onSettingsChanged: vi.fn(() => () => undefined),
+    startAddShortcut: vi.fn(async () => ({ ok: true as const, data: { id: 's1', added: true } })),
+    addSidebarPage: vi.fn(async () => ({
+      ok: true as const,
+      data: { page: { id: 'p1', title: 'x', url: 'https://x/' }, added: true }
+    })),
     saveSettings: vi.fn(async (next: unknown) => ({ ok: true as const, data: { settings: next } })),
     navigate: vi.fn(async () => ({ ok: true as const, data: null })),
     back: vi.fn(),
@@ -177,6 +182,19 @@ describe('AddressBar', () => {
     expect(p.onOpenSettings).toHaveBeenCalled();
   });
 
+  it('顶部按钮把当前页收藏为起始页网址', async () => {
+    const api = installBsub();
+    render(<AddressBar {...props()} />);
+    fireEvent.click(screen.getByTitle('收藏到起始页'));
+    await vi.waitFor(() =>
+      expect(api.startAddShortcut).toHaveBeenCalledWith({
+        url: 'https://www.bilibili.com/video/BV1',
+        title: '视频页'
+      })
+    );
+    await vi.waitFor(() => expect(screen.getByTitle('已收藏到起始页')).toBeTruthy());
+  });
+
   it('倍速按钮展示当前倍速并打开页内面板', () => {
     const api = installBsub();
     render(<AddressBar {...props({ tab: { ...tab, playbackRate: 1.5 } })} />);
@@ -252,6 +270,7 @@ describe('AddressBar 原生菜单', () => {
           engine: false,
           speed: false,
           bookmark: false,
+          startFavorite: false,
           library: false,
           home: false,
           settings: false,
@@ -264,6 +283,7 @@ describe('AddressBar 原生菜单', () => {
       '前进',
       '刷新',
       '切换搜索引擎',
+      '收藏到起始页',
       '工作台：资料库 / 成片',
       '起始页',
       '设置',

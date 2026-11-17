@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowRight, Globe, Home, Library, MoreHorizontal, RotateCw, Settings, Star, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Globe,
+  Home,
+  Library,
+  MoreHorizontal,
+  RotateCw,
+  Settings,
+  Star,
+  StarPlus,
+  X
+} from 'lucide-react';
 import type { Bookmark as BookmarkItem, BrowserToolbarSettings, HistoryEntry, TabInfo } from '../../../shared/types';
 import { DEFAULT_BROWSER_TOOLBAR } from '../../../shared/browserToolbar';
 import { SEARCH_ENGINES, searchEngineLabel, type SearchEngineId } from '../../../shared/searchEngines';
@@ -55,6 +67,8 @@ export function AddressBar({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [startSaved, setStartSaved] = useState(false);
+  const startTimer = useRef<number | null>(null);
   const [engine, setEngine] = useState<SearchEngineId>('bing');
   const [engineOpen, setEngineOpen] = useState(false);
   const engineRef = useRef<HTMLDivElement>(null);
@@ -315,6 +329,30 @@ export function AddressBar({
     go(text);
   };
 
+  const saveToStart = async () => {
+    if (!tab?.url || !/^https?:/i.test(tab.url)) return;
+    const response = await window.bsub.startAddShortcut({
+      url: canonicalUrl(tab.url),
+      title: tab.title
+    });
+    if (!response.ok) return;
+    setStartSaved(true);
+    if (startTimer.current) window.clearTimeout(startTimer.current);
+    startTimer.current = window.setTimeout(() => setStartSaved(false), 1600);
+  };
+
+  const addToSidebar = async () => {
+    if (!tab?.url || !/^https?:/i.test(tab.url)) return;
+    await window.bsub.addSidebarPage({ url: canonicalUrl(tab.url), title: tab.title });
+  };
+
+  useEffect(
+    () => () => {
+      if (startTimer.current) window.clearTimeout(startTimer.current);
+    },
+    []
+  );
+
   const runMenuChoice = (choice: string | null) => {
     if (!choice) return;
     if (choice === 'history') onOpenHub('history');
@@ -327,6 +365,8 @@ export function AddressBar({
     else if (choice === 'zoom') void window.bsub.zoomReset();
     else if (choice === 'copy') void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? ''));
     else if (choice === 'paste') void pasteAndGo();
+    else if (choice === 'sidebar-add') void addToSidebar();
+    else if (choice === 'start-add') void saveToStart();
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
     else if (choice === 'start') onOpenStart();
   };
@@ -346,6 +386,8 @@ export function AddressBar({
       { type: 'separator' },
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },
       { id: 'paste', label: '粘贴并打开' },
+      { id: 'sidebar-add', label: '添加到侧栏网页', enabled: Boolean(tab?.url) },
+      { id: 'start-add', label: '收藏到起始页', enabled: Boolean(tab?.url) },
       { id: 'external', label: '在外部浏览器打开', enabled: Boolean(tab?.url) },
       { id: 'reader', label: '阅读模式（Alt+R）', enabled: Boolean(tab?.url) },
       { id: 'zoom-in', label: '放大（Ctrl++）', enabled: Boolean(tab) },
@@ -606,6 +648,17 @@ export function AddressBar({
         </button>
       )}
 
+      {toolbar.startFavorite && (
+        <button
+          className={`nav-btn${startSaved ? ' is-active' : ''}`}
+          title={startSaved ? '已收藏到起始页' : '收藏到起始页'}
+          disabled={!tab || !/^https?:/i.test(tab.url)}
+          onClick={() => void saveToStart()}
+        >
+          <StarPlus size={15} />
+        </button>
+      )}
+
       {toolbar.library && (
         <button className="nav-btn" title="工作台：资料库 / 成片" onClick={onOpenLibrary}>
           <Library size={15} />
@@ -647,6 +700,18 @@ export function AddressBar({
             </button>
             <button onClick={() => { setMenuOpen(false); void pasteAndGo(); }}>
               粘贴并打开
+            </button>
+            <button
+              disabled={!tab?.url}
+              onClick={() => { setMenuOpen(false); void addToSidebar(); }}
+            >
+              添加到侧栏网页
+            </button>
+            <button
+              disabled={!tab?.url}
+              onClick={() => { setMenuOpen(false); void saveToStart(); }}
+            >
+              收藏到起始页
             </button>
             <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); if (tab?.url) void window.bsub.openExternal(tab.url); }}>
               在外部浏览器打开

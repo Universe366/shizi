@@ -1,6 +1,10 @@
 import { ipcMain } from 'electron';
 import type { SidebarPage } from '../../shared/types';
-import { normalizeSidebarPages } from '../../shared/sidebarPages';
+import {
+  SIDEBAR_PAGE_LIMIT,
+  nextSidebarPageId,
+  normalizeSidebarPages
+} from '../../shared/sidebarPages';
 import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
 import type { SidebarWebManager } from '../sidebarWeb';
 import { failure } from './shared';
@@ -17,6 +21,35 @@ export function registerSidebarWebIpc(ctx: IpcContext, manager: SidebarWebManage
       return { ok: true, data: settings.general.sidebarPages };
     } catch (error) {
       return failure<SidebarPage[]>(error);
+    }
+  });
+
+  /** 把当前网页一键加到侧栏，省得再打开管理弹窗手填。 */
+  ipcMain.handle('sidebar-pages:add', (_event, input: unknown) => {
+    try {
+      const raw = (input || {}) as { title?: unknown; url?: unknown };
+      const normalized = normalizeSidebarPages([
+        { id: 'add', title: String(raw.title || ''), url: String(raw.url || '') }
+      ])[0];
+      if (!normalized) return { ok: false, error: '只支持 http/https 网页' };
+      const settings = loadSettings();
+      const existing = settings.general.sidebarPages.find(
+        (page) => page.url === normalized.url
+      );
+      if (existing) return { ok: true, data: { page: existing, added: false } };
+      if (settings.general.sidebarPages.length >= SIDEBAR_PAGE_LIMIT) {
+        return { ok: false, error: `侧栏最多 ${SIDEBAR_PAGE_LIMIT} 个网页` };
+      }
+      const page = {
+        ...normalized,
+        id: nextSidebarPageId(settings.general.sidebarPages)
+      };
+      settings.general.sidebarPages = [...settings.general.sidebarPages, page];
+      saveSettings(settings);
+      ctx.send('settings:changed', settingsSnapshot());
+      return { ok: true, data: { page, added: true } };
+    } catch (error) {
+      return failure(error);
     }
   });
 

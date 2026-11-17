@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, WebContentsView, session } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, clipboard, session } from 'electron';
 import type { Rectangle } from 'electron';
 import type { SidebarPage } from '../shared/types';
 
@@ -38,7 +38,11 @@ export class SidebarWebManager {
   private lastBounds: Rectangle | null = null;
   private readonly ses = session.fromPartition(SIDEBAR_WEB_PARTITION);
 
-  constructor(private readonly win: BrowserWindow) {
+  constructor(
+    private readonly win: BrowserWindow,
+    /** 侧栏网页里的 target=_blank / window.open 统一交给主窗口标签页，不再弹小窗。 */
+    private readonly openInMain: (url: string) => void = () => undefined
+  ) {
     // 渲染进程刷新/崩溃时，原生视图不会自己消失；先离开并计时休眠，避免残留在最上层。
     win.webContents.on('did-start-loading', () => this.deactivate());
     this.ses.setPermissionRequestHandler((_webContents, permission, callback) => {
@@ -162,21 +166,9 @@ export class SidebarWebManager {
     const wc = view.webContents;
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
-      return {
-        action: 'allow',
-        overrideBrowserWindowOptions: {
-          parent: this.win,
-          width: 520,
-          height: 720,
-          autoHideMenuBar: true,
-          webPreferences: {
-            partition: SIDEBAR_WEB_PARTITION,
-            contextIsolation: true,
-            sandbox: true,
-            nodeIntegration: false
-          }
-        }
-      };
+      // 之前 allow 会弹一个 520×720 的小窗；用户明确希望回主窗口。
+      this.openInMain(url);
+      return { action: 'deny' };
     });
     const guard = (event: { preventDefault: () => void }, url: string) => {
       if (!/^https?:\/\//i.test(url)) event.preventDefault();
@@ -200,7 +192,19 @@ export class SidebarWebManager {
         { type: 'separator' },
         { role: 'copy', enabled: Boolean(params.selectionText) },
         { role: 'paste', enabled: params.isEditable },
-        { role: 'selectAll' }
+        { role: 'selectAll' },
+        ...(params.linkURL
+          ? [
+              { type: 'separator' as const },
+              {
+                label: '在标签页打开链接',
+                click: () => {
+                  if (/^https?:\/\//i.test(params.linkURL)) this.openInMain(params.linkURL);
+                }
+              },
+              { label: '复制链接地址', click: () => clipboard.writeText(params.linkURL) }
+            ]
+          : [])
       ]);
       menu.popup({ window: this.win });
     });

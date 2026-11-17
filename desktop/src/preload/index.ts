@@ -278,6 +278,8 @@ const api: BsubApi = {
   openLocalVideo: (path?: string) =>
     ipcRenderer.invoke('local:open', path ? { path } : undefined),
   saveSidebarPages: (pages: SidebarPage[]) => ipcRenderer.invoke('sidebar-pages:save', pages),
+  addSidebarPage: (input: { title?: string; url: string }) =>
+    ipcRenderer.invoke('sidebar-pages:add', input),
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
   sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),
@@ -651,6 +653,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('download:pick-dir') as Promise<Result<string | null>>,
   startProbeSite: (url: string) =>
     ipcRenderer.invoke('start:probe-site', url) as Promise<Result<SiteMeta>>,
+  startAddShortcut: (input: { url: string; title?: string }) =>
+    ipcRenderer.invoke('start:add-shortcut', input),
   chooseSyncFolder: () => ipcRenderer.invoke('sync:choose'),
   syncStatus: (folder: string) => ipcRenderer.invoke('sync:status', folder),
   syncPush: (folder: string) => ipcRenderer.invoke('sync:push', folder),

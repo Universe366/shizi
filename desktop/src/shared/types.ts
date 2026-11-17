@@ -1237,6 +1237,8 @@ export interface BrowserToolbarSettings {
   engine: boolean;
   speed: boolean;
   bookmark: boolean;
+  /** 一键收藏当前网页为起始页快捷方式 */
+  startFavorite: boolean;
   library: boolean;
   home: boolean;
   settings: boolean;

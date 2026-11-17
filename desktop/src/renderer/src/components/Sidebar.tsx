@@ -73,6 +73,8 @@ export function Sidebar({
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
+  const [dragPageId, setDragPageId] = useState<string | null>(null);
+  const [dropPage, setDropPage] = useState<{ id: string; after: boolean } | null>(null);
   const [visited, setVisited] = useState<Set<Section>>(() => new Set([section]));
   const dragActiveRef = useRef(false);
 
@@ -260,6 +262,18 @@ export function Sidebar({
     : undefined;
   const layoutKey = `${sidebarWidth}-${position}-${fontScale}`;
 
+  const movePage = (fromId: string, toId: string, after: boolean) => {
+    const from = pages.findIndex((page) => page.id === fromId);
+    const to = pages.findIndex((page) => page.id === toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...pages];
+    const [moved] = next.splice(from, 1);
+    const target = next.findIndex((page) => page.id === toId);
+    if (target < 0) return;
+    next.splice(target + (after ? 1 : 0), 0, moved);
+    void window.bsub.saveSidebarPages(next);
+  };
+
   return (
     <aside
       className={`sidebar${collapsed ? ' is-collapsed' : ''}`}
@@ -313,9 +327,50 @@ export function Sidebar({
             return (
               <button
                 key={page.id}
-                className={`side-nav-item${section === id ? ' is-active' : ''}`}
-                title={`${page.title}\n${page.url}\n点击打开；再次点击重新加载`}
+                className={`side-nav-item${section === id ? ' is-active' : ''}${
+                  dragPageId === page.id ? ' is-dragging' : ''
+                }${
+                  dropPage?.id === page.id
+                    ? dropPage.after
+                      ? ' is-drop-after'
+                      : ' is-drop-before'
+                    : ''
+                }`}
+                title={`${page.title}\n${page.url}\n点击打开；再次点击重新加载；拖动可排序`}
                 aria-label={page.title}
+                draggable={pages.length > 1}
+                onDragStart={(event) => {
+                  setDragPageId(page.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', page.id);
+                  event.dataTransfer.setData('application/x-shizi-sidebar-page', page.id);
+                }}
+                onDragOver={(event) => {
+                  if (!dragPageId || dragPageId === page.id) return;
+                  event.preventDefault();
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const after = collapsed
+                    ? event.clientY > rect.top + rect.height / 2
+                    : event.clientX > rect.left + rect.width / 2;
+                  setDropPage({ id: page.id, after });
+                }}
+                onDragLeave={() => {
+                  setDropPage((current) => (current?.id === page.id ? null : current));
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const from =
+                    dragPageId || event.dataTransfer.getData('application/x-shizi-sidebar-page');
+                  const after = dropPage?.id === page.id ? dropPage.after : true;
+                  setDropPage(null);
+                  setDragPageId(null);
+                  if (from) movePage(from, page.id, after);
+                }}
+                onDragEnd={() => {
+                  setDragPageId(null);
+                  setDropPage(null);
+                }}
                 onClick={() => {
                   if (section === id && !collapsed) {
                     window.bsub.sidebarWebReload();
