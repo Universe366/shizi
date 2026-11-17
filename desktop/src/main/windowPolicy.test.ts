@@ -50,8 +50,10 @@ describe('windowFrameOptions', () => {
     const frame = windowFrameOptions({ dark: false, preloadPath: 'C:/app/preload.js' });
     expect(frame.width).toBe(1440);
     expect(frame.height).toBe(920);
-    expect(frame.minWidth).toBe(1024);
-    expect(frame.minHeight).toBe(640);
+    expect(frame.minWidth).toBe(640);
+    expect(frame.minHeight).toBe(480);
+    // 1920 屏左右分屏是 960，最小宽度必须低于它，否则右侧窗口会被顶住。
+    expect(frame.minWidth).toBeLessThanOrEqual(960);
     expect(frame.show).toBe(false);
     expect(frame.autoHideMenuBar).toBe(true);
     expect(frame.webPreferences).toEqual({

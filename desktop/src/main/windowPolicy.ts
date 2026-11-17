@@ -50,13 +50,21 @@ export interface WindowFrame {
   };
 }
 
+/**
+ * Windows 半屏吸附的最小宽度：1920 屏半屏 960、1366 屏半屏 683、1280 屏半屏 640。
+ * 之前 1024 会让 1920 屏的左右分屏被卡住，右侧程序无法完整显示。
+ */
+export const MIN_WINDOW_WIDTH = 640;
+/** 1080 屏上下半屏约 540，留出足够正文空间。 */
+export const MIN_WINDOW_HEIGHT = 480;
+
 /** 主窗口的尺寸/安全设置；深色主题只影响首帧底色。 */
 export function windowFrameOptions(input: { dark: boolean; preloadPath: string }): WindowFrame {
   return {
     width: 1440,
     height: 920,
-    minWidth: 1024,
-    minHeight: 640,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     show: false,
     backgroundColor: input.dark ? '#141416' : '#f6f6f3',
     autoHideMenuBar: true,
