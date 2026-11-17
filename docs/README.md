@@ -35,14 +35,14 @@
 - `tools/`：CDP 验证脚本，见 `../tools/README.md`
 - `artifacts/`：截图与审计 JSON，见 `../artifacts/README.md`
 
-这些内容不要提交到仓库。可重新生成的产物：
+这些内容不要提交到仓库。可重新生成的产物由 `npm run clean` 统一清理：
 
 ```bash
-cd repo
-rm -rf desktop/out desktop/release desktop/resources/extension verify/build
+cd repo/desktop
+npm run clean
 ```
 
-`node_modules` 保留，删掉后需要重新 `npm ci`。
+会清掉 `out/`、`release/`、`resources/extension/`、`resources/page-bridge.js`、`resources/tray.png`、`verify/build/` 和 `shizi-extension/_metadata/`。`node_modules/` 与 `resources/yt-dlp/` 保留；前者删了要 `npm ci`，后者删了下次构建会重新下载 23MB。
 
 ## 文档维护约定
 

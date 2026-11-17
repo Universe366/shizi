@@ -26,7 +26,8 @@
     "dist": "npm run build && electron-builder --win",
     "dist:dir": "npm run build && electron-builder --win --dir",
     "pack": "npm run build && electron-builder --win --publish never --config.electronDist=node_modules/electron/dist",
-    "release:notes": "node scripts/release.mjs"
+    "release:notes": "node scripts/release.mjs",
+    "clean": "node scripts/clean.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

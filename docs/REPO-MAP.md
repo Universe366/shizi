@@ -70,6 +70,22 @@ shizi-extension/
 | 旧功能矩阵 / 0.30.x 验收方案 | `desktop/docs/archive/`（历史，不代表现状） |
 | 逐轮缺陷复盘 | `shizi-extension/docs/history/DEVELOPMENT-LOG.md`（开发记录） |
 
+## 本地生成物
+
+以下目录/文件都可以重新生成，不属于源码；`npm run clean` 会清掉它们：
+
+| 路径 | 生成方式 | 说明 |
+|---|---|---|
+| `desktop/out/` | `npm run build` / `dev` | electron-vite 构建产物 |
+| `desktop/release/` | `npm run pack` / CI | 安装包、win-unpacked、release-notes |
+| `desktop/resources/extension/` | `sync:extension` | 打包用插件副本，开发期直接读 `shizi-extension/` |
+| `desktop/resources/page-bridge.js`、`tray.png` | `sync:bridge` | 从插件源码复制 |
+| `verify/build/` | `cd verify && node bundle.js` | jsdom 测试用的面板 IIFE |
+| `shizi-extension/_metadata/` | Chrome 加载已解压扩展 | 规则集缓存 |
+
+**保留**：`node_modules/`（依赖）、`desktop/resources/yt-dlp/`（构建缓存，删了下次会重新下载 23MB）。
+
+日常整理：`cd desktop && npm run clean`。清理后重新 `npm run dev` / `npm run build` 即可恢复。
 ## 维护规则
 
 1. **不提交发布产物**：zip/exe/latest.yml 由 CI 生成，根目录 `*.zip` 已被忽略。
