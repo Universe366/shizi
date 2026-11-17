@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { BridgeStatus, JobRecord, Section, SidebarPage, TabInfo } from '../../../shared/types';
 import { SidebarPagesDialog } from './SidebarPagesDialog';
+import { SidebarPageIcon } from './SidebarPageIcon';
 import { SidebarWebStage } from './SidebarWebStage';
 import { SubtitlesPanel } from './SubtitlesPanel';
 const ChatPanel = lazy(() =>
@@ -298,7 +299,15 @@ export function Sidebar({
       </nav>
 
       {(pages.length > 0 || !collapsed) && (
-        <nav className={`side-nav side-nav-web${collapsed ? ' is-collapsed' : ''}`}>
+        <nav
+          className={`side-nav side-nav-web${collapsed ? ' is-collapsed' : ''}`}
+          onWheel={(event) => {
+            if (collapsed) return;
+            if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+              event.currentTarget.scrollLeft += event.deltaY;
+            }
+          }}
+        >
           {pages.map((page) => {
             const id = `web:${page.id}` as Section;
             return (
@@ -316,18 +325,17 @@ export function Sidebar({
                   onSelect(id);
                 }}
               >
-                <span className="side-nav-letter">{page.title.slice(0, 1).toUpperCase()}</span>
-                {!collapsed && <span>{page.title}</span>}
+                <SidebarPageIcon page={page} />
               </button>
             );
           })}
           <button
             className="side-nav-item side-nav-add"
             title="添加侧栏网页"
+            aria-label="添加侧栏网页"
             onClick={() => setPagesOpen(true)}
           >
             <Plus size={14} />
-            {!collapsed && <span>添加</span>}
           </button>
         </nav>
       )}

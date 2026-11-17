@@ -121,6 +121,8 @@ interface TabRecord {
   loadPromise?: Promise<void>;
   /** 会话恢复的标签：用户操作前不让页面自动播放。 */
   suppressAutoplay?: boolean;
+  /** 恢复会话的标签先静音，等用户第一次操作页面再自动解除，避免启动时响一下。 */
+  muteUntilInteraction?: boolean;
   /** 本地视频文件；有值时页面加载的是本地播放页。 */
   localFile?: string;
   /** 把已入库字幕推给本地播放页的定时器。 */
@@ -253,6 +255,7 @@ export class TabManager {
       activate?: boolean;
       wait?: boolean;
       suppressAutoplay?: boolean;
+      muteUntilInteraction?: boolean;
       localFile?: string;
     } = {}
   ): Promise<string> {
@@ -282,6 +285,7 @@ export class TabManager {
       localFile,
       hasVideo: Boolean(localFile),
       suppressAutoplay: options.suppressAutoplay === true,
+      muteUntilInteraction: options.muteUntilInteraction === true,
       lastHttpUrl: /^https?:/i.test(url) ? url : undefined,
       loading: true,
       suspended: false,
@@ -339,6 +343,16 @@ export class TabManager {
       record.view = view;
       record.suspended = false;
       record.loading = true;
+      // 恢复会话的页面在加载前就静音，避免媒体元素抢跑出半秒声音；
+      // 用户第一次点/按/滚页面时，autoplay guard 会通知这里解除。
+      if (record.muteUntilInteraction || record.muted) {
+        try {
+          view.webContents.setAudioMuted(true);
+          record.muted = true;
+        } catch {
+          // ignore
+        }
+      }
 
       this.win.contentView.addChildView(view);
       view.setBounds(this.bounds);
@@ -860,6 +874,8 @@ export class TabManager {
   setMuted(id: string, muted: boolean): void {
     const record = this.tabs.get(id);
     if (!record) return;
+    // 用户手动点了静音/取消静音，就不要再让“首次操作自动解除”覆盖它。
+    record.muteUntilInteraction = false;
     record.muted = muted === true;
     try {
       record.view?.webContents.setAudioMuted(record.muted);
@@ -1439,6 +1455,18 @@ export class TabManager {
     try {
       data = JSON.parse(raw || '{}');
     } catch {
+      return;
+    }
+    if (data.action === 'allow-autoplay') {
+      if (!record.muteUntilInteraction) return;
+      record.muteUntilInteraction = false;
+      record.muted = false;
+      try {
+        record.view?.webContents.setAudioMuted(false);
+      } catch {
+        // ignore
+      }
+      this.emit();
       return;
     }
     if (data.action === 'rate') {

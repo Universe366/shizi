@@ -7,13 +7,20 @@ function fakeManager(behaviour: { failUrls?: string[] } = {}) {
     url: string;
     activate?: boolean;
     suppressAutoplay?: boolean;
+    muteUntilInteraction?: boolean;
   }> = [];
   const activated: string[] = [];
   const manager: RestoreManager = {
     async create(url, options) {
       if (behaviour.failUrls && behaviour.failUrls.includes(url)) throw new Error('boom');
       const id = `tab-${created.length + 1}`;
-      created.push({ id, url, activate: options?.activate, suppressAutoplay: options?.suppressAutoplay });
+      created.push({
+        id,
+        url,
+        activate: options?.activate,
+        suppressAutoplay: options?.suppressAutoplay,
+        muteUntilInteraction: options?.muteUntilInteraction
+      });
       return id;
     },
     async activate(id) {
@@ -53,6 +60,7 @@ describe('restoreSession', () => {
     expect(created.map((item) => item.url)).toEqual(['https://a', 'https://b', 'https://c']);
     expect(created.every((item) => item.activate === false)).toBe(true);
     expect(created.every((item) => item.suppressAutoplay === true)).toBe(true);
+    expect(created.every((item) => item.muteUntilInteraction === true)).toBe(true);
     expect(activated).toEqual(['tab-2']);
     expect(result).toEqual({ restored: 3, usedStartUrl: false, activeUrl: 'https://b' });
   });

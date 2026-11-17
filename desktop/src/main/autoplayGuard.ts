@@ -11,8 +11,17 @@ export const AUTOPLAY_GUARD_SCRIPT = `(() => {
   let allow = false;
   let timer = 0;
   const stop = () => {
+    if (allow) return;
     allow = true;
     if (timer) clearInterval(timer);
+    // 恢复会话的标签是静音的：用户第一次操作页面时让主进程解除静音。
+    try {
+      if (typeof window.__bsubMediaAction === 'function') {
+        window.__bsubMediaAction(JSON.stringify({ action: 'allow-autoplay' }));
+      }
+    } catch (error) {
+      // binding 不可用时保持静音，至少不会突然出声。
+    }
   };
   window.addEventListener('pointerdown', stop, true);
   window.addEventListener('keydown', stop, true);

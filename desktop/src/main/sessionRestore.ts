@@ -11,7 +11,7 @@ import type { TabGroup } from '../shared/types';
 export interface RestoreManager {
   create(
     url: string,
-    options?: { activate?: boolean; suppressAutoplay?: boolean }
+    options?: { activate?: boolean; suppressAutoplay?: boolean; muteUntilInteraction?: boolean }
   ): Promise<string>;
   activate(id: string): Promise<void>;
   restoreGroups?(
@@ -54,7 +54,9 @@ export async function restoreSession(deps: RestoreDeps): Promise<RestoreResult> 
       const id = await manager.create(item.url, {
         activate: false,
         // 恢复上次会话不等于“请继续播放”：用户先动一下才放行自动播放。
-        suppressAutoplay: true
+        suppressAutoplay: true,
+        // 加载前就静音，避免 autoplay guard 生效前漏出半秒声音。
+        muteUntilInteraction: true
       });
       created.push({ id, url: item.url, groupId: item.groupId, pinned: item.pinned });
     } catch (error) {

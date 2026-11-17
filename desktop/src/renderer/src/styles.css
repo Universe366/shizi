@@ -646,38 +646,94 @@ button:disabled {
 
 /* ---------- 侧栏网页 ---------- */
 .side-nav-web {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 3px;
-  padding: 0 10px 4px;
-  max-height: 172px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
 
-.side-nav-web .side-nav-item {
-  justify-content: center;
-  height: 32px;
-  padding: 0;
-}
-
-/* 网页入口只留首字图标，标题放在 tooltip/aria-label 里，避免 10+ 个站点把侧栏撑高。 */
-.side-nav-web .side-nav-item > span:not(.side-nav-letter) {
+.side-nav-web::-webkit-scrollbar {
   display: none;
 }
 
+.side-nav-web .side-nav-item {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* 网页入口只留站点图标，标题放在 tooltip/aria-label 里；一行显示、横向滚动。 */
+.side-nav-web .side-nav-item > span:not(.side-nav-letter):not(.side-nav-icon-wrap) {
+  display: none;
+}
+
+.side-nav-icon-wrap {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.side-nav-favicon {
+  position: absolute;
+  inset: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: contain;
+  z-index: 1;
+}
+
 .side-nav-web .side-nav-letter {
-  width: 22px;
-  height: 22px;
-  font-size: 12px;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+}
+
+.side-nav-web .side-nav-letter.is-long {
+  font-size: 9px;
+}
+
+/* 添加按钮固定在行尾，不用横向滚到最右才能添加网页。 */
+.side-nav-web .side-nav-add {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.35);
+}
+
+.side-nav-web.is-collapsed .side-nav-add {
+  position: static;
+  box-shadow: none;
 }
 
 .side-nav-web.is-collapsed {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   padding: 0 8px 4px;
   max-height: calc(100vh - 250px);
+  overflow-x: hidden;
   overflow-y: auto;
+}
+
+.side-nav-web.is-collapsed .side-nav-item {
+  flex: 0 0 34px;
+  width: 100%;
+}
+
+.side-nav-web.is-collapsed .side-nav-favicon {
+  width: 18px;
+  height: 18px;
 }
 
 /* 折叠时全局规则会隐藏导航项里的 span（给主按钮留图标用），
@@ -687,6 +743,12 @@ button:disabled {
   width: 20px;
   height: 20px;
   font-size: 11px;
+}
+
+.sidebar.is-collapsed .side-nav-web .side-nav-icon-wrap {
+  display: grid;
+  width: 20px;
+  height: 20px;
 }
 
 .side-nav-letter {
