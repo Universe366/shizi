@@ -250,8 +250,8 @@ export interface BsubApi {
   installPluginPath(dir: string): Promise<Result<PluginInfo>>;
   /** 从 .zip 安装插件；取消时 data 为 null。 */
   installPluginArchive(): Promise<Result<PluginInfo | null>>;
-  /** 从 http(s) 链接安装插件（下载 zip）。 */
-  installPluginUrl(url: string): Promise<Result<PluginInfo>>;
+  /** 从 http(s) 链接安装插件（下载 zip）；传 sha256 时校验包完整性。 */
+  installPluginUrl(url: string, sha256?: string): Promise<Result<PluginInfo>>;
   /** 读取已保存的市场索引地址。 */
   getPluginMarketUrl(): Promise<Result<string>>;
   setPluginMarketUrl(url: string): Promise<Result<string>>;

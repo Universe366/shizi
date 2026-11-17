@@ -125,7 +125,7 @@ export function PluginsSection() {
 
   const installFromMarket = (entry: PluginMarketItem) =>
     withBusy(`market-${entry.id}`, async () => {
-      const result = await window.bsub.installPluginUrl(entry.zip);
+      const result = await window.bsub.installPluginUrl(entry.zip, entry.sha256 || undefined);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -262,14 +262,26 @@ export function PluginsSection() {
               </div>
               <div className="ext-path">{entry.description || entry.id}</div>
               {entry.tags.length > 0 && <div className="ext-path">{entry.tags.join(' · ')}</div>}
+              {entry.minAppVersion && (
+                <div className="ext-path">需要拾字 ≥ {entry.minAppVersion}</div>
+              )}
+              {!entry.compatible && (
+                <div className="settings-hint settings-error">当前版本过低，无法安装</div>
+              )}
             </div>
             <div className="ext-actions">
               <button
                 className="mini-btn"
-                disabled={current || busy === `market-${entry.id}`}
+                disabled={current || !entry.compatible || busy === `market-${entry.id}`}
                 onClick={() => void installFromMarket(entry)}
               >
-                {entry.updateAvailable ? '更新' : current ? '已安装' : '安装'}
+                {!entry.compatible
+                  ? '版本不兼容'
+                  : entry.updateAvailable
+                    ? '更新'
+                    : current
+                      ? '已安装'
+                      : '安装'}
               </button>
             </div>
           </div>

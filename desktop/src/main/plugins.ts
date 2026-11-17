@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { app, protocol, session, shell } from 'electron';
 import type { Result } from '../shared/types';
 import {
@@ -235,7 +235,10 @@ export function installPluginFromArchive(fileInput: string): Result<PluginInfo> 
  * 从链接安装插件（市场/README 里贴一个 zip 地址）。
  * 只接受 http(s)；下载后走和本地 zip 一样的临时目录 + 校验 + 复制流程。
  */
-export async function installPluginFromUrl(input: string): Promise<Result<PluginInfo>> {
+export async function installPluginFromUrl(
+  input: string,
+  expectedSha256 = ''
+): Promise<Result<PluginInfo>> {
   let temp = '';
   try {
     const url = new URL(String(input || '').trim());
@@ -246,6 +249,13 @@ export async function installPluginFromUrl(input: string): Promise<Result<Plugin
     if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.byteLength > 30 * 1024 * 1024) throw new Error('插件包超过 30MB 上限');
+    const expected = String(expectedSha256 || '').trim().toLowerCase();
+    if (expected) {
+      const actual = createHash('sha256').update(buffer).digest('hex');
+      if (actual !== expected) {
+        throw new Error('插件包校验失败：sha256 与市场索引不一致');
+      }
+    }
     temp = path.join(
       app.getPath('userData'),
       'plugins-tmp',
@@ -311,9 +321,10 @@ export async function fetchPluginMarket(urlInput?: string): Promise<Result<Plugi
     return {
       ok: true,
       data: {
-        entries: mergeMarketItems(entries, installed),
+        entries: mergeMarketItems(entries, installed, app.getVersion()),
         fetchedAt: Date.now(),
-        source: parsed.toString()
+        source: parsed.toString(),
+        appVersion: app.getVersion()
       }
     };
   } catch (error) {

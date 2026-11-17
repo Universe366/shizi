@@ -96,6 +96,8 @@ zip / 链接安装的临时目录在校验完成后清理。
       "description": "把当前页面加进自己的待办",
       "author": "you",
       "zip": "https://example.com/plugins/notes-1.0.0.zip",
+      "sha256": "64 位十六进制哈希（可选）",
+      "minAppVersion": "0.163.0（可选）",
       "homepage": "https://github.com/you/shizi-notes",
       "tags": ["笔记", "bilibili"]
     }
@@ -105,6 +107,8 @@ zip / 链接安装的临时目录在校验完成后清理。
 
 - 也接受顶层直接是数组；
 - `zip` 必须是 http(s)，并指向包含 `manifest.json` 的 zip；
+- `sha256` 可选；提供时安装前会校验下载包，不匹配直接拒绝；
+- `minAppVersion` 可选；高于当前版本时按钮显示「版本不兼容」；
 - 索引里同一 `id` 只保留第一条，坏条目直接跳过；
 - 设置页「插件」里填索引地址 → 保存 → 刷新市场；
 - 已安装插件会显示已装版本，版本号不同则出现「更新」按钮（更新 = 重新下载 zip 覆盖安装）。

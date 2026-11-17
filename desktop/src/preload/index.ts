@@ -315,8 +315,8 @@ const api: BsubApi = {
     ipcRenderer.invoke('plugins:install-path', dir) as Promise<Result<PluginInfo>>,
   installPluginArchive: () =>
     ipcRenderer.invoke('plugins:install-archive') as Promise<Result<PluginInfo | null>>,
-  installPluginUrl: (url: string) =>
-    ipcRenderer.invoke('plugins:install-url', url) as Promise<Result<PluginInfo>>,
+  installPluginUrl: (url: string, sha256?: string) =>
+    ipcRenderer.invoke('plugins:install-url', url, sha256) as Promise<Result<PluginInfo>>,
   getPluginMarketUrl: () =>
     ipcRenderer.invoke('plugins:market-url') as Promise<Result<string>>,
   setPluginMarketUrl: (url: string) =>

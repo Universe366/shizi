@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compareVersions,
   mergeMarketItems,
   normalizePluginEntry,
   normalizePluginId,
@@ -74,6 +75,8 @@ describe('插件清单解析', () => {
             name: '市场插件',
             version: '1.2.0',
             zip: 'https://example.com/demo.zip',
+            sha256: 'A'.repeat(64),
+            minAppVersion: '0.163.0',
             homepage: 'https://example.com',
             tags: ['bilibili', '笔记']
           },
@@ -84,7 +87,13 @@ describe('插件清单解析', () => {
       })
     );
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ id: 'demo.market', version: '1.2.0', tags: ['bilibili', '笔记'] });
+    expect(entries[0]).toMatchObject({
+      id: 'demo.market',
+      version: '1.2.0',
+      sha256: 'a'.repeat(64),
+      minAppVersion: '0.163.0',
+      tags: ['bilibili', '笔记']
+    });
 
     expect(parsePluginMarket('[]')).toEqual([]);
     expect(() => parsePluginMarket('{oops')).toThrow('合法 JSON');
@@ -97,9 +106,32 @@ describe('插件清单解析', () => {
         { id: 'b.two', name: 'B', version: '1.0.0', zip: 'https://e.test/b.zip' }
       ])
     );
-    const merged = mergeMarketItems(entries, [{ id: 'a.one', version: '1.0.0' }]);
-    expect(merged[0]).toMatchObject({ installedVersion: '1.0.0', updateAvailable: true });
+    const merged = mergeMarketItems(entries, [{ id: 'a.one', version: '1.0.0' }], '0.163.0');
+    expect(merged[0]).toMatchObject({
+      installedVersion: '1.0.0',
+      updateAvailable: true,
+      compatible: true
+    });
     expect(merged[1]).toMatchObject({ installedVersion: '', updateAvailable: false });
+  });
+
+  it('最低版本门槛与版本比较', () => {
+    const entries = parsePluginMarket(
+      JSON.stringify([
+        {
+          id: 'new.app',
+          name: '新版本插件',
+          version: '1.0.0',
+          zip: 'https://e.test/n.zip',
+          minAppVersion: '0.200.0'
+        }
+      ])
+    );
+    expect(mergeMarketItems(entries, [], '0.163.0')[0].compatible).toBe(false);
+    expect(mergeMarketItems(entries, [], '0.200.0')[0].compatible).toBe(true);
+    expect(compareVersions('0.163.0', '0.162.57')).toBe(1);
+    expect(compareVersions('0.162.57', '0.163.0')).toBe(-1);
+    expect(compareVersions('1.2', '1.2.0')).toBe(0);
   });
 
   it('id 规范化与 Section 互转', () => {

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -325,6 +326,32 @@ describe('从 zip 安装插件', () => {
     if (!result.ok) return;
     expect(result.data.id).toBe('remote.demo');
     expect(fs.existsSync(path.join(state.dir, 'plugins', 'remote.demo', 'index.html'))).toBe(true);
+  });
+
+  it('市场安装会校验 sha256', async () => {
+    const zip = makeZip([
+      [
+        'checked/manifest.json',
+        JSON.stringify({
+          id: 'checked.demo',
+          name: '校验插件',
+          version: '1.0.0',
+          contributes: { panels: [{ id: 'main', title: '面板' }] }
+        })
+      ],
+      ['checked/index.html', '<h1>checked</h1>']
+    ]);
+    const hash = createHash('sha256').update(zip).digest('hex');
+    state.zip = zip;
+
+    const wrong = await installPluginFromUrl('https://example.com/p.zip', '0'.repeat(64));
+    expect(wrong.ok).toBe(false);
+    if (!wrong.ok) expect(wrong.error).toContain('sha256');
+
+    const good = await installPluginFromUrl('https://example.com/p.zip', hash);
+    expect(good.ok).toBe(true);
+    if (!good.ok) return;
+    expect(good.data.id).toBe('checked.demo');
   });
 
   it('非 http(s) 链接被拒绝', async () => {

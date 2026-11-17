@@ -89,9 +89,9 @@ export function registerPluginsIpc(ctx: IpcContext): void {
 
   ipcMain.handle(
     'plugins:install-url',
-    async (_event, url: string): Promise<Result<PluginInfo>> => {
+    async (_event, url: string, sha256?: string): Promise<Result<PluginInfo>> => {
       try {
-        const result = await installPluginFromUrl(String(url || ''));
+        const result = await installPluginFromUrl(String(url || ''), String(sha256 || ''));
         if (result.ok) ctx.send('plugins:changed');
         return result;
       } catch (error) {

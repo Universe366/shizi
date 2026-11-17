@@ -73,6 +73,10 @@ export interface PluginMarketEntry {
   author: string;
   /** 插件包 zip 的 http(s) 地址 */
   zip: string;
+  /** 插件包 sha256（64 位十六进制）；为空表示市场没提供校验值 */
+  sha256: string;
+  /** 最低要求的拾字版本；为空表示不限制 */
+  minAppVersion: string;
   homepage: string;
   tags: string[];
 }
@@ -80,12 +84,15 @@ export interface PluginMarketEntry {
 export interface PluginMarketItem extends PluginMarketEntry {
   installedVersion: string;
   updateAvailable: boolean;
+  /** 当前应用版本是否满足 minAppVersion */
+  compatible: boolean;
 }
 
 export interface PluginMarketResult {
   entries: PluginMarketItem[];
   fetchedAt: number;
   source: string;
+  appVersion: string;
 }
 
 const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
@@ -224,6 +231,7 @@ export function parsePluginMarket(source: string): PluginMarketEntry[] {
     const name = String(record.name ?? '').trim().slice(0, 80);
     if (!name) continue;
     seen.add(id);
+    const sha256 = String(record.sha256 ?? '').trim().toLowerCase();
     entries.push({
       id,
       name,
@@ -231,6 +239,8 @@ export function parsePluginMarket(source: string): PluginMarketEntry[] {
       description: String(record.description ?? '').trim().slice(0, 200),
       author: String(record.author ?? '').trim().slice(0, 80),
       zip,
+      sha256: /^[a-f0-9]{64}$/.test(sha256) ? sha256 : '',
+      minAppVersion: String(record.minAppVersion ?? '').trim().slice(0, 20),
       homepage: httpUrl(record.homepage),
       tags: Array.isArray(record.tags)
         ? record.tags.map((tag) => String(tag).trim().slice(0, 20)).filter(Boolean).slice(0, 8)
@@ -240,10 +250,30 @@ export function parsePluginMarket(source: string): PluginMarketEntry[] {
   return entries;
 }
 
-/** 合并已安装版本，标出可更新的条目。 */
+/** 粗略的版本比较：只比较前三段数字，够用来做最低版本门槛。 */
+export function compareVersions(left: string, right: string): number {
+  const parse = (text: string) =>
+    String(text || '')
+      .split(/[.+-]/)
+      .slice(0, 3)
+      .map((part) => {
+        const value = parseInt(part, 10);
+        return Number.isFinite(value) ? value : 0;
+      });
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < 3; index += 1) {
+    const diff = (a[index] || 0) - (b[index] || 0);
+    if (diff !== 0) return diff > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+/** 合并已安装版本与应用版本，标出可更新/不兼容的条目。 */
 export function mergeMarketItems(
   entries: PluginMarketEntry[],
-  installed: Array<{ id: string; version: string }>
+  installed: Array<{ id: string; version: string }>,
+  appVersion = ''
 ): PluginMarketItem[] {
   const versions = new Map(installed.map((item) => [item.id, item.version]));
   return entries.map((entry) => {
@@ -251,7 +281,9 @@ export function mergeMarketItems(
     return {
       ...entry,
       installedVersion,
-      updateAvailable: Boolean(installedVersion) && installedVersion !== entry.version
+      updateAvailable: Boolean(installedVersion) && installedVersion !== entry.version,
+      compatible:
+        !entry.minAppVersion || !appVersion || compareVersions(appVersion, entry.minAppVersion) >= 0
     };
   });
 }
