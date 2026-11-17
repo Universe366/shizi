@@ -1574,6 +1574,14 @@ export interface AppSettings {
     port: number;
     token: string;
   };
+  /** 本地 Agent 网关（HTTP + MCP）；默认关闭。 */
+  agent: {
+    enabled: boolean;
+    port: number;
+    token: string;
+    /** 信任后写操作不再逐次确认；关闭时每次写操作都会弹确认。 */
+    trusted: boolean;
+  };
   /** 内置浏览器加载的 Chrome 扩展（解压目录）。 */
   extensions: {
     /** 总开关；关闭时全部卸载，配置保留。 */
@@ -1608,6 +1616,16 @@ export interface UpdateStatus {
   notes?: string;
   manual?: boolean;
   checkedAt?: number;
+}
+
+/** 本地 Agent 网关状态。 */
+export interface AgentStatus {
+  enabled: boolean;
+  running: boolean;
+  port: number;
+  token: string;
+  trusted: boolean;
+  error?: string;
 }
 
 export interface BridgeStatus {

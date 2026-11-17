@@ -15,6 +15,7 @@ import type {
   DiagnosticsInfo,
   CorrectionRuleGroup,
   BridgeStatus,
+  AgentStatus,
   ChatDeltaEvent,
   ChatDoneEvent,
   ChatErrorEvent,
@@ -251,6 +252,14 @@ export interface BsubApi {
   pluginRpc(pluginId: string, method: string, params?: unknown): Promise<Result<unknown>>;
   /** 插件安装/启停/卸载后广播，用于刷新侧栏与命令面板。 */
   onPluginsChanged(cb: () => void): () => void;
+  /** 本地 Agent 网关状态。 */
+  getAgentStatus(): Promise<Result<AgentStatus>>;
+  setAgent(patch: {
+    enabled?: boolean;
+    port?: number;
+    trusted?: boolean;
+  }): Promise<Result<AgentStatus>>;
+  regenerateAgentToken(): Promise<Result<AgentStatus>>;
   /** 激活某个侧栏网页（必要时创建视图并加载）。 */
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
   /** 离开侧栏网页：视图保留，开始休眠计时。 */

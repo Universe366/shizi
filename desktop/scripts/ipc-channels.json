@@ -1,4 +1,7 @@
 [
+  "agent:regenerate-token",
+  "agent:set",
+  "agent:status",
   "ai:cancel",
   "ai:set-default-model",
   "ai:summarize",

@@ -17,6 +17,7 @@ import type {
   DiagnosticsInfo,
   CorrectionRuleGroup,
   BridgeStatus,
+  AgentStatus,
   ChatDeltaEvent,
   ChatDoneEvent,
   ChatErrorEvent,
@@ -316,6 +317,11 @@ const api: BsubApi = {
   pluginRpc: (pluginId: string, method: string, params?: unknown) =>
     ipcRenderer.invoke('plugins:rpc', pluginId, method, params) as Promise<Result<unknown>>,
   onPluginsChanged: (cb: () => void) => on<null>('plugins:changed', () => cb()),
+  getAgentStatus: () => ipcRenderer.invoke('agent:status') as Promise<Result<AgentStatus>>,
+  setAgent: (patch: { enabled?: boolean; port?: number; trusted?: boolean }) =>
+    ipcRenderer.invoke('agent:set', patch) as Promise<Result<AgentStatus>>,
+  regenerateAgentToken: () =>
+    ipcRenderer.invoke('agent:regenerate-token') as Promise<Result<AgentStatus>>,
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
   sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),

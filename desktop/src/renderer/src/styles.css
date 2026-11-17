@@ -15782,3 +15782,27 @@ sup:has(> .cite-ref) {
   font-size: 14px;
   line-height: 1;
 }
+
+/* ---------- 本地 Agent 设置 ---------- */
+.agent-token {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.12);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+  white-space: nowrap;
+}
+.agent-config {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(127, 127, 127, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

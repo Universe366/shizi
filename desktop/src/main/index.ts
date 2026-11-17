@@ -32,6 +32,7 @@ import { installCsp } from './csp';
 import { startBridge, stopBridge } from './bridge';
 import { loadBrowserExtensions } from './extensions';
 import { installPluginProtocol, installPluginScheme } from './plugins';
+import { startAgent, stopAgent } from './agent';
 import { checkForUpdates, disposeUpdater, initUpdater } from './updater';
 import { initPetWindow } from './petWindow';
 import { applyDataDirOverride, scheduleOldDataCleanup } from './dataDir';
@@ -455,6 +456,7 @@ app
     if (mainWindow) {
       void startBridge(mainWindow);
       initUpdater(mainWindow);
+      if (tabManager) void startAgent(mainWindow, tabManager);
     }
 
     app.on('activate', () => {
@@ -479,6 +481,7 @@ app.on('before-quit', () => {
   unregisterPetShortcuts();
   disposeUpdater();
   stopBridge();
+  stopAgent();
   disposeMcpClients();
   disposeMcpSubscriptions();
   disposeDictation();

@@ -31,6 +31,7 @@ import { SidebarWebManager } from './sidebarWeb';
 import { registerConvertIpc } from './ipc/convert';
 import { registerExtensionsIpc } from './ipc/extensions';
 import { registerPluginsIpc } from './ipc/plugins';
+import { registerAgentIpc } from './ipc/agent';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -97,6 +98,8 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerExtensionsIpc(ctx);
 
   registerPluginsIpc(ctx);
+
+  registerAgentIpc(ctx);
 
   registerStartIpc(ctx);
 

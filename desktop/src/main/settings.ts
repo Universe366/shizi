@@ -472,6 +472,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     estimateTimestamps: true
   },
   bridge: { enabled: true, port: 47821, token: '' },
+  agent: { enabled: false, port: 47830, token: '', trusted: false },
   extensions: { enabled: true, items: [] },
   update: { autoCheck: true, autoDownload: false, feedUrl: '', skippedVersion: '' },
   dataDir: ''
@@ -1668,6 +1669,16 @@ function normalize(input: unknown): AppSettings {
             note: String(term.note || '')
           }));
       }
+    }
+
+    if (raw.agent && typeof raw.agent === 'object') {
+      base.agent.enabled = raw.agent.enabled === true;
+      const agentPort = Number(raw.agent.port);
+      if (Number.isFinite(agentPort) && agentPort >= 1024 && agentPort <= 65535) {
+        base.agent.port = Math.floor(agentPort);
+      }
+      base.agent.token = typeof raw.agent.token === 'string' ? raw.agent.token : '';
+      base.agent.trusted = raw.agent.trusted === true;
     }
 
     if (raw.extensions && typeof raw.extensions === 'object') {
