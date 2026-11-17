@@ -140,7 +140,7 @@ import type {
   PageDocument,
   SiteMeta
 } from './types';
-import type { PluginInfo, PluginListState } from './plugins';
+import type { PluginInfo, PluginListState, PluginMarketResult } from './plugins';
 import type { DetachedPanelInfo } from './panelWindows';
 
 export interface BsubApi {
@@ -252,6 +252,11 @@ export interface BsubApi {
   installPluginArchive(): Promise<Result<PluginInfo | null>>;
   /** 从 http(s) 链接安装插件（下载 zip）。 */
   installPluginUrl(url: string): Promise<Result<PluginInfo>>;
+  /** 读取已保存的市场索引地址。 */
+  getPluginMarketUrl(): Promise<Result<string>>;
+  setPluginMarketUrl(url: string): Promise<Result<string>>;
+  /** 拉取市场索引，并合并已安装版本。 */
+  fetchPluginMarket(url?: string): Promise<Result<PluginMarketResult>>;
   togglePlugin(id: string, enabled: boolean): Promise<Result<PluginInfo>>;
   removePlugin(id: string): Promise<Result<boolean>>;
   revealPlugin(id: string): Promise<Result<boolean>>;

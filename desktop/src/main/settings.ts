@@ -33,6 +33,7 @@ import { shortcutAction } from '../shared/shortcuts';
 import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
 import { DEFAULT_SUBTITLE_TOOLBAR } from '../shared/subtitleToolbar';
 import { normalizeBrowserExtensions } from '../shared/extensions';
+import { normalizePanelLayout } from '../shared/panels';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 import { setUsageEnabled } from './usage';
@@ -141,6 +142,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     verticalTabsWidth: 220,
     verticalTabsCollapsed: false,
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
+    panelLayout: { order: [], hidden: [] },
     sidebarCollapsed: false,
     sidebarPages: SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page })),
     sidebarPresetRev: SIDEBAR_PRESET_REV,
@@ -472,6 +474,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     estimateTimestamps: true
   },
   bridge: { enabled: true, port: 47821, token: '' },
+  plugins: { marketUrl: '' },
   agent: { enabled: false, port: 47830, token: '', trusted: false },
   extensions: { enabled: true, items: [] },
   update: { autoCheck: true, autoDownload: false, feedUrl: '', skippedVersion: '' },
@@ -527,6 +530,7 @@ function normalize(input: unknown): AppSettings {
         : 220;
       base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
       base.general.browserToolbar = normalizeBrowserToolbar(raw.general.browserToolbar);
+      base.general.panelLayout = normalizePanelLayout(raw.general.panelLayout);
       base.general.petEnabled = raw.general.petEnabled === true;
       base.general.assistantEnabled = raw.general.assistantEnabled === true;
       base.general.petX = Number(raw.general.petX) || 0;
@@ -1669,6 +1673,11 @@ function normalize(input: unknown): AppSettings {
             note: String(term.note || '')
           }));
       }
+    }
+
+    if (raw.plugins && typeof raw.plugins === 'object') {
+      const marketUrl = String(raw.plugins.marketUrl || '').trim().slice(0, 500);
+      base.plugins.marketUrl = /^https?:\/\//i.test(marketUrl) ? marketUrl : '';
     }
 
     if (raw.agent && typeof raw.agent === 'object') {

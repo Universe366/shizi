@@ -72,12 +72,44 @@ my-plugin/
 |---|---|
 | 安装插件目录 | 直接选包含 `manifest.json` 的文件夹 |
 | 从 zip 安装 | 解压到临时目录 → 校验入口 → 复制进 `userData/plugins/<id>` |
-| 从链接安装 | 填一个 http(s) 的 zip 地址，下载后走同样的流程（市场雏形） |
+| 从链接安装 | 填一个 http(s) 的 zip 地址，下载后走同样的流程 |
+| 从市场安装 | 配置市场索引地址，列表里一键安装/更新 |
 
 目录安装会复制到 `userData/plugins/<id>`，源目录之后可以删除；
 zip / 链接安装的临时目录在校验完成后清理。
 
 示例：[`examples/plugin-hello`](../examples/plugin-hello)。
+
+---
+
+## 1.1 插件市场
+
+市场就是一个 JSON 索引（放在任意 http(s) 地址，GitHub Pages / 对象存储 / 自建服务都行）：
+
+```json
+{
+  "plugins": [
+    {
+      "id": "com.example.notes",
+      "name": "示例笔记",
+      "version": "1.0.0",
+      "description": "把当前页面加进自己的待办",
+      "author": "you",
+      "zip": "https://example.com/plugins/notes-1.0.0.zip",
+      "homepage": "https://github.com/you/shizi-notes",
+      "tags": ["笔记", "bilibili"]
+    }
+  ]
+}
+```
+
+- 也接受顶层直接是数组；
+- `zip` 必须是 http(s)，并指向包含 `manifest.json` 的 zip；
+- 索引里同一 `id` 只保留第一条，坏条目直接跳过；
+- 设置页「插件」里填索引地址 → 保存 → 刷新市场；
+- 已安装插件会显示已装版本，版本号不同则出现「更新」按钮（更新 = 重新下载 zip 覆盖安装）。
+
+市场只做“索引 + 下载”，不做签名与审核；装之前请自己确认来源。
 
 ---
 

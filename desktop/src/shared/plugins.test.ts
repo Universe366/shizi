@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  mergeMarketItems,
   normalizePluginEntry,
   normalizePluginId,
   parsePluginManifest,
+  parsePluginMarket,
   parsePluginSection,
   pluginEntryUrl,
   pluginPanelSection
@@ -61,6 +63,43 @@ describe('插件清单解析', () => {
     expect(normalizePluginEntry('/abs.html', 'index.html')).toBe('index.html');
     expect(normalizePluginEntry('a/../b.html', 'index.html')).toBe('index.html');
     expect(normalizePluginEntry('', 'index.html')).toBe('index.html');
+  });
+
+  it('解析市场索引：支持数组与 { plugins }，坏条目丢弃', () => {
+    const entries = parsePluginMarket(
+      JSON.stringify({
+        plugins: [
+          {
+            id: 'demo.market',
+            name: '市场插件',
+            version: '1.2.0',
+            zip: 'https://example.com/demo.zip',
+            homepage: 'https://example.com',
+            tags: ['bilibili', '笔记']
+          },
+          { id: 'demo.market', name: '重复', zip: 'https://example.com/x.zip' },
+          { id: 'bad id', name: '坏 id', zip: 'https://example.com/x.zip' },
+          { id: 'no.zip', name: '相对地址', zip: './demo.zip' }
+        ]
+      })
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ id: 'demo.market', version: '1.2.0', tags: ['bilibili', '笔记'] });
+
+    expect(parsePluginMarket('[]')).toEqual([]);
+    expect(() => parsePluginMarket('{oops')).toThrow('合法 JSON');
+  });
+
+  it('合并已安装版本并标出可更新', () => {
+    const entries = parsePluginMarket(
+      JSON.stringify([
+        { id: 'a.one', name: 'A', version: '2.0.0', zip: 'https://e.test/a.zip' },
+        { id: 'b.two', name: 'B', version: '1.0.0', zip: 'https://e.test/b.zip' }
+      ])
+    );
+    const merged = mergeMarketItems(entries, [{ id: 'a.one', version: '1.0.0' }]);
+    expect(merged[0]).toMatchObject({ installedVersion: '1.0.0', updateAvailable: true });
+    expect(merged[1]).toMatchObject({ installedVersion: '', updateAvailable: false });
   });
 
   it('id 规范化与 Section 互转', () => {

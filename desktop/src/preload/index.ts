@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { BsubApi } from '../shared/api';
-import type { PluginInfo, PluginListState } from '../shared/plugins';
+import type { PluginInfo, PluginListState, PluginMarketResult } from '../shared/plugins';
 import type { DetachedPanelInfo } from '../shared/panelWindows';
 import type {
   AiDeltaEvent,
@@ -317,6 +317,12 @@ const api: BsubApi = {
     ipcRenderer.invoke('plugins:install-archive') as Promise<Result<PluginInfo | null>>,
   installPluginUrl: (url: string) =>
     ipcRenderer.invoke('plugins:install-url', url) as Promise<Result<PluginInfo>>,
+  getPluginMarketUrl: () =>
+    ipcRenderer.invoke('plugins:market-url') as Promise<Result<string>>,
+  setPluginMarketUrl: (url: string) =>
+    ipcRenderer.invoke('plugins:set-market-url', url) as Promise<Result<string>>,
+  fetchPluginMarket: (url?: string) =>
+    ipcRenderer.invoke('plugins:market', url) as Promise<Result<PluginMarketResult>>,
   togglePlugin: (id: string, enabled: boolean) =>
     ipcRenderer.invoke('plugins:toggle', id, enabled) as Promise<Result<PluginInfo>>,
   removePlugin: (id: string) =>

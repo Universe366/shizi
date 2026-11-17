@@ -155,6 +155,12 @@ export type Section =
   | `plugin:${string}`;
 
 /** 侧栏里的自定义网页（如 DeepSeek、豆包）。 */
+/** 侧栏面板顺序与显隐（内置 + 插件共用）。 */
+export interface PanelLayout {
+  order: string[];
+  hidden: string[];
+}
+
 export interface SidebarPage {
   id: string;
   title: string;
@@ -1291,6 +1297,8 @@ export interface AppSettings {
     verticalTabsCollapsed: boolean;
     /** 顶部地址栏按钮显示配置 */
     browserToolbar: BrowserToolbarSettings;
+    /** 侧栏面板顺序与显隐 */
+    panelLayout: PanelLayout;
     sidebarCollapsed: boolean;
     /** 侧栏网页：预置 + 用户自定义 */
     sidebarPages: SidebarPage[];
@@ -1573,6 +1581,11 @@ export interface AppSettings {
     enabled: boolean;
     port: number;
     token: string;
+  };
+  /** 插件市场与插件相关设置。 */
+  plugins: {
+    /** 市场索引 JSON 的 http(s) 地址；空表示不启用市场。 */
+    marketUrl: string;
   };
   /** 本地 Agent 网关（HTTP + MCP）；默认关闭。 */
   agent: {

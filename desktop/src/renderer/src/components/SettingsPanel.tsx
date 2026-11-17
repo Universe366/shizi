@@ -12,6 +12,7 @@ import { PromptSection } from './settings/PromptSection';
 import { SearchSection } from './settings/SearchSection';
 import { BrowserExtensionsSection } from './settings/ExtensionsSection';
 import { PluginsSection } from './settings/PluginsSection';
+import { PanelLayoutSection } from './settings/PanelLayoutSection';
 import { AgentSection } from './settings/AgentSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
@@ -1355,6 +1356,10 @@ export function SettingsPanel({
       {show('appearance') && (
         <>
           <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <PanelLayoutSection
+            value={draft.general.panelLayout}
+            onChange={(next) => updateGeneral({ panelLayout: next })}
+          />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>

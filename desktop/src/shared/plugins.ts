@@ -64,6 +64,30 @@ export interface PluginListState {
   plugins: PluginInfo[];
 }
 
+/** 插件市场索引的一条记录。索引既可以是数组，也可以是 { plugins: [...] }。 */
+export interface PluginMarketEntry {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  /** 插件包 zip 的 http(s) 地址 */
+  zip: string;
+  homepage: string;
+  tags: string[];
+}
+
+export interface PluginMarketItem extends PluginMarketEntry {
+  installedVersion: string;
+  updateAvailable: boolean;
+}
+
+export interface PluginMarketResult {
+  entries: PluginMarketItem[];
+  fetchedAt: number;
+  source: string;
+}
+
 const PLUGIN_ID_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const PANEL_ID_RE = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 
@@ -162,6 +186,74 @@ export function parsePluginManifest(source: string): PluginManifest {
     panels,
     commands
   };
+}
+
+function httpUrl(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  try {
+    const parsed = new URL(text);
+    return /^https?:$/.test(parsed.protocol) ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+/** 解析市场索引；坏条目直接丢弃，保证一个坏插件不会让整个市场不可用。 */
+export function parsePluginMarket(source: string): PluginMarketEntry[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(String(source ?? '').replace(/^\uFEFF/, ''));
+  } catch {
+    throw new Error('市场索引不是合法 JSON');
+  }
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { plugins?: unknown }).plugins)
+      ? ((raw as { plugins: unknown[] }).plugins)
+      : [];
+  const seen = new Set<string>();
+  const entries: PluginMarketEntry[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== 'object' || entries.length >= 200) continue;
+    const record = item as Record<string, unknown>;
+    const id = normalizePluginId(record.id);
+    if (!id || seen.has(id)) continue;
+    const zip = httpUrl(record.zip ?? record.url);
+    if (!zip) continue;
+    const name = String(record.name ?? '').trim().slice(0, 80);
+    if (!name) continue;
+    seen.add(id);
+    entries.push({
+      id,
+      name,
+      version: String(record.version ?? '').trim().slice(0, 40) || '0.0.0',
+      description: String(record.description ?? '').trim().slice(0, 200),
+      author: String(record.author ?? '').trim().slice(0, 80),
+      zip,
+      homepage: httpUrl(record.homepage),
+      tags: Array.isArray(record.tags)
+        ? record.tags.map((tag) => String(tag).trim().slice(0, 20)).filter(Boolean).slice(0, 8)
+        : []
+    });
+  }
+  return entries;
+}
+
+/** 合并已安装版本，标出可更新的条目。 */
+export function mergeMarketItems(
+  entries: PluginMarketEntry[],
+  installed: Array<{ id: string; version: string }>
+): PluginMarketItem[] {
+  const versions = new Map(installed.map((item) => [item.id, item.version]));
+  return entries.map((entry) => {
+    const installedVersion = versions.get(entry.id) || '';
+    return {
+      ...entry,
+      installedVersion,
+      updateAvailable: Boolean(installedVersion) && installedVersion !== entry.version
+    };
+  });
 }
 
 /** 面板在 Sidebar 里的 Section key：plugin:<pluginId>:<panelId>。 */

@@ -6,7 +6,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 const state = vi.hoisted(() => ({
   dir: '',
   zip: null as Uint8Array | null,
-  handler: null as ((request: Request) => Promise<Response>) | null
+  marketText: '',
+  handler: null as ((request: Request) => Promise<Response>) | null,
+  settings: {
+    general: {
+      theme: 'dark',
+      accentColor: '#123456',
+      colorScheme: 'slate',
+      density: 'comfortable',
+      fontScale: 1
+    },
+    plugins: { marketUrl: 'https://example.com/market.json' }
+  }
 }));
 
 vi.mock('electron', () => ({
@@ -19,26 +30,22 @@ vi.mock('electron', () => ({
   },
   session: {
     defaultSession: {
-      fetch: vi.fn(async () =>
-        state.zip
-          ? new Response(state.zip as never, { status: 200 })
-          : new Response('remote-ok', { status: 200 })
-      )
+      fetch: vi.fn(async () => {
+        if (state.marketText) return new Response(state.marketText, { status: 200 });
+        if (state.zip) return new Response(state.zip as never, { status: 200 });
+        return new Response('remote-ok', { status: 200 });
+      })
     }
   },
   shell: { showItemInFolder: vi.fn() }
 }));
 
 vi.mock('./settings', () => ({
-  loadSettings: () => ({
-    general: {
-      theme: 'dark',
-      accentColor: '#123456',
-      colorScheme: 'slate',
-      density: 'comfortable',
-      fontScale: 1
-    }
-  })
+  loadSettings: () => state.settings,
+  saveSettings: (next: typeof state.settings) => {
+    state.settings = next;
+    return next;
+  }
 }));
 vi.mock('./library/videos', () => ({
   listLibrary: () => ({ videos: [], stats: {}, total: 0 })
@@ -49,15 +56,18 @@ vi.mock('./library/search', () => ({
 vi.mock('./page', () => ({ getPageInfo: async () => null }));
 
 import {
+  fetchPluginMarket,
   installPluginFromArchive,
   installPluginFromDir,
   installPluginFromUrl,
   installPluginProtocol,
   listPlugins,
+  pluginMarketUrl,
   pluginRpc,
   readRegistry,
   removePlugin,
-  setPluginEnabled
+  setPluginEnabled,
+  setPluginMarketUrl
 } from './plugins';
 
 /** 生成 STORE 压缩的 ZIP（测试用，不引入解压依赖）。 */
@@ -133,6 +143,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   fs.rmSync(path.join(state.dir, 'plugins'), { recursive: true, force: true });
+  state.marketText = '';
+  state.zip = null;
+  state.settings.plugins.marketUrl = 'https://example.com/market.json';
 });
 
 afterAll(() => {
@@ -328,5 +341,65 @@ describe('从 zip 安装插件', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('manifest.json');
     expect(listPlugins()).toHaveLength(0);
+  });
+});
+
+describe('插件市场', () => {
+  it('拉取索引并合并已安装版本', async () => {
+    installPluginFromDir(makePlugin({ version: '1.0.0' }));
+    state.marketText = JSON.stringify({
+      plugins: [
+        {
+          id: 'demo.plugin',
+          name: '演示插件',
+          version: '2.0.0',
+          zip: 'https://example.com/demo.zip'
+        },
+        {
+          id: 'new.plugin',
+          name: '新插件',
+          version: '1.0.0',
+          zip: 'https://example.com/new.zip'
+        }
+      ]
+    });
+
+    const result = await fetchPluginMarket();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.entries).toHaveLength(2);
+    expect(result.data.entries[0]).toMatchObject({
+      id: 'demo.plugin',
+      installedVersion: '1.0.0',
+      updateAvailable: true
+    });
+    expect(result.data.entries[1]).toMatchObject({
+      id: 'new.plugin',
+      installedVersion: '',
+      updateAvailable: false
+    });
+    expect(result.data.source).toContain('market.json');
+  });
+
+  it('地址校验与保存', () => {
+    expect(setPluginMarketUrl('file:///c:/x.json').ok).toBe(false);
+    expect(setPluginMarketUrl('https://example.com/list.json').ok).toBe(true);
+    expect(pluginMarketUrl()).toBe('https://example.com/list.json');
+    expect(setPluginMarketUrl('').ok).toBe(true);
+    expect(pluginMarketUrl()).toBe('');
+  });
+
+  it('没有配置地址时不发请求', async () => {
+    setPluginMarketUrl('');
+    const result = await fetchPluginMarket();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('市场地址');
+  });
+
+  it('索引不是 JSON 时给出错误', async () => {
+    state.marketText = 'not json';
+    const result = await fetchPluginMarket();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('JSON');
   });
 });

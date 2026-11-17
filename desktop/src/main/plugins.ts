@@ -9,13 +9,16 @@ import {
   PLUGIN_FETCH_LIMIT_BYTES,
   PLUGIN_SCHEME,
   isPluginPermission,
+  mergeMarketItems,
   parsePluginManifest,
+  parsePluginMarket,
+  type PluginMarketResult,
   pluginEntryUrl,
   type PluginInfo,
   type PluginManifest,
   type PluginPermission
 } from '../shared/plugins';
-import { loadSettings } from './settings';
+import { loadSettings, saveSettings } from './settings';
 import { listLibrary } from './library/videos';
 import { searchLibrary } from './library/search';
 import { getPageInfo } from './page';
@@ -261,6 +264,60 @@ export async function installPluginFromUrl(input: string): Promise<Result<Plugin
         // ignore
       }
     }
+  }
+}
+
+export function pluginMarketUrl(): string {
+  return loadSettings().plugins?.marketUrl || '';
+}
+
+export function setPluginMarketUrl(input: string): Result<string> {
+  try {
+    const url = String(input || '').trim();
+    if (url) {
+      const parsed = new URL(url);
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error('市场地址必须是 http(s)');
+    }
+    const settings = loadSettings();
+    saveSettings({ ...settings, plugins: { ...settings.plugins, marketUrl: url.slice(0, 500) } });
+    return { ok: true, data: url.slice(0, 500) };
+  } catch (error) {
+    return { ok: false, error: errorText(error) };
+  }
+}
+
+/**
+ * 拉取插件市场索引（JSON）：{ plugins: [...] } 或数组。
+ * 只做“读索引 + 合并已安装版本”，下载/安装仍复用 installPluginFromUrl。
+ */
+export async function fetchPluginMarket(urlInput?: string): Promise<Result<PluginMarketResult>> {
+  try {
+    const url = String(urlInput || pluginMarketUrl() || '').trim();
+    if (!url) throw new Error('还没有配置插件市场地址');
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol)) throw new Error('市场地址必须是 http(s)');
+    const response = await session.defaultSession.fetch(parsed.toString(), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error(`市场索引下载失败（HTTP ${response.status}）`);
+    const text = await response.text();
+    if (text.length > 2 * 1024 * 1024) throw new Error('市场索引超过 2MB 上限');
+    const entries = parsePluginMarket(text);
+    const installed = readRegistry().plugins.map((item) => ({
+      id: item.manifest.id,
+      version: item.manifest.version
+    }));
+    return {
+      ok: true,
+      data: {
+        entries: mergeMarketItems(entries, installed),
+        fetchedAt: Date.now(),
+        source: parsed.toString()
+      }
+    };
+  } catch (error) {
+    return { ok: false, error: errorText(error) };
   }
 }
 

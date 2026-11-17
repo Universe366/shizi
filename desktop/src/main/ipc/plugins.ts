@@ -2,15 +2,19 @@ import { dialog, ipcMain } from 'electron';
 import type { Result } from '../../shared/types';
 import type { PluginInfo, PluginListState } from '../../shared/plugins';
 import { failure, type IpcContext } from './shared';
+import type { PluginMarketResult } from '../../shared/plugins';
 import {
+  fetchPluginMarket,
   installPluginFromArchive,
   installPluginFromDir,
   installPluginFromUrl,
   listPlugins,
+  pluginMarketUrl,
   pluginRpc,
   removePlugin,
   revealPlugin,
-  setPluginEnabled
+  setPluginEnabled,
+  setPluginMarketUrl
 } from '../plugins';
 
 /** 应用插件管理 + 插件 UI 的能力调用入口。 */
@@ -55,6 +59,33 @@ export function registerPluginsIpc(ctx: IpcContext): void {
       return failure(error);
     }
   });
+
+  ipcMain.handle('plugins:market-url', (): Result<string> => {
+    try {
+      return { ok: true, data: pluginMarketUrl() };
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  ipcMain.handle('plugins:set-market-url', (_event, url: string): Result<string> => {
+    try {
+      return setPluginMarketUrl(String(url || ''));
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  ipcMain.handle(
+    'plugins:market',
+    async (_event, url?: string): Promise<Result<PluginMarketResult>> => {
+      try {
+        return await fetchPluginMarket(url);
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
 
   ipcMain.handle(
     'plugins:install-url',

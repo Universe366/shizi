@@ -9,7 +9,15 @@ import {
   Plus,
   Sparkles
 } from 'lucide-react';
-import type { BridgeStatus, JobRecord, Section, SidebarPage, TabInfo } from '../../../shared/types';
+import type {
+  BridgeStatus,
+  JobRecord,
+  PanelLayout,
+  Section,
+  SidebarPage,
+  TabInfo
+} from '../../../shared/types';
+import { orderPanelKeys } from '../../../shared/panels';
 import { SidebarPagesDialog } from './SidebarPagesDialog';
 import { PluginPanel } from './PluginPanel';
 import type { PluginInfo, PluginPanelContribution } from '../../../shared/plugins';
@@ -53,6 +61,7 @@ export function Sidebar({
   onOpenChapters,
   pages = [],
   pluginPanels = [],
+  panelLayout,
   onDetachPanel
 }: {
   onOpenSettings: () => void;
@@ -74,6 +83,8 @@ export function Sidebar({
   pages?: SidebarPage[];
   /** 已启用插件声明的面板（按 manifest 顺序）。 */
   pluginPanels?: Array<{ plugin: PluginInfo; panel: PluginPanelContribution }>;
+  /** 面板顺序与显隐（内置 + 插件统一）。 */
+  panelLayout?: PanelLayout;
   /** 右键把面板拆成独立窗口。 */
   onDetachPanel?: (section: Section, title: string) => void;
 }) {
@@ -288,6 +299,29 @@ export function Sidebar({
     void window.bsub.saveSidebarPages(next);
   };
 
+  const navEntries = [
+    ...items.map(({ id, label, icon: Icon, hint }) => ({
+      id: id as Section,
+      label,
+      hint,
+      icon: <Icon size={16} />,
+      detachLabel: label
+    })),
+    ...pluginPanels.map(({ plugin, panel }) => ({
+      id: pluginPanelSection(plugin.id, panel.id) as Section,
+      label: panel.title,
+      hint: `${plugin.name} · ${panel.title}（插件）`,
+      icon: <span className="plugin-nav-icon">{panel.icon}</span>,
+      detachLabel: `${plugin.name} · ${panel.title}`
+    }))
+  ];
+  const shownNav = orderPanelKeys(
+    navEntries.map((entry) => entry.id),
+    panelLayout
+  )
+    .map((id) => navEntries.find((entry) => entry.id === id))
+    .filter((entry): entry is (typeof navEntries)[number] => Boolean(entry));
+
   return (
     <aside
       className={`sidebar${collapsed ? ' is-collapsed' : ''}`}
@@ -313,59 +347,31 @@ export function Sidebar({
       </div>
 
       <nav className="side-nav">
-        {items.map(({ id, label, icon: Icon, hint }) => (
+        {shownNav.map((entry) => (
           <button
-            key={id}
-            className={`side-nav-item${section === id ? ' is-active' : ''}`}
-            title={`${hint}（右键可拆成独立窗口）`}
-            onClick={() => onSelect(id)}
+            key={entry.id}
+            className={`side-nav-item${section === entry.id ? ' is-active' : ''}`}
+            title={`${entry.hint}（右键可拆成独立窗口）`}
+            onClick={() => onSelect(entry.id)}
             onContextMenu={(event) => {
               event.preventDefault();
-              void showPanelMenu(id, label);
+              void showPanelMenu(entry.id, entry.detachLabel);
             }}
           >
-            <Icon size={16} />
-            <span>{label}</span>
+            {entry.icon}
+            <span>{entry.label}</span>
             <span
               className="side-nav-detach"
               title="拆成独立窗口"
               onClick={(event) => {
                 event.stopPropagation();
-                onDetachPanel?.(id, label);
+                onDetachPanel?.(entry.id, entry.detachLabel);
               }}
             >
               ⧉
             </span>
           </button>
         ))}
-        {pluginPanels.map(({ plugin, panel }) => {
-          const id = pluginPanelSection(plugin.id, panel.id) as Section;
-          return (
-            <button
-              key={id}
-              className={`side-nav-item${section === id ? ' is-active' : ''}`}
-              title={`${plugin.name} · ${panel.title}（插件，右键可拆成独立窗口）`}
-              onClick={() => onSelect(id)}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                void showPanelMenu(id, `${plugin.name} · ${panel.title}`);
-              }}
-            >
-              <span className="plugin-nav-icon">{panel.icon}</span>
-              <span>{panel.title}</span>
-              <span
-                className="side-nav-detach"
-                title="拆成独立窗口"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDetachPanel?.(id, `${plugin.name} · ${panel.title}`);
-                }}
-              >
-                ⧉
-              </span>
-            </button>
-          );
-        })}
       </nav>
 
       {(pages.length > 0 || !collapsed) && (

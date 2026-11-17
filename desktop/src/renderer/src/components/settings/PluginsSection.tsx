@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FolderOpen, Plus, RotateCw, Trash2 } from 'lucide-react';
-import type { PluginInfo } from '../../../../shared/plugins';
+import type { PluginInfo, PluginMarketItem } from '../../../../shared/plugins';
 import { SettingsSection } from './SettingsSection';
 
 /**
@@ -14,6 +14,9 @@ export function PluginsSection() {
   const [notice, setNotice] = useState('');
   const [pendingRemove, setPendingRemove] = useState('');
   const [url, setUrl] = useState('');
+  const [marketUrl, setMarketUrl] = useState('');
+  const [marketEntries, setMarketEntries] = useState<PluginMarketItem[]>([]);
+  const [marketBusy, setMarketBusy] = useState('');
 
   const refresh = useCallback(async () => {
     const result = await window.bsub.listPlugins();
@@ -28,6 +31,37 @@ export function PluginsSection() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const refreshMarket = useCallback(
+    async (urlOverride?: string) => {
+      setMarketBusy('load');
+      try {
+        const result = await window.bsub.fetchPluginMarket(urlOverride);
+        if (result.ok) {
+          setMarketEntries(result.data.entries);
+          setError('');
+        } else {
+          setMarketEntries([]);
+          setError(result.error);
+        }
+      } finally {
+        setMarketBusy('');
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    let alive = true;
+    void window.bsub.getPluginMarketUrl().then((result) => {
+      if (!alive || !result.ok || !result.data) return;
+      setMarketUrl(result.data);
+      void refreshMarket(result.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [refreshMarket]);
 
   const withBusy = async (key: string, action: () => Promise<void>) => {
     setBusy(key);
@@ -76,6 +110,29 @@ export function PluginsSection() {
       setUrl('');
       setNotice(`已从链接安装「${result.data.name}」`);
       await refresh();
+    });
+
+  const saveMarketUrl = () =>
+    withBusy('market-url', async () => {
+      const result = await window.bsub.setPluginMarketUrl(marketUrl.trim());
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setNotice(result.data ? '市场地址已保存' : '已清空市场地址');
+      if (result.data) await refreshMarket(result.data);
+    });
+
+  const installFromMarket = (entry: PluginMarketItem) =>
+    withBusy(`market-${entry.id}`, async () => {
+      const result = await window.bsub.installPluginUrl(entry.zip);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setNotice(`已安装「${result.data.name}」v${result.data.version}`);
+      await refresh();
+      await refreshMarket();
     });
 
   const toggle = (plugin: PluginInfo) =>
@@ -160,6 +217,64 @@ export function PluginsSection() {
           从链接安装
         </button>
       </div>
+
+      <div className="settings-hint" style={{ marginTop: 12 }}>
+        插件市场：填一个索引 JSON 地址（形如 <code>{'{ "plugins": [...] }'}</code>），可直接安装或更新。
+      </div>
+      <div className="settings-inline">
+        <input
+          className="settings-input"
+          placeholder="https://example.com/plugins.json"
+          value={marketUrl}
+          onChange={(event) => setMarketUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && marketUrl.trim()) void saveMarketUrl();
+          }}
+        />
+        <button className="mini-btn" disabled={busy === 'market-url'} onClick={() => void saveMarketUrl()}>
+          保存地址
+        </button>
+        <button
+          className="mini-btn"
+          disabled={marketBusy === 'load' || !marketUrl.trim()}
+          onClick={() => void refreshMarket()}
+        >
+          刷新市场
+        </button>
+      </div>
+
+      {marketEntries.map((entry) => {
+        const current = Boolean(entry.installedVersion) && !entry.updateAvailable;
+        return (
+          <div key={entry.id} className="ext-row">
+            <div className="ext-main">
+              <div className="ext-name">
+                {entry.name}
+                <span className="ext-badge">v{entry.version}</span>
+                {entry.author && <span className="ext-badge">{entry.author}</span>}
+                <span className={`ext-badge${current ? ' is-on' : ''}`}>
+                  {entry.installedVersion
+                    ? entry.updateAvailable
+                      ? `已装 v${entry.installedVersion}`
+                      : '已安装'
+                    : '未安装'}
+                </span>
+              </div>
+              <div className="ext-path">{entry.description || entry.id}</div>
+              {entry.tags.length > 0 && <div className="ext-path">{entry.tags.join(' · ')}</div>}
+            </div>
+            <div className="ext-actions">
+              <button
+                className="mini-btn"
+                disabled={current || busy === `market-${entry.id}`}
+                onClick={() => void installFromMarket(entry)}
+              >
+                {entry.updateAvailable ? '更新' : current ? '已安装' : '安装'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
 
       {error && <div className="settings-hint settings-error">操作失败：{error}</div>}
       {notice && !error && <div className="settings-hint">{notice}</div>}

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import type {
   BrowserToolbarSettings,
   FindResult,
+  PanelLayout,
   Section,
   SettingsSnapshot,
   SidebarPage,
   TabInfo
 } from '../../shared/types';
+import { BUILTIN_PANELS, normalizePanelLayout, orderPanelKeys } from '../../shared/panels';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/browserToolbar';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
@@ -61,6 +63,7 @@ export default function App() {
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
+  const [panelLayout, setPanelLayout] = useState<PanelLayout>({ order: [], hidden: [] });
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -131,6 +134,25 @@ export default function App() {
     [plugins]
   );
 
+  const panelKeys = useMemo(
+    () => [
+      ...BUILTIN_PANELS.map((panel) => panel.id as string),
+      ...pluginPanels.map(({ plugin, panel }) => pluginPanelSection(plugin.id, panel.id))
+    ],
+    [pluginPanels]
+  );
+  const visiblePanelKeys = useMemo(
+    () => orderPanelKeys(panelKeys, panelLayout),
+    [panelKeys, panelLayout]
+  );
+
+  // 当前面板被隐藏时自动切到第一个可见面板，避免只剩空白侧栏。
+  useEffect(() => {
+    const tracked = section.startsWith('plugin:') || BUILTIN_PANELS.some((item) => item.id === section);
+    if (!tracked || !visiblePanelKeys.length) return;
+    if (!visiblePanelKeys.includes(section)) setSection(visiblePanelKeys[0] as Section);
+  }, [section, visiblePanelKeys]);
+
   const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
   const [radialOpen, setRadialOpen] = useState(false);
   const [radialSectors, setRadialSectors] = useState<WheelActionId[]>([
@@ -180,6 +202,7 @@ export default function App() {
         sidebarPosition: 'left' | 'right';
         sidebarCollapsed: boolean;
         sidebarPages?: SidebarPage[];
+        panelLayout?: PanelLayout;
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
@@ -190,6 +213,7 @@ export default function App() {
     setSidebarPosition(snapshot.settings.general.sidebarPosition);
     setSidebarCollapsed(snapshot.settings.general.sidebarCollapsed);
     setSidebarPages(snapshot.settings.general.sidebarPages || []);
+    setPanelLayout(normalizePanelLayout(snapshot.settings.general.panelLayout));
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
     setBrowserToolbar(
       normalizeBrowserToolbar(
@@ -849,6 +873,7 @@ export default function App() {
           }}
           pages={sidebarPages}
           pluginPanels={pluginPanels}
+          panelLayout={panelLayout}
           onDetachPanel={(section, title) => {
             void window.bsub.openPanelWindow(section, title);
           }}

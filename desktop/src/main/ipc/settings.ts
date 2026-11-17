@@ -267,8 +267,12 @@ export function registerSettingsIpc(ctx: IpcContext): void {
     async (_event, next: AppSettings): Promise<Result<ReturnType<typeof settingsSnapshot>>> => {
       try {
         const before = loadSettings();
-        // 扩展列表由扩展管理页即时写入，设置页的草稿可能是旧的：以磁盘为准，避免覆盖。
-        const saved = saveSettings({ ...next, extensions: before.extensions });
+        // 扩展列表与市场地址由各自管理页即时写入，设置页的草稿可能是旧的：以磁盘为准。
+        const saved = saveSettings({
+          ...next,
+          extensions: before.extensions,
+          plugins: before.plugins
+        });
         // MCP 配置变了（删除/改地址/改命令）就断开旧会话，避免继续用旧连接。
         for (const old of before.mcp.servers) {
           const current = saved.mcp.servers.find((item) => item.id === old.id);
