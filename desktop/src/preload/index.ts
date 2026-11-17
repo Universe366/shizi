@@ -291,6 +291,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('extensions:add') as Promise<Result<BrowserExtensionStatus | null>>,
   addBrowserExtensionPath: (dir: string) =>
     ipcRenderer.invoke('extensions:add-path', dir) as Promise<Result<BrowserExtensionStatus>>,
+  addBrowserExtensionArchive: () =>
+    ipcRenderer.invoke('extensions:add-archive') as Promise<
+      Result<BrowserExtensionStatus | null>
+    >,
   toggleBrowserExtension: (id: string, enabled: boolean) =>
     ipcRenderer.invoke('extensions:toggle', id, enabled) as Promise<
       Result<BrowserExtensionStatus>
@@ -309,6 +313,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('plugins:install') as Promise<Result<PluginInfo | null>>,
   installPluginPath: (dir: string) =>
     ipcRenderer.invoke('plugins:install-path', dir) as Promise<Result<PluginInfo>>,
+  installPluginArchive: () =>
+    ipcRenderer.invoke('plugins:install-archive') as Promise<Result<PluginInfo | null>>,
+  installPluginUrl: (url: string) =>
+    ipcRenderer.invoke('plugins:install-url', url) as Promise<Result<PluginInfo>>,
   togglePlugin: (id: string, enabled: boolean) =>
     ipcRenderer.invoke('plugins:toggle', id, enabled) as Promise<Result<PluginInfo>>,
   removePlugin: (id: string) =>

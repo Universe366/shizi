@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { app, protocol, session, shell } from 'electron';
 import type { Result } from '../shared/types';
 import {
@@ -18,6 +19,7 @@ import { loadSettings } from './settings';
 import { listLibrary } from './library/videos';
 import { searchLibrary } from './library/search';
 import { getPageInfo } from './page';
+import { archivePayload, extractZipTo } from './zip';
 import type { TabManager } from './tabs';
 
 /**
@@ -182,6 +184,83 @@ export function installPluginFromDir(sourceDir: string): Result<PluginInfo> {
     return { ok: true, data: infoOf(record) };
   } catch (error) {
     return { ok: false, error: errorText(error) };
+  }
+}
+
+/** zip 里可能套一层目录，向下找一层 manifest.json。 */
+function findManifestDir(dir: string): string {
+  if (fs.existsSync(path.join(dir, 'manifest.json'))) return dir;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const candidate = path.join(dir, entry.name);
+    if (fs.existsSync(path.join(candidate, 'manifest.json'))) return candidate;
+  }
+  throw new Error('压缩包里没有找到 manifest.json');
+}
+
+/** 从 .zip 安装插件：解压到临时目录 → 校验 → 复制进 userData/plugins/<id>。 */
+export function installPluginFromArchive(fileInput: string): Result<PluginInfo> {
+  const file = path.resolve(String(fileInput || '').trim());
+  let temp = '';
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile()) throw new Error('请选择 .zip 文件');
+    if (stat.size > 50 * 1024 * 1024) throw new Error('插件包超过 50MB 上限');
+    temp = path.join(
+      app.getPath('userData'),
+      'plugins-tmp',
+      `pkg_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
+    );
+    const dir = extractZipTo(archivePayload(fs.readFileSync(file)), temp);
+    return installPluginFromDir(findManifestDir(dir));
+  } catch (error) {
+    return { ok: false, error: errorText(error) };
+  } finally {
+    if (temp) {
+      try {
+        fs.rmSync(temp, { recursive: true, force: true });
+        // 父目录是 plugins-tmp/<随机名>；空了就一起收掉，避免留下空壳。
+        fs.rmdirSync(path.dirname(temp));
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+/**
+ * 从链接安装插件（市场/README 里贴一个 zip 地址）。
+ * 只接受 http(s)；下载后走和本地 zip 一样的临时目录 + 校验 + 复制流程。
+ */
+export async function installPluginFromUrl(input: string): Promise<Result<PluginInfo>> {
+  let temp = '';
+  try {
+    const url = new URL(String(input || '').trim());
+    if (!/^https?:$/.test(url.protocol)) throw new Error('只接受 http(s) 链接');
+    const response = await session.defaultSession.fetch(url.toString(), {
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength > 30 * 1024 * 1024) throw new Error('插件包超过 30MB 上限');
+    temp = path.join(
+      app.getPath('userData'),
+      'plugins-tmp',
+      `url_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
+    );
+    const dir = extractZipTo(archivePayload(buffer), temp);
+    return installPluginFromDir(findManifestDir(dir));
+  } catch (error) {
+    return { ok: false, error: errorText(error) };
+  } finally {
+    if (temp) {
+      try {
+        fs.rmSync(temp, { recursive: true, force: true });
+        fs.rmdirSync(path.dirname(temp));
+      } catch {
+        // ignore
+      }
+    }
   }
 }
 

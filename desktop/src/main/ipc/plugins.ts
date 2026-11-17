@@ -3,7 +3,9 @@ import type { Result } from '../../shared/types';
 import type { PluginInfo, PluginListState } from '../../shared/plugins';
 import { failure, type IpcContext } from './shared';
 import {
+  installPluginFromArchive,
   installPluginFromDir,
+  installPluginFromUrl,
   listPlugins,
   pluginRpc,
   removePlugin,
@@ -36,6 +38,36 @@ export function registerPluginsIpc(ctx: IpcContext): void {
       return failure(error);
     }
   });
+
+  ipcMain.handle('plugins:install-archive', async (): Promise<Result<PluginInfo | null>> => {
+    try {
+      const picked = await dialog.showOpenDialog(ctx.win, {
+        title: '选择插件包（.zip）',
+        buttonLabel: '安装插件',
+        filters: [{ name: '插件包', extensions: ['zip'] }],
+        properties: ['openFile']
+      });
+      if (picked.canceled || !picked.filePaths.length) return { ok: true, data: null };
+      const result = installPluginFromArchive(picked.filePaths[0]);
+      if (result.ok) ctx.send('plugins:changed');
+      return result;
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  ipcMain.handle(
+    'plugins:install-url',
+    async (_event, url: string): Promise<Result<PluginInfo>> => {
+      try {
+        const result = await installPluginFromUrl(String(url || ''));
+        if (result.ok) ctx.send('plugins:changed');
+        return result;
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
 
   ipcMain.handle(
     'plugins:install-path',

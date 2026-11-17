@@ -231,6 +231,8 @@ export interface BsubApi {
   addBrowserExtension(): Promise<Result<BrowserExtensionStatus | null>>;
   /** 按路径添加（拖拽/命令行）。 */
   addBrowserExtensionPath(dir: string): Promise<Result<BrowserExtensionStatus>>;
+  /** 从 .zip / .crx 安装扩展；取消时 data 为 null。 */
+  addBrowserExtensionArchive(): Promise<Result<BrowserExtensionStatus | null>>;
   /** 启用或停用单个扩展（立即加载/卸载）。 */
   toggleBrowserExtension(
     id: string,
@@ -246,6 +248,10 @@ export interface BsubApi {
   /** 打开目录选择框安装插件；取消时 data 为 null。 */
   installPlugin(): Promise<Result<PluginInfo | null>>;
   installPluginPath(dir: string): Promise<Result<PluginInfo>>;
+  /** 从 .zip 安装插件；取消时 data 为 null。 */
+  installPluginArchive(): Promise<Result<PluginInfo | null>>;
+  /** 从 http(s) 链接安装插件（下载 zip）。 */
+  installPluginUrl(url: string): Promise<Result<PluginInfo>>;
   togglePlugin(id: string, enabled: boolean): Promise<Result<PluginInfo>>;
   removePlugin(id: string): Promise<Result<boolean>>;
   revealPlugin(id: string): Promise<Result<boolean>>;

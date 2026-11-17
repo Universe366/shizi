@@ -7,6 +7,7 @@ import type {
 import { failure, type IpcContext } from './shared';
 import {
   addBrowserExtension,
+  addBrowserExtensionFromArchive,
   listBrowserExtensions,
   removeBrowserExtension,
   revealBrowserExtension,
@@ -40,6 +41,24 @@ export function registerExtensionsIpc(ctx: IpcContext): void {
         });
         if (picked.canceled || !picked.filePaths.length) return { ok: true, data: null };
         return await addBrowserExtension(picked.filePaths[0]);
+      } catch (error) {
+        return failure(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'extensions:add-archive',
+    async (): Promise<Result<BrowserExtensionStatus | null>> => {
+      try {
+        const picked = await dialog.showOpenDialog(ctx.win, {
+          title: '选择扩展包（.zip / .crx）',
+          buttonLabel: '安装扩展',
+          filters: [{ name: 'Chrome 扩展包', extensions: ['crx', 'zip'] }],
+          properties: ['openFile']
+        });
+        if (picked.canceled || !picked.filePaths.length) return { ok: true, data: null };
+        return await addBrowserExtensionFromArchive(picked.filePaths[0]);
       } catch (error) {
         return failure(error);
       }

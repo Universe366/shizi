@@ -7,10 +7,12 @@ const electronState = vi.hoisted(() => ({
   loaded: new Map<string, string>(),
   removed: [] as string[],
   failPaths: new Set<string>(),
-  seq: 0
+  seq: 0,
+  dir: ''
 }));
 
 vi.mock('electron', () => ({
+  app: { getPath: () => electronState.dir },
   session: {
     defaultSession: {
       loadExtension: async (extensionPath: string) => {
@@ -48,6 +50,7 @@ vi.mock('./settings', () => ({
 
 import {
   addBrowserExtension,
+  addBrowserExtensionFromArchive,
   listBrowserExtensions,
   loadBrowserExtensions,
   readExtensionManifest,
@@ -74,7 +77,56 @@ function makeExtension(name = '示例扩展', manifestVersion = 3): string {
   return dir;
 }
 
+/** 生成一个 STORE 压缩的 ZIP，用于测试从 zip/crx 安装。 */
+function makeZip(entries: Array<[string, string]>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [entryName, content] of entries) {
+    const name = Buffer.from(entryName, 'utf8');
+    const data = Buffer.from(content, 'utf8');
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    locals.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralBuffer = Buffer.concat(centrals);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralBuffer.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralBuffer, eocd]);
+}
+
+function makeCrx3(zip: Buffer): Buffer {
+  const header = Buffer.from('header', 'utf8');
+  const head = Buffer.alloc(12);
+  head.write('Cr24', 0, 'ascii');
+  head.writeUInt32LE(3, 4);
+  head.writeUInt32LE(header.length, 8);
+  return Buffer.concat([head, header, zip]);
+}
+
 beforeEach(() => {
+  electronState.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shizi-ext-data-'));
   electronState.loaded.clear();
   electronState.removed.length = 0;
   electronState.failPaths.clear();
@@ -86,6 +138,7 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+  if (electronState.dir) fs.rmSync(electronState.dir, { recursive: true, force: true });
 });
 
 describe('readExtensionManifest', () => {
@@ -210,5 +263,60 @@ describe('扩展生命周期', () => {
     if (!added.ok) throw new Error(added.error);
     expect(revealBrowserExtension(added.data.id).ok).toBe(true);
     expect(revealBrowserExtension('missing').ok).toBe(false);
+  });
+});
+
+describe('从压缩包安装扩展', () => {
+  const manifest = JSON.stringify({
+    manifest_version: 3,
+    name: '压缩包扩展',
+    version: '2.0.0',
+    background: { service_worker: 'sw.js' }
+  });
+
+  it('zip 会解压到 userData/extensions 并加载', async () => {
+    const zip = makeZip([
+      ['manifest.json', manifest],
+      ['sw.js', '']
+    ]);
+    const file = path.join(electronState.dir, 'demo.zip');
+    fs.writeFileSync(file, zip);
+
+    const result = await addBrowserExtensionFromArchive(file);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.name).toBe('压缩包扩展');
+    expect(result.data.path).toContain(path.join(electronState.dir, 'extensions'));
+    expect(result.data.loaded).toBe(true);
+  });
+
+  it('crx3 剥掉签名头后同样能安装', async () => {
+    const zip = makeZip([
+      ['manifest.json', manifest],
+      ['sw.js', '']
+    ]);
+    const file = path.join(electronState.dir, 'demo.crx');
+    fs.writeFileSync(file, makeCrx3(zip));
+
+    const result = await addBrowserExtensionFromArchive(file);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.loaded).toBe(true);
+  });
+
+  it('非压缩包与缺失 manifest 都会失败且不留目录', async () => {
+    const textFile = path.join(electronState.dir, 'x.zip');
+    fs.writeFileSync(textFile, 'not a zip');
+    expect((await addBrowserExtensionFromArchive(textFile)).ok).toBe(false);
+
+    const emptyZip = path.join(electronState.dir, 'empty.zip');
+    fs.writeFileSync(emptyZip, makeZip([['readme.txt', 'no manifest']]));
+    const result = await addBrowserExtensionFromArchive(emptyZip);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('manifest.json');
+    const leftover = fs.existsSync(path.join(electronState.dir, 'extensions'))
+      ? fs.readdirSync(path.join(electronState.dir, 'extensions'))
+      : [];
+    expect(leftover).toHaveLength(0);
   });
 });

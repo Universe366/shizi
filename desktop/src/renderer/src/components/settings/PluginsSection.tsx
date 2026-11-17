@@ -13,6 +13,7 @@ export function PluginsSection() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [pendingRemove, setPendingRemove] = useState('');
+  const [url, setUrl] = useState('');
 
   const refresh = useCallback(async () => {
     const result = await window.bsub.listPlugins();
@@ -50,6 +51,30 @@ export function PluginsSection() {
       }
       if (!result.data) return;
       setNotice(`已安装「${result.data.name}」，面板已加到侧栏`);
+      await refresh();
+    });
+
+  const installArchive = () =>
+    withBusy('install-archive', async () => {
+      const result = await window.bsub.installPluginArchive();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (!result.data) return;
+      setNotice(`已安装「${result.data.name}」，面板已加到侧栏`);
+      await refresh();
+    });
+
+  const installUrl = () =>
+    withBusy('install-url', async () => {
+      const result = await window.bsub.installPluginUrl(url.trim());
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setUrl('');
+      setNotice(`已从链接安装「${result.data.name}」`);
       await refresh();
     });
 
@@ -103,10 +128,36 @@ export function PluginsSection() {
         </button>
         <button
           className="mini-btn"
+          disabled={busy === 'install-archive'}
+          onClick={() => void installArchive()}
+        >
+          <Plus size={14} /> 从 zip 安装
+        </button>
+        <button
+          className="mini-btn"
           disabled={busy === 'refresh'}
           onClick={() => void withBusy('refresh', refresh)}
         >
           <RotateCw size={14} /> 刷新
+        </button>
+      </div>
+
+      <div className="settings-inline">
+        <input
+          className="settings-input"
+          placeholder="https://example.com/plugin.zip"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && url.trim()) void installUrl();
+          }}
+        />
+        <button
+          className="mini-btn"
+          disabled={!url.trim() || busy === 'install-url'}
+          onClick={() => void installUrl()}
+        >
+          从链接安装
         </button>
       </div>
 

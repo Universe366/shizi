@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 const state = vi.hoisted(() => ({
   dir: '',
+  zip: null as Uint8Array | null,
   handler: null as ((request: Request) => Promise<Response>) | null
 }));
 
@@ -18,7 +19,11 @@ vi.mock('electron', () => ({
   },
   session: {
     defaultSession: {
-      fetch: vi.fn(async () => new Response('remote-ok', { status: 200 }))
+      fetch: vi.fn(async () =>
+        state.zip
+          ? new Response(state.zip as never, { status: 200 })
+          : new Response('remote-ok', { status: 200 })
+      )
     }
   },
   shell: { showItemInFolder: vi.fn() }
@@ -44,7 +49,9 @@ vi.mock('./library/search', () => ({
 vi.mock('./page', () => ({ getPageInfo: async () => null }));
 
 import {
+  installPluginFromArchive,
   installPluginFromDir,
+  installPluginFromUrl,
   installPluginProtocol,
   listPlugins,
   pluginRpc,
@@ -52,6 +59,45 @@ import {
   removePlugin,
   setPluginEnabled
 } from './plugins';
+
+/** 生成 STORE 压缩的 ZIP（测试用，不引入解压依赖）。 */
+function makeZip(entries: Array<[string, string]>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [entryName, content] of entries) {
+    const name = Buffer.from(entryName, 'utf8');
+    const data = Buffer.from(content, 'utf8');
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    locals.push(local, name, data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralBuffer = Buffer.concat(centrals);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(centralBuffer.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralBuffer, eocd]);
+}
 
 const tempDirs: string[] = [];
 
@@ -219,5 +265,68 @@ describe('插件 RPC', () => {
 
     const missing = await pluginRpc('nope.nope', 'app.info', {}, tabs);
     expect(missing.ok).toBe(false);
+  });
+});
+
+describe('从 zip 安装插件', () => {
+  it('zip 内套一层目录也能识别 manifest 并安装', () => {
+    const zip = makeZip([
+      [
+        'demo/manifest.json',
+        JSON.stringify({
+          id: 'zip.demo',
+          name: 'Zip 插件',
+          version: '1.0.0',
+          contributes: { panels: [{ id: 'main', title: '面板' }] }
+        })
+      ],
+      ['demo/index.html', '<h1>zip</h1>']
+    ]);
+    const file = path.join(state.dir, 'demo.zip');
+    fs.writeFileSync(file, zip);
+
+    const result = installPluginFromArchive(file);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.id).toBe('zip.demo');
+    expect(fs.existsSync(path.join(state.dir, 'plugins', 'zip.demo', 'index.html'))).toBe(true);
+    expect(fs.existsSync(path.join(state.dir, 'plugins-tmp'))).toBe(false);
+  });
+
+  it('从 http(s) 链接下载 zip 并安装', async () => {
+    state.zip = makeZip([
+      [
+        'remote/manifest.json',
+        JSON.stringify({
+          id: 'remote.demo',
+          name: '远程插件',
+          version: '1.0.0',
+          contributes: { panels: [{ id: 'main', title: '面板' }] }
+        })
+      ],
+      ['remote/index.html', '<h1>remote</h1>']
+    ]);
+    const result = await installPluginFromUrl('https://example.com/plugin.zip');
+    state.zip = null;
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.id).toBe('remote.demo');
+    expect(fs.existsSync(path.join(state.dir, 'plugins', 'remote.demo', 'index.html'))).toBe(true);
+  });
+
+  it('非 http(s) 链接被拒绝', async () => {
+    const result = await installPluginFromUrl('file:///c:/plugin.zip');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('http(s)');
+  });
+
+  it('没有 manifest 的压缩包失败且不留下插件', () => {
+    const zip = makeZip([['readme.txt', 'nothing']]);
+    const file = path.join(state.dir, 'empty.zip');
+    fs.writeFileSync(file, zip);
+    const result = installPluginFromArchive(file);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('manifest.json');
+    expect(listPlugins()).toHaveLength(0);
   });
 });

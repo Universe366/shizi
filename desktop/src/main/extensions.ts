@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { session, shell } from 'electron';
+import { app, session, shell } from 'electron';
 import type {
   BrowserExtensionItem,
   BrowserExtensionsState,
@@ -10,6 +10,7 @@ import type {
 } from '../shared/types';
 import { BROWSER_EXTENSION_LIMIT, normalizeBrowserExtensions } from '../shared/extensions';
 import { loadSettings, saveSettings } from './settings';
+import { archivePayload, extractZipTo } from './zip';
 
 /**
  * 浏览器扩展宿主。
@@ -182,6 +183,43 @@ export async function addBrowserExtension(dirInput: string): Promise<Result<Brow
     }
     return { ok: true, data: statusOf(item) };
   } catch (error) {
+    return { ok: false, error: messageOf(error) };
+  }
+}
+
+/**
+ * 从 .zip / .crx 安装扩展：解压到 userData/extensions/<随机目录>，再走目录安装流程。
+ * 商店包通常是「zip 里套一层文件夹」，extractZipTo 会自动进入唯一顶层目录。
+ */
+export async function addBrowserExtensionFromArchive(
+  fileInput: string
+): Promise<Result<BrowserExtensionStatus>> {
+  const file = path.resolve(String(fileInput || '').trim());
+  let extractRoot = '';
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile()) throw new Error('请选择 .zip / .crx 文件');
+    if (stat.size > 100 * 1024 * 1024) throw new Error('扩展包超过 100MB 上限');
+    const buffer = fs.readFileSync(file);
+    extractRoot = path.join(
+      app.getPath('userData'),
+      'extensions',
+      `ext_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
+    );
+    const dir = extractZipTo(archivePayload(buffer), extractRoot);
+    const result = await addBrowserExtension(dir);
+    if (!result.ok) {
+      fs.rmSync(extractRoot, { recursive: true, force: true });
+    }
+    return result;
+  } catch (error) {
+    if (extractRoot) {
+      try {
+        fs.rmSync(extractRoot, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+    }
     return { ok: false, error: messageOf(error) };
   }
 }

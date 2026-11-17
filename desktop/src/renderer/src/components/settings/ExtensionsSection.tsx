@@ -60,6 +60,18 @@ export function BrowserExtensionsSection() {
       await refresh();
     });
 
+  const addArchive = () =>
+    withBusy('add-archive', async () => {
+      const result = await window.bsub.addBrowserExtensionArchive();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (!result.data) return;
+      setNotice(`已安装「${result.data.name}」`);
+      await refresh();
+    });
+
   const toggleGlobal = (enabled: boolean) =>
     withBusy('global', async () => {
       const result = await window.bsub.setBrowserExtensionsEnabled(enabled);
@@ -120,7 +132,7 @@ export function BrowserExtensionsSection() {
       </label>
 
       <div className="settings-hint">
-        支持 Chrome/Edge 的 MV3 扩展（解压目录，不支持 .crx 直接安装）。已启用 {enabledCount} /{' '}
+        支持 Chrome/Edge 的 MV3 扩展：解压目录，或直接从 .zip / .crx 安装。已启用 {enabledCount} /{' '}
         {state.items.length} 个；扩展跑在内置标签页里，侧栏网页不加载扩展。Chromium 的扩展 API
         并非全部实现（例如侧栏、原生消息、部分声明式规则），扩展管理页会显示加载错误。
       </div>
@@ -128,6 +140,13 @@ export function BrowserExtensionsSection() {
       <div className="settings-inline">
         <button className="mini-btn" disabled={busy === 'add'} onClick={() => void add()}>
           <Plus size={14} /> 添加扩展目录
+        </button>
+        <button
+          className="mini-btn"
+          disabled={busy === 'add-archive'}
+          onClick={() => void addArchive()}
+        >
+          <Plus size={14} /> 从 zip / crx 安装
         </button>
         <button className="mini-btn" disabled={busy === 'refresh'} onClick={() => void withBusy('refresh', refresh)}>
           <RotateCw size={14} /> 刷新状态
