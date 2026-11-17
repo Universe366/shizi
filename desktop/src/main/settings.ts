@@ -20,7 +20,12 @@ import { clampMediaRate, sanitizeMediaSiteRates } from '../shared/media';
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../shared/browserToolbar';
 import { AI_TASKS } from '../shared/aiTasks';
 import { DEFAULT_SUMMARY_PROMPT, DEFAULT_SUMMARY_TEMPLATES } from '../shared/prompts';
-import { SIDEBAR_PAGE_PRESETS, normalizeSidebarPages } from '../shared/sidebarPages';
+import {
+  SIDEBAR_PAGE_PRESETS,
+  SIDEBAR_PRESET_REV,
+  applySidebarPresetUpgrade,
+  normalizeSidebarPages
+} from '../shared/sidebarPages';
 import { DEFAULT_SUMMARY_FORMAT_RULES } from '../shared/summaryFormat';
 import { isSearchEngineId } from '../shared/searchEngines';
 import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut } from '../shared/shortcutKeys';
@@ -137,6 +142,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
     sidebarCollapsed: false,
     sidebarPages: SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page })),
+    sidebarPresetRev: SIDEBAR_PRESET_REV,
     autoFollow: true,
     mediaRate: 1,
     mediaRememberSite: true,
@@ -503,10 +509,14 @@ function normalize(input: unknown): AppSettings {
       }
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
-      base.general.sidebarPages =
-        raw.general.sidebarPages === undefined
-          ? SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page }))
-          : normalizeSidebarPages(raw.general.sidebarPages);
+      if (raw.general.sidebarPages === undefined) {
+        base.general.sidebarPages = SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page }));
+      } else {
+        const pages = normalizeSidebarPages(raw.general.sidebarPages);
+        const rev = Number(raw.general.sidebarPresetRev) || 1;
+        base.general.sidebarPages = applySidebarPresetUpgrade(pages, rev);
+      }
+      base.general.sidebarPresetRev = SIDEBAR_PRESET_REV;
       base.general.verticalTabs = raw.general.verticalTabs !== false;
       const paneWidth = Number(raw.general.verticalTabsWidth);
       base.general.verticalTabsWidth = Number.isFinite(paneWidth)

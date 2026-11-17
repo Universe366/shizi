@@ -1263,6 +1263,8 @@ export interface AppSettings {
     sidebarCollapsed: boolean;
     /** 侧栏网页：预置 + 用户自定义 */
     sidebarPages: SidebarPage[];
+    /** 预置站点版本；升级时只补新增站点，不复活用户删掉的 */
+    sidebarPresetRev: number;
     autoFollow: boolean;
     /** 默认播放倍速（没有站点规则时使用） */
     mediaRate: number;

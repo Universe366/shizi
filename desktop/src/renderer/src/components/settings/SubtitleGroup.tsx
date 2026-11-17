@@ -121,7 +121,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
             checked={value.mediaWidget !== false}
             onChange={(event) => onChange({ mediaWidget: event.target.checked })}
           />
-          倍速不为 1× 时在网页右下角显示角标（点击可打开面板）
+          倍速不为 1× 时在网页右下角控制条上方显示角标（点击可打开面板）
         </label>
 
         <div className="settings-field">

@@ -271,8 +271,7 @@ export function Sidebar({
       >
         <div className="brand-mark">字</div>
         <div className="brand-text">
-          <div className="brand-name">字幕助手</div>
-          <div className="brand-sub">Desktop</div>
+          <div className="brand-name">拾字</div>
         </div>
         <button
           className="sidebar-collapse"
@@ -307,6 +306,7 @@ export function Sidebar({
                 key={page.id}
                 className={`side-nav-item${section === id ? ' is-active' : ''}`}
                 title={`${page.title}\n${page.url}\n点击打开；再次点击重新加载`}
+                aria-label={page.title}
                 onClick={() => {
                   if (section === id && !collapsed) {
                     window.bsub.sidebarWebReload();

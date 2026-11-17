@@ -401,6 +401,11 @@ describe('任务槽位 / 用量设置', () => {
       'doubao',
       'kimi',
       'qwen',
+      'zhipu',
+      'yuanbao',
+      'yiyan',
+      'xinghuo',
+      'hailuo',
       'chatgpt'
     ]);
     settings.general.sidebarPages = [
