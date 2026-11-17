@@ -17,7 +17,7 @@ const POLICY = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'none'",
-  "frame-src 'none'"
+  "frame-src 'self' shizi-plugin:"
 ].join('; ');
 
 export function installCsp(appContentsId: () => number | null): void {

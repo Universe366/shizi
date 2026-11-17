@@ -151,13 +151,42 @@ export type Section =
   | 'summary'
   | 'chat'
   | 'library'
-  | `web:${string}`;
+  | `web:${string}`
+  | `plugin:${string}`;
 
 /** 侧栏里的自定义网页（如 DeepSeek、豆包）。 */
 export interface SidebarPage {
   id: string;
   title: string;
   url: string;
+}
+
+/** 用户安装的 Chrome/Edge 扩展（解压目录形态）。 */
+export interface BrowserExtensionItem {
+  /** 拾字生成的稳定 id，与 Chromium 扩展 id 无关。 */
+  id: string;
+  name: string;
+  version: string;
+  /** manifest_version：2 或 3 */
+  manifestVersion: 2 | 3;
+  /** 解压后的扩展目录绝对路径。 */
+  path: string;
+  enabled: boolean;
+  addedAt: number;
+}
+
+/** 扩展列表 + 运行期状态（加载成功与否）。 */
+export interface BrowserExtensionStatus extends BrowserExtensionItem {
+  loaded: boolean;
+  /** Chromium 分配的扩展 id；加载成功才有。 */
+  chromeId: string;
+  error: string;
+}
+
+/** 扩展管理页的一次读取结果。 */
+export interface BrowserExtensionsState {
+  enabled: boolean;
+  items: BrowserExtensionStatus[];
 }
 
 export interface VideoPart {
@@ -1544,6 +1573,12 @@ export interface AppSettings {
     enabled: boolean;
     port: number;
     token: string;
+  };
+  /** 内置浏览器加载的 Chrome 扩展（解压目录）。 */
+  extensions: {
+    /** 总开关；关闭时全部卸载，配置保留。 */
+    enabled: boolean;
+    items: BrowserExtensionItem[];
   };
   update: {
     autoCheck: boolean;

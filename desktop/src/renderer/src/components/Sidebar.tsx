@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import type { BridgeStatus, JobRecord, Section, SidebarPage, TabInfo } from '../../../shared/types';
 import { SidebarPagesDialog } from './SidebarPagesDialog';
+import { PluginPanel } from './PluginPanel';
+import type { PluginInfo, PluginPanelContribution } from '../../../shared/plugins';
+import { pluginPanelSection } from '../../../shared/plugins';
 import { SidebarPageIcon } from './SidebarPageIcon';
 import { SidebarWebStage } from './SidebarWebStage';
 import { SubtitlesPanel } from './SubtitlesPanel';
@@ -49,6 +52,7 @@ export function Sidebar({
   onOpenSummary,
   onOpenChapters,
   pages = [],
+  pluginPanels = []
 }: {
   onOpenSettings: () => void;
   section: Section;
@@ -67,6 +71,8 @@ export function Sidebar({
   onOpenSummary?: () => void;
   onOpenChapters?: () => void;
   pages?: SidebarPage[];
+  /** 已启用插件声明的面板（按 manifest 顺序）。 */
+  pluginPanels?: Array<{ plugin: PluginInfo; panel: PluginPanelContribution }>;
 }) {
   const [version, setVersion] = useState('');
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
@@ -310,6 +316,20 @@ export function Sidebar({
             <span>{label}</span>
           </button>
         ))}
+        {pluginPanels.map(({ plugin, panel }) => {
+          const id = pluginPanelSection(plugin.id, panel.id) as Section;
+          return (
+            <button
+              key={id}
+              className={`side-nav-item${section === id ? ' is-active' : ''}`}
+              title={`${plugin.name} · ${panel.title}（插件）`}
+              onClick={() => onSelect(id)}
+            >
+              <span className="plugin-nav-icon">{panel.icon}</span>
+              <span>{panel.title}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {(pages.length > 0 || !collapsed) && (
@@ -430,6 +450,15 @@ export function Sidebar({
             </Suspense>
           )}
         </div>
+
+        {pluginPanels.map(({ plugin, panel }) => {
+          const id = pluginPanelSection(plugin.id, panel.id) as Section;
+          return (
+            <div key={id} className={`side-panel${section === id ? ' is-active' : ''}`}>
+              {visited.has(id) && <PluginPanel plugin={plugin} panel={panel} />}
+            </div>
+          );
+        })}
 
         {!collapsed && webPage && (
           <div className="side-panel is-active">

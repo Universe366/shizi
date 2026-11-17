@@ -35,6 +35,8 @@ import { nextTabId, tabIdByNumber } from './lib/tabs';
 
 import { overlayVisible, useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
+import type { PluginInfo } from '../../shared/plugins';
+import { pluginEntryUrl, pluginPanelSection } from '../../shared/plugins';
 import { CloseDialog } from './components/CloseDialog';
 import { ConfirmHost } from './components/ui/confirm';
 import { DictationListener } from './components/DictationListener';
@@ -59,6 +61,7 @@ export default function App() {
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
+  const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
@@ -104,6 +107,30 @@ export default function App() {
   const [bookmarked, setBookmarked] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
+  // 插件列表是侧栏、命令面板和后续拆窗共用的数据源；安装/启停后由主进程广播刷新。
+  useEffect(() => {
+    let alive = true;
+    const loadPlugins = () => {
+      void window.bsub.listPlugins().then((response) => {
+        if (alive && response.ok) setPlugins(response.data.plugins);
+      });
+    };
+    loadPlugins();
+    const off = window.bsub.onPluginsChanged(loadPlugins);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+
+  const pluginPanels = useMemo(
+    () =>
+      plugins
+        .filter((plugin) => plugin.enabled && !plugin.error)
+        .flatMap((plugin) => plugin.panels.map((panel) => ({ plugin, panel }))),
+    [plugins]
+  );
+
   const [shortcutOverrides, setShortcutOverrides] = useState<Record<string, string>>({});
   const [radialOpen, setRadialOpen] = useState(false);
   const [radialSectors, setRadialSectors] = useState<WheelActionId[]>([
@@ -594,7 +621,28 @@ export default function App() {
     }
   ];
 
-  const wrappedCommands: CommandItem[] = commands.map((command) => ({
+  // 插件命令：能定位到面板就切侧栏，否则在新标签页打开插件入口。
+  const pluginCommands: CommandItem[] = [];
+  for (const plugin of plugins) {
+    if (!plugin.enabled || plugin.error) continue;
+    const firstPanel = plugin.panels[0];
+    for (const command of plugin.commands) {
+      pluginCommands.push({
+        id: `plugin:${plugin.id}:${command.id}`,
+        label: command.title,
+        hint: command.hint || `插件 · ${plugin.name}`,
+        run: () => {
+          if (firstPanel) {
+            handleSectionSelect(pluginPanelSection(plugin.id, firstPanel.id) as Section);
+          } else {
+            void window.bsub.newTab(pluginEntryUrl(plugin.id, command.entry));
+          }
+        }
+      });
+    }
+  }
+
+  const wrappedCommands: CommandItem[] = [...commands, ...pluginCommands].map((command) => ({
     ...command,
     run: () => {
       setPaletteOpen(false);
@@ -792,6 +840,7 @@ export default function App() {
             window.setTimeout(() => requestSummaryPanel('chapters'), 0);
           }}
           pages={sidebarPages}
+          pluginPanels={pluginPanels}
         />
         <BrowserStage
           hasTab={Boolean(active)}

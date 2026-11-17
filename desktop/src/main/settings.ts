@@ -32,6 +32,7 @@ import { isColorSchemeId } from '../shared/colorSchemes';import { parseShortcut 
 import { shortcutAction } from '../shared/shortcuts';
 import { DEFAULT_SUBTITLE_STYLE } from '../shared/ass';
 import { DEFAULT_SUBTITLE_TOOLBAR } from '../shared/subtitleToolbar';
+import { normalizeBrowserExtensions } from '../shared/extensions';
 import { testAiConnection } from './aiClient';
 import { isSealedSecret, openSecret, sealSecret, canEncrypt } from './secrets';
 import { setUsageEnabled } from './usage';
@@ -471,6 +472,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     estimateTimestamps: true
   },
   bridge: { enabled: true, port: 47821, token: '' },
+  extensions: { enabled: true, items: [] },
   update: { autoCheck: true, autoDownload: false, feedUrl: '', skippedVersion: '' },
   dataDir: ''
 };
@@ -1666,6 +1668,12 @@ function normalize(input: unknown): AppSettings {
             note: String(term.note || '')
           }));
       }
+    }
+
+    if (raw.extensions && typeof raw.extensions === 'object') {
+      const extensions = raw.extensions as { enabled?: unknown; items?: unknown };
+      base.extensions.enabled = extensions.enabled !== false;
+      base.extensions.items = normalizeBrowserExtensions(extensions.items);
     }
 
     if (raw.bridge && typeof raw.bridge === 'object') {

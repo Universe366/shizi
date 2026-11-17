@@ -29,6 +29,8 @@ import { registerSidebarWebIpc } from './ipc/sidebarWeb';
 import { registerLocalVideoIpc } from './ipc/localVideo';
 import { SidebarWebManager } from './sidebarWeb';
 import { registerConvertIpc } from './ipc/convert';
+import { registerExtensionsIpc } from './ipc/extensions';
+import { registerPluginsIpc } from './ipc/plugins';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
 
@@ -91,6 +93,10 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerWebIpc();
 
   registerConvertIpc();
+
+  registerExtensionsIpc(ctx);
+
+  registerPluginsIpc(ctx);
 
   registerStartIpc(ctx);
 

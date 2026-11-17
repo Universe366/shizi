@@ -9,6 +9,8 @@ import type {
   SearchPlatform,
   AppSettings,
   PageContextMenuPayload,
+  BrowserExtensionStatus,
+  BrowserExtensionsState,
   TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
@@ -137,6 +139,7 @@ import type {
   PageDocument,
   SiteMeta
 } from './types';
+import type { PluginInfo, PluginListState } from './plugins';
 
 export interface BsubApi {
   listTabs(): Promise<TabInfo[]>;
@@ -220,6 +223,34 @@ export interface BsubApi {
     title?: string;
     url: string;
   }): Promise<Result<{ page: SidebarPage; added: boolean }>>;
+  /** 浏览器扩展管理：列表 + 运行期状态。 */
+  listBrowserExtensions(): Promise<Result<BrowserExtensionsState>>;
+  /** 打开目录选择框添加扩展；取消时 data 为 null。 */
+  addBrowserExtension(): Promise<Result<BrowserExtensionStatus | null>>;
+  /** 按路径添加（拖拽/命令行）。 */
+  addBrowserExtensionPath(dir: string): Promise<Result<BrowserExtensionStatus>>;
+  /** 启用或停用单个扩展（立即加载/卸载）。 */
+  toggleBrowserExtension(
+    id: string,
+    enabled: boolean
+  ): Promise<Result<BrowserExtensionStatus>>;
+  removeBrowserExtension(id: string): Promise<Result<boolean>>;
+  /** 在资源管理器里定位扩展目录。 */
+  revealBrowserExtension(id: string): Promise<Result<boolean>>;
+  /** 扩展总开关：关闭时全部卸载，配置保留。 */
+  setBrowserExtensionsEnabled(enabled: boolean): Promise<Result<BrowserExtensionsState>>;
+  /** 应用插件列表（面板/命令/权限与运行状态）。 */
+  listPlugins(): Promise<Result<PluginListState>>;
+  /** 打开目录选择框安装插件；取消时 data 为 null。 */
+  installPlugin(): Promise<Result<PluginInfo | null>>;
+  installPluginPath(dir: string): Promise<Result<PluginInfo>>;
+  togglePlugin(id: string, enabled: boolean): Promise<Result<PluginInfo>>;
+  removePlugin(id: string): Promise<Result<boolean>>;
+  revealPlugin(id: string): Promise<Result<boolean>>;
+  /** 插件 iframe 的能力调用；权限在主进程按 manifest 校验。 */
+  pluginRpc(pluginId: string, method: string, params?: unknown): Promise<Result<unknown>>;
+  /** 插件安装/启停/卸载后广播，用于刷新侧栏与命令面板。 */
+  onPluginsChanged(cb: () => void): () => void;
   /** 激活某个侧栏网页（必要时创建视图并加载）。 */
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
   /** 离开侧栏网页：视图保留，开始休眠计时。 */

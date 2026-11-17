@@ -10,6 +10,8 @@ import { AsrSection } from './settings/AsrSection';
 import { DiagnosticsSection } from './settings/DiagnosticsSection';
 import { PromptSection } from './settings/PromptSection';
 import { SearchSection } from './settings/SearchSection';
+import { BrowserExtensionsSection } from './settings/ExtensionsSection';
+import { PluginsSection } from './settings/PluginsSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
 import { EfficiencyGroup } from './settings/EfficiencyGroup';
@@ -1534,6 +1536,10 @@ export function SettingsPanel({
       />
       )}
 
+
+      {show('search') && <PluginsSection />}
+
+      {show('search') && <BrowserExtensionsSection />}
 
       {show('search') && (
       <BridgeSection

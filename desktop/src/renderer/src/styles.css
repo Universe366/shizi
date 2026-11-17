@@ -15706,3 +15706,79 @@ sup:has(> .cite-ref) {
   border-radius: 12px;
   border: 1px solid var(--border);
 }
+
+/* ---------- 浏览器扩展管理（设置页） ---------- */
+.ext-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 10px;
+}
+.ext-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ext-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ext-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.ext-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ext-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.15);
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.ext-badge.is-on {
+  background: rgba(52, 160, 96, 0.18);
+  color: #2e8f5b;
+}
+.mini-btn.is-danger {
+  color: #c0392b;
+}
+.settings-error {
+  color: #c0392b;
+}
+
+/* ---------- 插件面板 ---------- */
+.plugin-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  min-height: 0;
+}
+.plugin-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  font-size: 14px;
+  line-height: 1;
+}

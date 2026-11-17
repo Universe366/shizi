@@ -1,0 +1,12 @@
+{
+  "id": "shizi.hello",
+  "name": "示例插件",
+  "version": "1.0.0",
+  "description": "演示插件能力：读取当前页面、查询库、读写自己的存储",
+  "author": "Shizi",
+  "permissions": ["storage", "page.read", "library.read", "tabs.open"],
+  "contributes": {
+    "panels": [{ "id": "main", "title": "示例", "icon": "🧩" }],
+    "commands": [{ "id": "refresh", "title": "示例插件：刷新面板", "hint": "插件命令示例" }]
+  }
+}

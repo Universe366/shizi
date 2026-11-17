@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { BsubApi } from '../shared/api';
+import type { PluginInfo, PluginListState } from '../shared/plugins';
 import type {
   AiDeltaEvent,
   AiDoneEvent,
@@ -11,6 +12,8 @@ import type {
   SearchPlatform,
   AppSettings,
   PageContextMenuPayload,
+  BrowserExtensionStatus,
+  BrowserExtensionsState,
   DiagnosticsInfo,
   CorrectionRuleGroup,
   BridgeStatus,
@@ -280,6 +283,39 @@ const api: BsubApi = {
   saveSidebarPages: (pages: SidebarPage[]) => ipcRenderer.invoke('sidebar-pages:save', pages),
   addSidebarPage: (input: { title?: string; url: string }) =>
     ipcRenderer.invoke('sidebar-pages:add', input),
+  listBrowserExtensions: () =>
+    ipcRenderer.invoke('extensions:list') as Promise<Result<BrowserExtensionsState>>,
+  addBrowserExtension: () =>
+    ipcRenderer.invoke('extensions:add') as Promise<Result<BrowserExtensionStatus | null>>,
+  addBrowserExtensionPath: (dir: string) =>
+    ipcRenderer.invoke('extensions:add-path', dir) as Promise<Result<BrowserExtensionStatus>>,
+  toggleBrowserExtension: (id: string, enabled: boolean) =>
+    ipcRenderer.invoke('extensions:toggle', id, enabled) as Promise<
+      Result<BrowserExtensionStatus>
+    >,
+  removeBrowserExtension: (id: string) =>
+    ipcRenderer.invoke('extensions:remove', id) as Promise<Result<boolean>>,
+  revealBrowserExtension: (id: string) =>
+    ipcRenderer.invoke('extensions:reveal', id) as Promise<Result<boolean>>,
+  setBrowserExtensionsEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('extensions:set-enabled', enabled) as Promise<
+      Result<BrowserExtensionsState>
+    >,
+  listPlugins: () =>
+    ipcRenderer.invoke('plugins:list') as Promise<Result<PluginListState>>,
+  installPlugin: () =>
+    ipcRenderer.invoke('plugins:install') as Promise<Result<PluginInfo | null>>,
+  installPluginPath: (dir: string) =>
+    ipcRenderer.invoke('plugins:install-path', dir) as Promise<Result<PluginInfo>>,
+  togglePlugin: (id: string, enabled: boolean) =>
+    ipcRenderer.invoke('plugins:toggle', id, enabled) as Promise<Result<PluginInfo>>,
+  removePlugin: (id: string) =>
+    ipcRenderer.invoke('plugins:remove', id) as Promise<Result<boolean>>,
+  revealPlugin: (id: string) =>
+    ipcRenderer.invoke('plugins:reveal', id) as Promise<Result<boolean>>,
+  pluginRpc: (pluginId: string, method: string, params?: unknown) =>
+    ipcRenderer.invoke('plugins:rpc', pluginId, method, params) as Promise<Result<unknown>>,
+  onPluginsChanged: (cb: () => void) => on<null>('plugins:changed', () => cb()),
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
   sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),

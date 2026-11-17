@@ -30,6 +30,8 @@ import { fatal, writeLog } from './log';
 import { installPermissionGate } from './permissions';
 import { installCsp } from './csp';
 import { startBridge, stopBridge } from './bridge';
+import { loadBrowserExtensions } from './extensions';
+import { installPluginProtocol, installPluginScheme } from './plugins';
 import { checkForUpdates, disposeUpdater, initUpdater } from './updater';
 import { initPetWindow } from './petWindow';
 import { applyDataDirOverride, scheduleOldDataCleanup } from './dataDir';
@@ -49,6 +51,9 @@ import {
   windowFrameOptions
 } from './windowPolicy';
 import { bootstrapRenderer, handleCloseRequest } from './windowLifecycle';
+
+// 自定义协议必须在 app ready 之前声明；插件 UI 通过 shizi-plugin:// 加载。
+installPluginScheme();
 
 const UA = buildUserAgent(process.versions.chrome);
 const START_URL = resolveStartUrl();
@@ -431,12 +436,17 @@ app
     installDownloadHook(() => mainWindow);
     initLibrary();
     writeLog('startup.log', 'library ready');
+    // 扩展加载失败只影响它自己：这里必须吞掉异常，不能挡住窗口创建。
+    void loadBrowserExtensions().catch((error: Error) => {
+      console.warn('[extensions] 初始化失败', error?.message || error);
+    });
     scheduleOldDataCleanup();
     // 先装权限闸门和 CSP，再创建窗口：CSP 监听必须在 renderer 发起请求前注册。
     installPermissionGate(() =>
       mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.id : null
     );
     installCsp(() => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.id : null));
+    installPluginProtocol();
     createWindow();
     writeLog('startup.log', 'window created');
     createTray();
