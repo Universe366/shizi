@@ -61,6 +61,9 @@ shizi-extension/
 | 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |
 | 插件和桌面怎么通信 / 怎么对齐 | `desktop/docs/BRIDGE.md`、`docs/EXTENSION-DESKTOP-ALIGNMENT.md` |
+| 写应用插件 / 装浏览器扩展 | `desktop/docs/PLUGINS.md` |
+| 让外部 Agent 操作拾字 | `desktop/docs/AGENT-API.md` |
+| 面板拆成独立窗口 | `desktop/docs/PANEL-WINDOWS.md` |
 | 插件与桌面目前还有哪些差异 | `docs/EXTENSION-PARITY.md` |
 | 出故障先看哪里 | `docs/TROUBLESHOOTING.md` |
 | 插件重构（新流程/共享 core/迁移） | `docs/EXTENSION-REFACTOR-PLAN.md` |

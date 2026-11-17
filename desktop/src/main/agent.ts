@@ -456,7 +456,11 @@ const TOOLS: AgentTool[] = [
     description: '读取设置（API Key / Token 已脱敏）',
     scope: 'read',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    run: async () => stripSecrets(loadSettings())
+    run: async () => {
+      // 连 Agent 自己的 Token 也不回传：它已经持有，没必要出现在设置快照里。
+      const settings = stripSecrets(loadSettings());
+      return { ...settings, agent: { ...settings.agent, token: '' } };
+    }
   },
   {
     name: 'plugins.list',

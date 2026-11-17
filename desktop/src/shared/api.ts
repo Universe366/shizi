@@ -141,6 +141,7 @@ import type {
   SiteMeta
 } from './types';
 import type { PluginInfo, PluginListState } from './plugins';
+import type { DetachedPanelInfo } from './panelWindows';
 
 export interface BsubApi {
   listTabs(): Promise<TabInfo[]>;
@@ -260,6 +261,18 @@ export interface BsubApi {
     trusted?: boolean;
   }): Promise<Result<AgentStatus>>;
   regenerateAgentToken(): Promise<Result<AgentStatus>>;
+  /** 把侧栏面板拆成独立窗口（同一面板只会有一个窗口）。 */
+  openPanelWindow(
+    section: string,
+    title?: string,
+    options?: { width?: number; height?: number; alwaysOnTop?: boolean }
+  ): Promise<Result<DetachedPanelInfo>>;
+  closePanelWindow(section: string): Promise<Result<boolean>>;
+  listPanelWindows(): Promise<Result<DetachedPanelInfo[]>>;
+  setPanelAlwaysOnTop(section: string, alwaysOnTop: boolean): Promise<Result<boolean>>;
+  /** 独立窗口里跳回主窗口的某个面板。 */
+  openMainSection(section: string): Promise<Result<boolean>>;
+  onOpenSection(cb: (section: string) => void): () => void;
   /** 激活某个侧栏网页（必要时创建视图并加载）。 */
   sidebarWebActivate(page: SidebarPage): Promise<Result<boolean>>;
   /** 离开侧栏网页：视图保留，开始休眠计时。 */

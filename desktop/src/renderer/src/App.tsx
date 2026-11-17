@@ -150,6 +150,14 @@ export default function App() {
   // 不再在这里再用 pageOpen 写一遍：两个来源各说各的时，后到的调用会把
   // 另一个的隐藏覆盖掉（例如关闭框刚弹出又被显示回来的网页盖住）。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
+
+  // 独立面板窗口里的「总结/章节」入口通过主进程回到主窗口。
+  useEffect(() => {
+    const off = window.bsub.onOpenSection((section) => {
+      sectionHandlerRef.current(section as Section);
+    });
+    return off;
+  }, []);
   useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
   useBrowserOverlayAuto();
@@ -841,6 +849,9 @@ export default function App() {
           }}
           pages={sidebarPages}
           pluginPanels={pluginPanels}
+          onDetachPanel={(section, title) => {
+            void window.bsub.openPanelWindow(section, title);
+          }}
         />
         <BrowserStage
           hasTab={Boolean(active)}

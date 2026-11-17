@@ -32,6 +32,17 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="settings-page-head-actions">
+          <button
+            className="mini-btn"
+            title="在独立窗口打开工作台"
+            onClick={() => {
+              void window.bsub.openPanelWindow('library', '库').then((result) => {
+                if (result.ok) onClose();
+              });
+            }}
+          >
+            独立窗口
+          </button>
           <button className="mini-btn" onClick={onClose} title="关闭工作台（Esc）">
             <X size={12} /> 关闭
           </button>

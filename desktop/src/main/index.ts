@@ -33,6 +33,7 @@ import { startBridge, stopBridge } from './bridge';
 import { loadBrowserExtensions } from './extensions';
 import { installPluginProtocol, installPluginScheme } from './plugins';
 import { startAgent, stopAgent } from './agent';
+import { disposePanelWindows, initPanelWindows } from './panelWindows';
 import { checkForUpdates, disposeUpdater, initUpdater } from './updater';
 import { initPetWindow } from './petWindow';
 import { applyDataDirOverride, scheduleOldDataCleanup } from './dataDir';
@@ -450,6 +451,7 @@ app
     installPluginProtocol();
     createWindow();
     writeLog('startup.log', 'window created');
+    if (mainWindow) initPanelWindows(mainWindow);
     createTray();
     initPetWindow();
     registerPetShortcuts();
@@ -482,6 +484,7 @@ app.on('before-quit', () => {
   disposeUpdater();
   stopBridge();
   stopAgent();
+  disposePanelWindows();
   disposeMcpClients();
   disposeMcpSubscriptions();
   disposeDictation();

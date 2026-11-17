@@ -103,6 +103,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 - 多标签内置浏览器、垂直标签栏、标签组、会话恢复、阅读模式、收藏与历史；
 - 地址栏搜索、起始页、网页倍速、画中画、弹幕与评论；
 - 桌面宠物、快捷轮盘、全局截图/OCR、文件转换；
+- **可扩展**：应用插件（面板/命令，`shizi-plugin://` 隔离 iframe）、Chrome/Edge 扩展（解压目录、MV3）、
+  任意侧栏面板可拆成独立窗口拖动置顶、本地 Agent 接口（HTTP + MCP，默认只读、写操作逐次确认）；
 - 本地 SQLite：`library.db`、`chat.db`、`usage.db`；
 - 一键备份/恢复，数据目录可迁移。
 
@@ -222,6 +224,9 @@ shizi-extension/
 | 设置页 / 对话输入区 | [docs/UI-GUIDE.md](docs/UI-GUIDE.md) |
 | 数据库表、迁移与备份 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) |
 | 插件 ↔ 桌面通信 | [desktop/docs/BRIDGE.md](desktop/docs/BRIDGE.md) |
+| 写应用插件 / 浏览器扩展 | [desktop/docs/PLUGINS.md](desktop/docs/PLUGINS.md) |
+| 开放给外部 Agent | [desktop/docs/AGENT-API.md](desktop/docs/AGENT-API.md) |
+| 面板拆成独立窗口 | [desktop/docs/PANEL-WINDOWS.md](desktop/docs/PANEL-WINDOWS.md) |
 | 插件与桌面差异 | [docs/EXTENSION-PARITY.md](docs/EXTENSION-PARITY.md) |
 | 插件与桌面架构 | [docs/EXTENSION-DESKTOP-ALIGNMENT.md](docs/EXTENSION-DESKTOP-ALIGNMENT.md) |
 | 插件重构计划 | [docs/EXTENSION-REFACTOR-PLAN.md](docs/EXTENSION-REFACTOR-PLAN.md) |

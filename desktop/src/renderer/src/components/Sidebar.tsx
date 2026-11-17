@@ -52,7 +52,8 @@ export function Sidebar({
   onOpenSummary,
   onOpenChapters,
   pages = [],
-  pluginPanels = []
+  pluginPanels = [],
+  onDetachPanel
 }: {
   onOpenSettings: () => void;
   section: Section;
@@ -73,6 +74,8 @@ export function Sidebar({
   pages?: SidebarPage[];
   /** 已启用插件声明的面板（按 manifest 顺序）。 */
   pluginPanels?: Array<{ plugin: PluginInfo; panel: PluginPanelContribution }>;
+  /** 右键把面板拆成独立窗口。 */
+  onDetachPanel?: (section: Section, title: string) => void;
 }) {
   const [version, setVersion] = useState('');
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
@@ -268,6 +271,11 @@ export function Sidebar({
     : undefined;
   const layoutKey = `${sidebarWidth}-${position}-${fontScale}`;
 
+  const showPanelMenu = async (target: Section, label: string) => {
+    const choice = await window.bsub.popupMenu([{ id: 'detach', label: '在独立窗口打开' }]);
+    if (choice === 'detach') onDetachPanel?.(target, label);
+  };
+
   const movePage = (fromId: string, toId: string, after: boolean) => {
     const from = pages.findIndex((page) => page.id === fromId);
     const to = pages.findIndex((page) => page.id === toId);
@@ -309,11 +317,25 @@ export function Sidebar({
           <button
             key={id}
             className={`side-nav-item${section === id ? ' is-active' : ''}`}
-            title={hint}
+            title={`${hint}（右键可拆成独立窗口）`}
             onClick={() => onSelect(id)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              void showPanelMenu(id, label);
+            }}
           >
             <Icon size={16} />
             <span>{label}</span>
+            <span
+              className="side-nav-detach"
+              title="拆成独立窗口"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDetachPanel?.(id, label);
+              }}
+            >
+              ⧉
+            </span>
           </button>
         ))}
         {pluginPanels.map(({ plugin, panel }) => {
@@ -322,11 +344,25 @@ export function Sidebar({
             <button
               key={id}
               className={`side-nav-item${section === id ? ' is-active' : ''}`}
-              title={`${plugin.name} · ${panel.title}（插件）`}
+              title={`${plugin.name} · ${panel.title}（插件，右键可拆成独立窗口）`}
               onClick={() => onSelect(id)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                void showPanelMenu(id, `${plugin.name} · ${panel.title}`);
+              }}
             >
               <span className="plugin-nav-icon">{panel.icon}</span>
               <span>{panel.title}</span>
+              <span
+                className="side-nav-detach"
+                title="拆成独立窗口"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDetachPanel?.(id, `${plugin.name} · ${panel.title}`);
+                }}
+              >
+                ⧉
+              </span>
             </button>
           );
         })}
