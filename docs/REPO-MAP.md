@@ -37,6 +37,18 @@ desktop/
 入口：`src/main/index.ts`；IPC 按域注册在 `src/main/ipc/`（`ipc.ts` 只做装配）；
 数据层 `src/main/library.ts`；页面/字幕 `src/main/page.ts`、`tabs.ts`。
 
+0.163 起新增的平台化子系统（细节见 `desktop/docs/PLATFORM.md`）：
+
+| 模块 | 作用 |
+|---|---|
+| `src/main/extensions.ts` | 浏览器扩展宿主（目录/zip/crx） |
+| `src/main/plugins.ts` | 应用插件宿主、市场、RPC |
+| `src/main/zip.ts` | 内置 ZIP/CRX 读取器 |
+| `src/main/agent.ts` | 本地 Agent HTTP + MCP |
+| `src/main/panelWindows.ts` | 独立面板窗口与位置持久化 |
+| `src/shared/panels.ts` | 侧栏面板顺序/显隐 |
+| `src/renderer/src/DetachedPanel.tsx` | 独立窗口渲染入口 |
+
 ## 插件
 
 ```
@@ -57,6 +69,7 @@ shizi-extension/
 | 刚接手 / AI 操作 | `AGENTS.md`、`HANDOFF.md` |
 | 怎么安装/使用 | 根 `README.md`、`shizi-extension/README.md` |
 | 桌面端怎么分层、有哪些坑 | `desktop/docs/ARCHITECTURE.md` |
+| 平台化子系统（扩展/插件/市场/拆窗/Agent） | `desktop/docs/PLATFORM.md` |
 | 设置页 / 对话输入区怎么改 | `docs/UI-GUIDE.md` |
 | 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |

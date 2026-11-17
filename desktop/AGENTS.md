@@ -7,10 +7,14 @@
 
 ```
 src/main/        Node 环境；窗口、标签、SQLite、AI、ASR、更新
+│               平台化：extensions.ts / plugins.ts / agent.ts / panelWindows.ts / zip.ts
 src/preload/     contextBridge；只暴露 window.bsub
 src/renderer/    React；不能 import main，只能走 window.bsub
-src/shared/      三端共享的类型/品牌/预设
+src/shared/      三端共享的类型/品牌/预设；平台化：extensions/plugins/panels/panelWindows
 ```
+
+平台化子系统的边界、扩展点和验证方式见 [`docs/PLATFORM.md`](docs/PLATFORM.md)；
+插件/扩展/Agent 的用户向格式见 `docs/PLUGINS.md`、`docs/AGENT-API.md`、`docs/PANEL-WINDOWS.md`。
 
 - 新增 IPC：优先 `src/main/ipc/<domain>.ts`；`ipc.ts` 只保留注册入口。
 - 新增类型：放 `src/shared/types.ts`，不要在各端重复定义。
@@ -74,5 +78,9 @@ npm run pack                     # build + 同步插件 + NSIS，不发布
 - `src/renderer/.../SettingsPanel.tsx`（~1.30k，15 个 section 已在 `components/settings/`）
 - `src/renderer/.../LibraryPanel.tsx`（~1.41k，15 个 section 已拆）
 - `src/renderer/.../SubtitlesPanel.tsx`（~1.57k，翻译/校对/质检/视频头/字幕行/轨道选择已拆）
+- `src/main/plugins.ts`（~680 行：插件宿主 + 市场 + RPC）
+- `src/main/agent.ts`（~800 行：工具表 + 审批 + HTTP + MCP）
+- `src/renderer/src/App.tsx`（~1.0k：壳层 + 面板布局 + 插件命令）
 
-不要在这些文件尾部继续加功能；优先新建模块。拆分顺序见 `docs/QUALITY.md`。
+不要在这些文件尾部继续加功能；优先新建模块。拆分顺序见 `docs/QUALITY.md`；
+平台化模块的拆分建议见 `docs/PLATFORM.md` 第 10 节。

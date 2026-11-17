@@ -224,6 +224,7 @@ shizi-extension/
 | 设置页 / 对话输入区 | [docs/UI-GUIDE.md](docs/UI-GUIDE.md) |
 | 数据库表、迁移与备份 | [docs/DATA-MODEL.md](docs/DATA-MODEL.md) |
 | 插件 ↔ 桌面通信 | [desktop/docs/BRIDGE.md](desktop/docs/BRIDGE.md) |
+| 平台化子系统总图 | [desktop/docs/PLATFORM.md](desktop/docs/PLATFORM.md) |
 | 写应用插件 / 浏览器扩展 | [desktop/docs/PLUGINS.md](desktop/docs/PLUGINS.md) |
 | 开放给外部 Agent | [desktop/docs/AGENT-API.md](desktop/docs/AGENT-API.md) |
 | 面板拆成独立窗口 | [desktop/docs/PANEL-WINDOWS.md](desktop/docs/PANEL-WINDOWS.md) |

@@ -1,18 +1,18 @@
 # 质量现状与后续重构建议
 
-> 更新：2026-11-17，桌面端 0.162.57 / 插件 2.20.16。
+> 更新：2026-11-17，桌面端 0.163.0 / 插件 2.20.16。
 > 这不是路线图承诺，是对当前代码的真实评估。
 
 ## 当前基线
 
 | 指标 | 数值 |
 |---|---|
-| Git 跟踪文件 | 781 |
+| Git 跟踪文件 | 835 |
 | 当前树体积 | 约 36 MB（FFmpeg.wasm 占 31 MB） |
-| 桌面单测 | 187 个文件 / 1134 个用例（含本地 ASR、AI 协议与用量、本地模型与向量服务、助手档案、工具审批、对话库/分支、官方分段、模型能力、配色、轮盘、文件转换、听写、TTS、OCR、外观、搜索引擎、长视频合并、成片流水线） |
+| 桌面单测 | 195 个文件 / 1203 个用例（1 跳过；含扩展宿主、插件宿主与市场、独立窗口、Agent 网关、面板布局，以及本地 ASR、AI 协议与用量、本地模型、对话库/分支、MCP、TTS/OCR、成片流水线等） |
 | 插件测试 | 478 项（panel-test；真实浏览器 13 项） |
 | ESLint | **0 error / 0 warning** |
-| 桌面冒烟 | `npm run smoke`（真实 Electron + CDP，19 条 E2E，含设置页/起始页、桌宠窗口与框选截图） |
+| 桌面冒烟 | `npm run smoke`（真实 Electron + CDP，22 条 E2E，含设置页/起始页、桌宠窗口与框选截图） |
 | CI | 桌面（master/PR）+ 插件（master/PR）+ tag 发布 |
 
 本次已经做掉的：
@@ -27,7 +27,9 @@
 - 本地工作区从 6.4GB 清到约 1.3GB，临时测试目录清零；
 - 桌面冒烟扩展为 19 条 E2E（设置读写、字幕入库/检索、笔记、回收站删除恢复、任务中心、AI 参数校验、历史与导出、启动只读通道、启动落盘、标签增强、垂直栏、桌宠、框选截图等）；
 - 新增 IPC channel 清单与漂移测试（`scripts/ipc-channels.json` + `src/main/ipcChannels.test.ts`）；
-- `ipc.ts` 按域拆到 `src/main/ipc/`：library / browser / page / settings / media / jobs / tools / records，`ipc.ts` 从 2.8k 降到 43 行（只保留注册入口）。
+- `ipc.ts` 按域拆到 `src/main/ipc/`：library / browser / page / settings / media / jobs / tools / records，`ipc.ts` 从 2.8k 降到 43 行（只保留注册入口）；
+- 0.163 平台化：扩展宿主、插件宿主/市场、拆窗、Agent 网关各自独立模块 + 独立 IPC 域 + 独立文档；
+- 0.163 测试夹具：三份测试的 ZIP/CRX 构造器收敛到 `src/main/zipFixture.ts`。
 
 ## 旧总结链路已删除（0.122 之后）
 
@@ -58,6 +60,20 @@
 为什么现在没动：`library.ts` 是纯桶文件（102 行），拆分收益已经收口；`index.ts` 的启动/托盘/会话恢复/下载钩子已补 32 条单测（`windowPolicy` / `sessionRestore` / `shell` / `downloadsHook`），但 `createWindow()` 本体的窗口装配仍没有测试，拆它之前要先给工厂补注入点。
 `ipc` 域现在有 11 条 E2E（设置/库/笔记/回收站/任务/AI 校验/历史导出/启动通道）兜底，可以照着同样的节奏来；
 `library.ts` 后续如需再动，建议先补 schema 与 search 的单测，再碰数据写入部分。
+
+### P1：平台化模块拆分（0.163 新增）
+
+| 文件 | 行数 | 建议 |
+|---|---:|---|
+| `src/main/plugins.ts` | ~680 | 拆成 `plugins/{store,protocol,rpc,market}.ts`，用 `plugins.ts` 做兼容桶 |
+| `src/main/agent.ts` | ~800 | 拆成 `agent/{tools,approval,server,mcp}.ts`；工具表保持纯数据 |
+| `src/renderer/src/App.tsx` | ~1.0k | 插件/面板布局已抽到 `shared/panels` 与 `PluginPanel`；新增状态优先放 hook |
+
+拆分前提（缺一不可）：
+
+1. 先补对应域的契约测试（当前已有 `main/plugins.test.ts`、`main/agent.test.ts`、`main/zip.test.ts`）；
+2. `tools/platform-probe.mjs` 的端到端探针保持通过；
+3. 新文件只做搬运，不改行为；一次只搬一个域。
 
 ### P1：收敛 JSON 边界的 `any`
 

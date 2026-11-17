@@ -30,6 +30,28 @@
 | 安装包 | 未签名；SmartScreen 会提示 |
 | 自动更新 | `latest.yml` 指向 0.163.0 |
 
+### 0.163 平台化维护提示
+
+0.163 新增了五块平台子系统，接手前先读 [`desktop/docs/PLATFORM.md`](desktop/docs/PLATFORM.md)。要点：
+
+| 子系统 | 文件 | 不要做什么 |
+|---|---|---|
+| 浏览器扩展 | `main/extensions.ts`、`shared/extensions.ts` | 不要假设 Electron 支持全部 Chrome API |
+| 应用插件 | `main/plugins.ts`、`shared/plugins.ts`、`renderer/PluginPanel.tsx` | 不要让插件拿到 Node / 应用 DOM；权限只在主进程校验 |
+| 市场 | `main/plugins.ts` 的市场段、`shared/plugins.ts` | 不要把市场数据写进 AppSettings |
+| 拆窗 | `main/panelWindows.ts`、`renderer/DetachedPanel.tsx` | 退出时先落盘再关窗，别让 `closed` 把列表写空 |
+| 本地 Agent | `main/agent.ts` | 新工具只加 `TOOLS`；写操作不要自己弹窗 |
+
+已知风险：
+
+- 插件/扩展的安装目录由用户提供，路径失效时只显示错误，不会自动清理；
+- 插件市场无签名/审核，只有可选 sha256；
+- `plugins.ts`（~680 行）与 `agent.ts`（~800 行）已接近单文件上限，后续优先按域拆；
+- 内置面板仍不是可替换插件包，只是纳入统一布局；
+- Electron 的 MV3 支持不完整，扩展兼容性只能逐个验证。
+
+后续维护建议：**只做 bug fix + 回归测试**，不要在没有 E2E 的情况下重构这几个新模块。
+
 仓库体积：约 36MB（FFmpeg.wasm 31MB）；本地工作区约 1GB，主要是 `node_modules`。`out/`、`release/` 与 `verify/build/` 是可重新生成的构建产物，已从本地清理；需要时分别运行 `npm run build`、`npm run pack`、`node verify/bundle.js`。
 
 历史验收记录已归档到 `docs/archive/`，根目录不再放一次性清单。
@@ -670,9 +692,10 @@
 
 - [x] `git status` clean
 - [x] HEAD 与 `master` 一致
-- [x] 0.162.57 测试/冒烟通过
-- [x] 插件 488 项通过
-- [x] 最新 Release 指向 `v0.162.57`
+- [x] 0.163.0 测试（195 文件 / 1203 用例）/ 冒烟（22/22）通过
+- [x] 插件 478 项通过
+- [x] 最新 Release 指向 `v0.163.0`
+- [x] 平台化子系统有独立文档（`desktop/docs/PLATFORM.md`）
 - [x] 临时测试目录已清理
 - [x] 文档索引/仓库地图已更新
 
