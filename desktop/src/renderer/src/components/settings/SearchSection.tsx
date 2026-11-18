@@ -474,7 +474,7 @@ export function SearchSection({
       <div className="settings-group">
         <div className="settings-group-title">4. 什么时候自动搜</div>
         <div className="settings-group-desc">
-          默认手动：只有你在对话里点「联网」才搜。
+          默认智能：需要最新事实时才联网；对话输入框的「联网」按钮可以临时切换自动 / 强制 / 关闭。
         </div>
 
         <label className="settings-check">
@@ -493,7 +493,7 @@ export function SearchSection({
             checked={mode === 'smart'}
             onChange={() => updateSearch({ alwaysSearchOnChat: false, autoSearchOnChat: true })}
           />
-          智能：问题像需要最新事实时才搜
+          智能：问题像需要最新事实时才搜（默认）
         </label>
         <label className="settings-check">
           <input

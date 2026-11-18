@@ -751,7 +751,7 @@ export function AiSection({
       <summary>高级设置</summary>
       <div className="settings-inline">
         <div className="settings-field">
-          <div className="settings-label">温度（0–2，越高越发散）</div>
+          <div className="settings-label">任务温度（总结/抽取，0–2）</div>
           <input
             className="settings-input"
             type="number"
@@ -760,6 +760,18 @@ export function AiSection({
             step={0.1}
             value={draft.ai.temperature}
             onChange={(event) => updateAi({ temperature: Number(event.target.value) })}
+          />
+        </div>
+        <div className="settings-field">
+          <div className="settings-label">对话温度（0–2，默认 1.0）</div>
+          <input
+            className="settings-input"
+            type="number"
+            min={0}
+            max={2}
+            step={0.1}
+            value={draft.ai.chatTemperature}
+            onChange={(event) => updateAi({ chatTemperature: Number(event.target.value) })}
           />
         </div>
         <div className="settings-field">

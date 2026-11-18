@@ -605,11 +605,9 @@ export function registerMediaIpc(ctx: IpcContext): void {
       const page =
         payload.includePage === false ? null : await readPageContext(ctx.tabs.activeWebContents());
       const lines =
-        payload.includeTranscript === false
-          ? []
-          : Array.isArray(payload.lines)
-            ? payload.lines
-            : [];
+        payload.includeTranscript === true && Array.isArray(payload.lines)
+          ? payload.lines
+          : [];
 
       void (async () => {
         try {
@@ -622,7 +620,9 @@ export function registerMediaIpc(ctx: IpcContext): void {
             skillIds: payload.skillIds,
             profileId: payload.profileId,
             web: payload.web === true,
-            includeTranscript: payload.includeTranscript !== false,
+            webMode: payload.webMode,
+            deepThink: payload.deepThink === true,
+            includeTranscript: payload.includeTranscript === true,
             surface: payload.surface === 'pet' ? 'pet' : 'main',
             context: payload.context,
             page,

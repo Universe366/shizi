@@ -87,7 +87,16 @@ export const LEGACY_DEFAULT_PROMPT =
 export const PREVIOUS_DEFAULT_PROMPT =
   '按照字幕顺序整理这期视频的内容形成详实的笔记（可以用表格、代码块、高亮块、引用、超链接、公式、图片等飞书支持的格式输出，可以加上一些图标增加可读性）';
 
-const DEFAULT_CHAT_PROMPT = `你是一个严谨的中文视频助手。请只依据提供的字幕回答用户的问题。
+const DEFAULT_CHAT_PROMPT = `你是「拾字」里的通用 AI 助手，回答风格自然、清晰、直接，接近 DeepSeek 网页端。
+- 先正面回答用户的问题，再补充必要的解释；不要复述问题，不要写「作为一个 AI」这类套话。
+- 简单问题用几句话回答；需要展开时再用 Markdown（小标题、列表、表格、代码块）。
+- 不确定或不知道就直说，不要编造事实、数据、链接或来源。
+- 只有用户明确问到视频/字幕，或消息里提供了 <video_transcript> 时，才引用字幕内容，并用 [mm:ss] 标注时间。
+- 使用联网资料时在句末用 [n] 标注来源，不要编造编号；来源列表由界面展示，不要在正文末尾再罗列「参考：」。
+- 用户要求写作、翻译、代码等任务时，直接给出成品，不要先讲方法。`;
+
+/** 0.163.1 及更早版本的默认对话提示词；升级时自动换成通用助手，用户改过的保持不动。 */
+const LEGACY_CHAT_PROMPT = `你是一个严谨的中文视频助手。请只依据提供的字幕回答用户的问题。
 - 字幕里没有的信息，明确说「字幕里没有提到」，不要编造。
 - 回答用 Markdown，先给结论，再给依据。
 - 引用字幕时尽量带上 [mm:ss]。`;
@@ -254,6 +263,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     activeId: 'deepseek',
     defaultModel: { platformId: 'deepseek', model: 'deepseek-chat' },
     temperature: 0.3,
+    chatTemperature: 1,
     maxTokens: 128000,
     maxTokensVersion: 1,
     contextAutoCompress: true,
@@ -435,7 +445,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ],
     fetchActiveId: 'jina',
     preferModelWeb: false,
-    maxResults: 5,
+    maxResults: 8,
     toolSearchLimit: 5,
     toolFetchLimit: 3,
     toolMaxRounds: 10,
@@ -445,18 +455,20 @@ export const DEFAULT_SETTINGS: AppSettings = {
     keylessFallback: true,
     keylessOrder: ['exa', 'anysearch'],
     cacheMinutes: 5,
-    autoSearchOnChat: false,
-    autoSearchAi: false,
+    autoSearchOnChat: true,
+    autoSearchAi: true,
+    chatWebDefaultVersion: 1,
     alwaysSearchOnChat: false,
     useVideoMeta: true,
     useComments: true,
     hotCommentCount: 12,
     fetchPages: false,
-    snippetChars: 2000,
+    snippetChars: 3000,
     snippetMode: 'truncate',
     blacklist: [],
     planQueries: 3,
-    chatReadPages: 2
+    chatReadPages: 3,
+    chatEvidenceVersion: 1
   },
   correction: {
     enabled: true,
@@ -982,6 +994,13 @@ function normalize(input: unknown): AppSettings {
     if (Number.isFinite(temperature)) {
       base.ai.temperature = Math.min(2, Math.max(0, Math.round(temperature * 100) / 100));
     }
+    const chatTemperature = Number(raw.ai?.chatTemperature);
+    if (Number.isFinite(chatTemperature)) {
+      base.ai.chatTemperature = Math.min(
+        2,
+        Math.max(0, Math.round(chatTemperature * 100) / 100)
+      );
+    }
     const maxTokensVersion = Number(raw.ai?.maxTokensVersion) || 0;
     const maxTokens = Number(raw.ai?.maxTokens);
     if (Number.isFinite(maxTokens)) {
@@ -1314,7 +1333,9 @@ function normalize(input: unknown): AppSettings {
     }
 
     if (typeof raw.prompt?.chat === 'string' && raw.prompt.chat.trim()) {
-      base.prompt.chat = raw.prompt.chat.trim();
+      const text = raw.prompt.chat.trim();
+      // 旧默认提示词是“只依据字幕”，升级后统一换成通用助手；自定义过的保持原样。
+      base.prompt.chat = text === LEGACY_CHAT_PROMPT.trim() ? DEFAULT_CHAT_PROMPT : text;
     }
     // 「总结格式规则」不再单独暴露：旧版本存过的自定义规则并入当前模板，
     // 保证设置里只有一个输入框，同时不丢用户写过的东西；内置默认大段规则直接丢弃。
@@ -1621,6 +1642,12 @@ function normalize(input: unknown): AppSettings {
       }
       base.search.autoSearchOnChat = raw.search.autoSearchOnChat === true;
       base.search.autoSearchAi = raw.search.autoSearchAi === true;
+      // 0.164 起默认联网改为“自动”；老配置一次性升级，之后不再覆盖用户选择。
+      if ((Number(raw.search.chatWebDefaultVersion) || 0) < 1) {
+        base.search.autoSearchOnChat = true;
+        base.search.autoSearchAi = true;
+      }
+      base.search.chatWebDefaultVersion = 1;
       base.search.alwaysSearchOnChat = raw.search.alwaysSearchOnChat === true;
       base.search.useVideoMeta = raw.search.useVideoMeta !== false;
       base.search.useComments =
@@ -1634,6 +1661,13 @@ function normalize(input: unknown): AppSettings {
       if (Number.isFinite(snippetChars)) {
         base.search.snippetChars = Math.min(20000, Math.max(200, Math.round(snippetChars)));
       }
+      // 0.164 起对话检索默认多读一点：老配置一次性升级，之后尊重用户的值。
+      if ((Number(raw.search.chatEvidenceVersion) || 0) < 1) {
+        if (base.search.maxResults === 5) base.search.maxResults = 8;
+        if ((base.search.chatReadPages || 2) === 2) base.search.chatReadPages = 3;
+        if (base.search.snippetChars === 2000) base.search.snippetChars = 3000;
+      }
+      base.search.chatEvidenceVersion = 1;
       base.search.snippetMode = raw.search.snippetMode === 'none' ? 'none' : 'truncate';
       if (Array.isArray(raw.search.blacklist)) {
         base.search.blacklist = raw.search.blacklist

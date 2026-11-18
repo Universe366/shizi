@@ -1,7 +1,14 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Star, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Brain, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Star, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import {
+  chatWebModeHint,
+  chatWebModeLabel,
+  nextChatWebMode,
+  normalizeChatWebMode,
+  type ChatWebMode
+} from '../../../shared/chatModes';
 import {
   capabilityKey,
   effectiveContextWindow,
@@ -50,17 +57,10 @@ import { getAsrResult } from '../lib/asrStore';
 import { speakText } from '../lib/speech';
 
 const SUGGESTIONS = [
-  '这个视频的核心观点是什么？',
-  '列出视频里提到的数字、结论或方法',
-  '有哪些地方值得质疑或需要补充？',
-  '用 5 条以内总结这个视频'
-];
-
-const PAGE_SUGGESTIONS = [
-  '用 5 条要点总结这个页面',
-  '这篇内容里有哪些关键数字或结论？',
-  '把我选中的内容解释得更通俗',
-  '这个页面有哪些值得质疑的地方？'
+  '帮我解释一个概念',
+  '写一段处理 CSV 的 Python 脚本',
+  '总结一下今天有哪些科技新闻',
+  '把这句话翻译成英文'
 ];
 
 /** 参考链接只显示域名，避免长 URL 把气泡撑开。 */
@@ -211,21 +211,41 @@ export function ChatPanel({
   const [sendOnEnter, setSendOnEnter] = useState(true);
   const [expandReasoning, setExpandReasoning] = useState(false);
   const [pageContext, setPageContext] = useState<PageContextSummary | null>(null);
-  const [includePage, setIncludePage] = useState(true);
+  const [includePage, setIncludePage] = useState(false);
   const [includeTranscript, setIncludeTranscript] = useState(() => {
     try {
-      return localStorage.getItem('chat-transcript') !== '0';
-    } catch {
-      return true;
-    }
-  });
-  const [webSearch, setWebSearch] = useState(() => {
-    try {
-      return localStorage.getItem('chat-web') === '1';
+      return localStorage.getItem('chat-transcript') === '1';
     } catch {
       return false;
     }
   });
+  const [webMode, setWebMode] = useState<ChatWebMode>(() => {
+    try {
+      const stored = localStorage.getItem('chat-web-mode');
+      if (stored) return normalizeChatWebMode(stored);
+      // 兼容旧版本：曾经打开过“强制联网”的用户保留强制，其余默认自动。
+      return localStorage.getItem('chat-web') === '1' ? 'force' : 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+  const [deepThink, setDeepThink] = useState(() => {
+    try {
+      return localStorage.getItem('chat-deep') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const updateWebMode = useCallback((next: ChatWebMode) => {
+    setWebMode(next);
+    try {
+      localStorage.setItem('chat-web-mode', next);
+      localStorage.setItem('chat-web', next === 'force' ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, []);
   const [searchEnabled, setSearchEnabled] = useState(true);
   const [searchProviderName, setSearchProviderName] = useState('');
   const [searchPlatforms, setSearchPlatforms] = useState<SearchPlatform[]>([]);
@@ -809,12 +829,15 @@ export function ChatPanel({
           : ''
       );
       if (!searchOn) {
-        setWebSearch(false);
-        try {
-          localStorage.setItem('chat-web', '0');
-        } catch {
-          // ignore
-        }
+        updateWebMode('off');
+      } else if (!localStorage.getItem('chat-web-mode')) {
+        updateWebMode(
+          response.data.settings.search.alwaysSearchOnChat
+            ? 'force'
+            : response.data.settings.search.autoSearchOnChat
+              ? 'auto'
+              : 'off'
+        );
       }
     })();
     return window.bsub.onSettingsChanged((snapshot) => {
@@ -848,14 +871,7 @@ export function ChatPanel({
       setSkillId((current) =>
         snapshot.settings.skills.items.some((item) => item.id === current) ? current : ''
       );
-      if (!searchOn) {
-        setWebSearch(false);
-        try {
-          localStorage.setItem('chat-web', '0');
-        } catch {
-          // ignore
-        }
-      }
+      if (!searchOn) updateWebMode('off');
     });
   }, []);
 
@@ -1405,7 +1421,9 @@ export function ChatPanel({
         searchPlatformId: searchPlatformId || undefined,
         includePage: forcePage ? true : includePage,
         includeTranscript,
-        web: webSearch
+        web: webMode === 'force',
+        webMode,
+        deepThink
       });
       if (!started.ok) throw new Error(started.error);
     } catch (caught) {
@@ -2312,15 +2330,11 @@ export function ChatPanel({
           {!messages.length && !streaming && (
             <EmptyState
               plain
-              title={isVideoPage ? '基于本片字幕提问' : '就当前页面提问'}
-              desc={
-                isVideoPage
-                  ? '会先读取当前视频字幕，再让设置里的 AI 平台回答。'
-                  : '会读取当前网页正文和你选中的内容，再让设置里的 AI 平台回答。'
-              }
+              title="有什么可以帮你？"
+              desc="默认按通用助手回答；需要基于当前视频或页面时，打开输入框旁的「字幕」/「页面」开关。"
             >
               <div className="chat-suggestions">
-                {(isVideoPage ? SUGGESTIONS : PAGE_SUGGESTIONS).map((suggestion) => (
+                {SUGGESTIONS.map((suggestion) => (
                   <button
                     key={suggestion}
                     className="chat-suggestion"
@@ -2943,14 +2957,7 @@ export function ChatPanel({
                   // ignore
                 }
                 const target = profiles.find((profile) => profile.id === next);
-                if (target?.web) {
-                  setWebSearch(true);
-                  try {
-                    localStorage.setItem('chat-web', '1');
-                  } catch {
-                    // ignore
-                  }
-                }
+                if (target?.web) updateWebMode('force');
                 if (conversationRef.current) {
                   void window.bsub.chatHistoryProfile(conversationRef.current, next);
                 }
@@ -2977,20 +2984,42 @@ export function ChatPanel({
               onChange={(event) => setIncludePage(event.target.checked)}
             />
           </label>
-          <label className="chat-menu-row chat-menu-toggle">
+          <label className="chat-menu-row">
             <span className="chat-menu-row-label">联网检索</span>
+            <span className="chat-menu-row-desc">{chatWebModeHint(webMode)}</span>
+            <select
+              className="settings-input chat-profile-select"
+              value={webMode}
+              disabled={!searchEnabled}
+              onChange={(event) => {
+                const next = normalizeChatWebMode(event.target.value);
+                setWebMode(next);
+                try {
+                  localStorage.setItem('chat-web-mode', next);
+                  localStorage.setItem('chat-web', next === 'force' ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              <option value="auto">自动</option>
+              <option value="force">强制</option>
+              <option value="off">关闭</option>
+            </select>
+          </label>
+          <label className="chat-menu-row chat-menu-toggle">
+            <span className="chat-menu-row-label">深度思考</span>
             <span className="chat-menu-row-desc">
-              {searchEnabled ? '本轮强制联网并列出参考' : '未启用，先去设置开启'}
+              DeepSeek 平台切到推理模型，回答前先思考
             </span>
             <input
               type="checkbox"
-              checked={webSearch}
-              disabled={!searchEnabled}
+              checked={deepThink}
               onChange={(event) => {
                 const next = event.target.checked;
-                setWebSearch(next);
+                setDeepThink(next);
                 try {
-                  localStorage.setItem('chat-web', next ? '1' : '0');
+                  localStorage.setItem('chat-deep', next ? '1' : '0');
                 } catch {
                   // ignore
                 }
@@ -3659,26 +3688,44 @@ export function ChatPanel({
               <Captions size={12} /> 字幕
             </button>
             <button
-              className={`chat-chip${webSearch ? ' is-on' : ''}`}
+              className={`chat-chip${webMode !== 'off' ? ' is-on' : ''}`}
               title={
                 searchEnabled
-                  ? `搜索服务：${searchProviderName || '未选择'}；${
-                      webSearch ? '本次会联网检索并列出参考' : '本次不联网'
-                    }`
+                  ? `搜索服务：${searchProviderName || '未选择'}；${chatWebModeHint(webMode)}`
                   : '联网检索未启用，去设置开启'
               }
               disabled={!searchEnabled}
               onClick={() => {
-                const next = !webSearch;
-                setWebSearch(next);
+                const next = nextChatWebMode(webMode);
+                setWebMode(next);
                 try {
-                  localStorage.setItem('chat-web', next ? '1' : '0');
+                  localStorage.setItem('chat-web-mode', next);
+                  localStorage.setItem('chat-web', next === 'force' ? '1' : '0');
                 } catch {
                   // ignore
                 }
               }}
             >
-              <Globe size={12} /> 联网
+              <Globe size={12} /> 联网 · {chatWebModeLabel(webMode)}
+            </button>
+            <button
+              className={`chat-chip${deepThink ? ' is-on' : ''}`}
+              title={
+                deepThink
+                  ? '深度思考已开启：DeepSeek 平台使用推理模型'
+                  : '开启深度思考（DeepSeek 平台使用推理模型）'
+              }
+              onClick={() => {
+                const next = !deepThink;
+                setDeepThink(next);
+                try {
+                  localStorage.setItem('chat-deep', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              <Brain size={12} /> 深度思考
             </button>
             {profiles.find((profile) => profile.id === profileId) && (
               <button

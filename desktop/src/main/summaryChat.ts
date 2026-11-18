@@ -32,6 +32,7 @@ export async function summarizeChat(options: SummarizeChatOptions): Promise<Summ
     messages: [{ role: 'user', content: prompt.user }],
     page: null,
     includeTranscript: true,
+    purpose: 'summary',
     web: options.web !== false,
     mcpToolIds: [],
     surface: 'main',

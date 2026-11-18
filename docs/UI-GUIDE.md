@@ -94,7 +94,7 @@ ChatPanel
 ├─ 消息列表（Markdown、工具卡片、审批卡片、分支/编辑/朗读）
 ├─ chat-menu                ＋ 打开的「更多工具」面板
 │  ├─ chat-menu-grid        4 张卡片：MCP / 多模型对比 / 图片 / 新对话
-│  └─ chat-menu-row         助手档案、页面上下文、联网、技能
+│  └─ chat-menu-row         助手档案、页面上下文、联网模式、深度思考、技能
 └─ chat-composer
    ├─ textarea
    └─ chat-composer-bar
@@ -123,7 +123,9 @@ ChatPanel
 
 | 状态 | 存在哪 |
 |---|---|
-| 页面上下文 / 联网 | `localStorage`：`chat-page`、`chat-web` |
+| 页面上下文 / 字幕 | `localStorage`：`chat-page`（默认关）、`chat-transcript`（默认关） |
+| 联网模式 | `localStorage`：`chat-web-mode`（`auto` 默认 / `force` / `off`），兼容旧键 `chat-web` |
+| 深度思考 | `localStorage`：`chat-deep` |
 | 助手档案 | `localStorage`：`chat-profile`，并写回 `chat.db` 的 `profile_id` |
 | MCP 工具选择 | `localStorage`：`chat-tools`（`null` = 全部，`[]` = 不用） |
 | 多模型选择 | `localStorage`：`chat-compare` |
@@ -414,6 +416,13 @@ start-footnote   操作提示、导入导出设置
 ## 10. 联网检索与外部资料
 
 - 入口：对话输入区的联网 chip / 助手档案的 web 开关 / 总结前的联网检索 / 核对。核心在 `main/web/`。
+- 对话默认 **自动联网**：先由路由判断要不要搜（`search.autoSearchOnChat/autoSearchAi`），
+  需要时才检索；chip 可临时切「自动 / 强制 / 关闭」，强制走工具循环。
+- 对话默认是**通用助手**：字幕只有在用户打开「字幕」chip 时才作为可选资料注入，
+  且放在系统提示里而不是 user 消息；回复不再要求末尾罗列「参考：」，只用行内 `[n]`，
+  来源由对话底部的来源列表展示。
+- 深度思考：DeepSeek 平台（`api.deepseek.com`）切到 `deepseek-reasoner`；
+  其它平台只追加“先思考再回答”的要求；开启时联网改走预搜索，避免工具兼容问题。
 - `retrieve.ts`：所有入口共用的检索门面，统一查询清洗/去重/排序/正文读取/预算；差异只在策略（对话与总结 3 条查询、8 条结果、读 2 篇；核对 2 条查询、6 条结果、读 1 篇）。
 - 设置页按能力分三类：**搜索服务商 / URL 获取服务商 / 优先使用模型内置 Web 工具**；自动联网、核对、结果数、缓存、黑名单在下方或折叠项。
 - URL 获取服务商决定 `web_fetch`：内置抓取（免 Key）、Jina Reader（免 Key）、Tavily Extract、Exa Contents、Firecrawl；接口地址可覆盖。

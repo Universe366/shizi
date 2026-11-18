@@ -63,11 +63,11 @@ describe('设置的持久化字段', () => {
 
   it('对话联网读取篇数可配置', () => {
     const settings = loadSettings();
-    expect(settings.search.chatReadPages).toBe(2);
+    expect(settings.search.chatReadPages).toBe(3);
     settings.search.chatReadPages = 6;
     saveSettings(settings);
     expect(loadSettings().search.chatReadPages).toBe(6);
-    settings.search.chatReadPages = 2;
+    settings.search.chatReadPages = 3;
     saveSettings(settings);
   });
 
@@ -205,6 +205,71 @@ describe('设置的持久化字段', () => {
     );
     const loaded = loadSettings();
     expect(loaded.prompt.templates.find((t) => t.id === 'default')?.text).toBe(DEFAULT_PROMPT);
+  });
+
+  it('对话温度默认 1.0，保存后不丢', () => {
+    const settings = loadSettings();
+    expect(settings.ai.chatTemperature).toBe(1);
+    settings.ai.chatTemperature = 1.2;
+    saveSettings(settings);
+    expect(loadSettings().ai.chatTemperature).toBe(1.2);
+  });
+
+  it('旧默认对话提示词升级为通用助手，自定义提示词保持不动', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        prompt: {
+          chat:
+            '你是一个严谨的中文视频助手。请只依据提供的字幕回答用户的问题。\n- 字幕里没有的信息，明确说「字幕里没有提到」，不要编造。\n- 回答用 Markdown，先给结论，再给依据。\n- 引用字幕时尽量带上 [mm:ss]。'
+        }
+      }),
+      'utf8'
+    );
+    const upgraded = loadSettings();
+    expect(upgraded.prompt.chat).toContain('通用 AI 助手');
+    expect(upgraded.prompt.chat).not.toContain('只依据提供的字幕');
+
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ prompt: { chat: '我自己的助手提示词' } }),
+      'utf8'
+    );
+    expect(loadSettings().prompt.chat).toBe('我自己的助手提示词');
+  });
+
+  it('旧配置一次性升级为自动联网', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ search: { autoSearchOnChat: false, autoSearchAi: false } }),
+      'utf8'
+    );
+    const upgraded = loadSettings();
+    expect(upgraded.search.autoSearchOnChat).toBe(true);
+    expect(upgraded.search.autoSearchAi).toBe(true);
+    expect(upgraded.search.chatWebDefaultVersion).toBe(1);
+
+    // 迁移后用户显式关掉，不应再被覆盖。
+    const settings = loadSettings();
+    settings.search.autoSearchOnChat = false;
+    saveSettings(settings);
+    expect(loadSettings().search.autoSearchOnChat).toBe(false);
+  });
+
+  it('旧检索证据量一次性升级，之后尊重用户值', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ search: { maxResults: 5, chatReadPages: 2, snippetChars: 2000 } }),
+      'utf8'
+    );
+    const upgraded = loadSettings();
+    expect(upgraded.search.maxResults).toBe(8);
+    expect(upgraded.search.chatReadPages).toBe(3);
+    expect(upgraded.search.snippetChars).toBe(3000);
+
+    upgraded.search.maxResults = 5;
+    saveSettings(upgraded);
+    expect(loadSettings().search.maxResults).toBe(5);
   });
 
   it('主窗口置顶状态保存后不会丢', () => {

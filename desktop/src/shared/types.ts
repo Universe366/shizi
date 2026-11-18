@@ -1060,6 +1060,10 @@ export interface SearchSettings {
   autoSearchOnChat: boolean;
   /** 自动联网时用一次小 AI 调用判断要不要检索（默认只用规则） */
   autoSearchAi: boolean;
+  /** 对话联网默认值迁移版本（内部字段） */
+  chatWebDefaultVersion?: number;
+  /** 对话检索证据量迁移版本（内部字段） */
+  chatEvidenceVersion?: number;
   alwaysSearchOnChat: boolean;
   useVideoMeta: boolean;
   useComments: boolean;
@@ -1481,7 +1485,10 @@ export interface AppSettings {
     /** 对话/总结默认模型；可来自任意已启用服务商 */
     defaultModel?: AiTaskModel;
     platforms: AiPlatform[];
+    /** 非对话任务（总结/抽取等）的温度 */
     temperature: number;
+    /** 对话温度；默认更高，回答更自然 */
+    chatTemperature: number;
     maxTokens: number;
     /** 输出上限默认值的迁移版本（内部字段） */
     maxTokensVersion?: number;
@@ -1751,8 +1758,12 @@ export interface ChatRequest {
   includePage?: boolean;
   /** 是否把当前视频字幕带给模型（默认 true）；关掉后可只做联网问答 */
   includeTranscript?: boolean;
-  /** 本次对话强制联网检索（覆盖设置里的自动检索策略） */
+  /** 本次对话强制联网检索（旧字段；新代码用 webMode） */
   web?: boolean;
+  /** 本轮联网模式：off / auto / force；优先于 web */
+  webMode?: 'off' | 'auto' | 'force';
+  /** 深度思考：DeepSeek 平台切到 reasoner，其它平台追加思考要求 */
+  deepThink?: boolean;
   /** 桌宠等场景附带的上下文（前台窗口、来源说明） */
   context?: string;
   /** 调用来源：main = 主窗口对话；pet = 桌面即时助手（用独立系统提示词） */
