@@ -11,6 +11,7 @@ import { loadSettings, platformForTask } from './settings';
 import { normalizeChatWebMode, type ChatWebMode } from '../shared/chatModes';
 import { needsApiKey } from './platformKey';
 import {
+  chatDeepSeekWebStream,
   chatOnce,
   chatStream,
   chatToolLoopStream,
@@ -315,8 +316,15 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       : settings.search.autoSearchOnChat
         ? 'auto'
         : 'off';
+  // DeepSeek 官方平台优先走服务端联网：搜索不按次计费，且由模型自己决定搜/读。
+  const useServerWeb =
+    deepSeekPlatform &&
+    settings.search.enabled !== false &&
+    webMode !== 'off' &&
+    options.purpose !== 'summary' &&
+    !options.systemPrompt;
   let wantsSearch = false;
-  if (settings.search.enabled && Boolean(question)) {
+  if (!useServerWeb && settings.search.enabled && Boolean(question)) {
     if (webMode === 'force' || profileWeb || settings.search.alwaysSearchOnChat) {
       wantsSearch = true;
     } else if (webMode === 'auto') {
@@ -491,6 +499,9 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
       ? '用户打开了字幕上下文，但当前视频没有可用字幕；必要时说明这一点，不要假装看过字幕。'
       : '',
     pageBlock,
+    useServerWeb && (webMode === 'force' || profileWeb)
+      ? '本轮用户明确要求联网：请先使用联网搜索核实，再给出回答；引用外部事实时用 [n] 标注来源。'
+      : '',
     deepThinkNote,
     webToolSystem,
     citationSystem,
@@ -532,6 +543,50 @@ export async function chat(options: ChatOptions): Promise<ChatResult> {
     { role: 'system', content: system },
     ...compressedHistory.messages
   ];
+
+  if (useServerWeb) {
+    // 服务端联网要求 deepseek-flash；用户选的 chat/reasoner 在这里临时切换。
+    const serverPlatform =
+      platform.model === 'deepseek-flash' ? platform : { ...platform, model: 'deepseek-flash' };
+    options.onStatus?.(
+      webMode === 'force' || profileWeb
+        ? 'DeepSeek 服务端联网（强制）…'
+        : 'DeepSeek 服务端联网（模型决定是否搜）…'
+    );
+    try {
+      const result = await chatDeepSeekWebStream(serverPlatform, messages, {
+        temperature,
+        maxTokens: maxTokens || undefined,
+        signal: options.signal,
+        task: 'chat',
+        thinking: deepThink,
+        onDelta: options.onDelta,
+        onReasoning: options.onReasoning,
+        onServerTool: (event) => {
+          options.onTool?.({
+            phase: event.phase,
+            name: event.name,
+            detail: event.detail,
+            ...(event.ok === undefined ? {} : { ok: event.ok })
+          });
+        }
+      });
+      if (!result.text.trim()) throw new Error('AI 返回为空');
+      return {
+        text: result.text,
+        model: serverPlatform.model,
+        reasoning: result.reasoning,
+        references: result.references,
+        webEngine: 'DeepSeek 服务端联网（搜索不单独计费）',
+        usage: result.usage
+      };
+    } catch (error) {
+      if (options.signal?.aborted || (error as Error)?.name === 'AbortError') throw error;
+      webError = `DeepSeek 服务端联网失败：${(error as Error)?.message || error}，已改为普通回答`;
+      options.onStatus?.(webError);
+      console.warn('[chat] DeepSeek 服务端联网失败，继续普通回答', webError);
+    }
+  }
 
   const appToolsEnabled = settings.ai.appTools !== false;
   const toolBindings: Array<{ server: McpServer; tool: McpTool; qualifiedName: string }> = [];

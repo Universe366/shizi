@@ -12,6 +12,7 @@ export const AI_PRESETS: AiPlatform[] = [
     "apiKey": "",
     "model": "deepseek-chat",
     "models": [
+      "deepseek-flash",
       "deepseek-chat",
       "deepseek-reasoner"
     ],

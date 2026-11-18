@@ -476,6 +476,10 @@ export function SearchSection({
         <div className="settings-group-desc">
           默认智能：需要最新事实时才联网；对话输入框的「联网」按钮可以临时切换自动 / 强制 / 关闭。
         </div>
+        <div className="settings-hint">
+          DeepSeek 官方平台会自动改用服务端联网（deepseek-flash）：搜索由模型自己发起，
+          不按次收搜索费，只算 token，也更接近 DeepSeek 网页端。
+        </div>
 
         <label className="settings-check">
           <input

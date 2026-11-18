@@ -431,7 +431,11 @@ start-footnote   操作提示、导入导出设置
 - `plan.ts`：规则式检索计划，最多 4 条（基础 / 时效 / 对照 / 一手），不额外调用模型；设置项 `search.planQueries`。
 - `service.ts`：并发执行 → 合并 → 去重（URL + 内容指纹）→ 每域名最多 2 条 → 相关度/来源类型/时效排序 → 抓前 2 篇正文 → 分配 cite id。
 - 结果元数据：`site / date / authority / rerank / summary / content / sourceType`；对话资料块要求用 `[n]` 标注来源。
-- `[n]` 渲染：`Markdown` 接收 `citations` 后把 `[n]` 渲染为 `.cite-ref` chip，点击滚动到来源并高亮（`SourcesCard` / 对话来源列表的 `id=cite-*`）。
+- `[n]` 渲染：`Markdown` 接收 `citations` 后把 `[n]` 渲染为小角标；悬浮显示标题/站点/摘要，
+  点击滚动到来源卡片并高亮（卡片 `id=cite-*`）。底部「参考资料」卡片由 `ChatSources` 渲染：
+  编号、站点首字、标题、域名/日期、两行摘要，可折叠。
+- DeepSeek 官方平台走服务端联网（`deepseek_web_search`，`deepseek-flash`）：搜索不按次计费、只算 token；
+  返回的 `annotations` 会转成行内 `[n]`，`server_tool_calls` 的 `sources` 转成参考资料卡片。
 - 原则：外部资料只做补充与提示差异，不改写视频/字幕事实；总结里的「外部资料」与正文分开呈现。
 - provider 协议在 `main/web/providers/`（13 个模块 + `shared.ts` + `index.ts` 注册表）；新增一家只需加模块并在注册表登记。
 - 抓取正文按 URL 缓存 6 小时；设置「高级设置 → 检索诊断」可看次数/平均耗时/去重率/失败率/缓存大小，并可清空统计与缓存。

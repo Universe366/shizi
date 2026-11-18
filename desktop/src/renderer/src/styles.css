@@ -7502,65 +7502,179 @@ html[data-density='compact'] .chat-history-row {
   color: color-mix(in srgb, var(--warn) 72%, var(--text));
 }
 
-/* 联网回答的来源列表：域名 + 标题，点击用系统浏览器打开 */
-.chat-sources {
+/* 联网回答的参考资料：折叠头 + 来源卡片，和正文 [n] 一一对应 */
+.chat-sources-block {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  overflow: hidden;
+}
+
+.chat-sources-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-sources-head:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.chat-sources-block.is-open .chat-sources-head {
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-sources-name {
+  font-weight: 600;
+}
+
+.chat-sources-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.chat-sources-engine {
+  margin-left: auto;
+  max-width: 45%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.chat-sources-chevron {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.chat-sources-block.is-open .chat-sources-chevron {
+  transform: rotate(180deg);
+}
+
+.chat-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+}
+
+.chat-source {
+  display: grid;
+  grid-template-columns: 16px 24px minmax(0, 1fr) 14px;
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-source:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.chat-source-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.chat-source-favicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface-2));
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chat-source-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
+  min-width: 0;
+}
+
+.chat-source-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.chat-source-meta {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-source-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.chat-source-arrow {
+  margin-top: 3px;
+  color: var(--faint);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chat-source:hover .chat-source-arrow {
+  opacity: 1;
 }
 
 .chat-usage {
   margin-top: 3px;
   font-size: var(--fs-xs);
   color: var(--faint);
-}
-
-.chat-sources-title {
-  padding: 0 6px 2px;
-  color: var(--faint);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.02em;
-}
-
-.chat-source {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text);
-  font-size: var(--fs-xs);
-  text-align: left;
-  cursor: pointer;
-}
-
-.chat-source:hover {
-  background: var(--surface-2);
-}
-
-.chat-source-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.chat-source-site {
-  flex: none;
-  max-width: 42%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--faint);
-  font-size: var(--fs-xs);
 }
 
 .chat-web-notice {
@@ -13361,27 +13475,99 @@ body.is-resizing-tabs {
 }
 
 /* ---------- 引用 chip 与外部资料面板 ---------- */
+.cite-sup {
+  position: relative;
+  line-height: 0;
+}
+
 .cite-ref {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 14px;
-  height: 14px;
+  min-width: 15px;
+  height: 15px;
   margin: 0 1px;
-  padding: 0 3px;
-  border: none;
-  border-radius: 4px;
-  background: var(--accent-soft);
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 600;
   line-height: 1;
   vertical-align: super;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.cite-ref:hover {
+.cite-ref:hover,
+.cite-ref:focus-visible {
+  border-color: var(--accent);
   background: var(--accent);
   color: #fff;
+  outline: none;
+}
+
+.cite-ref-pop {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: 260px;
+  max-width: 72vw;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0.14s;
+  pointer-events: none;
+  text-align: left;
+  line-height: 1.45;
+}
+
+.cite-sup:hover .cite-ref-pop,
+.cite-ref:focus-visible + .cite-ref-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.cite-ref-pop-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cite-ref-pop-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.cite-ref-pop-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cite-ref-pop-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 10px;
 }
 
 sup:has(> .cite-ref) {

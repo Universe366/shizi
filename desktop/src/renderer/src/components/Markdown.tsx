@@ -55,14 +55,18 @@ function inline(text: string, keyPrefix: string, options: InlineOptions = {}): R
       const reference = cite ? options.citations?.[Number(cite[1]) - 1] : undefined;
       if (cite && reference) {
         const marker = cite[1];
+        let host = '';
+        try {
+          host = new URL(reference.url).hostname.replace(/^www\./i, '');
+        } catch {
+          host = reference.site || '';
+        }
         nodes.push(
-          <sup key={`${keyPrefix}-cite-${index++}`}>
+          <sup key={`${keyPrefix}-cite-${index++}`} className="cite-sup">
             <button
               type="button"
               className="cite-ref"
-              title={`${reference.title || reference.url}${
-                reference.site ? ` · ${reference.site}` : ''
-              }`}
+              aria-label={`来源 ${marker}：${reference.title || reference.url}`}
               onClick={() => {
                 const id = `cite-${options.citePrefix || 'default'}-${marker}`;
                 const target = document.getElementById(id);
@@ -77,6 +81,17 @@ function inline(text: string, keyPrefix: string, options: InlineOptions = {}): R
             >
               {marker}
             </button>
+            <span className="cite-ref-pop" role="tooltip">
+              <span className="cite-ref-pop-title">{reference.title || reference.url}</span>
+              <span className="cite-ref-pop-meta">
+                {reference.site || host}
+                {reference.date ? ` · ${String(reference.date).slice(0, 10)}` : ''}
+              </span>
+              {reference.snippet && (
+                <span className="cite-ref-pop-snippet">{reference.snippet.slice(0, 140)}</span>
+              )}
+              <span className="cite-ref-pop-hint">点击跳转到来源</span>
+            </span>
           </sup>
         );
       } else {

@@ -1,5 +1,5 @@
 import { session } from 'electron';
-import type { AiPlatform, AiTask, AiUsage } from '../shared/types';
+import type { AiPlatform, AiTask, AiUsage, WebReference } from '../shared/types';
 import { needsApiKey } from './platformKey';
 import { recordUsage } from './usage';
 
@@ -74,6 +74,25 @@ export interface AiChatOptions {
   task?: AiTask;
   /** 使用模型厂商内置的 Web 搜索工具（Gemini google_search / Claude web_search） */
   builtinWeb?: boolean;
+  /** DeepSeek 服务端联网：在 deepseek-flash 上声明 deepseek_web_search */
+  serverWeb?: boolean;
+  /** 深度思考：把 thinking 打开（DeepSeek 服务端联网时是深度思考搜索） */
+  thinking?: boolean;
+}
+
+/** 服务端联网工具的执行进度，用于对话里的工具卡片。 */
+export interface AiServerToolEvent {
+  phase: 'start' | 'progress' | 'done';
+  name: string;
+  detail: string;
+  ok?: boolean;
+}
+
+export interface AiServerWebResult extends AiChatResult {
+  references: WebReference[];
+  /** usage.server_tool_use 里的搜索/抓取次数（用于展示与对账） */
+  searchCount: number;
+  fetchCount: number;
 }
 
 export interface AiChatResult {
@@ -819,6 +838,260 @@ export async function chatStream(
   if (!text.trim()) throw new Error('AI 返回为空');
   trackUsage(platform, options.task, usage);
   return { text, reasoning, usage };
+}
+
+// ---------------------------------------------------------------------------
+// DeepSeek 服务端联网（Chat Completions 扩展字段）
+//
+// 声明 deepseek_web_search 后，搜索/读页由 DeepSeek 服务端完成：
+// - 搜索不按次计费，只算 token；
+// - 进度在 choice.server_tool_event，最终结果在 delta.server_tool_calls / annotations；
+// - annotations 的 start_index/end_index 是 Unicode code point，转成我们前端的 [n]。
+// ---------------------------------------------------------------------------
+
+interface ServerCitation {
+  url: string;
+  title: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+function serverToolName(call: Record<string, unknown>): string {
+  const kind = String(call.kind || call.type || 'search');
+  return kind === 'read_link' ? 'web_fetch' : 'web_search';
+}
+
+function serverToolDetail(call: Record<string, unknown>): string {
+  const action = (call.action || {}) as Record<string, unknown>;
+  const queries = Array.isArray(action.queries) ? action.queries.map((item) => String(item)) : [];
+  if (queries.length) return queries.join(' / ').slice(0, 200);
+  if (action.url) return String(action.url).slice(0, 200);
+  return '';
+}
+
+function addServerSource(
+  references: Map<string, WebReference>,
+  source: Record<string, unknown>
+): void {
+  const url = String(source.url || source.link || '').trim();
+  if (!url) return;
+  const title = String(source.title || source.site_name || url).slice(0, 200);
+  const snippet = String(source.snippet || source.summary || source.content || '').slice(0, 2000);
+  const date = source.published_at ? String(source.published_at) : null;
+  const existing = references.get(url);
+  if (existing) {
+    if (!existing.snippet && snippet) existing.snippet = snippet;
+    if (existing.title === url && title !== url) existing.title = title;
+    return;
+  }
+  let site = '';
+  try {
+    site = new URL(url).hostname.replace(/^www\./i, '');
+  } catch {
+    site = '';
+  }
+  references.set(url, {
+    title,
+    url,
+    snippet,
+    ...(site ? { site } : {}),
+    ...(date ? { date } : {})
+  });
+}
+
+function insertCitationMarkers(
+  text: string,
+  citations: ServerCitation[],
+  references: WebReference[]
+): string {
+  if (!citations.length) return text;
+  const rank = new Map<string, number>();
+  references.forEach((reference, index) => {
+    if (!rank.has(reference.url)) rank.set(reference.url, index + 1);
+  });
+  const chars = [...text];
+  const sorted = [...citations].sort((left, right) => right.endIndex - left.endIndex);
+  const placed = new Set<string>();
+  for (const citation of sorted) {
+    const marker = rank.get(citation.url);
+    if (!marker) continue;
+    const at = Math.min(chars.length, Math.max(0, citation.endIndex));
+    const key = `${at}:${marker}`;
+    if (placed.has(key)) continue;
+    placed.add(key);
+    chars.splice(at, 0, `[${marker}]`);
+  }
+  return chars.join('');
+}
+
+/**
+ * DeepSeek 服务端联网的流式调用。
+ * 调用方需要先把 platform.model 设为 deepseek-flash（DeepSeek 文档要求）。
+ */
+export async function chatDeepSeekWebStream(
+  platform: AiPlatform,
+  messages: AiMessage[],
+  options: AiChatOptions & {
+    onDelta?: (delta: string) => void;
+    onReasoning?: (delta: string) => void;
+    onServerTool?: (event: AiServerToolEvent) => void;
+  } = {}
+): Promise<AiServerWebResult> {
+  const body: Record<string, unknown> = {
+    model: platform.model.trim(),
+    max_tokens: Math.max(1, options.maxTokens || 8192),
+    temperature: options.temperature,
+    stream: true,
+    stream_options: { include_usage: true },
+    messages: toOpenAiMessages(messages),
+    tools: [{ type: 'deepseek_web_search' }]
+  };
+  if (options.thinking) body.thinking = { type: 'enabled' };
+
+  const response = await postJson(platform, body, options);
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(errorForStatus(response.status, text));
+  }
+
+  const references = new Map<string, WebReference>();
+  const citations: ServerCitation[] = [];
+  const citationUrls = new Set<string>();
+  let text = '';
+  let reasoning = '';
+  let usage: AiUsage | undefined;
+  let callSearchCount = 0;
+  let callFetchCount = 0;
+  let usageSearchCount = 0;
+  let usageFetchCount = 0;
+
+  const collectCitation = (raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return;
+    const record = raw as Record<string, unknown>;
+    const citation = (record.url_citation || record) as Record<string, unknown>;
+    const url = String(citation.url || '').trim();
+    if (!url) return;
+    const title = String(citation.title || url).slice(0, 200);
+    if (!references.has(url)) {
+      addServerSource(references, { url, title });
+    }
+    if (citationUrls.has(url)) return;
+    citationUrls.add(url);
+    citations.push({
+      url,
+      title,
+      startIndex: Number(citation.start_index) || 0,
+      endIndex: Number(citation.end_index) || 0
+    });
+  };
+
+  const collectCall = (raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return;
+    const call = raw as Record<string, unknown>;
+    if (serverToolName(call) === 'web_fetch') callFetchCount += 1;
+    else callSearchCount += 1;
+    if (Array.isArray(call.sources)) {
+      for (const source of call.sources) {
+        if (source && typeof source === 'object') addServerSource(references, source as Record<string, unknown>);
+      }
+    }
+    const page = call.page;
+    if (page && typeof page === 'object') {
+      const record = page as Record<string, unknown>;
+      if (record.url) addServerSource(references, record);
+    }
+  };
+
+  const handleJson = (json: Record<string, unknown>) => {
+    const payload = json as { usage?: Record<string, unknown>; choices?: Array<Record<string, unknown>> };
+    usage = mergeUsage(usage, usageFromPayload(payload.usage));
+    const serverUse = (payload.usage?.server_tool_use || {}) as Record<string, unknown>;
+    usageSearchCount = Math.max(usageSearchCount, Number(serverUse.tool_search) || 0);
+    usageFetchCount = Math.max(usageFetchCount, Number(serverUse.tool_fetch) || 0);
+
+    const choice = (payload.choices?.[0] || {}) as Record<string, unknown>;
+    const delta = (choice.delta || {}) as Record<string, unknown>;
+    const message = (choice.message || {}) as Record<string, unknown>;
+
+    const content = delta.content ?? message.content;
+    if (typeof content === 'string' && content) {
+      text += content;
+      options.onDelta?.(content);
+    }
+    const think = delta.reasoning_content ?? message.reasoning_content;
+    if (typeof think === 'string' && think) {
+      reasoning += think;
+      options.onReasoning?.(think);
+    }
+
+    const event = choice.server_tool_event as Record<string, unknown> | undefined;
+    if (event && event.call && typeof event.call === 'object') {
+      const call = event.call as Record<string, unknown>;
+      const name = serverToolName(call);
+      const detail = serverToolDetail(call);
+      if (event.type === 'call_started') {
+        options.onServerTool?.({ phase: 'start', name, detail });
+      } else if (event.type === 'call_completed') {
+        collectCall(call);
+        const ok = String(call.status || 'completed') !== 'failed';
+        options.onServerTool?.({
+          phase: 'done',
+          name,
+          detail: ok ? detail : `失败：${JSON.stringify(call.error || '')}`.slice(0, 200),
+          ok
+        });
+      }
+    }
+
+    const steps = delta.server_tool_calls ?? message.server_tool_calls;
+    if (Array.isArray(steps)) {
+      for (const step of steps) {
+        const record = step as Record<string, unknown>;
+        if (Array.isArray(record.calls)) {
+          for (const call of record.calls) collectCall(call);
+        }
+      }
+    }
+
+    const annotations = delta.annotations ?? message.annotations;
+    if (Array.isArray(annotations)) {
+      for (const annotation of annotations) collectCitation(annotation);
+    }
+  };
+
+  const streamed = await readSseEvents(response, handleJson);
+  if (!streamed) {
+    const json = (await response.json()) as Record<string, unknown>;
+    handleJson(json);
+  }
+
+  if (!text.trim()) throw new Error('AI 返回为空');
+
+  // 引用顺序：先按 annotations 出现顺序，再补只出现在 sources 里的链接。
+  const ordered: WebReference[] = [];
+  const seen = new Set<string>();
+  for (const citation of citations) {
+    if (seen.has(citation.url)) continue;
+    seen.add(citation.url);
+    const reference = references.get(citation.url);
+    if (reference) ordered.push(reference);
+  }
+  for (const reference of references.values()) {
+    if (seen.has(reference.url)) continue;
+    seen.add(reference.url);
+    ordered.push(reference);
+  }
+
+  const finalText = insertCitationMarkers(text, citations, ordered);
+  trackUsage(platform, options.task, usage);
+  return {
+    text: finalText,
+    reasoning,
+    usage,
+    references: ordered,
+    searchCount: usageSearchCount || callSearchCount,
+    fetchCount: usageFetchCount || callFetchCount
+  };
 }
 
 // ---------------------------------------------------------------------------

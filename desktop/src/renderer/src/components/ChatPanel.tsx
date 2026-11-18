@@ -52,6 +52,7 @@ import type {
   WebReference
 } from '../../../shared/types';
 import { Markdown } from './Markdown';
+import { ChatSources } from './ChatSources';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult } from '../lib/asrStore';
 import { speakText } from '../lib/speech';
@@ -62,15 +63,6 @@ const SUGGESTIONS = [
   '总结一下今天有哪些科技新闻',
   '把这句话翻译成英文'
 ];
-
-/** 参考链接只显示域名，避免长 URL 把气泡撑开。 */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
 
 /** 历史记录来自 localStorage，渲染前过滤掉损坏/非 http(s) 的来源。 */
 function safeSources(value: unknown): WebReference[] {
@@ -2393,33 +2385,11 @@ export function ChatPanel({
                         citePrefix={`m${index}`}
                       />
                     )}
-                    {safeSources(message.sources).length > 0 && (
-                      <div className="chat-sources">
-                        <div className="chat-sources-title">
-                          参考来源 · {safeSources(message.sources).length}
-                          {typeof message.webEngine === 'string' && message.webEngine
-                            ? ` · ${message.webEngine}`
-                            : ''}
-                        </div>
-                        {safeSources(message.sources).map((reference, sourceIndex) => (
-                          <button
-                            key={`${sourceIndex}-${reference.url}`}
-                            id={`cite-m${index}-${sourceIndex + 1}`}
-                            className="chat-source"
-                            title={reference.url}
-                            onClick={() => void window.bsub.openExternal(reference.url)}
-                          >
-                            <span className="chat-source-title">
-                              {reference.title || reference.url}
-                            </span>
-                            <span className="chat-source-site">
-                              {reference.site || hostOf(reference.url)}
-                              {reference.date ? ` · ${String(reference.date).slice(0, 10)}` : ''}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <ChatSources
+                      sources={safeSources(message.sources)}
+                      engine={message.webEngine}
+                      messageIndex={index}
+                    />
                     {typeof message.webNotice === 'string' && message.webNotice && (
                       <div className="chat-web-notice" title={message.webNotice}>
                         {message.webNotice}
