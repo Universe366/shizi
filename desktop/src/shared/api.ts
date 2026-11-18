@@ -264,6 +264,10 @@ export interface BsubApi {
   pluginRpc(pluginId: string, method: string, params?: unknown): Promise<Result<unknown>>;
   /** 插件安装/启停/卸载后广播，用于刷新侧栏与命令面板。 */
   onPluginsChanged(cb: () => void): () => void;
+  /** 主窗口是否置顶（读取实际窗口状态）。 */
+  getAlwaysOnTop(): Promise<Result<boolean>>;
+  /** 设置主窗口置顶，并持久化到设置。 */
+  setAlwaysOnTop(enabled: boolean): Promise<Result<boolean>>;
   /** 本地 Agent 网关状态。 */
   getAgentStatus(): Promise<Result<AgentStatus>>;
   setAgent(patch: {

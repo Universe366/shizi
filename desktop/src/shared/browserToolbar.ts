@@ -10,6 +10,7 @@ export const DEFAULT_BROWSER_TOOLBAR: BrowserToolbarSettings = {
   startFavorite: true,
   library: true,
   home: true,
+  pin: true,
   settings: true,
   menu: true
 };

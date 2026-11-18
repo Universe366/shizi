@@ -276,6 +276,7 @@ export function AppearanceGroup({ value, onChange }: Props) {
           ['startFavorite', '收藏到起始页'],
           ['library', '工作台'],
           ['home', '起始页'],
+          ['pin', '窗口置顶'],
           ['settings', '设置'],
           ['menu', '主菜单']
         ] as Array<[keyof BrowserToolbarSettings, string]>).map(([key, label]) => (

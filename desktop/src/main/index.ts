@@ -170,6 +170,9 @@ function createWindow(): void {
     title: APP_NAME
   });
 
+  // 置顶状态在重启后保留；窗口重建（activate/二开）时也要恢复。
+  mainWindow.setAlwaysOnTop(loadSettings().general.alwaysOnTop === true);
+
   mainWindow.once('ready-to-show', () => mainWindow?.show());
 
   mainWindow.webContents.on('before-input-event', (event, input) => {

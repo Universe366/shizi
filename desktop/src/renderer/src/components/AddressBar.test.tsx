@@ -120,6 +120,16 @@ describe('AddressBar', () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it('置顶按钮反映状态并触发切换', () => {
+    const onTogglePinned = vi.fn();
+    const view = render(<AddressBar {...props({ pinned: false, onTogglePinned })} />);
+    fireEvent.click(screen.getByTitle('窗口置顶（方便同时操作其他软件）'));
+    expect(onTogglePinned).toHaveBeenCalledTimes(1);
+
+    view.rerender(<AddressBar {...props({ pinned: true, onTogglePinned })} />);
+    expect(screen.getByTitle('取消窗口置顶')).toBeTruthy();
+  });
+
   it('展示紧凑 URL、缩放与书签状态', () => {
     render(<AddressBar {...props()} />);
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
@@ -273,6 +283,7 @@ describe('AddressBar 原生菜单', () => {
           startFavorite: false,
           library: false,
           home: false,
+          pin: false,
           settings: false,
           menu: false
         }}

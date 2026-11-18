@@ -131,6 +131,7 @@ const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark'];
 export const DEFAULT_SETTINGS: AppSettings = {
   general: {
     theme: 'system',
+    alwaysOnTop: false,
     closeToTray: true,
     suspendMinutes: 5,
     cacheSubtitles: true,
@@ -499,6 +500,7 @@ function normalize(input: unknown): AppSettings {
     if (raw.general && typeof raw.general === 'object') {
       const theme = raw.general.theme;
       base.general.theme = THEME_MODES.includes(theme) ? theme : 'system';
+      base.general.alwaysOnTop = raw.general.alwaysOnTop === true;
       base.general.closeToTray = raw.general.closeToTray !== false;
       base.general.cacheSubtitles = raw.general.cacheSubtitles !== false;
       const cacheDays = Number(raw.general.subtitleCacheDays);

@@ -270,6 +270,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         // 扩展列表与市场地址由各自管理页即时写入，设置页的草稿可能是旧的：以磁盘为准。
         const saved = saveSettings({
           ...next,
+          general: { ...next.general, alwaysOnTop: before.general.alwaysOnTop },
           extensions: before.extensions,
           plugins: before.plugins
         });

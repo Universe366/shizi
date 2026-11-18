@@ -7,6 +7,8 @@ import {
   Home,
   Library,
   MoreHorizontal,
+  Pin,
+  PinOff,
   RotateCw,
   Settings,
   Star,
@@ -42,7 +44,9 @@ export function AddressBar({
   onOpenStart,
   onOpenLibrary,
   onOpenSettings,
-  hasUpdate = false
+  hasUpdate = false,
+  pinned = false,
+  onTogglePinned
 }: {
   tab: TabInfo | null;
   toolbar?: BrowserToolbarSettings;
@@ -58,6 +62,9 @@ export function AddressBar({
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
   hasUpdate?: boolean;
+  /** 主窗口是否置顶 */
+  pinned?: boolean;
+  onTogglePinned?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
@@ -668,6 +675,17 @@ export function AddressBar({
       {toolbar.home && (
         <button className="nav-btn" title="起始页" onClick={onOpenStart}>
           <Home size={15} />
+        </button>
+      )}
+
+      {toolbar.pin && (
+        <button
+          className={`nav-btn${pinned ? ' is-active' : ''}`}
+          title={pinned ? '取消窗口置顶' : '窗口置顶（方便同时操作其他软件）'}
+          aria-pressed={pinned}
+          onClick={() => onTogglePinned?.()}
+        >
+          {pinned ? <Pin size={15} fill="currentColor" /> : <PinOff size={15} />}
         </button>
       )}
 

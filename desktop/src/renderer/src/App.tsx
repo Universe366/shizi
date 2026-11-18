@@ -64,6 +64,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ order: [], hidden: [] });
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -173,6 +174,23 @@ export default function App() {
   // 另一个的隐藏覆盖掉（例如关闭框刚弹出又被显示回来的网页盖住）。
   useEffect(() => window.bsub.onCloseRequest(() => setCloseOpen(true)), []);
 
+  // 以窗口真实状态为准，避免设置文件和实际窗口不一致时按钮显示错误。
+  useEffect(() => {
+    let alive = true;
+    void window.bsub.getAlwaysOnTop().then((result) => {
+      if (alive && result.ok) setAlwaysOnTop(result.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggleAlwaysOnTop = () => {
+    void window.bsub.setAlwaysOnTop(!alwaysOnTop).then((result) => {
+      if (result.ok) setAlwaysOnTop(result.data);
+    });
+  };
+
   // 独立面板窗口里的「总结/章节」入口通过主进程回到主窗口。
   useEffect(() => {
     const off = window.bsub.onOpenSection((section) => {
@@ -203,6 +221,7 @@ export default function App() {
         sidebarCollapsed: boolean;
         sidebarPages?: SidebarPage[];
         panelLayout?: PanelLayout;
+        alwaysOnTop?: boolean;
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
@@ -214,6 +233,7 @@ export default function App() {
     setSidebarCollapsed(snapshot.settings.general.sidebarCollapsed);
     setSidebarPages(snapshot.settings.general.sidebarPages || []);
     setPanelLayout(normalizePanelLayout(snapshot.settings.general.panelLayout));
+    setAlwaysOnTop(snapshot.settings.general.alwaysOnTop === true);
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
     setBrowserToolbar(
       normalizeBrowserToolbar(
@@ -834,6 +854,8 @@ export default function App() {
           setSettingsOpen(true);
         }}
         hasUpdate={hasUpdate}
+        pinned={alwaysOnTop}
+        onTogglePinned={toggleAlwaysOnTop}
       />
       {findOpen && (
         <FindBar

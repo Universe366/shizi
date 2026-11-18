@@ -1276,6 +1276,8 @@ export interface BrowserToolbarSettings {
   startFavorite: boolean;
   library: boolean;
   home: boolean;
+  /** 主窗口置顶按钮 */
+  pin: boolean;
   settings: boolean;
   menu: boolean;
 }
@@ -1283,6 +1285,8 @@ export interface BrowserToolbarSettings {
 export interface AppSettings {
   general: {
     theme: ThemeMode;
+    /** 主窗口始终置顶，方便同时操作其他软件 */
+    alwaysOnTop: boolean;
     closeToTray: boolean;
     suspendMinutes: number;
     cacheSubtitles: boolean;

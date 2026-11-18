@@ -207,6 +207,18 @@ describe('设置的持久化字段', () => {
     expect(loaded.prompt.templates.find((t) => t.id === 'default')?.text).toBe(DEFAULT_PROMPT);
   });
 
+  it('主窗口置顶状态保存后不会丢', () => {
+    const settings = loadSettings();
+    settings.general.alwaysOnTop = true;
+    saveSettings(settings);
+    expect(loadSettings().general.alwaysOnTop).toBe(true);
+
+    const off = loadSettings();
+    off.general.alwaysOnTop = false;
+    saveSettings(off);
+    expect(loadSettings().general.alwaysOnTop).toBe(false);
+  });
+
   it('自定义的总结格式规则并入总结模板，不再单独保存', () => {
     fs.writeFileSync(
       path.join(state.dir, 'settings.json'),

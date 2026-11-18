@@ -370,5 +370,7 @@
   "web:cache-clear",
   "web:metrics",
   "web:metrics-clear",
-  "window:foreground"
+  "window:always-on-top",
+  "window:foreground",
+  "window:set-always-on-top"
 ]

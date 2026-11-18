@@ -332,6 +332,10 @@ const api: BsubApi = {
   pluginRpc: (pluginId: string, method: string, params?: unknown) =>
     ipcRenderer.invoke('plugins:rpc', pluginId, method, params) as Promise<Result<unknown>>,
   onPluginsChanged: (cb: () => void) => on<null>('plugins:changed', () => cb()),
+  getAlwaysOnTop: () =>
+    ipcRenderer.invoke('window:always-on-top') as Promise<Result<boolean>>,
+  setAlwaysOnTop: (enabled: boolean) =>
+    ipcRenderer.invoke('window:set-always-on-top', enabled) as Promise<Result<boolean>>,
   getAgentStatus: () => ipcRenderer.invoke('agent:status') as Promise<Result<AgentStatus>>,
   setAgent: (patch: { enabled?: boolean; port?: number; trusted?: boolean }) =>
     ipcRenderer.invoke('agent:set', patch) as Promise<Result<AgentStatus>>,
