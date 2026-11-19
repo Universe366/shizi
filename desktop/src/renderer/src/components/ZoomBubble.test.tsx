@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ZoomBubble } from './ZoomBubble';
+import { overlayVisible } from '../lib/browserOverlay';
 
 describe('ZoomBubble', () => {
   afterEach(cleanup);
@@ -31,6 +32,11 @@ describe('ZoomBubble', () => {
 
     fireEvent.click(screen.getByTitle('重置为 100%'));
     expect(zoomReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('打开时不会把原生网页视图当成被浮层遮挡', () => {
+    render(<ZoomBubble open zoom={1} onClose={() => undefined} />);
+    expect(overlayVisible()).toBe(false);
   });
 
   it('点击外部关闭', () => {

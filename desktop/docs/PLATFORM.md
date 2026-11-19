@@ -126,7 +126,7 @@
 
 ```bash
 cd desktop
-npm run check      # typecheck + lint + 单测（199 文件 / 1216 用例）
+npm run check      # typecheck + lint + 单测（199 文件 / 1217 用例）
 npm run build      # renderer/main 打包
 npm run smoke      # 真实 Electron + CDP（22 条 E2E）
 ```

@@ -1,4 +1,5 @@
-import { Maximize2, Minimize2, Pin, PinOff, X } from 'lucide-react';
+import { Pin, PinOff, X } from 'lucide-react';
+import appIcon from '../assets/app-icon.ico';
 
 interface TitleBarProps {
   pinned: boolean;
@@ -7,7 +8,32 @@ interface TitleBarProps {
   onToggleMaximize: () => void;
 }
 
-/** 自绘标题栏：logo、置顶、最小化、最大化/还原、关闭。 */
+function MinimizeGlyph() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <path d="M0 5.5h10" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function MaximizeGlyph() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function RestoreGlyph() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden>
+      <rect x="1" y="3.5" width="6.5" height="6.5" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M3.5 3.5V1h6.5v6.5H7.5" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+/** 自绘标题栏：程序 logo、置顶、最小化、最大化/还原、关闭。 */
 export function TitleBar({
   pinned,
   onTogglePinned,
@@ -22,9 +48,7 @@ export function TitleBar({
         onToggleMaximize();
       }}
     >
-      <span className="app-titlebar-logo" aria-hidden>
-        字
-      </span>
+      <img className="app-titlebar-logo" src={appIcon} alt="" draggable={false} />
       <span className="app-titlebar-name">拾字</span>
       <span className="app-titlebar-spacer" />
       <div className="app-titlebar-actions">
@@ -43,7 +67,7 @@ export function TitleBar({
           title="最小化"
           onClick={() => void window.bsub.minimizeWindow()}
         >
-          <Minimize2 size={14} />
+          <MinimizeGlyph />
         </button>
         <button
           type="button"
@@ -51,7 +75,7 @@ export function TitleBar({
           title={maximized ? '还原' : '最大化'}
           onClick={onToggleMaximize}
         >
-          {maximized ? <Maximize2 size={14} className="is-restore" /> : <Maximize2 size={14} />}
+          {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
         </button>
         <button
           type="button"
@@ -59,7 +83,7 @@ export function TitleBar({
           title="关闭"
           onClick={() => void window.bsub.requestClose()}
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
     </header>

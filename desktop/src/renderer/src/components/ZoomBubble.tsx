@@ -28,7 +28,7 @@ export function ZoomBubble({ open, zoom, onClose }: ZoomBubbleProps) {
   const percent = Math.round((Number(zoom) || 1) * 100);
 
   return (
-    <div className="zoom-bubble" ref={ref} role="dialog" aria-label="缩放">
+    <div className="zoom-bubble" ref={ref} role="group" aria-label="缩放">
       <div className="zoom-bubble-head">
         <span>缩放</span>
         <button type="button" className="zoom-bubble-close" title="关闭缩放面板" onClick={onClose}>
