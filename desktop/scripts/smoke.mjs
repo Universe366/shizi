@@ -820,47 +820,42 @@ try {
       await evaluate(
         ws,
         `JSON.stringify({
-          page: Boolean(document.querySelector('.start-page-v3')),
+          page: Boolean(document.querySelector('.start-clean')),
           vertical: Boolean(document.querySelector('.tab-strip.is-vertical')),
-          shortcuts: document.querySelectorAll('.start-app-btn, .start-tile[title]').length,
-          widgets: document.querySelectorAll('.start-widget').length,
-          custom: document.querySelectorAll('.start-tile[title]').length
+          shortcuts: document.querySelectorAll('.sc-link').length,
+          widgets: document.querySelectorAll('.sc-card').length
         })`
       )
     );
     if (!startInfo.page) throw new Error('起始页没有打开');
     if (!startInfo.vertical) throw new Error('垂直标签栏未默认开启');
-    if (startInfo.shortcuts < 8) throw new Error(`快捷入口不足：${startInfo.shortcuts}`);
-    if (startInfo.widgets < 3) throw new Error(`小组件不足：${startInfo.widgets}`);
-    if (startInfo.custom < 2) throw new Error(`自定义快捷方式不足：${startInfo.custom}`);
+    if (startInfo.shortcuts < 2) throw new Error(`快捷入口不足：${startInfo.shortcuts}`);
 
     // 自定义快捷方式：新增一条，再右键删掉
     const added = JSON.parse(
       await evaluate(
         ws,
         `(async () => {
-          [...document.querySelectorAll('.start-pill')].find((el) => el.textContent.includes('编辑'))?.click();
-          await new Promise((r) => setTimeout(r, 150));
-          document.querySelector('.start-tab-add[title="添加快捷方式"]')?.click();
+          document.querySelector('.sc-add-link')?.click();
           await new Promise((r) => setTimeout(r, 120));
-          const inputs = document.querySelectorAll('.start-modal-field input');
+          const inputs = document.querySelectorAll('.sc-modal input');
           const setValue = (el, value) => {
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
             setter.call(el, value);
             el.dispatchEvent(new Event('input', { bubbles: true }));
           };
-          const byPlaceholder = (placeholder) =>
-            [...inputs].find((el) => el.placeholder === placeholder);
-          setValue(byPlaceholder('例如：知乎'), '冒烟站点');
-          setValue(byPlaceholder('常用 / 学习 / 工具'), '冒烟分组');
-          setValue(byPlaceholder('https://example.com'), 'https://example.com/smoke');
+          setValue(inputs[0], '冒烟站点');
+          setValue(inputs[1], 'https://example.com/smoke');
+          setValue(inputs[2], '冒烟分组');
           await new Promise((r) => setTimeout(r, 80));
-          document.querySelector('.start-modal-actions .primary')?.click();
+          document.querySelector('.sc-modal')?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true })
+          );
           await new Promise((r) => setTimeout(r, 500));
           const snapshot = await window.bsub.getSettings();
           return JSON.stringify({
             saved: snapshot.data.settings.general.startShortcuts,
-            tiles: document.querySelectorAll('.start-tile[title]').length
+            tiles: document.querySelectorAll('.sc-link').length
           });
         })()`
       )
@@ -872,15 +867,13 @@ try {
       await evaluate(
         ws,
         `(async () => {
-          const tile = [...document.querySelectorAll('.start-tile[title]')].find((el) =>
+          const link = [...document.querySelectorAll('.sc-link')].find((el) =>
             el.title.includes('example.com/smoke')
           );
-          tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-          await new Promise((r) => setTimeout(r, 120));
-          const button = [...document.querySelectorAll('.start-menu button')].find((item) =>
-            item.textContent.includes('删除')
-          );
-          button?.click();
+          const wrap = link?.closest('.sc-link-wrap');
+          wrap?.querySelector('button[title="删除"]')?.click();
+          await new Promise((r) => setTimeout(r, 150));
+          document.querySelector('.confirm-actions .danger')?.click();
           await new Promise((r) => setTimeout(r, 400));
           const snapshot = await window.bsub.getSettings();
           return JSON.stringify(snapshot.data.settings.general.startShortcuts);
@@ -1243,10 +1236,10 @@ try {
           document.querySelector('button[title="起始页"]')?.click();
           await new Promise((r) => setTimeout(r, 450));
           const info = {
-            start: Boolean(document.querySelector('.start-page-v3')),
+            start: Boolean(document.querySelector('.start-clean')),
             settings: Boolean(document.querySelector('.settings-page'))
           };
-          const input = document.querySelector('.start-search input');
+          const input = document.querySelector('.sc-search-input');
           input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
           return JSON.stringify(info);
         })()`

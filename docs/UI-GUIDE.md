@@ -203,16 +203,17 @@ node tools/theme-check.mjs        # 明暗两套主题下主按钮与说明文�
 编排：`renderer/src/components/StartPage.tsx`；子模块在 `components/start/`：
 
 ```
-StartPage.tsx          状态、IPC、设置读写（唯一持有 shortcut/widget 状态的地方）
+StartPageClean.tsx     当前起始页：时钟/搜索/快捷访问/设置抽屉/命令面板（App 实际渲染）
+StartPage.tsx          旧 v3 起始页（保留作迁移参考，不再渲染）
 start/SearchBar.tsx    引擎切换 + 站内直达 + 历史 + 搜索建议
-start/ShortcutBoard.tsx 快捷卡片网格、拖拽、右键菜单、添加入口
+start/ShortcutBoard.tsx 旧 v3 快捷卡片网格（不再渲染）
 start/ShortcutDialog.tsx 新增/编辑弹窗
 start/WidgetPanel.tsx  天气 / 待办 / 番茄钟 / 便签 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
 start/PomodoroWidget.tsx 25 分钟专注 / 5 分钟休息，结束自动换阶段
 start/NotesWidget.tsx  便签，输入自动写 localStorage
 start/CommandPalette.tsx 指令面板（⌘/Ctrl+K）：操作 / 页面 / 小组件 / 搜索 / 快捷方式
-start/StartSidebar.tsx 分组胶囊（v4 横向单行，可横向滚动）与低频操作入口
-start/Dock.tsx         旧底部 Dock；v4 不再渲染（保留组件与测试）
+start/StartSidebar.tsx 旧 v3 分组栏（不再渲染）
+start/Dock.tsx         旧底部 Dock（不再渲染）
 start/SiteIcon.tsx     站点 favicon，失败回退字母色块
 start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
 start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
@@ -233,13 +234,15 @@ styles/start.css       起始页全部样式（只作用于 .start-page 子树�
 - 新增配色：只改 `COLOR_SCHEMES`，不要在每个组件里写死颜色。
 - 站点图标优先站点自己的 `/favicon.ico`，失败回退到域名生成的字母色块（`tileColor()`），不经过第三方图标服务。
 
-### 布局（v4）
+### 布局（clean）
 
-- 顶栏只保留品牌、指令面板、极简、编辑、壁纸、更多、关闭；低频的导入/导出/同步/设置/工作台收进「更多」菜单。
-- 分组从左侧栏改为**横向单行胶囊**，可横向滚动；不再渲染底部 Dock 与底部工具条。
-- Hero：大时钟 + 日期/农历 + 居中大搜索；搜索下方是常去站点胶囊。
-- 快捷方式：1040px 内的响应式卡片网格（最小 104px）；小组件：260px 起的响应式卡片墙。
-- 窄屏（≤900/640px）减少内边距、缩小时钟与卡片，分组胶囊横向滚动。
+- 顶部只有天气（左）和命令/设置/关闭（右），没有品牌栏、分组侧栏、Dock 或底部工具条。
+- 主体：大时钟（96px 上限）+ 日期/问候 + 居中搜索（640×56）+ 分组胶囊 + 快捷访问图标网格。
+- 默认不显示小组件；热搜/最近打开/便签在设置抽屉里按需开启，显示为搜索下方的玻璃卡片。
+- 所有自定义在右侧抽屉：「背景/暗度」「搜索/城市」「小组件」「快捷方式」；完整设置、工作台、历史记录从抽屉底部进入。
+- 快捷方式支持拖拽排序、悬停编辑/删除；删除后底部 Toast 可撤销。
+- 键盘：`/` 聚焦搜索，`Ctrl+K` 命令面板，空白处直接打字进入搜索，`Esc` 逐层关闭。
+- 窄屏（≤820/560px）缩小时钟、搜索和图标网格。
 
 ### 材质
 

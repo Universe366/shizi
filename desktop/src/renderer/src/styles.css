@@ -1,5 +1,6 @@
 @import "./styles/tokens.css";
 @import "./styles/start.css";
+@import "./styles/start-clean.css";
 
 /* 设计变量统一放在 styles/tokens.css；这里只留组件样式。 */
 

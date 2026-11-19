@@ -22,7 +22,7 @@ import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { ReaderMode } from './components/ReaderMode';
-import { StartPage } from './components/StartPage';
+import { StartPageClean } from './components/StartPageClean';
 import { RadialMenu } from './components/RadialMenu';
 import type { WheelActionId } from '../../shared/types';
 import { lazy, Suspense } from 'react';
@@ -963,7 +963,7 @@ export default function App() {
               <LibraryPage onClose={() => setLibraryOpen(false)} />
             </Suspense>
           ) : (
-            <StartPage
+            <StartPageClean
               onNavigate={(input) => {
                 setStartOpen(false);
                 void window.bsub.newTab(input);
