@@ -1,6 +1,6 @@
 # 平台化子系统（0.163+）维护笔记
 
-> 读者：接手 0.163 之后代码的人。本文只讲**扩展、插件、市场、拆窗、Agent 五块新增子系统**
+> 读者：接手 0.163 之后代码的人。本文只讲**扩展、插件、市场、Agent 四块新增子系统**
 > 的模块边界、数据流、扩展点与坑；基础架构见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 ## 1. 文件地图
@@ -10,16 +10,14 @@
 | 浏览器扩展 | `src/main/extensions.ts` | `src/shared/extensions.ts` | `settings/ExtensionsSection.tsx` | 检索与扩展 | `main/extensions.test.ts` |
 | 应用插件 | `src/main/plugins.ts` | `src/shared/plugins.ts` | `PluginPanel.tsx`、`settings/PluginsSection.tsx` | 检索与扩展 | `main/plugins.test.ts`、`shared/plugins.test.ts` |
 | 压缩包 | `src/main/zip.ts` | — | — | — | `main/zip.test.ts` |
-| 面板拆窗 | `src/main/panelWindows.ts` | `src/shared/panelWindows.ts` | `DetachedPanel.tsx` | — | `main/panelWindows.test.ts` |
 | 面板布局 | — | `src/shared/panels.ts` | `Sidebar.tsx`、`settings/PanelLayoutSection.tsx` | 外观与浏览器 | `shared/panels.test.ts` |
 | 本地 Agent | `src/main/agent.ts` | — | `settings/AgentSection.tsx` | 检索与扩展 | `main/agent.test.ts` |
-| IPC 注册 | `src/main/ipc/{extensions,plugins,agent,panelWindows}.ts` | — | — | — | `ipcChannels.test.ts` |
+| IPC 注册 | `src/main/ipc/{extensions,plugins,agent,browser}.ts` | — | — | — | `ipcChannels.test.ts` |
 
 四份用户/开发者文档：
 
 - [`PLUGINS.md`](PLUGINS.md)：插件清单格式、权限、RPC、市场、扩展安装格式；
 - [`AGENT-API.md`](AGENT-API.md)：HTTP / MCP 端点、工具表、确认与审计；
-- [`PANEL-WINDOWS.md`](PANEL-WINDOWS.md)：拆窗行为与限制；
 - 本文：维护视角的模块边界。
 
 ## 2. 启动与生命周期
@@ -86,14 +84,11 @@
 - 市场地址存 `settings.plugins.marketUrl`，由 `plugins:set-market-url` 写入；
 - `settings:set` 会保留磁盘上的 `plugins`（和 `extensions`），避免设置页旧草稿覆盖。
 
-## 5. 面板拆窗
+## 5. 面板拆窗（已移除）
 
-- 存储：`<userData>/panel-windows.json`，`{ version, windows: DetachedPanelInfo[] }`；
-- 同一 `section` 单实例，重复打开只聚焦；最多 12 个；
-- 窗口无边框 + `-webkit-app-region: drag` 标题栏；置顶状态跟着窗口记录；
-- 渲染入口仍是同一份 `index.html`：`?window=panel&section=…&title=…`；
-- `DetachedPanel.tsx` 自己取 `listTabs` / `getSettings`，不共享主窗口 React 状态；
-- 支持：字幕、总结、对话、插件面板、设置、工作台；不支持：起始页、地址栏/标签栏。
+0.163.5 起移除了“把面板拆成独立窗口”的功能：`main/panelWindows.ts`、
+`renderer/DetachedPanel.tsx`、`panel-window:*` IPC 与相关设置入口全部删除。
+用户反馈这个功能不常用，保留面板顺序/显隐（下一节）即可。
 
 ## 6. 面板布局
 
@@ -131,13 +126,13 @@
 
 ```bash
 cd desktop
-npm run check      # typecheck + lint + 单测（198 文件 / 1218 用例）
+npm run check      # typecheck + lint + 单测（197 文件 / 1215 用例）
 npm run build      # renderer/main 打包
 npm run smoke      # 真实 Electron + CDP（22 条 E2E）
 ```
 
 本机还有一个不进仓库的端到端探针 `tools/platform-probe.mjs`（工作区根目录），
-覆盖：MV3 扩展加载、插件 iframe/RPC/越权拒绝、Agent HTTP/MCP、拆窗、面板布局、市场拉取。
+覆盖：MV3 扩展加载、插件 iframe/RPC/越权拒绝、Agent HTTP/MCP、面板布局、市场拉取、紧凑布局尺寸。
 改动这些子系统后建议至少跑一次。
 
 ## 10. 已知边界与后续拆分

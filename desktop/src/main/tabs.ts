@@ -1,4 +1,12 @@
-import { app, BrowserWindow, Menu, clipboard, nativeTheme, session, WebContentsView } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  clipboard,
+  nativeTheme,
+  session,
+  WebContentsView
+} from 'electron';
 import type { MenuItemConstructorOptions, WebContents, WebFrameMain } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -242,6 +250,35 @@ export class TabManager {
     this.suspendTimer.unref?.();
   }
 
+  /** 网页深色模式：模拟 prefers-color-scheme，并让 Chromium 自动暗色兜底。 */
+  private async applyWebDarkMode(
+    wc: WebContents,
+    enabled = loadSettings().general.webDarkMode === true
+  ): Promise<void> {
+    try {
+      if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+      await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
+        features: enabled ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []
+      });
+      try {
+        await wc.debugger.sendCommand('Emulation.setAutoDarkModeOverride', { enabled });
+      } catch {
+        // 旧内核没有这个命令时，至少保留 prefers-color-scheme 模拟。
+      }
+    } catch {
+      // 页面尚未 ready 或调试器被占用时忽略，下一次 prepare 会再试。
+    }
+  }
+
+  /** 切换所有标签的网页深色模式（设置页/工具栏共用）。 */
+  setWebDarkMode(enabled: boolean): void {
+    for (const record of this.tabs.values()) {
+      const wc = record.view?.webContents;
+      if (!wc || wc.isDestroyed()) continue;
+      void this.applyWebDarkMode(wc, enabled);
+    }
+  }
+
   setSuspendMinutes(minutes: number): void {
     if (ENV_SUSPEND_MS > 0) return;
     const safe = Math.min(120, Math.max(1, Math.round(minutes || 5)));
@@ -401,6 +438,7 @@ export class TabManager {
       await wc.loadURL('about:blank');
       if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
       await wc.debugger.sendCommand('Page.enable');
+      await this.applyWebDarkMode(wc);
       if (suppressAutoplay) {
         await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
           source: AUTOPLAY_GUARD_SCRIPT

@@ -32,7 +32,6 @@ import { registerConvertIpc } from './ipc/convert';
 import { registerExtensionsIpc } from './ipc/extensions';
 import { registerPluginsIpc } from './ipc/plugins';
 import { registerAgentIpc } from './ipc/agent';
-import { registerPanelWindowIpc } from './ipc/panelWindows';
 import { registerWindowIpc } from './ipc/window';
 import { abortControllers } from './ipc/shared';
 import type { IpcContext } from './ipc/shared';
@@ -102,8 +101,6 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
   registerPluginsIpc(ctx);
 
   registerAgentIpc(ctx);
-
-  registerPanelWindowIpc(ctx);
 
   registerWindowIpc(ctx);
 

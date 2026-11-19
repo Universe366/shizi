@@ -6,9 +6,11 @@ import {
   Globe,
   Home,
   Library,
+  Moon,
   MoreHorizontal,
   Pin,
   PinOff,
+  Sun,
   RotateCw,
   Settings,
   Star,
@@ -46,7 +48,9 @@ export function AddressBar({
   onOpenSettings,
   hasUpdate = false,
   pinned = false,
-  onTogglePinned
+  onTogglePinned,
+  webDark = false,
+  onToggleWebDark
 }: {
   tab: TabInfo | null;
   toolbar?: BrowserToolbarSettings;
@@ -65,6 +69,9 @@ export function AddressBar({
   /** 主窗口是否置顶 */
   pinned?: boolean;
   onTogglePinned?: () => void;
+  /** 内置网页深色模式 */
+  webDark?: boolean;
+  onToggleWebDark?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
@@ -678,14 +685,14 @@ export function AddressBar({
         </button>
       )}
 
-      {toolbar.pin && (
+      {toolbar.dark && (
         <button
-          className={`nav-btn${pinned ? ' is-active' : ''}`}
-          title={pinned ? '取消窗口置顶' : '窗口置顶（方便同时操作其他软件）'}
-          aria-pressed={pinned}
-          onClick={() => onTogglePinned?.()}
+          className={`nav-btn${webDark ? ' is-active' : ''}`}
+          title={webDark ? '关闭网页深色模式' : '网页深色模式'}
+          aria-pressed={webDark}
+          onClick={() => onToggleWebDark?.()}
         >
-          {pinned ? <Pin size={15} fill="currentColor" /> : <PinOff size={15} />}
+          {webDark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
       )}
 
@@ -744,6 +751,17 @@ export function AddressBar({
           </div>
         )}
       </div>
+      )}
+
+      {toolbar.pin && (
+        <button
+          className={`nav-btn${pinned ? ' is-active' : ''}`}
+          title={pinned ? '取消窗口置顶' : '窗口置顶（方便同时操作其他软件）'}
+          aria-pressed={pinned}
+          onClick={() => onTogglePinned?.()}
+        >
+          {pinned ? <Pin size={15} fill="currentColor" /> : <PinOff size={15} />}
+        </button>
       )}
 
     </div>

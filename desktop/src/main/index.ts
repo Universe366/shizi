@@ -33,7 +33,6 @@ import { startBridge, stopBridge } from './bridge';
 import { loadBrowserExtensions } from './extensions';
 import { installPluginProtocol, installPluginScheme } from './plugins';
 import { startAgent, stopAgent } from './agent';
-import { disposePanelWindows, initPanelWindows } from './panelWindows';
 import { checkForUpdates, disposeUpdater, initUpdater } from './updater';
 import { initPetWindow } from './petWindow';
 import { applyDataDirOverride, scheduleOldDataCleanup } from './dataDir';
@@ -50,6 +49,7 @@ import {
   buildUserAgent,
   resolveStartUrl,
   shortcutAction,
+  titleBarOverlayFor,
   windowFrameOptions
 } from './windowPolicy';
 import { bootstrapRenderer, handleCloseRequest } from './windowLifecycle';
@@ -158,6 +158,17 @@ function createTray(): void {
       isQuitting = true;
     }
   });
+}
+
+function syncTitleBarOverlay(): void {
+  if (process.platform !== 'win32') return;
+  const win = mainWindow;
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.setTitleBarOverlay(titleBarOverlayFor(nativeTheme.shouldUseDarkColors));
+  } catch {
+    // 旧版 Electron 没有这个 API 时忽略。
+  }
 }
 
 function createWindow(): void {
@@ -454,7 +465,8 @@ app
     installPluginProtocol();
     createWindow();
     writeLog('startup.log', 'window created');
-    if (mainWindow) initPanelWindows(mainWindow);
+    syncTitleBarOverlay();
+    nativeTheme.on('updated', syncTitleBarOverlay);
     createTray();
     initPetWindow();
     registerPetShortcuts();
@@ -487,7 +499,6 @@ app.on('before-quit', () => {
   disposeUpdater();
   stopBridge();
   stopAgent();
-  disposePanelWindows();
   disposeMcpClients();
   disposeMcpSubscriptions();
   disposeDictation();

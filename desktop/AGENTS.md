@@ -7,14 +7,14 @@
 
 ```
 src/main/        Node 环境；窗口、标签、SQLite、AI、ASR、更新
-│               平台化：extensions.ts / plugins.ts / agent.ts / panelWindows.ts / zip.ts
+│               平台化：extensions.ts / plugins.ts / agent.ts / zip.ts
 src/preload/     contextBridge；只暴露 window.bsub
 src/renderer/    React；不能 import main，只能走 window.bsub
-src/shared/      三端共享的类型/品牌/预设；平台化：extensions/plugins/panels/panelWindows
+src/shared/      三端共享的类型/品牌/预设；平台化：extensions / plugins / panels
 ```
 
 平台化子系统的边界、扩展点和验证方式见 [`docs/PLATFORM.md`](docs/PLATFORM.md)；
-插件/扩展/Agent 的用户向格式见 `docs/PLUGINS.md`、`docs/AGENT-API.md`、`docs/PANEL-WINDOWS.md`。
+插件/扩展/Agent 的用户向格式见 `docs/PLUGINS.md`、`docs/AGENT-API.md`。
 
 - 新增 IPC：优先 `src/main/ipc/<domain>.ts`；`ipc.ts` 只保留注册入口。
 - 新增类型：放 `src/shared/types.ts`，不要在各端重复定义。

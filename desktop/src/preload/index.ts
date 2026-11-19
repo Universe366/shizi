@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { BsubApi } from '../shared/api';
 import type { PluginInfo, PluginListState, PluginMarketResult } from '../shared/plugins';
-import type { DetachedPanelInfo } from '../shared/panelWindows';
 import type {
   AiDeltaEvent,
   AiDoneEvent,
@@ -332,6 +331,8 @@ const api: BsubApi = {
   pluginRpc: (pluginId: string, method: string, params?: unknown) =>
     ipcRenderer.invoke('plugins:rpc', pluginId, method, params) as Promise<Result<unknown>>,
   onPluginsChanged: (cb: () => void) => on<null>('plugins:changed', () => cb()),
+  setWebDarkMode: (enabled: boolean) =>
+    ipcRenderer.invoke('browser:set-web-dark-mode', enabled) as Promise<Result<boolean>>,
   getAlwaysOnTop: () =>
     ipcRenderer.invoke('window:always-on-top') as Promise<Result<boolean>>,
   setAlwaysOnTop: (enabled: boolean) =>
@@ -341,25 +342,6 @@ const api: BsubApi = {
     ipcRenderer.invoke('agent:set', patch) as Promise<Result<AgentStatus>>,
   regenerateAgentToken: () =>
     ipcRenderer.invoke('agent:regenerate-token') as Promise<Result<AgentStatus>>,
-  openPanelWindow: (
-    section: string,
-    title?: string,
-    options?: { width?: number; height?: number; alwaysOnTop?: boolean }
-  ) =>
-    ipcRenderer.invoke('panel-window:open', section, title, options) as Promise<
-      Result<DetachedPanelInfo>
-    >,
-  closePanelWindow: (section: string) =>
-    ipcRenderer.invoke('panel-window:close', section) as Promise<Result<boolean>>,
-  listPanelWindows: () =>
-    ipcRenderer.invoke('panel-window:list') as Promise<Result<DetachedPanelInfo[]>>,
-  setPanelAlwaysOnTop: (section: string, alwaysOnTop: boolean) =>
-    ipcRenderer.invoke('panel-window:always-on-top', section, alwaysOnTop) as Promise<
-      Result<boolean>
-    >,
-  openMainSection: (section: string) =>
-    ipcRenderer.invoke('app:open-section', section) as Promise<Result<boolean>>,
-  onOpenSection: (cb: (section: string) => void) => on<string>('ui:open-section', (value) => cb(value)),
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
   sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),

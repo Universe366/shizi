@@ -11,6 +11,7 @@ export const DEFAULT_BROWSER_TOOLBAR: BrowserToolbarSettings = {
   library: true,
   home: true,
   pin: true,
+  dark: true,
   settings: true,
   menu: true
 };

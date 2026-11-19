@@ -136,6 +136,7 @@ button:disabled {
   flex: 0 0 42px;
   display: flex;
   align-items: flex-end;
+  -webkit-app-region: drag;
   gap: 2px;
   padding: 0 8px;
   background: var(--surface-2);
@@ -167,6 +168,26 @@ button:disabled {
 
 .tab-menu-item:hover {
   background: var(--surface-2);
+}
+
+/* Windows 隐藏标题栏后，横向标签栏右侧要给原生窗控按钮让位 */
+.app-shell:not(.vertical-tabs) .tab-strip {
+  padding-right: 150px;
+}
+
+/* 横向标签栏时窗控在标签栏那一行，地址栏不需要再让位 */
+.app-shell:not(.vertical-tabs) .address-bar {
+  padding-right: 10px;
+}
+
+/* 可交互元素不参与窗口拖动 */
+.app-shell button,
+.app-shell input,
+.app-shell select,
+.app-shell textarea,
+.app-shell a,
+.app-shell .tab {
+  -webkit-app-region: no-drag;
 }
 
 .tab-strip-list {
@@ -287,6 +308,9 @@ button:disabled {
   align-items: center;
   gap: 8px;
   padding: 0 10px;
+  /* 右侧给 Windows 原生最小化/最大化/关闭按钮让位 */
+  padding-right: 150px;
+  -webkit-app-region: drag;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: relative;
@@ -1059,11 +1083,11 @@ button:disabled {
 .browser-stage {
   flex: 1;
   min-width: 0;
-  margin: 10px 12px 12px 12px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
+  margin: 0;
+  border-radius: 0;
+  border: 0;
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -15993,99 +16017,6 @@ sup:has(> .cite-ref) {
   word-break: break-all;
 }
 
-/* ---------- 独立面板窗口 ---------- */
-.is-panel-window,
-.is-panel-window body,
-.is-panel-window #root {
-  height: 100%;
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-}
-.detached-root {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-.detached-bar {
-  -webkit-app-region: drag;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-.detached-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-}
-.detached-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-.detached-btn {
-  -webkit-app-region: no-drag;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-.detached-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-.detached-btn.is-active {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-.detached-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-.detached-empty {
-  padding: 16px;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
-
-/* 侧栏面板的“拆出窗口”按钮：悬停才出现，避免干扰阅读 */
-.side-nav-detach {
-  margin-left: auto;
-  padding: 0 2px;
-  font-size: 11px;
-  line-height: 1;
-  opacity: 0;
-  color: var(--muted);
-  border-radius: 4px;
-}
-.side-nav-item:hover .side-nav-detach,
-.side-nav-item:focus-visible .side-nav-detach {
-  opacity: 0.75;
-}
-.side-nav-detach:hover {
-  opacity: 1;
-  color: var(--accent);
-}
-
 /* ---------- 侧栏面板布局 ---------- */
 .panel-layout-row {
   display: flex;
@@ -16116,4 +16047,138 @@ sup:has(> .cite-ref) {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* ---------- 外观设置：主题卡片 / 布局预设 ---------- */
+.appearance-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.appearance-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.appearance-theme-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  transform: translateY(-1px);
+}
+
+.appearance-theme-card.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.appearance-theme-preview {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  height: 42px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.appearance-theme-preview.is-light {
+  background: #f4f5f7;
+  color: #5b6270;
+}
+
+.appearance-theme-preview.is-dark {
+  background: #1c1d20;
+  color: #c9ccd3;
+}
+
+.appearance-theme-preview.is-system {
+  background: linear-gradient(135deg, #f4f5f7 50%, #1c1d20 50%);
+  color: var(--muted);
+}
+
+.appearance-theme-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.appearance-theme-desc {
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.appearance-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.appearance-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.appearance-preset:hover {
+  background: var(--surface-2);
+}
+
+.appearance-preset.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.appearance-preset-name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.appearance-preset-desc {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.appearance-segment {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.appearance-segment button {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.appearance-segment button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
 }

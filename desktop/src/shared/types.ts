@@ -1282,6 +1282,8 @@ export interface BrowserToolbarSettings {
   home: boolean;
   /** 主窗口置顶按钮 */
   pin: boolean;
+  /** 网页深色模式按钮 */
+  dark: boolean;
   settings: boolean;
   menu: boolean;
 }
@@ -1293,6 +1295,8 @@ export interface AppSettings {
     alwaysOnTop: boolean;
     /** 紧凑布局迁移版本（内部字段）：把旧默认宽度收窄一次 */
     compactLayoutVersion?: number;
+    /** 内置网页深色模式（模拟 prefers-color-scheme + Chromium 自动暗色） */
+    webDarkMode: boolean;
     closeToTray: boolean;
     suspendMinutes: number;
     cacheSubtitles: boolean;

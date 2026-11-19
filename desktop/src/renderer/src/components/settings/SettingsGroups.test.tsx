@@ -53,15 +53,21 @@ describe('GeneralSection', () => {
 
   it('渲染主题与侧栏位置', () => {
     render(<Groups {...props()} />);
-    expect((screen.getByDisplayValue('跟随系统') as HTMLSelectElement).value).toBe('system');
-    expect((screen.getByDisplayValue('左侧') as HTMLSelectElement).value).toBe('left');
+    expect(
+      screen.getByRole('button', { name: '主题：跟随系统' }).getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(
+      screen.getByRole('button', { name: '侧栏位置：左侧' }).getAttribute('aria-pressed')
+    ).toBe('true');
   });
 
   it('切换主题、侧栏位置与开关都回传局部补丁', () => {
     const p = props();
     render(<Groups {...p} />);
-    fireEvent.change(screen.getByDisplayValue('跟随系统'), { target: { value: 'dark' } });
+    fireEvent.click(screen.getByRole('button', { name: '主题：深色' }));
     expect(p.onChange).toHaveBeenCalledWith({ theme: 'dark' });
+    fireEvent.click(screen.getByRole('button', { name: '侧栏位置：右侧' }));
+    expect(p.onChange).toHaveBeenCalledWith({ sidebarPosition: 'right' });
     fireEvent.click(screen.getByLabelText('关闭窗口时缩到托盘'));
     expect(p.onChange).toHaveBeenCalledWith({ closeToTray: false });
   });
@@ -89,12 +95,12 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
   });
 
-  it('侧栏宽度超范围时夹到 240–900', () => {
+  it('侧栏宽度滑杆范围 240–480', () => {
     const p = props();
     render(<Groups {...p} />);
-    const width = screen.getByDisplayValue('300') as HTMLInputElement;
+    const width = screen.getByLabelText('侧栏宽度') as HTMLInputElement;
     fireEvent.change(width, { target: { value: '999' } });
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 900 });
+    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 480 });
     fireEvent.change(width, { target: { value: '100' } });
     expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 240 });
   });

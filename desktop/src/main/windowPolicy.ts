@@ -42,6 +42,9 @@ export interface WindowFrame {
   show: boolean;
   backgroundColor: string;
   autoHideMenuBar: boolean;
+  /** Windows：隐藏原生标题栏，用 overlay 保留最小化/最大化/关闭。 */
+  titleBarStyle?: 'hidden';
+  titleBarOverlay?: { color: string; symbolColor: string; height: number };
   webPreferences: {
     preload: string;
     contextIsolation: boolean;
@@ -58,6 +61,21 @@ export const MIN_WINDOW_WIDTH = 640;
 /** 1080 屏上下半屏约 540，留出足够正文空间。 */
 export const MIN_WINDOW_HEIGHT = 480;
 
+export const TITLE_BAR_HEIGHT = 42;
+
+/** Windows 原生窗控按钮的配色，随深浅主题切换。 */
+export function titleBarOverlayFor(dark: boolean): {
+  color: string;
+  symbolColor: string;
+  height: number;
+} {
+  return {
+    color: dark ? '#141416' : '#f6f6f3',
+    symbolColor: dark ? '#e6e6e6' : '#1f2328',
+    height: TITLE_BAR_HEIGHT
+  };
+}
+
 /** 主窗口的尺寸/安全设置；深色主题只影响首帧底色。 */
 export function windowFrameOptions(input: { dark: boolean; preloadPath: string }): WindowFrame {
   return {
@@ -68,6 +86,9 @@ export function windowFrameOptions(input: { dark: boolean; preloadPath: string }
     show: false,
     backgroundColor: input.dark ? '#141416' : '#f6f6f3',
     autoHideMenuBar: true,
+    ...(process.platform === 'win32'
+      ? { titleBarStyle: 'hidden' as const, titleBarOverlay: titleBarOverlayFor(input.dark) }
+      : {}),
     webPreferences: {
       preload: input.preloadPath,
       contextIsolation: true,

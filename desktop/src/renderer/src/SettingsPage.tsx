@@ -116,17 +116,6 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div className="settings-page-head-actions">
-          <button
-            className="mini-btn"
-            title="在独立窗口打开设置"
-            onClick={() => {
-              void window.bsub.openPanelWindow('settings', '设置').then((result) => {
-                if (result.ok) void close();
-              });
-            }}
-          >
-            独立窗口
-          </button>
           <button className="mini-btn" onClick={() => void close()}>
             关闭
           </button>

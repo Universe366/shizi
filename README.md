@@ -29,7 +29,7 @@
 
 > 非官方项目，与哔哩哔哩无关联。自有代码 MIT；内置 FFmpeg core 按 GPL 分发，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：**桌面 0.163.4 / 插件 2.20.16**。
+当前版本：**桌面 0.163.5 / 插件 2.20.16**。
 
 ## 为什么做这个
 
@@ -45,8 +45,8 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 ### 桌面端（推荐）
 
 1. 从 [Releases](https://github.com/Universe366/shizi/releases) 下载：
-   - 安装版 `shizi-setup-0.163.4.exe`
-   - 绿色版 `shizi-0.163.4-win-x64-green.zip`
+   - 安装版 `shizi-setup-0.163.5.exe`
+   - 绿色版 `shizi-0.163.5-win-x64-green.zip`
 2. 打开「设置 → AI 与模型」：选择平台、填写 Base URL、模型和 API Key，点「测试连接」。
 3. 打开 B 站视频，在侧栏抓字幕、总结、对话；没有字幕就点「转写」。
 
@@ -104,7 +104,7 @@ B 站视频的字幕、音轨、评论和简介散在不同接口里，想整理
 - 地址栏搜索、起始页、网页倍速、画中画、弹幕与评论、主窗口一键置顶；
 - 桌面宠物、快捷轮盘、全局截图/OCR、文件转换；
 - **可扩展**：应用插件（面板/命令 + 市场索引，`shizi-plugin://` 隔离 iframe）、Chrome/Edge 扩展（目录 / zip / crx、MV3）、
-  侧栏面板可自定义顺序/显隐、任意面板可拆成独立窗口拖动置顶、本地 Agent 接口（HTTP + MCP，默认只读、写操作逐次确认）；
+  侧栏面板可自定义顺序/显隐、网页深色模式、本地 Agent 接口（HTTP + MCP，默认只读、写操作逐次确认）；
 - 本地 SQLite：`library.db`、`chat.db`、`usage.db`；
 - 一键备份/恢复，数据目录可迁移。
 
@@ -227,7 +227,6 @@ shizi-extension/
 | 平台化子系统总图 | [desktop/docs/PLATFORM.md](desktop/docs/PLATFORM.md) |
 | 写应用插件 / 浏览器扩展 | [desktop/docs/PLUGINS.md](desktop/docs/PLUGINS.md) |
 | 开放给外部 Agent | [desktop/docs/AGENT-API.md](desktop/docs/AGENT-API.md) |
-| 面板拆成独立窗口 | [desktop/docs/PANEL-WINDOWS.md](desktop/docs/PANEL-WINDOWS.md) |
 | 插件与桌面差异 | [docs/EXTENSION-PARITY.md](docs/EXTENSION-PARITY.md) |
 | 插件与桌面架构 | [docs/EXTENSION-DESKTOP-ALIGNMENT.md](docs/EXTENSION-DESKTOP-ALIGNMENT.md) |
 | 插件重构计划 | [docs/EXTENSION-REFACTOR-PLAN.md](docs/EXTENSION-REFACTOR-PLAN.md) |
@@ -245,7 +244,7 @@ shizi-extension/
 
 ## 版本
 
-- 桌面端：**0.163.4**（2026-11-19）
+- 桌面端：**0.163.5**（2026-11-19）
 - 插件：**2.20.16**
 - 变更记录：[desktop/CHANGELOG.md](desktop/CHANGELOG.md)、[shizi-extension/CHANGELOG.md](shizi-extension/CHANGELOG.md)
 

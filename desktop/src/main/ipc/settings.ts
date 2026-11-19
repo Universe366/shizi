@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import { titleBarOverlayFor } from '../windowPolicy';
 import { applyAutoStart } from '../autoStart';
 import { applyProxy } from '../proxy';
 import { applyDictation } from '../dictation';
@@ -286,6 +287,14 @@ export function registerSettingsIpc(ctx: IpcContext): void {
           if (changed) resetMcpSession(old);
         }
         nativeTheme.themeSource = saved.general.theme;
+        if (process.platform === 'win32' && !ctx.win.isDestroyed()) {
+          try {
+            ctx.win.setTitleBarOverlay(titleBarOverlayFor(nativeTheme.shouldUseDarkColors));
+          } catch {
+            // ignore
+          }
+        }
+        ctx.tabs.setWebDarkMode(saved.general.webDarkMode === true);
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshMediaState();
         ctx.tabs.refreshShortcuts();
@@ -358,6 +367,14 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as AppSettings;
         const saved = saveSettings(raw);
         nativeTheme.themeSource = saved.general.theme;
+        if (process.platform === 'win32' && !ctx.win.isDestroyed()) {
+          try {
+            ctx.win.setTitleBarOverlay(titleBarOverlayFor(nativeTheme.shouldUseDarkColors));
+          } catch {
+            // ignore
+          }
+        }
+        ctx.tabs.setWebDarkMode(saved.general.webDarkMode === true);
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshShortcuts();
         await restartBridge(ctx.win);

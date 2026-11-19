@@ -1,6 +1,6 @@
 # 仓库地图（给人看的）
 
-> 当前产品名：**拾字 / Shizi**。桌面端 0.163.4，插件 2.20.16。
+> 当前产品名：**拾字 / Shizi**。桌面端 0.163.5，插件 2.20.16。
 > 先看这一页，再决定去读哪份文档，不要从 5 万行历史记录开始。
 
 ## 顶层目录
@@ -45,9 +45,7 @@ desktop/
 | `src/main/plugins.ts` | 应用插件宿主、市场、RPC |
 | `src/main/zip.ts` | 内置 ZIP/CRX 读取器 |
 | `src/main/agent.ts` | 本地 Agent HTTP + MCP |
-| `src/main/panelWindows.ts` | 独立面板窗口与位置持久化 |
 | `src/shared/panels.ts` | 侧栏面板顺序/显隐 |
-| `src/renderer/src/DetachedPanel.tsx` | 独立窗口渲染入口 |
 
 ## 插件
 
@@ -69,14 +67,13 @@ shizi-extension/
 | 刚接手 / AI 操作 | `AGENTS.md`、`HANDOFF.md` |
 | 怎么安装/使用 | 根 `README.md`、`shizi-extension/README.md` |
 | 桌面端怎么分层、有哪些坑 | `desktop/docs/ARCHITECTURE.md` |
-| 平台化子系统（扩展/插件/市场/拆窗/Agent） | `desktop/docs/PLATFORM.md` |
+| 平台化子系统（扩展/插件/市场/Agent） | `desktop/docs/PLATFORM.md` |
 | 设置页 / 对话输入区怎么改 | `docs/UI-GUIDE.md` |
 | 数据库表、迁移、备份 | `docs/DATA-MODEL.md` |
 | 最近改了什么、怎么验收 | `desktop/docs/HARDENING.md` |
 | 插件和桌面怎么通信 / 怎么对齐 | `desktop/docs/BRIDGE.md`、`docs/EXTENSION-DESKTOP-ALIGNMENT.md` |
 | 写应用插件 / 装浏览器扩展 | `desktop/docs/PLUGINS.md` |
 | 让外部 Agent 操作拾字 | `desktop/docs/AGENT-API.md` |
-| 面板拆成独立窗口 | `desktop/docs/PANEL-WINDOWS.md` |
 | 插件与桌面目前还有哪些差异 | `docs/EXTENSION-PARITY.md` |
 | 出故障先看哪里 | `docs/TROUBLESHOOTING.md` |
 | 插件重构（新流程/共享 core/迁移） | `docs/EXTENSION-REFACTOR-PLAN.md` |

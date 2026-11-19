@@ -1,6 +1,6 @@
 # 文档索引
 
-> 适用版本：桌面 0.163.4 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
+> 适用版本：桌面 0.163.5 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
 
 ## 当前文档
 
@@ -16,10 +16,9 @@
 | [../desktop/docs/ARCHITECTURE.md](../desktop/docs/ARCHITECTURE.md) | 桌面端模块边界与数据流 |
 | [../desktop/docs/SUMMARY-FLOW.md](../desktop/docs/SUMMARY-FLOW.md) | 字幕总结全流程 |
 | [../desktop/docs/BRIDGE.md](../desktop/docs/BRIDGE.md) | 插件 ↔ 桌面桥协议 |
-| [../desktop/docs/PLATFORM.md](../desktop/docs/PLATFORM.md) | 平台化子系统（扩展/插件/市场/拆窗/Agent） |
+| [../desktop/docs/PLATFORM.md](../desktop/docs/PLATFORM.md) | 平台化子系统（扩展/插件/市场/Agent） |
 | [../desktop/docs/PLUGINS.md](../desktop/docs/PLUGINS.md) | 应用插件与浏览器扩展 |
 | [../desktop/docs/AGENT-API.md](../desktop/docs/AGENT-API.md) | 本地 Agent HTTP/MCP |
-| [../desktop/docs/PANEL-WINDOWS.md](../desktop/docs/PANEL-WINDOWS.md) | 面板拆窗 |
 | [EXTENSION-DESKTOP-ALIGNMENT.md](EXTENSION-DESKTOP-ALIGNMENT.md) | 插件与桌面端对齐：连接/数据/能力三层与分阶段计划 |
 | [EXTENSION-REFACTOR-PLAN.md](EXTENSION-REFACTOR-PLAN.md) | 下一阶段：插件自己跑新流程、共享 core、设置/数据迁移 |
 | [EXTENSION-PARITY.md](EXTENSION-PARITY.md) | 插件—桌面端功能差异、已修问题与暂缓项 |

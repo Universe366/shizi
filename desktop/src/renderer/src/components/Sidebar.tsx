@@ -61,8 +61,7 @@ export function Sidebar({
   onOpenChapters,
   pages = [],
   pluginPanels = [],
-  panelLayout,
-  onDetachPanel
+  panelLayout
 }: {
   onOpenSettings: () => void;
   section: Section;
@@ -85,8 +84,6 @@ export function Sidebar({
   pluginPanels?: Array<{ plugin: PluginInfo; panel: PluginPanelContribution }>;
   /** 面板顺序与显隐（内置 + 插件统一）。 */
   panelLayout?: PanelLayout;
-  /** 右键把面板拆成独立窗口。 */
-  onDetachPanel?: (section: Section, title: string) => void;
 }) {
   const [version, setVersion] = useState('');
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
@@ -282,11 +279,6 @@ export function Sidebar({
     : undefined;
   const layoutKey = `${sidebarWidth}-${position}-${fontScale}`;
 
-  const showPanelMenu = async (target: Section, label: string) => {
-    const choice = await window.bsub.popupMenu([{ id: 'detach', label: '在独立窗口打开' }]);
-    if (choice === 'detach') onDetachPanel?.(target, label);
-  };
-
   const movePage = (fromId: string, toId: string, after: boolean) => {
     const from = pages.findIndex((page) => page.id === fromId);
     const to = pages.findIndex((page) => page.id === toId);
@@ -304,15 +296,13 @@ export function Sidebar({
       id: id as Section,
       label,
       hint,
-      icon: <Icon size={16} />,
-      detachLabel: label
+      icon: <Icon size={16} />
     })),
     ...pluginPanels.map(({ plugin, panel }) => ({
       id: pluginPanelSection(plugin.id, panel.id) as Section,
       label: panel.title,
       hint: `${plugin.name} · ${panel.title}（插件）`,
-      icon: <span className="plugin-nav-icon">{panel.icon}</span>,
-      detachLabel: `${plugin.name} · ${panel.title}`
+      icon: <span className="plugin-nav-icon">{panel.icon}</span>
     }))
   ];
   const shownNav = orderPanelKeys(
@@ -351,25 +341,11 @@ export function Sidebar({
           <button
             key={entry.id}
             className={`side-nav-item${section === entry.id ? ' is-active' : ''}`}
-            title={`${entry.hint}（右键可拆成独立窗口）`}
+            title={entry.hint}
             onClick={() => onSelect(entry.id)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              void showPanelMenu(entry.id, entry.detachLabel);
-            }}
           >
             {entry.icon}
             <span>{entry.label}</span>
-            <span
-              className="side-nav-detach"
-              title="拆成独立窗口"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDetachPanel?.(entry.id, entry.detachLabel);
-              }}
-            >
-              ⧉
-            </span>
           </button>
         ))}
       </nav>

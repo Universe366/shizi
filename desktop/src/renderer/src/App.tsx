@@ -65,6 +65,7 @@ export default function App() {
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ order: [], hidden: [] });
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [webDark, setWebDark] = useState(false);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -191,13 +192,12 @@ export default function App() {
     });
   };
 
-  // 独立面板窗口里的「总结/章节」入口通过主进程回到主窗口。
-  useEffect(() => {
-    const off = window.bsub.onOpenSection((section) => {
-      sectionHandlerRef.current(section as Section);
+  const toggleWebDark = () => {
+    void window.bsub.setWebDarkMode(!webDark).then((result) => {
+      if (result.ok) setWebDark(result.data);
     });
-    return off;
-  }, []);
+  };
+
   useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
   useBrowserOverlayAuto();
@@ -222,6 +222,7 @@ export default function App() {
         sidebarPages?: SidebarPage[];
         panelLayout?: PanelLayout;
         alwaysOnTop?: boolean;
+        webDarkMode?: boolean;
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
@@ -234,6 +235,7 @@ export default function App() {
     setSidebarPages(snapshot.settings.general.sidebarPages || []);
     setPanelLayout(normalizePanelLayout(snapshot.settings.general.panelLayout));
     setAlwaysOnTop(snapshot.settings.general.alwaysOnTop === true);
+    setWebDark(snapshot.settings.general.webDarkMode === true);
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
     setBrowserToolbar(
       normalizeBrowserToolbar(
@@ -856,6 +858,8 @@ export default function App() {
         hasUpdate={hasUpdate}
         pinned={alwaysOnTop}
         onTogglePinned={toggleAlwaysOnTop}
+        webDark={webDark}
+        onToggleWebDark={toggleWebDark}
       />
       {findOpen && (
         <FindBar
@@ -896,9 +900,6 @@ export default function App() {
           pages={sidebarPages}
           pluginPanels={pluginPanels}
           panelLayout={panelLayout}
-          onDetachPanel={(section, title) => {
-            void window.bsub.openPanelWindow(section, title);
-          }}
         />
         <BrowserStage
           hasTab={Boolean(active)}
