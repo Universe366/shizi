@@ -4,6 +4,7 @@ import {
   Command,
   Copy,
   Download,
+  Ellipsis,
   FolderPlus,
   History,
   Library,
@@ -305,6 +306,8 @@ export function StartPage({
   const [shortcutMenu, setShortcutMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const [minimal, setMinimal] = useState(() => {
     try {
       return localStorage.getItem(MINIMAL_KEY) === '1';
@@ -312,6 +315,18 @@ export function StartPage({
       return false;
     }
   });
+  useEffect(() => {
+    if (!moreOpen) return;
+    const close = (event: MouseEvent) => {
+      if (moreRef.current && event.target instanceof Node && moreRef.current.contains(event.target)) {
+        return;
+      }
+      setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [moreOpen]);
+
   const [effect, setEffect] = useState(readEffect);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try {
@@ -1856,7 +1871,7 @@ export function StartPage({
 
   return (
     <div
-      className={`start-page start-page-v3 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
+      className={`start-page start-page-v3 start-page-v4 start-wallpaper-${wallpaper}${minimal ? ' is-minimal' : ''}${
         effectiveInk ? ` is-ink-${effectiveInk}` : ''
       }${sidebarSide === 'right' ? ' is-sidebar-right' : ''}${sidebarPinned ? ' is-sidebar-pinned' : ''}${
         dockAutoHide ? ' is-dock-autohide' : ''
@@ -1913,7 +1928,7 @@ export function StartPage({
         </div>
         <div className="start-topbar-actions">
           <button
-            className={`start-ghost-btn${sidebarPinned ? ' is-active' : ''}`}
+            className={`start-ghost-btn start-sidebar-pin${sidebarPinned ? ' is-active' : ''}`}
             title={sidebarPinned ? '收起分组栏' : '固定分组栏'}
             onClick={toggleSidebarPinned}
           >
@@ -1949,6 +1964,58 @@ export function StartPage({
           >
             <Palette size={15} />
           </button>
+          <div className="start-more-wrap" ref={moreRef}>
+            <button
+              className={`start-icon-btn${moreOpen ? ' is-active' : ''}`}
+              title="更多"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((value) => !value)}
+            >
+              <Ellipsis size={16} />
+            </button>
+            {moreOpen && (
+              <div className="start-more-menu" role="menu">
+                <button onClick={() => { setMoreOpen(false); onOpenLibrary(); }}>打开工作台</button>
+                <button onClick={() => { setMoreOpen(false); onOpenHistory(); }}>历史记录</button>
+                <button onClick={() => { setMoreOpen(false); onOpenTasks(); }}>任务中心</button>
+                <button onClick={() => { setMoreOpen(false); onOpenGlobalSearch(); }}>全局搜索</button>
+                <div className="start-more-sep" />
+                <button onClick={() => { setMoreOpen(false); onOpenSettings(); }}>设置</button>
+                <button onClick={() => { setMoreOpen(false); setWallpaperOpen(true); }}>更换壁纸</button>
+                <div className="start-more-sep" />
+                <button disabled={busy} onClick={() => { setMoreOpen(false); void syncStartToFolder(); }}>
+                  同步到文件夹
+                </button>
+                <button disabled={busy} onClick={() => { setMoreOpen(false); void syncStartFromFolder(); }}>
+                  从文件夹恢复
+                </button>
+                <button disabled={busy} onClick={() => { setMoreOpen(false); void window.bsub.exportSettings(); }}>
+                  导出设置
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={async () => {
+                    setMoreOpen(false);
+                    setBusy(true);
+                    const result = await window.bsub.importSettings();
+                    if (result.ok) {
+                      const snapshot = await window.bsub.getSettings();
+                      if (snapshot.ok) {
+                        applySettings(
+                          snapshot.data.settings.general as unknown as Record<string, unknown>
+                        );
+                      }
+                    }
+                    setBusy(false);
+                  }}
+                >
+                  导入设置
+                </button>
+                <div className="start-more-sep" />
+                <button onClick={onClose}>关闭起始页</button>
+              </div>
+            )}
+          </div>
           <button className="start-icon-btn" title="关闭起始页（Esc）" onClick={onClose}>
             <X size={15} />
           </button>

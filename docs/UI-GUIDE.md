@@ -205,13 +205,14 @@ node tools/theme-check.mjs        # 明暗两套主题下主按钮与说明文�
 ```
 StartPage.tsx          状态、IPC、设置读写（唯一持有 shortcut/widget 状态的地方）
 start/SearchBar.tsx    引擎切换 + 站内直达 + 历史 + 搜索建议
-start/ShortcutBoard.tsx 分组标签、站点卡片、拖拽、右键菜单、添加入口
+start/ShortcutBoard.tsx 快捷卡片网格、拖拽、右键菜单、添加入口
 start/ShortcutDialog.tsx 新增/编辑弹窗
 start/WidgetPanel.tsx  天气 / 待办 / 番茄钟 / 便签 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
 start/PomodoroWidget.tsx 25 分钟专注 / 5 分钟休息，结束自动换阶段
 start/NotesWidget.tsx  便签，输入自动写 localStorage
 start/CommandPalette.tsx 指令面板（⌘/Ctrl+K）：操作 / 页面 / 小组件 / 搜索 / 快捷方式
-start/Dock.tsx         底部 Dock：常用站点 + 内置页面 + 指令面板 / 禅模式
+start/StartSidebar.tsx 分组胶囊（v4 横向单行，可横向滚动）与低频操作入口
+start/Dock.tsx         旧底部 Dock；v4 不再渲染（保留组件与测试）
 start/SiteIcon.tsx     站点 favicon，失败回退字母色块
 start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
 start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
@@ -232,9 +233,17 @@ styles/start.css       起始页全部样式（只作用于 .start-page 子树�
 - 新增配色：只改 `COLOR_SCHEMES`，不要在每个组件里写死颜色。
 - 站点图标优先站点自己的 `/favicon.ico`，失败回退到域名生成的字母色块（`tileColor()`），不经过第三方图标服务。
 
+### 布局（v4）
+
+- 顶栏只保留品牌、指令面板、极简、编辑、壁纸、更多、关闭；低频的导入/导出/同步/设置/工作台收进「更多」菜单。
+- 分组从左侧栏改为**横向单行胶囊**，可横向滚动；不再渲染底部 Dock 与底部工具条。
+- Hero：大时钟 + 日期/农历 + 居中大搜索；搜索下方是常去站点胶囊。
+- 快捷方式：1040px 内的响应式卡片网格（最小 104px）；小组件：260px 起的响应式卡片墙。
+- 窄屏（≤900/640px）减少内边距、缩小时钟与卡片，分组胶囊横向滚动。
+
 ### 材质
 
-- 起始页统一液态玻璃：页底有蓝/紫/粉三团缓慢漂移的光斑，卡片/搜索/侧栏/抽屉使用 34px 模糊 + 半透明渐变 + 白色高光边；Dock 在布局流底部，不覆盖小组件。`data-ui-glass="off"` 时退回无模糊。
+- 起始页统一液态玻璃：页底有蓝/紫/粉三团缓慢漂移的光斑，卡片/搜索/分组胶囊/小组件/抽屉使用 20–34px 模糊 + 半透明渐变 + 白色高光边；v4 不再有底部 Dock。`data-ui-glass="off"` 时退回无模糊。
 - 玻璃不透明度：抽屉「背景效果 → 玻璃」10–100%（默认 58%），作用于网址卡片、小组件、搜索、Dock、侧栏；抽屉/菜单/指令面板固定 92% 以保证可读性。
 - 卡片 hover 上浮 3px，圆角 18–20px，阴影分两层（环境阴影 + 内高光）。
 
