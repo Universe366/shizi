@@ -8,8 +8,6 @@ import {
   Library,
   Moon,
   MoreHorizontal,
-  Pin,
-  PinOff,
   Sun,
   RotateCw,
   Settings,
@@ -47,10 +45,10 @@ export function AddressBar({
   onOpenLibrary,
   onOpenSettings,
   hasUpdate = false,
-  pinned = false,
-  onTogglePinned,
-  webDark = false,
-  onToggleWebDark
+  appDark = false,
+  onToggleDark,
+  zoom = 1,
+  onOpenZoom
 }: {
   tab: TabInfo | null;
   toolbar?: BrowserToolbarSettings;
@@ -66,12 +64,12 @@ export function AddressBar({
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
   hasUpdate?: boolean;
-  /** 主窗口是否置顶 */
-  pinned?: boolean;
-  onTogglePinned?: () => void;
-  /** 内置网页深色模式 */
-  webDark?: boolean;
-  onToggleWebDark?: () => void;
+  /** 当前是否深色模式（程序 + 网页） */
+  appDark?: boolean;
+  onToggleDark?: () => void;
+  /** 当前标签缩放比例 */
+  zoom?: number;
+  onOpenZoom?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
@@ -685,14 +683,27 @@ export function AddressBar({
         </button>
       )}
 
+      {toolbar.zoom && (
+        <button
+          type="button"
+          className="nav-btn zoom-btn"
+          title="缩放"
+          aria-label={`缩放 ${Math.round((Number(zoom) || 1) * 100)}%`}
+          disabled={!tab}
+          onClick={() => onOpenZoom?.()}
+        >
+          {Math.round((Number(zoom) || 1) * 100)}%
+        </button>
+      )}
+
       {toolbar.dark && (
         <button
-          className={`nav-btn${webDark ? ' is-active' : ''}`}
-          title={webDark ? '关闭网页深色模式' : '网页深色模式'}
-          aria-pressed={webDark}
-          onClick={() => onToggleWebDark?.()}
+          className={`nav-btn${appDark ? ' is-active' : ''}`}
+          title={appDark ? '切换浅色模式' : '切换深色模式（程序 + 网页）'}
+          aria-pressed={appDark}
+          onClick={() => onToggleDark?.()}
         >
-          {webDark ? <Sun size={15} /> : <Moon size={15} />}
+          {appDark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
       )}
 
@@ -751,17 +762,6 @@ export function AddressBar({
           </div>
         )}
       </div>
-      )}
-
-      {toolbar.pin && (
-        <button
-          className={`nav-btn${pinned ? ' is-active' : ''}`}
-          title={pinned ? '取消窗口置顶' : '窗口置顶（方便同时操作其他软件）'}
-          aria-pressed={pinned}
-          onClick={() => onTogglePinned?.()}
-        >
-          {pinned ? <Pin size={15} fill="currentColor" /> : <PinOff size={15} />}
-        </button>
       )}
 
     </div>

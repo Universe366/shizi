@@ -136,7 +136,6 @@ button:disabled {
   flex: 0 0 42px;
   display: flex;
   align-items: flex-end;
-  -webkit-app-region: drag;
   gap: 2px;
   padding: 0 8px;
   background: var(--surface-2);
@@ -168,26 +167,6 @@ button:disabled {
 
 .tab-menu-item:hover {
   background: var(--surface-2);
-}
-
-/* Windows 隐藏标题栏后，横向标签栏右侧要给原生窗控按钮让位 */
-.app-shell:not(.vertical-tabs) .tab-strip {
-  padding-right: 150px;
-}
-
-/* 横向标签栏时窗控在标签栏那一行，地址栏不需要再让位 */
-.app-shell:not(.vertical-tabs) .address-bar {
-  padding-right: 10px;
-}
-
-/* 可交互元素不参与窗口拖动 */
-.app-shell button,
-.app-shell input,
-.app-shell select,
-.app-shell textarea,
-.app-shell a,
-.app-shell .tab {
-  -webkit-app-region: no-drag;
 }
 
 .tab-strip-list {
@@ -308,9 +287,6 @@ button:disabled {
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  /* 右侧给 Windows 原生最小化/最大化/关闭按钮让位 */
-  padding-right: 150px;
-  -webkit-app-region: drag;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: relative;
@@ -16181,4 +16157,205 @@ sup:has(> .cite-ref) {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
+}
+
+/* ---------- 自绘标题栏 ---------- */
+.app-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-window > .app-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 34px;
+  height: 34px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.app-titlebar-logo {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, var(--accent), #6f8fae);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  -webkit-app-region: no-drag;
+}
+
+.app-titlebar-name {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-app-region: no-drag;
+}
+
+.app-titlebar-spacer {
+  flex: 1;
+}
+
+.app-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.app-titlebar-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.app-titlebar-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.app-titlebar-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.app-titlebar-btn.is-close:hover {
+  background: #d64545;
+  color: #fff;
+}
+
+.app-titlebar-btn .is-restore {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 700px) {
+  .app-titlebar-name {
+    display: none;
+  }
+}
+
+/* ---------- 缩放浮窗 ---------- */
+.zoom-bubble {
+  position: fixed;
+  top: 86px;
+  right: 14px;
+  z-index: 4000;
+  width: 250px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.zoom-bubble-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.zoom-bubble-close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.zoom-bubble-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.zoom-bubble-control {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  gap: 6px;
+}
+
+.zoom-bubble-control button {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.zoom-bubble-control button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.zoom-bubble-control .zoom-bubble-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+}
+
+.zoom-bubble-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.zoom-bubble-presets button {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.zoom-bubble-presets button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.zoom-bubble-presets button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.zoom-bubble-hint {
+  margin-top: 8px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.4;
 }

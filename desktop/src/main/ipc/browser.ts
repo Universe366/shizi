@@ -20,7 +20,6 @@ import {
 } from '../library';
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
-import { loadSettings, saveSettings } from '../settings';
 import { failure, withStartParam, type IpcContext } from './shared';
 
 /** 标签页 / 书签 / 下载 / 浏览历史 / 布局 相关 IPC。 */
@@ -189,6 +188,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:zoom-reset', () => {
     ctx.tabs.zoomReset();
   });
+  ipcMain.handle('tab:set-zoom', (_event, value: number) => {
+    ctx.tabs.setZoom(value);
+  });
   ipcMain.handle(
     'tab:find',
     (_event, query: string, options?: { forward?: boolean; findNext?: boolean }) => {
@@ -347,18 +349,6 @@ export function registerBrowserIpc(ctx: IpcContext): void {
       return failure<boolean>(error);
     }
   });
-  ipcMain.handle('browser:set-web-dark-mode', (_event, enabled: boolean): Result<boolean> => {
-    try {
-      const next = enabled === true;
-      const settings = loadSettings();
-      saveSettings({ ...settings, general: { ...settings.general, webDarkMode: next } });
-      ctx.tabs.setWebDarkMode(next);
-      return { ok: true, data: next };
-    } catch (error) {
-      return failure(error);
-    }
-  });
-
   ipcMain.on('layout:set', (_event, rect: LayoutRect) => {
     ctx.tabs.setLayout(rect);
   });

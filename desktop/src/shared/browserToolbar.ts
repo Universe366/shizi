@@ -6,11 +6,11 @@ export const DEFAULT_BROWSER_TOOLBAR: BrowserToolbarSettings = {
   reload: true,
   engine: true,
   speed: true,
+  zoom: true,
   bookmark: true,
   startFavorite: true,
   library: true,
   home: true,
-  pin: true,
   dark: true,
   settings: true,
   menu: true

@@ -120,26 +120,14 @@ describe('AddressBar', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('置顶按钮反映状态并触发切换', () => {
-    const onTogglePinned = vi.fn();
-    const view = render(<AddressBar {...props({ pinned: false, onTogglePinned })} />);
-    fireEvent.click(screen.getByTitle('窗口置顶（方便同时操作其他软件）'));
-    expect(onTogglePinned).toHaveBeenCalledTimes(1);
+  it('深色模式按钮反映状态并触发切换', () => {
+    const onToggleDark = vi.fn();
+    const view = render(<AddressBar {...props({ appDark: false, onToggleDark })} />);
+    fireEvent.click(screen.getByTitle('切换深色模式（程序 + 网页）'));
+    expect(onToggleDark).toHaveBeenCalledTimes(1);
 
-    view.rerender(<AddressBar {...props({ pinned: true, onTogglePinned })} />);
-    expect(screen.getByTitle('取消窗口置顶')).toBeTruthy();
-  });
-
-  it('网页深色模式按钮反映状态并触发切换', () => {
-    const onToggleWebDark = vi.fn();
-    const view = render(
-      <AddressBar {...props({ webDark: false, onToggleWebDark })} />
-    );
-    fireEvent.click(screen.getByTitle('网页深色模式'));
-    expect(onToggleWebDark).toHaveBeenCalledTimes(1);
-
-    view.rerender(<AddressBar {...props({ webDark: true, onToggleWebDark })} />);
-    expect(screen.getByTitle('关闭网页深色模式')).toBeTruthy();
+    view.rerender(<AddressBar {...props({ appDark: true, onToggleDark })} />);
+    expect(screen.getByTitle('切换浅色模式')).toBeTruthy();
   });
 
   it('展示紧凑 URL、缩放与书签状态', () => {
@@ -291,11 +279,11 @@ describe('AddressBar 原生菜单', () => {
           reload: false,
           engine: false,
           speed: false,
+          zoom: false,
           bookmark: false,
           startFavorite: false,
           library: false,
           home: false,
-          pin: false,
           dark: false,
           settings: false,
           menu: false

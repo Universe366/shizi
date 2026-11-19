@@ -12,6 +12,8 @@ import { BUILTIN_PANELS, normalizePanelLayout, orderPanelKeys } from '../../shar
 import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/browserToolbar';
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
+import { TitleBar } from './components/TitleBar';
+import { ZoomBubble } from './components/ZoomBubble';
 import { FindBar } from './components/FindBar';
 import { Sidebar } from './components/Sidebar';
 import { BrowserStage } from './components/BrowserStage';
@@ -65,7 +67,13 @@ export default function App() {
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);
   const [panelLayout, setPanelLayout] = useState<PanelLayout>({ order: [], hidden: [] });
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
-  const [webDark, setWebDark] = useState(false);
+  const [appDark, setAppDark] = useState(
+    () => Boolean(window.matchMedia?.('(prefers-color-scheme: dark)')?.matches)
+  );
+  const [maximized, setMaximized] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomToast, setZoomToast] = useState(false);
+  const lastZoomRef = useRef(1);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -192,11 +200,24 @@ export default function App() {
     });
   };
 
-  const toggleWebDark = () => {
-    void window.bsub.setWebDarkMode(!webDark).then((result) => {
-      if (result.ok) setWebDark(result.data);
-    });
+  const toggleAppDark = () => {
+    void persistGeneral({ theme: appDark ? 'light' : 'dark' });
   };
+
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!media) return;
+    const sync = () => setAppDark(media.matches);
+    media.addEventListener?.('change', sync);
+    return () => media.removeEventListener?.('change', sync);
+  }, []);
+
+  useEffect(() => {
+    void window.bsub.isWindowMaximized().then((result) => {
+      if (result.ok) setMaximized(result.data);
+    });
+    return window.bsub.onWindowMaximized(setMaximized);
+  }, []);
 
   useEffect(() => window.bsub.onCloseCancel(() => setCloseOpen(false)), []);
 
@@ -222,7 +243,6 @@ export default function App() {
         sidebarPages?: SidebarPage[];
         panelLayout?: PanelLayout;
         alwaysOnTop?: boolean;
-        webDarkMode?: boolean;
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
@@ -235,7 +255,6 @@ export default function App() {
     setSidebarPages(snapshot.settings.general.sidebarPages || []);
     setPanelLayout(normalizePanelLayout(snapshot.settings.general.panelLayout));
     setAlwaysOnTop(snapshot.settings.general.alwaysOnTop === true);
-    setWebDark(snapshot.settings.general.webDarkMode === true);
     setVerticalTabs(snapshot.settings.general.verticalTabs === true);
     setBrowserToolbar(
       normalizeBrowserToolbar(
@@ -291,6 +310,16 @@ export default function App() {
   };
 
   const active = useMemo(() => tabs.find((tab) => tab.active) ?? null, [tabs]);
+  const zoom = Number(active?.zoom) || 1;
+
+  useEffect(() => {
+    if (lastZoomRef.current === zoom) return;
+    lastZoomRef.current = zoom;
+    if (zoomOpen) return;
+    setZoomToast(true);
+    const timer = window.setTimeout(() => setZoomToast(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, [zoom, zoomOpen]);
 
   const toggleBookmark = async () => {
     if (!active || !/^https?:/i.test(active.url)) return;
@@ -810,7 +839,18 @@ export default function App() {
   };
 
   return (
-    <div
+    <div className="app-window">
+      <TitleBar
+        pinned={alwaysOnTop}
+        onTogglePinned={toggleAlwaysOnTop}
+        maximized={maximized}
+        onToggleMaximize={() => {
+          void window.bsub.toggleMaximizeWindow().then((result) => {
+            if (result.ok) setMaximized(result.data);
+          });
+        }}
+      />
+      <div
       className={`app-shell${verticalTabs ? ' vertical-tabs' : ''}${
         tabPeek.open ? ' is-tab-peek' : ''
       }${startOpen || settingsOpen || libraryOpen || tabs.length === 0 ? ' is-page' : ''}`}
@@ -856,10 +896,13 @@ export default function App() {
           setSettingsOpen(true);
         }}
         hasUpdate={hasUpdate}
-        pinned={alwaysOnTop}
-        onTogglePinned={toggleAlwaysOnTop}
-        webDark={webDark}
-        onToggleWebDark={toggleWebDark}
+        appDark={appDark}
+        onToggleDark={toggleAppDark}
+        zoom={zoom}
+        onOpenZoom={() => {
+          setZoomToast(false);
+          setZoomOpen(true);
+        }}
       />
       {findOpen && (
         <FindBar
@@ -1039,6 +1082,14 @@ export default function App() {
       />
       <DictationListener />
       </div>
+      <ZoomBubble
+        open={zoomOpen || zoomToast}
+        zoom={zoom}
+        onClose={() => {
+          setZoomOpen(false);
+          setZoomToast(false);
+        }}
+      />
       <CloseDialog
         open={closeOpen}
         onChoose={(choice, remember) => {
@@ -1047,6 +1098,7 @@ export default function App() {
         }}
       />
       <ConfirmHost />
+    </div>
     </div>
   );
 }

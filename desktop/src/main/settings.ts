@@ -141,7 +141,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   general: {
     theme: 'system',
     alwaysOnTop: false,
-    webDarkMode: false,
     closeToTray: true,
     suspendMinutes: 5,
     cacheSubtitles: true,
@@ -549,7 +548,6 @@ function normalize(input: unknown): AppSettings {
         if (base.general.verticalTabsWidth === 220) base.general.verticalTabsWidth = 200;
       }
       base.general.compactLayoutVersion = 1;
-      base.general.webDarkMode = raw.general.webDarkMode === true;
       base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
       base.general.browserToolbar = normalizeBrowserToolbar(raw.general.browserToolbar);
       base.general.panelLayout = normalizePanelLayout(raw.general.panelLayout);

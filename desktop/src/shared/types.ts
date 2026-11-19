@@ -1275,13 +1275,13 @@ export interface BrowserToolbarSettings {
   reload: boolean;
   engine: boolean;
   speed: boolean;
+  /** 地址栏缩放百分比按钮 */
+  zoom: boolean;
   bookmark: boolean;
   /** 一键收藏当前网页为起始页快捷方式 */
   startFavorite: boolean;
   library: boolean;
   home: boolean;
-  /** 主窗口置顶按钮 */
-  pin: boolean;
   /** 网页深色模式按钮 */
   dark: boolean;
   settings: boolean;
@@ -1295,8 +1295,7 @@ export interface AppSettings {
     alwaysOnTop: boolean;
     /** 紧凑布局迁移版本（内部字段）：把旧默认宽度收窄一次 */
     compactLayoutVersion?: number;
-    /** 内置网页深色模式（模拟 prefers-color-scheme + Chromium 自动暗色） */
-    webDarkMode: boolean;
+
     closeToTray: boolean;
     suspendMinutes: number;
     cacheSubtitles: boolean;

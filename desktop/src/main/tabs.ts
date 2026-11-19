@@ -251,10 +251,10 @@ export class TabManager {
   }
 
   /** 网页深色模式：模拟 prefers-color-scheme，并让 Chromium 自动暗色兜底。 */
-  private async applyWebDarkMode(
-    wc: WebContents,
-    enabled = loadSettings().general.webDarkMode === true
-  ): Promise<void> {
+  private async applyWebDarkMode(wc: WebContents): Promise<void> {
+    const theme = loadSettings().general.theme;
+    const enabled =
+      theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors);
     try {
       if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
       await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
@@ -270,12 +270,12 @@ export class TabManager {
     }
   }
 
-  /** 切换所有标签的网页深色模式（设置页/工具栏共用）。 */
-  setWebDarkMode(enabled: boolean): void {
+  /** 主题变化后，把所有标签的网页深浅色重新对齐到 theme。 */
+  setWebDarkMode(): void {
     for (const record of this.tabs.values()) {
       const wc = record.view?.webContents;
       if (!wc || wc.isDestroyed()) continue;
-      void this.applyWebDarkMode(wc, enabled);
+      void this.applyWebDarkMode(wc);
     }
   }
 
@@ -1320,6 +1320,17 @@ export class TabManager {
 
   zoomReset(): void {
     this.applyZoom(0, true);
+  }
+
+  /** 缩放到指定比例（0.5–3），给缩放浮窗的预设用。 */
+  setZoom(value: number): void {
+    const record = this.activeRecord();
+    const wc = record?.view?.webContents;
+    if (!record || !wc) return;
+    const zoom = Math.min(3, Math.max(0.5, Math.round(Number(value) * 100) / 100));
+    wc.setZoomFactor(zoom);
+    record.zoom = zoom;
+    this.emit();
   }
 
   private applyZoom(delta: number, reset: boolean): void {

@@ -288,16 +288,6 @@ describe('设置的持久化字段', () => {
     expect(loadSettings().search.maxResults).toBe(5);
   });
 
-  it('网页深色模式保存后不会丢', () => {
-    const settings = loadSettings();
-    expect(settings.general.webDarkMode).toBe(false);
-    settings.general.webDarkMode = true;
-    saveSettings(settings);
-    expect(loadSettings().general.webDarkMode).toBe(true);
-    settings.general.webDarkMode = false;
-    saveSettings(settings);
-  });
-
   it('主窗口置顶状态保存后不会丢', () => {
     const settings = loadSettings();
     settings.general.alwaysOnTop = true;

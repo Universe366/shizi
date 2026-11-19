@@ -38,7 +38,6 @@
   "browser:end-drag",
   "browser:set-default",
   "browser:set-visible",
-  "browser:set-web-dark-mode",
   "chapters:generate",
   "chat:approve",
   "chat:cancel",
@@ -315,6 +314,7 @@
   "tab:reopen-closed",
   "tab:set-muted",
   "tab:set-visible",
+  "tab:set-zoom",
   "tab:sleep",
   "tab:stop",
   "tab:stop-find",
@@ -368,5 +368,8 @@
   "web:metrics-clear",
   "window:always-on-top",
   "window:foreground",
-  "window:set-always-on-top"
+  "window:is-maximized",
+  "window:minimize",
+  "window:set-always-on-top",
+  "window:toggle-maximize"
 ]

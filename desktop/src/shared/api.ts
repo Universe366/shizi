@@ -263,8 +263,12 @@ export interface BsubApi {
   pluginRpc(pluginId: string, method: string, params?: unknown): Promise<Result<unknown>>;
   /** 插件安装/启停/卸载后广播，用于刷新侧栏与命令面板。 */
   onPluginsChanged(cb: () => void): () => void;
-  /** 切换内置网页深色模式（保存到设置并应用到所有标签）。 */
-  setWebDarkMode(enabled: boolean): Promise<Result<boolean>>;
+  /** 主窗口最小化。 */
+  minimizeWindow(): Promise<Result<boolean>>;
+  /** 最大化 / 还原主窗口，返回最新状态。 */
+  toggleMaximizeWindow(): Promise<Result<boolean>>;
+  isWindowMaximized(): Promise<Result<boolean>>;
+  onWindowMaximized(cb: (maximized: boolean) => void): () => void;
   /** 主窗口是否置顶（读取实际窗口状态）。 */
   getAlwaysOnTop(): Promise<Result<boolean>>;
   /** 设置主窗口置顶，并持久化到设置。 */
@@ -959,6 +963,7 @@ export interface BsubApi {
   zoomIn(): Promise<void>;
   zoomOut(): Promise<void>;
   zoomReset(): Promise<void>;
+  setZoom(value: number): Promise<void>;
   findInPage(query: string, options?: { forward?: boolean; findNext?: boolean }): Promise<void>;
   stopFind(): Promise<void>;
   onFindResult(cb: (result: FindResult) => void): () => void;

@@ -49,7 +49,6 @@ import {
   buildUserAgent,
   resolveStartUrl,
   shortcutAction,
-  titleBarOverlayFor,
   windowFrameOptions
 } from './windowPolicy';
 import { bootstrapRenderer, handleCloseRequest } from './windowLifecycle';
@@ -160,17 +159,6 @@ function createTray(): void {
   });
 }
 
-function syncTitleBarOverlay(): void {
-  if (process.platform !== 'win32') return;
-  const win = mainWindow;
-  if (!win || win.isDestroyed()) return;
-  try {
-    win.setTitleBarOverlay(titleBarOverlayFor(nativeTheme.shouldUseDarkColors));
-  } catch {
-    // 旧版 Electron 没有这个 API 时忽略。
-  }
-}
-
 function createWindow(): void {
   const dark = nativeTheme.shouldUseDarkColors;
   mainWindow = new BrowserWindow({
@@ -185,6 +173,16 @@ function createWindow(): void {
   mainWindow.setAlwaysOnTop(loadSettings().general.alwaysOnTop === true);
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.on('maximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:maximized', true);
+    }
+  });
+  mainWindow.on('unmaximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:maximized', false);
+    }
+  });
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     const action = shortcutAction(input);
@@ -209,6 +207,7 @@ function createWindow(): void {
     else if (action === 'quit') app.quit();
   });
 
+  nativeTheme.on('updated', () => tabManager?.setWebDarkMode());
   tabManager = new TabManager(
     mainWindow,
     (tabs) => {
@@ -465,8 +464,6 @@ app
     installPluginProtocol();
     createWindow();
     writeLog('startup.log', 'window created');
-    syncTitleBarOverlay();
-    nativeTheme.on('updated', syncTitleBarOverlay);
     createTray();
     initPetWindow();
     registerPetShortcuts();

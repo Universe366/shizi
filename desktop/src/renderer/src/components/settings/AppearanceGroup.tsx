@@ -90,14 +90,9 @@ export function AppearanceGroup({ value, onChange }: Props) {
           })}
         </div>
 
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={value.webDarkMode === true}
-            onChange={(event) => onChange({ webDarkMode: event.target.checked })}
-          />
-          网页深色模式（网页内容也变暗，站点支持时更准确）
-        </label>
+        <div className="settings-hint">
+          深色主题会同时应用到内置网页；浅色/跟随系统同理，不需要单独再开网页深色。
+        </div>
 
         <div className="settings-label">界面配色</div>
         <div className="settings-swatches">
@@ -354,11 +349,11 @@ export function AppearanceGroup({ value, onChange }: Props) {
             ['reload', '刷新'],
             ['engine', '搜索引擎切换'],
             ['speed', '播放倍速'],
+            ['zoom', '缩放百分比'],
             ['bookmark', '收藏'],
             ['startFavorite', '收藏到起始页'],
             ['library', '工作台'],
             ['home', '起始页'],
-            ['pin', '窗口置顶'],
             ['dark', '网页深色模式'],
             ['settings', '设置'],
             ['menu', '主菜单']

@@ -274,6 +274,7 @@ const api: BsubApi = {
   zoomIn: () => ipcRenderer.invoke('tab:zoom-in') as Promise<void>,
   zoomOut: () => ipcRenderer.invoke('tab:zoom-out') as Promise<void>,
   zoomReset: () => ipcRenderer.invoke('tab:zoom-reset') as Promise<void>,
+  setZoom: (value: number) => ipcRenderer.invoke('tab:set-zoom', value) as Promise<void>,
   findInPage: (query: string, options?: { forward?: boolean; findNext?: boolean }) =>
     ipcRenderer.invoke('tab:find', query, options) as Promise<void>,
   stopFind: () => ipcRenderer.invoke('tab:stop-find') as Promise<void>,
@@ -331,8 +332,14 @@ const api: BsubApi = {
   pluginRpc: (pluginId: string, method: string, params?: unknown) =>
     ipcRenderer.invoke('plugins:rpc', pluginId, method, params) as Promise<Result<unknown>>,
   onPluginsChanged: (cb: () => void) => on<null>('plugins:changed', () => cb()),
-  setWebDarkMode: (enabled: boolean) =>
-    ipcRenderer.invoke('browser:set-web-dark-mode', enabled) as Promise<Result<boolean>>,
+  minimizeWindow: () =>
+    ipcRenderer.invoke('window:minimize') as Promise<Result<boolean>>,
+  toggleMaximizeWindow: () =>
+    ipcRenderer.invoke('window:toggle-maximize') as Promise<Result<boolean>>,
+  isWindowMaximized: () =>
+    ipcRenderer.invoke('window:is-maximized') as Promise<Result<boolean>>,
+  onWindowMaximized: (cb: (maximized: boolean) => void) =>
+    on<boolean>('window:maximized', (value) => cb(value === true)),
   getAlwaysOnTop: () =>
     ipcRenderer.invoke('window:always-on-top') as Promise<Result<boolean>>,
   setAlwaysOnTop: (enabled: boolean) =>
