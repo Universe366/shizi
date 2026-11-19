@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent
+} from 'react';
 import {
   ArrowRight,
   CloudSun,
@@ -232,7 +240,27 @@ export function StartPageClean({
     null
   );
   const [dim, setDim] = useState(readDim);
-  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<{
+    item: StartShortcut;
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const [dropGroup, setDropGroup] = useState<string | null>(null);
+  const dropGroupRef = useRef<string | null>(null);
+  const dragRef = useRef<{
+    item: StartShortcut;
+    startX: number;
+    startY: number;
+    active: boolean;
+    pointerId: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+  const flipRef = useRef<Map<string, { left: number; top: number }> | null>(null);
+  const shortcutsRef = useRef<StartShortcut[]>([]);
   const [notice, setNotice] = useState<{ text: string; undo?: () => void } | null>(null);
   const noticeTimer = useRef<number>(0);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -387,6 +415,10 @@ export function StartPageClean({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [suggestOpen]);
+
+  useEffect(() => {
+    shortcutsRef.current = shortcuts;
+  }, [shortcuts]);
 
   const groups = useMemo(
     () =>
@@ -619,16 +651,140 @@ export function StartPageClean({
 
   useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
 
-  const moveShortcut = (fromId: string, toId: string) => {
+  const reorderLinks = (fromId: string, toId: string) => {
     if (!fromId || fromId === toId) return;
-    const from = shortcuts.findIndex((item) => item.id === fromId);
-    const to = shortcuts.findIndex((item) => item.id === toId);
-    if (from < 0 || to < 0) return;
-    const next = [...shortcuts];
+    const list = shortcutsRef.current;
+    const from = list.findIndex((item) => item.id === fromId);
+    const to = list.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0 || from === to) return;
+
+    const first = new Map<string, { left: number; top: number }>();
+    for (const node of document.querySelectorAll<HTMLElement>('.sc-link-wrap[data-link-id]')) {
+      const id = node.dataset.linkId;
+      if (!id) continue;
+      const rect = node.getBoundingClientRect();
+      first.set(id, { left: rect.left, top: rect.top });
+    }
+    flipRef.current = first;
+
+    const next = [...list];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
-    void persistShortcuts(next);
+    shortcutsRef.current = next;
+    setShortcuts(next);
   };
+
+  useLayoutEffect(() => {
+    const first = flipRef.current;
+    if (!first) return;
+    flipRef.current = null;
+    const nodes = document.querySelectorAll<HTMLElement>('.sc-link-wrap[data-link-id]');
+    nodes.forEach((node) => {
+      const id = node.dataset.linkId;
+      const before = id ? first.get(id) : undefined;
+      if (!before) return;
+      const after = node.getBoundingClientRect();
+      const dx = before.left - after.left;
+      const dy = before.top - after.top;
+      if (!dx && !dy) return;
+      node.style.transition = 'none';
+      node.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => {
+        node.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+        node.style.transform = '';
+      });
+    });
+  }, [shortcuts]);
+
+  function cleanDragListeners() {
+    window.removeEventListener('pointermove', onLinkDragMove);
+    window.removeEventListener('pointerup', onLinkDragEnd);
+    window.removeEventListener('pointercancel', onLinkDragEnd);
+    document.body.classList.remove('sc-dragging');
+  }
+
+  function onLinkDragMove(event: PointerEvent) {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.active && Math.hypot(dx, dy) < 6) return;
+    if (!drag.active) {
+      drag.active = true;
+      document.body.classList.add('sc-dragging');
+    }
+    event.preventDefault();
+    setDragState({
+      item: drag.item,
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: drag.offsetX,
+      offsetY: drag.offsetY
+    });
+
+    const main = document.querySelector<HTMLElement>('.sc-main');
+    if (main) {
+      if (event.clientY < 96) main.scrollTop -= 14;
+      else if (event.clientY > window.innerHeight - 96) main.scrollTop += 14;
+    }
+
+    const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+    const groupButton = element?.closest<HTMLElement>('.sc-groups button[data-group]');
+    const nextGroup = groupButton?.dataset.group || null;
+    dropGroupRef.current = nextGroup;
+    setDropGroup(nextGroup);
+
+    const wrap = element?.closest<HTMLElement>('.sc-link-wrap[data-link-id]');
+    const targetId = wrap?.dataset.linkId;
+    if (targetId && targetId !== drag.item.id) reorderLinks(drag.item.id, targetId);
+  }
+
+  function onLinkDragEnd(event: PointerEvent) {
+    const drag = dragRef.current;
+    cleanDragListeners();
+    dragRef.current = null;
+    if (!drag) return;
+    if (!drag.active) return;
+
+    suppressClickRef.current = true;
+    const group = dropGroupRef.current;
+    if (group && group !== (drag.item.group || '')) {
+      const next = shortcutsRef.current.map((item) =>
+        item.id === drag.item.id ? { ...item, group } : item
+      );
+      shortcutsRef.current = next;
+      setShortcuts(next);
+      void persistShortcuts(next);
+      showNotice(`已移动到“${group}”`);
+    } else {
+      void persistShortcuts(shortcutsRef.current);
+    }
+    setDragState(null);
+    setDropGroup(null);
+    dropGroupRef.current = null;
+    if (event.type === 'pointercancel') suppressClickRef.current = false;
+  }
+
+  function startLinkDrag(event: ReactPointerEvent<HTMLButtonElement>, item: StartShortcut) {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('.sc-link-actions')) return;
+    const wrap = event.currentTarget.closest<HTMLElement>('.sc-link-wrap');
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    dragRef.current = {
+      item,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+    window.addEventListener('pointermove', onLinkDragMove, { passive: false });
+    window.addEventListener('pointerup', onLinkDragEnd, { once: true });
+    window.addEventListener('pointercancel', onLinkDragEnd, { once: true });
+  }
 
   const dark =
     window.matchMedia?.('(prefers-color-scheme: dark)')?.matches === true;
@@ -862,7 +1018,8 @@ export function StartPageClean({
               <button
                 key={item}
                 type="button"
-                className={group === item ? 'is-active' : ''}
+                data-group={item}
+                className={`${group === item ? 'is-active' : ''}${dropGroup === item ? ' is-drop' : ''}`}
                 onClick={() => setGroup(item)}
               >
                 {item}
@@ -874,20 +1031,21 @@ export function StartPageClean({
             {visible.map((item) => (
               <div
                 key={item.id}
-                className="sc-link-wrap"
-                draggable
-                onDragStart={() => setDragId(item.id)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => {
-                  if (dragId) moveShortcut(dragId, item.id);
-                  setDragId(null);
-                }}
+                data-link-id={item.id}
+                className={`sc-link-wrap${dragState?.item.id === item.id ? ' is-dragging' : ''}`}
               >
                 <button
                   type="button"
                   className="sc-link"
                   title={`${item.label} · ${item.url}`}
-                  onClick={() => openShortcut(item)}
+                  onPointerDown={(event) => startLinkDrag(event, item)}
+                  onClick={() => {
+                    if (suppressClickRef.current) {
+                      suppressClickRef.current = false;
+                      return;
+                    }
+                    openShortcut(item);
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     setContextMenu({ x: event.clientX, y: event.clientY, item });
@@ -1136,6 +1294,19 @@ export function StartPageClean({
           )}
         </section>
       </main>
+
+      {dragState && (
+        <div
+          className="sc-drag-ghost"
+          style={{
+            left: dragState.x - dragState.offsetX,
+            top: dragState.y - dragState.offsetY
+          }}
+        >
+          <SiteIcon item={dragState.item} />
+          <span>{dragState.item.label}</span>
+        </div>
+      )}
 
       {contextMenu && (
         <div
