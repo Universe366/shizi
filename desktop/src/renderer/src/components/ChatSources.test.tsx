@@ -24,7 +24,11 @@ describe('ChatSources', () => {
 
   it('渲染编号、站点与摘要，点击打开外部链接', () => {
     const open = vi.fn(() => Promise.resolve({ ok: true, data: true }));
-    Object.defineProperty(window, 'bsub', { configurable: true, value: { openExternal: open } });
+    const openUrl = vi.fn(() => Promise.resolve({ id: 't1', reused: false, ready: true }));
+    Object.defineProperty(window, 'bsub', {
+      configurable: true,
+      value: { openExternal: open, openUrl }
+    });
     const { container } = render(
       <ChatSources sources={sources} engine="DeepSeek 服务端联网" messageIndex={2} />
     );
@@ -38,7 +42,8 @@ describe('ChatSources', () => {
     expect(screen.getByText(/example\.com · 2026-01-02/)).toBeTruthy();
 
     fireEvent.click(container.querySelector('#cite-m2-1') as HTMLElement);
-    expect(open).toHaveBeenCalledWith('https://example.com/paris');
+    expect(openUrl).toHaveBeenCalledWith('https://example.com/paris');
+    expect(open).not.toHaveBeenCalled();
   });
 
   it('可以折叠与展开来源列表', () => {

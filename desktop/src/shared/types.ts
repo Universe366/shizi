@@ -1291,6 +1291,8 @@ export interface AppSettings {
     theme: ThemeMode;
     /** 主窗口始终置顶，方便同时操作其他软件 */
     alwaysOnTop: boolean;
+    /** 紧凑布局迁移版本（内部字段）：把旧默认宽度收窄一次 */
+    compactLayoutVersion?: number;
     closeToTray: boolean;
     suspendMinutes: number;
     cacheSubtitles: boolean;

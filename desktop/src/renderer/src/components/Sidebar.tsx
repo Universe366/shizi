@@ -49,7 +49,7 @@ export function Sidebar({
   activeTab,
   tabCount,
   fontScale = 1,
-  sidebarWidth = 320,
+  sidebarWidth = 300,
   onWidthChange,
   onWidthCommit,
   collapsed = false,
@@ -325,7 +325,7 @@ export function Sidebar({
   return (
     <aside
       className={`sidebar${collapsed ? ' is-collapsed' : ''}`}
-      style={{ width: collapsed ? 56 : sidebarWidth }}
+      style={{ width: collapsed ? 48 : sidebarWidth }}
     >
       <div
         className="brand"

@@ -59,7 +59,7 @@ export default function App() {
   const [findQuery, setFindQuery] = useState('');
   const [findResult, setFindResult] = useState<FindResult | null>(null);
   const [fontScale, setFontScale] = useState(1);
-  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [sidebarWidth, setSidebarWidth] = useState(300);
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPages, setSidebarPages] = useState<SidebarPage[]>([]);

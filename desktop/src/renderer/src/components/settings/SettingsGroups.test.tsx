@@ -15,7 +15,7 @@ const value = {
   cacheSubtitles: true,
   subtitleCacheDays: 30,
   fontScale: 1,
-  sidebarWidth: 320,
+  sidebarWidth: 300,
   sidebarPosition: 'left',
   sidebarCollapsed: false,
   autoFollow: true,
@@ -89,14 +89,14 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
   });
 
-  it('侧栏宽度超范围时夹到 260–900', () => {
+  it('侧栏宽度超范围时夹到 240–900', () => {
     const p = props();
     render(<Groups {...p} />);
-    const width = screen.getByDisplayValue('320') as HTMLInputElement;
+    const width = screen.getByDisplayValue('300') as HTMLInputElement;
     fireEvent.change(width, { target: { value: '999' } });
     expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 900 });
     fireEvent.change(width, { target: { value: '100' } });
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 260 });
+    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 240 });
   });
 
   it('关闭字幕缓存后隐藏天数输入', () => {

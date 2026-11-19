@@ -2,6 +2,7 @@ import React from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import type { WebReference } from '../../../shared/types';
+import { openCitation } from '../lib/openCitation';
 
 interface InlineOptions {
   citations?: WebReference[];
@@ -76,7 +77,7 @@ function inline(text: string, keyPrefix: string, options: InlineOptions = {}): R
                   window.setTimeout(() => target.classList.remove('is-flash'), 1200);
                   return;
                 }
-                void window.bsub.openExternal(reference.url);
+                void openCitation(reference.url);
               }}
             >
               {marker}

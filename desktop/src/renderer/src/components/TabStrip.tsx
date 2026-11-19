@@ -855,8 +855,8 @@ export function TabStrip({
       style={
         vertical
           ? ({
-              width: collapsed && !peekOpen ? 52 : width,
-              '--tab-strip-width': `${collapsed && !peekOpen ? 52 : width}px`
+              width: collapsed && !peekOpen ? 48 : width,
+              '--tab-strip-width': `${collapsed && !peekOpen ? 48 : width}px`
             } as CSSProperties)
           : undefined
       }

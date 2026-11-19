@@ -17,14 +17,33 @@ describe('Markdown 引用', () => {
     vi.restoreAllMocks();
   });
 
-  it('有来源时 [n] 渲染成可点击 chip', () => {
+  it('有来源时 [n] 渲染成可点击 chip，优先在内置标签页打开', () => {
     const open = vi.fn(() => Promise.resolve({ ok: true, data: true }));
-    Object.defineProperty(window, 'bsub', { configurable: true, value: { openExternal: open } });
+    const openUrl = vi.fn(() => Promise.resolve({ id: 't1', reused: false, ready: true }));
+    Object.defineProperty(window, 'bsub', {
+      configurable: true,
+      value: { openExternal: open, openUrl }
+    });
     render(<Markdown content="这是一条结论[1]。" citations={[source]} />);
     const chip = document.querySelector('.cite-ref') as HTMLElement;
     expect(chip).toBeTruthy();
     expect(chip.textContent).toBe('1');
     fireEvent.click(chip);
+    expect(openUrl).toHaveBeenCalledWith(source.url);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('内置打开失败时回退系统浏览器', async () => {
+    const open = vi.fn(() => Promise.resolve({ ok: true, data: true }));
+    const openUrl = vi.fn(() => Promise.reject(new Error('view failed')));
+    Object.defineProperty(window, 'bsub', {
+      configurable: true,
+      value: { openExternal: open, openUrl }
+    });
+    render(<Markdown content="结论[1]" citations={[source]} />);
+    fireEvent.click(document.querySelector('.cite-ref') as HTMLElement);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(openUrl).toHaveBeenCalled();
     expect(open).toHaveBeenCalledWith(source.url);
   });
 

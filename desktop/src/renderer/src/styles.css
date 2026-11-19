@@ -100,8 +100,8 @@ button:disabled {
 }
 
 .app-shell.vertical-tabs .tab-strip {
-  width: 220px;
-  flex: 0 0 220px;
+  width: 200px;
+  flex: 0 0 200px;
   height: auto;
   flex-direction: column;
   align-items: stretch;
@@ -281,12 +281,12 @@ button:disabled {
 
 /* ---------- 地址栏 ---------- */
 .address-bar {
-  height: 54px;
-  flex: 0 0 54px;
+  height: 44px;
+  flex: 0 0 44px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 10px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: relative;
@@ -457,7 +457,7 @@ button:disabled {
 .sidebar {
   position: relative;
 
-  width: 320px;
+  width: 300px;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -8579,7 +8579,7 @@ html[data-density='compact'] .chat-history-row {
 /* 垂直标签栏：宽度由内联样式控制，折叠时只留图标 */
 .app-shell.vertical-tabs .tab-strip {
   flex: 0 0 auto;
-  min-width: 52px;
+  min-width: 48px;
 }
 
 .tab-strip.is-collapsed .tab-strip-list {
@@ -11332,7 +11332,7 @@ html[data-density='compact'] .chat-history-row {
 }
 
 .app-shell.vertical-tabs:has(.tab-strip.is-collapsed) {
-  padding-left: 52px;
+  padding-left: 48px;
 }
 
 .app-shell.vertical-tabs .tab-strip.is-collapsed {

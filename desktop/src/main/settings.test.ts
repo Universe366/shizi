@@ -256,6 +256,22 @@ describe('设置的持久化字段', () => {
     expect(loadSettings().search.autoSearchOnChat).toBe(false);
   });
 
+  it('旧默认侧栏/标签宽度一次性收窄，之后尊重用户拖动', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({ general: { sidebarWidth: 320, verticalTabsWidth: 220 } }),
+      'utf8'
+    );
+    const upgraded = loadSettings();
+    expect(upgraded.general.sidebarWidth).toBe(300);
+    expect(upgraded.general.verticalTabsWidth).toBe(200);
+    expect(upgraded.general.compactLayoutVersion).toBe(1);
+
+    upgraded.general.sidebarWidth = 320;
+    saveSettings(upgraded);
+    expect(loadSettings().general.sidebarWidth).toBe(320);
+  });
+
   it('旧检索证据量一次性升级，之后尊重用户值', () => {
     fs.writeFileSync(
       path.join(state.dir, 'settings.json'),

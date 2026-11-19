@@ -133,13 +133,13 @@ export function AppearanceGroup({ value, onChange }: Props) {
       <input
         className="settings-input"
         type="number"
-        min={260}
+        min={240}
         max={900}
         step={10}
-        value={value.sidebarWidth || 320}
+        value={value.sidebarWidth || 300}
         onChange={(event) =>
           onChange({
-            sidebarWidth: Math.min(900, Math.max(260, Number(event.target.value) || 320))
+            sidebarWidth: Math.min(900, Math.max(240, Number(event.target.value) || 300))
           })
         }
       />

@@ -146,10 +146,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     cacheSubtitles: true,
     subtitleCacheDays: 30,
     fontScale: 1,
-    sidebarWidth: 320,
+    sidebarWidth: 300,
     sidebarPosition: 'left',
     verticalTabs: true,
-    verticalTabsWidth: 220,
+    verticalTabsWidth: 200,
     verticalTabsCollapsed: false,
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
     panelLayout: { order: [], hidden: [] },
@@ -525,7 +525,7 @@ function normalize(input: unknown): AppSettings {
       }
       const sidebarWidth = Number(raw.general.sidebarWidth);
       if (Number.isFinite(sidebarWidth)) {
-        base.general.sidebarWidth = Math.min(2000, Math.max(260, Math.round(sidebarWidth)));
+        base.general.sidebarWidth = Math.min(2000, Math.max(240, Math.round(sidebarWidth)));
       }
       base.general.sidebarPosition = raw.general.sidebarPosition === 'right' ? 'right' : 'left';
       base.general.sidebarCollapsed = raw.general.sidebarCollapsed === true;
@@ -541,7 +541,13 @@ function normalize(input: unknown): AppSettings {
       const paneWidth = Number(raw.general.verticalTabsWidth);
       base.general.verticalTabsWidth = Number.isFinite(paneWidth)
         ? Math.min(360, Math.max(160, Math.round(paneWidth)))
-        : 220;
+        : 200;
+      // 0.164 起收窄旧默认宽度，给中间网页让位；用户自己拖过的不动。
+      if ((Number(raw.general.compactLayoutVersion) || 0) < 1) {
+        if (base.general.sidebarWidth === 320) base.general.sidebarWidth = 300;
+        if (base.general.verticalTabsWidth === 220) base.general.verticalTabsWidth = 200;
+      }
+      base.general.compactLayoutVersion = 1;
       base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
       base.general.browserToolbar = normalizeBrowserToolbar(raw.general.browserToolbar);
       base.general.panelLayout = normalizePanelLayout(raw.general.panelLayout);
@@ -1979,7 +1985,7 @@ export function setSidebarLayout(patch: {
 }): AppSettings {
   const settings = loadSettings();
   if (Number.isFinite(Number(patch.width))) {
-    settings.general.sidebarWidth = Math.min(900, Math.max(260, Math.round(Number(patch.width))));
+    settings.general.sidebarWidth = Math.min(900, Math.max(240, Math.round(Number(patch.width))));
   }
   if (patch.position === 'left' || patch.position === 'right') {
     settings.general.sidebarPosition = patch.position;

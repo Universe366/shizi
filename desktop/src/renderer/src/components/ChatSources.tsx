@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, ChevronDown, Globe } from 'lucide-react';
 import type { WebReference } from '../../../shared/types';
+import { openCitation } from '../lib/openCitation';
 
 interface ChatSourcesProps {
   sources: WebReference[];
@@ -59,7 +60,7 @@ export function ChatSources({ sources, engine, messageIndex }: ChatSourcesProps)
                 id={`cite-m${messageIndex}-${index + 1}`}
                 className="chat-source"
                 title={reference.url}
-                onClick={() => void window.bsub.openExternal(reference.url)}
+                onClick={() => void openCitation(reference.url)}
               >
                 <span className="chat-source-index">{index + 1}</span>
                 <span className="chat-source-favicon" aria-hidden>

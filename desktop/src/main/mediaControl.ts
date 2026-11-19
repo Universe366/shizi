@@ -46,6 +46,11 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   var osd = null, badge = null;
   var osdTimer = 0, commitTimer = 0, lastPostAt = 0, lastKeyAt = 0, mounted = false;
   var syncTimer = 0;
+  // 倍速角标可拖动，位置按站点存在 page localStorage 里。
+  var BADGE_POS_KEY = 'shizi.mediaBadgePos';
+  var badgePos = null;
+  var badgeDrag = null;
+  var badgeSuppressClick = false;
 
   function clamp(value) {    var number = Number(value);
     if (!isFinite(number)) return 1;
@@ -256,8 +261,10 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     "  font:600 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;",
     '  font-variant-numeric:tabular-nums;box-shadow:0 6px 18px rgba(0,0,0,.26);',
     '  opacity:.7;pointer-events:auto;transition:opacity .16s ease,transform .16s ease;display:none;',
+    '  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;',
     '}',
     '.badge:hover{opacity:1;}',
+    '.badge.is-dragging{cursor:grabbing;opacity:1;transform:scale(1.04);}',
     '.preset:focus-visible,.step:focus-visible,.toggle:focus-visible,.close:focus-visible,.badge:focus-visible{',
     '  outline:2px solid var(--fg);outline-offset:2px;}'
   ].join('\n');
@@ -440,12 +447,116 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     shadow.appendChild(osd);
   }
 
+  function loadBadgePos() {
+    try {
+      var raw = localStorage.getItem(BADGE_POS_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !isFinite(parsed.left) || !isFinite(parsed.top)) return null;
+      return { left: Number(parsed.left), top: Number(parsed.top) };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function clampBadge(left, top) {
+    var width = badge ? badge.offsetWidth || 40 : 40;
+    var height = badge ? badge.offsetHeight || 26 : 26;
+    var maxLeft = Math.max(4, window.innerWidth - width - 4);
+    var maxTop = Math.max(4, window.innerHeight - height - 4);
+    return {
+      left: Math.min(Math.max(4, Number(left) || 4), maxLeft),
+      top: Math.min(Math.max(4, Number(top) || 4), maxTop)
+    };
+  }
+
+  function placeBadge(left, top, save) {
+    if (!badge) return;
+    var next = clampBadge(left, top);
+    badge.style.left = next.left + 'px';
+    badge.style.top = next.top + 'px';
+    badge.style.right = 'auto';
+    badge.style.bottom = 'auto';
+    badgePos = next;
+    if (save) {
+      try {
+        localStorage.setItem(BADGE_POS_KEY, JSON.stringify(next));
+      } catch (error) {
+        // 站点禁用存储时只在当前页面生效
+      }
+    }
+  }
+
+  function clampCurrentBadge() {
+    if (badge && badgePos) placeBadge(badgePos.left, badgePos.top, false);
+  }
+
   function buildBadge() {
     badge = mk('button', 'badge', '1\u00d7');
     badge.type = 'button';
-    badge.title = '\u8c03\u6574\u64ad\u653e\u901f\u5ea6';
+    badge.title = '\u62d6\u52a8\u79fb\u52a8\u4f4d\u7f6e \u00b7 \u70b9\u51fb\u8c03\u6574\u64ad\u653e\u901f\u5ea6';
+    badge.setAttribute('aria-label', '\u8c03\u6574\u64ad\u653e\u901f\u5ea6\uff0c\u53ef\u62d6\u52a8');
+
+    var saved = loadBadgePos();
+    if (saved) placeBadge(saved.left, saved.top, false);
+
+    badge.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0) return;
+      var rect = badge.getBoundingClientRect();
+      badgeDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: rect.left,
+        top: rect.top,
+        moved: false
+      };
+      badge.classList.add('is-dragging');
+      try {
+        badge.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // ignore
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    badge.addEventListener('pointermove', function (event) {
+      if (!badgeDrag || badgeDrag.pointerId !== event.pointerId) return;
+      var dx = event.clientX - badgeDrag.startX;
+      var dy = event.clientY - badgeDrag.startY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) badgeDrag.moved = true;
+      if (badgeDrag.moved) placeBadge(badgeDrag.left + dx, badgeDrag.top + dy, false);
+      event.stopPropagation();
+    });
+
+    function endDrag(event) {
+      if (!badgeDrag) return;
+      var moved = badgeDrag.moved;
+      badgeDrag = null;
+      badge.classList.remove('is-dragging');
+      try {
+        badge.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // ignore
+      }
+      if (moved) {
+        badgeSuppressClick = true;
+        if (badgePos) placeBadge(badgePos.left, badgePos.top, true);
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+
+    badge.addEventListener('pointerup', endDrag);
+    badge.addEventListener('pointercancel', endDrag);
+
     badge.addEventListener('click', function (event) {
       event.stopPropagation();
+      if (badgeSuppressClick) {
+        badgeSuppressClick = false;
+        return;
+      }
       openPanel();
     });
     shadow.appendChild(badge);
@@ -465,8 +576,10 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     buildPanel();
     mountHost();
     document.addEventListener('fullscreenchange', mountHost, true);
+    document.addEventListener('fullscreenchange', clampCurrentBadge, true);
     document.addEventListener('pointerdown', onDocumentPointerDown, true);
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('resize', clampCurrentBadge);
   }
 
   function mountHost() {
@@ -676,8 +789,10 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
       clearTimeout(osdTimer);
       clearTimeout(commitTimer);
       document.removeEventListener('fullscreenchange', mountHost, true);
+      document.removeEventListener('fullscreenchange', clampCurrentBadge, true);
       document.removeEventListener('pointerdown', onDocumentPointerDown, true);
       window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('resize', clampCurrentBadge);
       if (host && host.parentNode) host.parentNode.removeChild(host);
       host = null;
       shadow = null;
