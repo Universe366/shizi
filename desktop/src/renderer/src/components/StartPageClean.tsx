@@ -3,14 +3,18 @@ import {
   ArrowRight,
   CloudSun,
   Command,
+  Copy,
+  Download,
+  ExternalLink,
   Pencil,
   Plus,
   Search,
   Settings,
   Trash2,
+  Upload,
   X
 } from 'lucide-react';
-import type { AppSettings, LibraryVideo, StartShortcut } from '../../../shared/types';
+import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
 import {
   SEARCH_ENGINES,
   buildSearchUrl,
@@ -18,8 +22,17 @@ import {
   searchEngineLabel,
   type SearchEngineId
 } from '../../../shared/searchEngines';
-import { greeting, hostOf, normalizeUrl, type Weather } from './start/model';
+import {
+  buildStartBackup,
+  greeting,
+  hostOf,
+  normalizeUrl,
+  parseStartBackup,
+  type Weather
+} from './start/model';
+import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
+import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 
 type General = AppSettings['general'];
 
@@ -46,8 +59,49 @@ const WALLPAPERS: Array<{ id: NonNullable<General['startWallpaper']>; label: str
 const NOTES_KEY = 'start-clean-notes';
 const SHOW_NOTES_KEY = 'start-clean-show-notes';
 const RECENT_KEY = 'start-clean-recent';
+const TABS_KEY = 'start-clean-tabs';
+const TODO_KEY = 'start-clean-todo';
+const POMODORO_KEY = 'start-clean-pomodoro-widget';
+const QUOTE_KEY = 'start-clean-quote';
+const LABELS_KEY = 'start-clean-labels';
+const ICON_SIZE_KEY = 'start-clean-icon-size';
+const SECONDS_KEY = 'start-clean-seconds';
+const TODOS_KEY = 'start-clean-todos';
 const DIM_KEY = 'start-clean-dim';
 const HISTORY_KEY = 'start-search-history';
+
+interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+const QUOTES = [
+  '慢慢来，比较快。',
+  '先把事情做完，再把它做好。',
+  '专注不是做更多，而是少做一点。',
+  '今天只推进一件最重要的事。',
+  '把复杂的事拆成下一步。',
+  '留一点空白给意外的好主意。'
+];
+
+function readTodos(): TodoItem[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TODOS_KEY) || '[]');
+    return Array.isArray(raw)
+      ? raw
+          .filter((item) => item && typeof item.text === 'string')
+          .slice(0, 50)
+          .map((item) => ({
+            id: String(item.id || Math.random().toString(36).slice(2)),
+            text: String(item.text).slice(0, 120),
+            done: item.done === true
+          }))
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 function readBool(key: string, fallback: boolean): boolean {
   try {
@@ -96,6 +150,33 @@ function newId(): string {
   }
 }
 
+function readImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取图片失败'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('不是有效的图片'));
+      image.onload = () => {
+        const max = 1920;
+        const scale = Math.min(1, max / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext('2d');
+        if (!context) {
+          resolve(String(reader.result || ''));
+          return;
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      image.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 /** 起始页：极简时钟 + 搜索 + 快捷访问，低频设置全部收进右侧抽屉。 */
 export function StartPageClean({
   onNavigate,
@@ -125,6 +206,25 @@ export function StartPageClean({
   const [notes, setNotes] = useState(readNotes);
   const [showRecent, setShowRecent] = useState(() => readBool(RECENT_KEY, true));
   const [showNotes, setShowNotes] = useState(() => readBool(SHOW_NOTES_KEY, false));
+  const [showTabs, setShowTabs] = useState(() => readBool(TABS_KEY, false));
+  const [showTodo, setShowTodo] = useState(() => readBool(TODO_KEY, false));
+  const [showPomodoro, setShowPomodoro] = useState(() => readBool(POMODORO_KEY, false));
+  const [showQuote, setShowQuote] = useState(() => readBool(QUOTE_KEY, false));
+  const [labels, setLabels] = useState(() => readBool(LABELS_KEY, true));
+  const [iconSize, setIconSize] = useState<'small' | 'medium' | 'large'>(() => {
+    const raw = localStorage.getItem(ICON_SIZE_KEY);
+    return raw === 'small' || raw === 'large' ? raw : 'medium';
+  });
+  const [showSeconds, setShowSeconds] = useState(() => readBool(SECONDS_KEY, false));
+  const [tabs, setTabs] = useState<TabInfo[]>([]);
+  const [todos, setTodos] = useState<TodoItem[]>(readTodos);
+  const [todoDraft, setTodoDraft] = useState('');
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    item: StartShortcut;
+  } | null>(null);
+  const [sheetTab, setSheetTab] = useState<'look' | 'search' | 'links' | 'widgets' | 'data'>('look');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState('');
@@ -139,6 +239,10 @@ export function StartPageClean({
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLInputElement>(null);
+  const bookmarkInputRef = useRef<HTMLInputElement>(null);
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
+  const pomodoro = usePomodoro();
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -184,6 +288,18 @@ export function StartPageClean({
       alive = false;
     };
   }, [hotOn]);
+
+  useEffect(() => {
+    if (!showTabs) return;
+    void window.bsub.listTabs().then((items) => setTabs(items.slice(0, 6)));
+  }, [showTabs]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [contextMenu]);
 
   useEffect(() => {
     if (!engineOpen) return;
@@ -337,9 +453,106 @@ export function StartPageClean({
     await patchGeneral({ startShortcuts: next });
   };
 
+  const setFlag = (key: string, setter: (value: boolean) => void, value: boolean) => {
+    setter(value);
+    try {
+      localStorage.setItem(key, value ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  };
+
+  const writeTodos = (next: TodoItem[]) => {
+    setTodos(next);
+    try {
+      localStorage.setItem(TODOS_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
+
+  const addTodo = () => {
+    const text = todoDraft.trim();
+    if (!text) return;
+    writeTodos([...todos, { id: newId(), text, done: false }]);
+    setTodoDraft('');
+  };
+
   const openShortcut = (item: StartShortcut) => {
     onClose();
     onNavigate(item.url);
+  };
+
+  const importBookmarks = async (file: File) => {
+    const parsed = parseBookmarksHtml(await file.text());
+    if (!parsed.shortcuts.length) {
+      showNotice('没有从书签文件里找到可用网址');
+      return;
+    }
+    const seen = new Set(shortcuts.map((item) => item.url.toLowerCase()));
+    const merged = [
+      ...shortcuts,
+      ...parsed.shortcuts
+        .filter((item) => !seen.has(item.url.toLowerCase()))
+        .map((item) => ({ ...item, id: newId() }))
+    ];
+    await persistShortcuts(merged);
+    showNotice(`已导入 ${merged.length - shortcuts.length} 个书签`);
+  };
+
+  const exportBackup = () => {
+    const backup = buildStartBackup({
+      shortcuts,
+      wallpaper,
+      wallpaperImage: String(general?.startWallpaperImage || ''),
+      effect: { blur: 0, dim },
+      engine,
+      city,
+      weatherOn,
+      hotOn,
+      notes
+    });
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'shizi-start-backup.json';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showNotice('起始页备份已导出');
+  };
+
+  const importBackup = async (file: File) => {
+    const parsed = parseStartBackup(await file.text());
+    if (!parsed.ok) {
+      showNotice(parsed.error);
+      return;
+    }
+    const prefs = parsed.data.prefs;
+    await persistShortcuts(parsed.data.shortcuts);
+    if (prefs.wallpaper || prefs.engine || prefs.city) {
+      await patchGeneral({
+        ...(prefs.wallpaper ? { startWallpaper: prefs.wallpaper as General['startWallpaper'] } : {}),
+        ...(prefs.engine && isSearchEngineId(prefs.engine) ? { searchEngine: prefs.engine } : {}),
+        ...(prefs.city ? { startCity: prefs.city } : {})
+      });
+    }
+    if (prefs.engine && isSearchEngineId(prefs.engine)) setEngine(prefs.engine);
+    if (prefs.city) setCityDraft(prefs.city);
+    showNotice(`已恢复 ${parsed.data.shortcuts.length} 个快捷方式`);
+  };
+
+  const uploadWallpaper = async (file: File) => {
+    try {
+      const image = await readImage(file);
+      setGeneral((current) =>
+        current ? { ...current, startWallpaperImage: image } : current
+      );
+      await patchGeneral({ startWallpaperImage: image });
+      showNotice('背景已更新');
+    } catch (error) {
+      showNotice((error as Error).message || '背景更新失败');
+    }
   };
 
   const submitSearch = (value?: string) => {
@@ -437,7 +650,9 @@ export function StartPageClean({
     paletteQuery.trim() ? item.label.includes(paletteQuery.trim()) : true
   );
 
-  const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const time = showSeconds
+    ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const dateText = now.toLocaleDateString('zh-CN', {
     month: 'long',
     day: 'numeric',
@@ -446,7 +661,7 @@ export function StartPageClean({
 
   return (
     <div
-      className={`start-page start-clean start-clean-${dark ? 'dark' : 'light'} start-clean-wall-${wallpaper}`}
+      className={`start-page start-clean start-clean-${dark ? 'dark' : 'light'} start-clean-wall-${wallpaper} sc-size-${iconSize}${labels ? '' : ' sc-hide-labels'}`}
       style={
         {
           '--sc-dim': dim,
@@ -456,6 +671,40 @@ export function StartPageClean({
     >
       <div className="sc-background" aria-hidden />
       <div className="sc-veil" aria-hidden />
+
+      <input
+        ref={bookmarkInputRef}
+        type="file"
+        accept=".html,.htm,text/html"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void importBookmarks(file);
+        }}
+      />
+      <input
+        ref={backupInputRef}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void importBackup(file);
+        }}
+      />
+      <input
+        ref={wallpaperInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void uploadWallpaper(file);
+        }}
+      />
 
       <header className="sc-topbar">
         <div className="sc-weather">
@@ -639,6 +888,10 @@ export function StartPageClean({
                   className="sc-link"
                   title={`${item.label} · ${item.url}`}
                   onClick={() => openShortcut(item)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({ x: event.clientX, y: event.clientY, item });
+                  }}
                 >
                   <SiteIcon item={item} />
                   <span className="sc-link-label">{item.label}</span>
@@ -762,8 +1015,190 @@ export function StartPageClean({
               />
             </article>
           )}
+
+          {showTodo && (
+            <article className="sc-card">
+              <header>
+                <span>待办</span>
+                <span>{todos.filter((item) => !item.done).length} 项</span>
+              </header>
+              <form
+                className="sc-todo-add"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  addTodo();
+                }}
+              >
+                <input
+                  value={todoDraft}
+                  placeholder="添加一项待办，回车确认"
+                  onChange={(event) => setTodoDraft(event.target.value)}
+                />
+                <button type="submit" title="添加">
+                  <Plus size={13} />
+                </button>
+              </form>
+              <div className="sc-todo-list">
+                {todos.slice(0, 5).map((item) => (
+                  <label key={item.id} className={item.done ? 'is-done' : ''}>
+                    <input
+                      type="checkbox"
+                      checked={item.done}
+                      onChange={() =>
+                        writeTodos(
+                          todos.map((entry) =>
+                            entry.id === item.id ? { ...entry, done: !entry.done } : entry
+                          )
+                        )
+                      }
+                    />
+                    <span>{item.text}</span>
+                    <button
+                      type="button"
+                      title="删除"
+                      onClick={() =>
+                        writeTodos(todos.filter((entry) => entry.id !== item.id))
+                      }
+                    >
+                      <X size={11} />
+                    </button>
+                  </label>
+                ))}
+              </div>
+            </article>
+          )}
+
+          {showPomodoro && (
+            <article className="sc-card sc-pomodoro">
+              <header>
+                <span>番茄钟</span>
+                <span>
+                  {pomodoro.phase === 'work'
+                    ? '专注'
+                    : pomodoro.phase === 'short'
+                      ? '短休'
+                      : '长休'}
+                </span>
+              </header>
+              <div className="sc-pomodoro-time">
+                {Math.floor(pomodoro.left / 60)}:{pad(pomodoro.left % 60)}
+              </div>
+              <div className="sc-pomodoro-actions">
+                <button type="button" onClick={() => pomodoroActions.toggle()}>
+                  {pomodoro.running ? '暂停' : '开始'}
+                </button>
+                <button type="button" onClick={() => pomodoroActions.reset()}>
+                  重置
+                </button>
+              </div>
+            </article>
+          )}
+
+          {showTabs && tabs.length > 0 && (
+            <article className="sc-card">
+              <header>
+                <span>打开的标签</span>
+                <button type="button" onClick={() => setShowTabs(false)}>
+                  隐藏
+                </button>
+              </header>
+              <div className="sc-recent-list">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={item.title}
+                    onClick={() => {
+                      onClose();
+                      onNavigate(item.url);
+                    }}
+                  >
+                    <span className="sc-recent-title">{item.title || item.url}</span>
+                    <span className="sc-recent-meta">{hostOf(item.url)}</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          )}
+
+          {showQuote && (
+            <article className="sc-card sc-quote">
+              <header>
+                <span>今日一句</span>
+              </header>
+              <p>
+                {QUOTES[
+                  Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000) %
+                    QUOTES.length
+                ]}
+              </p>
+            </article>
+          )}
         </section>
       </main>
+
+      {contextMenu && (
+        <div
+          className="sc-context"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              openShortcut(contextMenu.item);
+            }}
+          >
+            <ExternalLink size={13} /> 打开
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              onClose();
+              void window.bsub.newTab(contextMenu.item.url);
+            }}
+          >
+            <Plus size={13} /> 新标签打开
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              void window.bsub.writeClipboard(contextMenu.item.url);
+              showNotice('链接已复制');
+            }}
+          >
+            <Copy size={13} /> 复制链接
+          </button>
+          <div className="sc-context-sep" />
+          <button
+            type="button"
+            onClick={() => {
+              setContextMenu(null);
+              setDraft({
+                id: contextMenu.item.id,
+                label: contextMenu.item.label,
+                url: contextMenu.item.url,
+                group: contextMenu.item.group || ''
+              });
+            }}
+          >
+            <Pencil size={13} /> 编辑
+          </button>
+          <button
+            type="button"
+            className="is-danger"
+            onClick={() => {
+              setContextMenu(null);
+              removeShortcut(contextMenu.item);
+            }}
+          >
+            <Trash2 size={13} /> 删除
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div className="sc-toast" role="status">
@@ -792,177 +1227,337 @@ export function StartPageClean({
               </button>
             </header>
 
-            <section>
-              <h4>背景</h4>
-              <div className="sc-wall-grid">
-                {WALLPAPERS.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`sc-wall sc-wall-${item.id}${wallpaper === item.id ? ' is-active' : ''}`}
-                    onClick={() => {
-                      setGeneral((current) =>
-                        current ? { ...current, startWallpaper: item.id } : current
-                      );
-                      void patchGeneral({ startWallpaper: item.id });
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              <label className="sc-field">
-                <span>背景暗度 {Math.round(dim * 100)}%</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={0.7}
-                  step={0.05}
-                  value={dim}
+            <div className="sc-sheet-tabs" role="tablist">
+              {([
+                ['look', '外观'],
+                ['search', '搜索'],
+                ['links', '快捷方式'],
+                ['widgets', '小组件'],
+                ['data', '数据']
+              ] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={sheetTab === id}
+                  className={sheetTab === id ? 'is-active' : ''}
+                  onClick={() => setSheetTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {sheetTab === 'look' && (
+              <>
+                <section>
+                  <h4>背景</h4>
+                  <div className="sc-wall-grid">
+                    {WALLPAPERS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`sc-wall sc-wall-${item.id}${wallpaper === item.id ? ' is-active' : ''}`}
+                        onClick={() => {
+                          setGeneral((current) =>
+                            current ? { ...current, startWallpaper: item.id } : current
+                          );
+                          void patchGeneral({ startWallpaper: item.id });
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="sc-inline-actions">
+                    <button type="button" className="sc-secondary" onClick={() => wallpaperInputRef.current?.click()}>
+                      <Upload size={13} /> 上传图片
+                    </button>
+                    {customWallpaper && (
+                      <button
+                        type="button"
+                        className="sc-secondary"
+                        onClick={() => {
+                          setGeneral((current) =>
+                            current ? { ...current, startWallpaperImage: '' } : current
+                          );
+                          void patchGeneral({ startWallpaperImage: '' });
+                        }}
+                      >
+                        恢复默认背景
+                      </button>
+                    )}
+                  </div>
+                  <label className="sc-field">
+                    <span>背景暗度 {Math.round(dim * 100)}%</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={0.7}
+                      step={0.05}
+                      value={dim}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        setDim(value);
+                        try {
+                          localStorage.setItem(DIM_KEY, String(value));
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                    />
+                  </label>
+                </section>
+
+                <section>
+                  <h4>布局</h4>
+                  <div className="sc-segment">
+                    {([
+                      ['small', '小图标'],
+                      ['medium', '中图标'],
+                      ['large', '大图标']
+                    ] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={iconSize === id ? 'is-active' : ''}
+                        onClick={() => {
+                          setIconSize(id);
+                          try {
+                            localStorage.setItem(ICON_SIZE_KEY, id);
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="sc-check">
+                    <input
+                      type="checkbox"
+                      checked={labels}
+                      onChange={(event) => setFlag(LABELS_KEY, setLabels, event.target.checked)}
+                    />
+                    显示快捷方式名称
+                  </label>
+                  <label className="sc-check">
+                    <input
+                      type="checkbox"
+                      checked={showSeconds}
+                      onChange={(event) => setFlag(SECONDS_KEY, setShowSeconds, event.target.checked)}
+                    />
+                    时钟显示秒
+                  </label>
+                </section>
+              </>
+            )}
+
+            {sheetTab === 'search' && (
+              <section>
+                <h4>搜索引擎</h4>
+                <select
+                  className="sc-select"
+                  value={engine}
                   onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setDim(value);
+                    const next = event.target.value;
+                    if (!isSearchEngineId(next)) return;
+                    setEngine(next);
+                    void patchGeneral({ searchEngine: next });
+                  }}
+                >
+                  {SEARCH_ENGINES.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="sc-hint">
+                  自定义引擎的模板在「完整设置 → 外观与浏览器」里配置。
+                </div>
+                <button
+                  type="button"
+                  className="sc-secondary"
+                  onClick={() => {
+                    setHistory([]);
                     try {
-                      localStorage.setItem(DIM_KEY, String(value));
+                      localStorage.removeItem(HISTORY_KEY);
                     } catch {
                       // ignore
                     }
+                    showNotice('搜索历史已清空');
                   }}
-                />
-              </label>
-            </section>
+                >
+                  <Trash2 size={13} /> 清空搜索历史
+                </button>
+              </section>
+            )}
 
-            <section>
-              <h4>搜索</h4>
-              <select
-                className="sc-select"
-                value={engine}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  if (!isSearchEngineId(next)) return;
-                  setEngine(next);
-                  void patchGeneral({ searchEngine: next });
-                }}
-              >
-                {SEARCH_ENGINES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-              <label className="sc-field">
-                <span>天气城市</span>
-                <input
-                  value={cityDraft}
-                  onChange={(event) => setCityDraft(event.target.value)}
-                  onBlur={() => {
-                    const value = cityDraft.trim() || '上海';
-                    setCityDraft(value);
-                    void patchGeneral({ startCity: value });
-                  }}
-                />
-              </label>
-            </section>
-
-            <section>
-              <h4>小组件</h4>
-              <label className="sc-check">
-                <input
-                  type="checkbox"
-                  checked={weatherOn}
-                  onChange={(event) => void patchGeneral({ startWeather: event.target.checked })}
-                />
-                天气
-              </label>
-              <label className="sc-check">
-                <input
-                  type="checkbox"
-                  checked={hotOn}
-                  onChange={(event) => void patchGeneral({ startHotSearch: event.target.checked })}
-                />
-                B 站热搜
-              </label>
-              <label className="sc-check">
-                <input
-                  type="checkbox"
-                  checked={showRecent}
-                  onChange={(event) => {
-                    const value = event.target.checked;
-                    setShowRecent(value);
-                    try {
-                      localStorage.setItem(RECENT_KEY, value ? '1' : '0');
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                />
-                最近打开
-              </label>
-              <label className="sc-check">
-                <input
-                  type="checkbox"
-                  checked={showNotes}
-                  onChange={(event) => {
-                    const value = event.target.checked;
-                    setShowNotes(value);
-                    try {
-                      localStorage.setItem(SHOW_NOTES_KEY, value ? '1' : '0');
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                />
-                便签
-              </label>
-            </section>
-
-            <section>
-              <h4>快捷方式</h4>
-              <div className="sc-edit-list">
-                {shortcuts.map((item) => (
-                  <div key={item.id} className="sc-edit-row">
-                    <span>{item.label}</span>
-                    <span>{hostOf(item.url)}</span>
+            {sheetTab === 'links' && (
+              <>
+                <section>
+                  <h4>快捷方式</h4>
+                  <div className="sc-edit-list">
+                    {shortcuts.map((item) => (
+                      <div key={item.id} className="sc-edit-row">
+                        <span>{item.label}</span>
+                        <span>{hostOf(item.url)}</span>
+                        <button
+                          type="button"
+                          title="编辑"
+                          onClick={() =>
+                            setDraft({
+                              id: item.id,
+                              label: item.label,
+                              url: item.url,
+                              group: item.group || ''
+                            })
+                          }
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button type="button" title="删除" onClick={() => removeShortcut(item)}>
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="sc-inline-actions">
                     <button
                       type="button"
-                      title="编辑"
-                      onClick={() =>
-                        setDraft({
-                          id: item.id,
-                          label: item.label,
-                          url: item.url,
-                          group: item.group || ''
-                        })
-                      }
+                      className="sc-secondary"
+                      onClick={() => setDraft({ label: '', url: '', group: '' })}
                     >
-                      <Pencil size={12} />
+                      <Plus size={13} /> 添加
                     </button>
-                    <button type="button" title="删除" onClick={() => removeShortcut(item)}>
-                      <Trash2 size={12} />
+                    <button
+                      type="button"
+                      className="sc-secondary"
+                      onClick={() => bookmarkInputRef.current?.click()}
+                    >
+                      <Upload size={13} /> 导入书签
                     </button>
                   </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="sc-secondary"
-                onClick={() => setDraft({ label: '', url: '', group: '' })}
-              >
-                <Plus size={13} /> 添加快捷方式
-              </button>
-            </section>
+                </section>
+                <section>
+                  <h4>备份</h4>
+                  <div className="sc-inline-actions">
+                    <button type="button" className="sc-secondary" onClick={exportBackup}>
+                      <Download size={13} /> 导出起始页
+                    </button>
+                    <button
+                      type="button"
+                      className="sc-secondary"
+                      onClick={() => backupInputRef.current?.click()}
+                    >
+                      <Upload size={13} /> 导入起始页
+                    </button>
+                  </div>
+                  <div className="sc-hint">备份包含快捷方式、背景、搜索引擎与城市。</div>
+                </section>
+              </>
+            )}
 
-            <section className="sc-sheet-actions">
-              <button type="button" onClick={onOpenSettings}>
-                完整设置
-              </button>
-              <button type="button" onClick={onOpenLibrary}>
-                工作台
-              </button>
-              <button type="button" onClick={onOpenHistory}>
-                历史记录
-              </button>
-            </section>
+            {sheetTab === 'widgets' && (
+              <section>
+                <h4>小组件</h4>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={weatherOn}
+                    onChange={(event) => void patchGeneral({ startWeather: event.target.checked })}
+                  />
+                  天气
+                </label>
+                <label className="sc-field">
+                  <span>天气城市</span>
+                  <input
+                    value={cityDraft}
+                    onChange={(event) => setCityDraft(event.target.value)}
+                    onBlur={() => {
+                      const value = cityDraft.trim() || '上海';
+                      setCityDraft(value);
+                      void patchGeneral({ startCity: value });
+                    }}
+                  />
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={hotOn}
+                    onChange={(event) => void patchGeneral({ startHotSearch: event.target.checked })}
+                  />
+                  B 站热搜
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showRecent}
+                    onChange={(event) => setFlag(RECENT_KEY, setShowRecent, event.target.checked)}
+                  />
+                  最近打开
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showTabs}
+                    onChange={(event) => setFlag(TABS_KEY, setShowTabs, event.target.checked)}
+                  />
+                  打开的标签
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showNotes}
+                    onChange={(event) => setFlag(SHOW_NOTES_KEY, setShowNotes, event.target.checked)}
+                  />
+                  便签
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showTodo}
+                    onChange={(event) => setFlag(TODO_KEY, setShowTodo, event.target.checked)}
+                  />
+                  待办
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showPomodoro}
+                    onChange={(event) => setFlag(POMODORO_KEY, setShowPomodoro, event.target.checked)}
+                  />
+                  番茄钟
+                </label>
+                <label className="sc-check">
+                  <input
+                    type="checkbox"
+                    checked={showQuote}
+                    onChange={(event) => setFlag(QUOTE_KEY, setShowQuote, event.target.checked)}
+                  />
+                  每日一句
+                </label>
+              </section>
+            )}
+
+            {sheetTab === 'data' && (
+              <section>
+                <h4>打开</h4>
+                <div className="sc-sheet-actions">
+                  <button type="button" onClick={onOpenSettings}>完整设置</button>
+                  <button type="button" onClick={onOpenLibrary}>工作台</button>
+                  <button type="button" onClick={onOpenHistory}>历史记录</button>
+                  <button type="button" onClick={onOpenBookmarks}>书签</button>
+                  <button type="button" onClick={onOpenDownloads}>下载</button>
+                  <button type="button" onClick={onOpenTasks}>任务</button>
+                  <button type="button" onClick={onOpenGlobalSearch}>全局搜索</button>
+                </div>
+                <div className="sc-hint">
+                  更多设置（主题、代理、快捷键、数据目录）在「完整设置」里。
+                </div>
+              </section>
+            )}
           </aside>
         </>
       )}
