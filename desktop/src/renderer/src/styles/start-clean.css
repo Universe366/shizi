@@ -1375,3 +1375,80 @@ body.sc-dragging {
   cursor: grabbing;
   user-select: none;
 }
+
+/* 文件夹磁贴 */
+.sc-folder {
+  position: relative;
+}
+
+.sc-folder-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--sc-glass-solid);
+  border: 1px solid var(--sc-border);
+  color: var(--sc-muted);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-folder:hover .sc-folder-icon {
+  color: var(--sc-accent);
+  border-color: var(--sc-accent);
+}
+
+.sc-folder-count {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--sc-accent);
+  color: var(--sc-on-accent);
+  font-size: 9px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-folder-back {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+  padding: 5px 10px;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background: var(--sc-glass-solid);
+  color: var(--sc-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sc-folder-back:hover {
+  color: var(--sc-text);
+  border-color: var(--sc-accent);
+}
+
+.sc-edit-row .sc-group-input {
+  min-width: 0;
+  width: 100%;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--sc-accent);
+  border-radius: 5px;
+  outline: none;
+  background: var(--sc-glass-solid);
+  color: var(--sc-text);
+  font-size: var(--fs-xs);
+}
+
+.sc-folder.is-drop {
+  background: var(--sc-accent-soft);
+  box-shadow: 0 0 0 2px var(--sc-accent);
+}

@@ -35,6 +35,25 @@ describe('parseBookmarksHtml', () => {
     expect(result.folders).toBe(2);
   });
 
+  it('嵌套文件夹保留为 folder', () => {
+    const nested = `<DL><p>
+      <DT><H3>书签栏</H3>
+      <DL><p>
+        <DT><H3>学习</H3>
+        <DL><p>
+          <DT><H3>视频</H3>
+          <DL><p>
+            <DT><A HREF="https://example.com/v">视频教程</A>
+          </DL><p>
+        </DL><p>
+      </DL><p>
+    </DL><p>`;
+    const result = parseBookmarksHtml(nested);
+    expect(result.shortcuts).toHaveLength(1);
+    expect(result.shortcuts[0].group).toBe('学习');
+    expect(result.shortcuts[0].folder).toBe('视频');
+  });
+
   it('空内容返回空结果', () => {
     expect(parseBookmarksHtml('')).toEqual({ shortcuts: [], folders: 0 });
   });

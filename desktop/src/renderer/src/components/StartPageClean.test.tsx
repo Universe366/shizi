@@ -6,8 +6,8 @@ import { StartPageClean } from './StartPageClean';
 const settings = {
   general: {
     startShortcuts: [
-      { id: 's1', label: 'B 站', url: 'https://www.bilibili.com/' },
-      { id: 's2', label: 'GitHub', url: 'https://github.com/', group: '学习' }
+      { id: 's1', label: 'B 站', url: 'https://www.bilibili.com/', folder: '' },
+      { id: 's2', label: 'GitHub', url: 'https://github.com/', group: '学习', folder: '' }
     ],
     startWeather: false,
     startHotSearch: false,
@@ -88,6 +88,124 @@ describe('StartPageClean', () => {
     const links = container.querySelector('.sc-links')?.textContent || '';
     expect(links).not.toContain('B 站');
     expect(links).toContain('GitHub');
+  });
+
+  it('同组同名文件夹合并，可进入和返回', async () => {
+    const original = settings.general.startShortcuts;
+    settings.general.startShortcuts = [
+      ...original,
+      {
+        id: 'f1',
+        label: '视频一',
+        url: 'https://example.com/1',
+        group: '学习',
+        folder: '视频'
+      },
+      {
+        id: 'f2',
+        label: '视频二',
+        url: 'https://example.com/2',
+        group: '学习',
+        folder: '视频'
+      }
+    ];
+    try {
+      installBsub();
+      const { container } = render(<StartPageClean {...baseProps} />);
+      await screen.findByText('GitHub');
+      const folder = screen.getByTitle(/文件夹：视频/);
+      expect(folder.textContent).toContain('2');
+      fireEvent.click(folder);
+      const links = container.querySelector('.sc-links')?.textContent || '';
+      expect(links).toContain('视频一');
+      expect(links).toContain('视频二');
+      expect(links).not.toContain('GitHub');
+      fireEvent.click(screen.getByRole('button', { name: /返回全部/ }));
+      expect(container.querySelector('.sc-links')?.textContent || '').toContain('GitHub');
+    } finally {
+      settings.general.startShortcuts = original;
+    }
+  });
+
+  it('分组可以重命名，删除分组不删除链接', async () => {
+    const { saveSettings } = installBsub();
+    const { container } = render(<StartPageClean {...baseProps} />);
+    await screen.findByText('GitHub');
+    fireEvent.click(screen.getByTitle('自定义起始页'));
+    fireEvent.click(screen.getByRole('tab', { name: '快捷方式' }));
+
+    fireEvent.click(screen.getByTitle('重命名分组'));
+    const input = container.querySelector('.sc-group-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '课程' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(saveSettings).toHaveBeenCalled());
+    let next = saveSettings.mock.calls.at(-1)?.[0] as {
+      general: { startShortcuts: Array<{ label: string; group?: string }> };
+    };
+    expect(next.general.startShortcuts.find((item) => item.label === 'GitHub')?.group).toBe(
+      '课程'
+    );
+
+    fireEvent.click(screen.getByTitle('删除分组'));
+    await waitFor(() =>
+      expect(
+        (
+          saveSettings.mock.calls.at(-1)?.[0] as {
+            general: { startShortcuts: Array<{ label: string; group?: string }> };
+          }
+        ).general.startShortcuts.find((item) => item.label === 'GitHub')?.group
+      ).toBeUndefined()
+    );
+    next = saveSettings.mock.calls.at(-1)?.[0] as {
+      general: { startShortcuts: Array<{ label: string; group?: string }> };
+    };
+    expect(next.general.startShortcuts).toHaveLength(2);
+  });
+
+  it('文件夹可重命名，重命名只影响同组同文件夹', async () => {
+    const original = settings.general.startShortcuts;
+    settings.general.startShortcuts = [
+      ...original,
+      {
+        id: 'f1',
+        label: '视频一',
+        url: 'https://example.com/1',
+        group: '学习',
+        folder: '视频'
+      },
+      {
+        id: 'f2',
+        label: '视频二',
+        url: 'https://example.com/2',
+        group: '学习',
+        folder: '视频'
+      }
+    ];
+    try {
+      const { saveSettings } = installBsub();
+      const { container } = render(<StartPageClean {...baseProps} />);
+      await screen.findByText('GitHub');
+      fireEvent.click(screen.getByTitle('自定义起始页'));
+      fireEvent.click(screen.getByRole('tab', { name: '快捷方式' }));
+      fireEvent.click(screen.getByTitle('重命名文件夹'));
+      const input = container.querySelector('.sc-group-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '视频库' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(saveSettings).toHaveBeenCalled());
+      const next = saveSettings.mock.calls.at(-1)?.[0] as {
+        general: {
+          startShortcuts: Array<{ label: string; group?: string; folder?: string }>;
+        };
+      };
+      expect(
+        next.general.startShortcuts.find((item) => item.label === '视频一')?.folder
+      ).toBe('视频库');
+      expect(
+        next.general.startShortcuts.find((item) => item.label === '视频二')?.folder
+      ).toBe('视频库');
+    } finally {
+      settings.general.startShortcuts = original;
+    }
   });
 
   it('添加快捷方式会写回设置', async () => {
