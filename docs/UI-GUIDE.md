@@ -128,6 +128,8 @@ ChatPanel
 | 深度思考 | `localStorage`：`chat-deep` |
 | 助手档案 | `localStorage`：`chat-profile`，并写回 `chat.db` 的 `profile_id` |
 | MCP 工具选择 | `localStorage`：`chat-tools`（`null` = 全部，`[]` = 不用） |
+
+助手消息操作栏的「请求详情」展开后显示实际模型、联网方式、来源/工具数量、token、本次耗时和联网降级原因；模型随历史持久化，耗时只在当前会话内存中保留。
 | 多模型选择 | `localStorage`：`chat-compare` |
 
 **注意**：选了助手档案时，请求不再下发 `mcpToolIds`，避免手动勾选覆盖档案配置。

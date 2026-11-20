@@ -1743,6 +1743,10 @@ export interface ChatMessage {
   compare?: ChatCompareResult[];
   /** 该条回答的实际 token 用量（服务端返回时才有） */
   usage?: AiUsage;
+  /** 实际使用的模型 */
+  model?: string;
+  /** 本次请求耗时（毫秒，仅当前会话内存中保留） */
+  elapsedMs?: number;
   /** 消息 id（从历史加载或写入后才有，用于收藏） */
   id?: number;
   favorite?: boolean;
