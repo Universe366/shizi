@@ -261,11 +261,7 @@ export class TabManager {
       await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
         features: enabled ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []
       });
-      try {
-        await wc.debugger.sendCommand('Emulation.setAutoDarkModeOverride', { enabled });
-      } catch {
-        // 旧内核没有这个命令时，至少保留 prefers-color-scheme 模拟。
-      }
+      // 不再开启 Chromium 的自动暗色：它会改写视频控件/渐变，B 站播放条会出现白色渐变。
     } catch {
       // 页面尚未 ready 或调试器被占用时忽略，下一次 prepare 会再试。
     }
@@ -802,6 +798,7 @@ export class TabManager {
   }
 
   private setActive(id: string): void {
+    setZoomTarget('tab');
     const previousId = this.activeId;
     if (previousId && previousId !== id) {
       // 必须赶在 setVisible(false) 之前抓，否则后台视图取不到画面。

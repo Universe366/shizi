@@ -275,6 +275,8 @@ const api: BsubApi = {
   zoomOut: () => ipcRenderer.invoke('tab:zoom-out') as Promise<void>,
   zoomReset: () => ipcRenderer.invoke('tab:zoom-reset') as Promise<void>,
   setZoom: (value: number) => ipcRenderer.invoke('tab:set-zoom', value) as Promise<void>,
+  showZoomMenu: () =>
+    ipcRenderer.invoke('page:zoom-menu') as Promise<Result<boolean>>,
   getPageZoom: () =>
     ipcRenderer.invoke('page:zoom-get') as Promise<
       Result<{ target: 'tab' | 'sidebar'; zoom: number }>

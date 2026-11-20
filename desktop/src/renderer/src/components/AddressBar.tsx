@@ -48,6 +48,7 @@ export function AddressBar({
   appDark = false,
   onToggleDark,
   zoom = 1,
+  zoomPulse = 0,
   onOpenZoom
 }: {
   tab: TabInfo | null;
@@ -69,6 +70,7 @@ export function AddressBar({
   onToggleDark?: () => void;
   /** 当前标签缩放比例 */
   zoom?: number;
+  zoomPulse?: number;
   onOpenZoom?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -685,6 +687,7 @@ export function AddressBar({
 
       {toolbar.zoom && (
         <button
+          key={zoomPulse}
           type="button"
           className="nav-btn zoom-btn"
           title="缩放"

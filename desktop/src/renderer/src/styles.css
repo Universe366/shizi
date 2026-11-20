@@ -16351,3 +16351,18 @@ sup:has(> .cite-ref) {
   font-size: 10px;
   line-height: 1.4;
 }
+
+.nav-btn.zoom-btn {
+  animation: zoom-pop 0.22s ease;
+}
+
+@keyframes zoom-pop {
+  0% {
+    transform: scale(0.92);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

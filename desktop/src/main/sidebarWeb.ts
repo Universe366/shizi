@@ -75,6 +75,7 @@ export class SidebarWebManager {
       entry.sleepTimer = undefined;
     }
     this.activeId = entry.id;
+    setZoomTarget('sidebar');
     this.attach(entry);
   }
 

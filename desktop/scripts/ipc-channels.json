@@ -212,6 +212,7 @@
   "page:track-body",
   "page:trigger-subtitle",
   "page:zoom-get",
+  "page:zoom-menu",
   "permissions:clear",
   "permissions:list",
   "permissions:revoke",

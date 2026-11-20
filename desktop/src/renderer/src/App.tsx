@@ -13,7 +13,6 @@ import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/b
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
 import { TitleBar } from './components/TitleBar';
-import { ZoomBubble } from './components/ZoomBubble';
 import { FindBar } from './components/FindBar';
 import { Sidebar } from './components/Sidebar';
 import { BrowserStage } from './components/BrowserStage';
@@ -71,10 +70,8 @@ export default function App() {
     () => Boolean(window.matchMedia?.('(prefers-color-scheme: dark)')?.matches)
   );
   const [maximized, setMaximized] = useState(false);
-  const [zoomOpen, setZoomOpen] = useState(false);
-  const [zoomToast, setZoomToast] = useState(false);
   const [zoomValue, setZoomValue] = useState(1);
-  const [overlayShot, setOverlayShot] = useState<string | null>(null);
+  const [zoomPulse, setZoomPulse] = useState(0);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -313,23 +310,9 @@ export default function App() {
   useEffect(() => {
     return window.bsub.onPageZoomChanged((event) => {
       setZoomValue(event.zoom);
-      if (zoomOpen) return;
-      let alive = true;
-      void window.bsub.capturePage().then((result) => {
-        if (!alive) return;
-        if (result.ok) setOverlayShot(result.data.dataUrl);
-        setZoomToast(true);
-      });
-      const timer = window.setTimeout(() => {
-        setZoomToast(false);
-        setOverlayShot(null);
-      }, 2600);
-      return () => {
-        alive = false;
-        window.clearTimeout(timer);
-      };
+      setZoomPulse((value) => value + 1);
     });
-  }, [zoomOpen]);
+  }, []);
 
   const toggleBookmark = async () => {
     if (!active || !/^https?:/i.test(active.url)) return;
@@ -909,15 +892,9 @@ export default function App() {
         appDark={appDark}
         onToggleDark={toggleAppDark}
         zoom={zoomValue}
+        zoomPulse={zoomPulse}
         onOpenZoom={() => {
-          setZoomToast(false);
-          void Promise.all([window.bsub.getPageZoom(), window.bsub.capturePage()]).then(
-            ([zoomState, shot]) => {
-              if (zoomState.ok) setZoomValue(zoomState.data.zoom);
-              if (shot.ok) setOverlayShot(shot.data.dataUrl);
-              setZoomOpen(true);
-            }
-          );
+          void window.bsub.showZoomMenu();
         }}
       />
       {findOpen && (
@@ -965,7 +942,7 @@ export default function App() {
           sidebarPosition={sidebarPosition}
           sidebarCollapsed={sidebarCollapsed}
           sidebarWidth={sidebarWidth}
-          snapshot={overlayShot || dragSnapshot}
+          snapshot={dragSnapshot}
         />
       </div>
       {(startOpen || settingsOpen || libraryOpen || tabs.length === 0) && (
@@ -1098,15 +1075,6 @@ export default function App() {
       />
       <DictationListener />
       </div>
-      <ZoomBubble
-        open={zoomOpen || zoomToast}
-        zoom={zoomValue}
-        onClose={() => {
-          setZoomOpen(false);
-          setZoomToast(false);
-          setOverlayShot(null);
-        }}
-      />
       <CloseDialog
         open={closeOpen}
         onChoose={(choice, remember) => {
