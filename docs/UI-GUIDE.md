@@ -200,30 +200,21 @@ node tools/theme-check.mjs        # 明暗两套主题下主按钮与说明文�
 
 ## 6. 起始页
 
-编排：`renderer/src/components/StartPage.tsx`；子模块在 `components/start/`：
+编排：`renderer/src/components/StartPageClean.tsx`；共享工具在 `components/start/`：
 
 ```
-StartPageClean.tsx     当前起始页：时钟/搜索/快捷访问/设置抽屉/命令面板（App 实际渲染）
-StartPage.tsx          旧 v3 起始页（保留作迁移参考，不再渲染）
-start/SearchBar.tsx    引擎切换 + 站内直达 + 历史 + 搜索建议
-start/ShortcutBoard.tsx 旧 v3 快捷卡片网格（不再渲染）
-start/ShortcutDialog.tsx 新增/编辑弹窗
-start/WidgetPanel.tsx  天气 / 待办 / 番茄钟 / 便签 / 热搜 / 最近入库 / 最近访问 + 编辑态开关
-start/PomodoroWidget.tsx 25 分钟专注 / 5 分钟休息，结束自动换阶段
-start/NotesWidget.tsx  便签，输入自动写 localStorage
-start/CommandPalette.tsx 指令面板（⌘/Ctrl+K）：操作 / 页面 / 小组件 / 搜索 / 快捷方式
-start/StartSidebar.tsx 旧 v3 分组栏（不再渲染）
-start/Dock.tsx         旧底部 Dock（不再渲染）
+StartPageClean.tsx     当前起始页：时钟/搜索/快捷访问/设置抽屉/命令面板
 start/SiteIcon.tsx     站点 favicon，失败回退字母色块
-start/WallpaperDrawer.tsx 壁纸、模糊/遮罩、极简模式
 start/model.ts         类型、壁纸清单、农历、favicon 与配色工具
-start/useStartClock.ts 时钟状态与刷新频率（15s / 1s）
-start/useStartWeather.ts 天气状态、城市与强制刷新
-start/useStartWallpaper.ts 壁纸/图库/墨色/轮播状态与副作用
-start/commands.ts      指令面板的静态命令与动态搜索命令
 start/bookmarks.ts     Chrome / Edge 书签 HTML 解析
 start/pomodoroStore.ts 全局番茄钟（跨页面/重启）
-styles/start.css       起始页全部样式（只作用于 .start-page 子树）
+start/chime.ts         番茄钟提示音
+start/useStartWeather.ts 旧起始页天气 hook（新页面用内联请求）
+styles/start-clean.css 当前起始页样式
+styles/start.css       旧起始页共享基础样式（.start-page / .start-tile-icon）
+```
+
+旧 v3 的 StartPage、SearchBar、ShortcutBoard、Dock、WidgetPanel、壁纸抽屉、弹窗等组件与用例已在 0.163.16 删除。
 ```
 
 ### 配色

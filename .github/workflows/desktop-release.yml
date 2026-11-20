@@ -17,6 +17,7 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: desktop
@@ -32,7 +33,20 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test.log
+
+      - name: Upload test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-log
+          path: desktop/test.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - run: npm run pack
         env:

@@ -1,3 +1,13 @@
+## 0.163.16（2026-11-20）
+
+### 清理旧起始页与 CI 诊断
+
+- 删除不再渲染的旧 v3 起始页 `StartPage.tsx` 及其命令面板、Dock、分组栏、快捷卡片、弹窗、壁纸抽屉、小组件等 11 个组件与测试；
+- 删除仅供旧页面使用的 `commands` / `useStartClock` / `useStartWallpaper` / `useReducedMotion` / `wallpaperStore`；
+- 新起始页 `StartPageClean` 与共享的 `model` / `SiteIcon` / 书签解析 / 番茄钟保持不动；
+- CI 单测步骤改为带 `pipefail` 的 tee 输出，失败时上传 `desktop/test.log` 工件，job 增加 45 分钟超时；
+- 测试：桌面 194 文件 / 1130 用例（1 跳过）；冒烟 22/22。
+
 ## 0.163.15（2026-11-20）
 
 ### 侧栏网页小浏览器工具条
