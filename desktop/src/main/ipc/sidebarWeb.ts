@@ -77,6 +77,12 @@ export function registerSidebarWebIpc(ctx: IpcContext, manager: SidebarWebManage
     }
   });
 
+  ipcMain.handle('sidebar-web:find', (_event, query: unknown, forward: unknown) => {
+    manager.find(String(query || ''), forward !== false);
+    return { ok: true, data: true };
+  });
+  ipcMain.on('sidebar-web:find-stop', () => manager.stopFind());
+
   ipcMain.on('sidebar-web:back', () => manager.goBack());
   ipcMain.on('sidebar-web:forward', () => manager.goForward());
 

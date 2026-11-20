@@ -293,8 +293,11 @@ export interface BsubApi {
   sidebarWebZoomIn(): Promise<Result<number>>;
   sidebarWebZoomOut(): Promise<Result<number>>;
   sidebarWebZoomReset(): Promise<Result<number>>;
-  sidebarWebState(): Promise<Result<{ id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean } | null>>;
-  onSidebarWebState(cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean }) => void): () => void;
+  sidebarWebFind(query: string, forward?: boolean): Promise<Result<boolean>>;
+  sidebarWebStopFind(): void;
+  onSidebarWebFindResult(cb: (result: { matches: number; active: number }) => void): () => void;
+  sidebarWebState(): Promise<Result<{ id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean } | null>>;
+  onSidebarWebState(cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean }) => void): () => void;
   /** 侧栏网页视图的位置（窗口坐标）。 */
   sidebarWebBounds(rect: LayoutRect): void;
   /** 浮层/设置页出现时临时隐藏侧栏网页。 */

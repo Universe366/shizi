@@ -16440,3 +16440,72 @@ sup:has(> .cite-ref) {
   min-height: 0;
   height: auto;
 }
+
+.sidebar-web-toolbar button.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sidebar-web-toolbar .is-spinning {
+  animation: sidebar-web-spin 0.9s linear infinite;
+}
+
+@keyframes sidebar-web-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sidebar-web-findbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 30px;
+  padding: 0 5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.sidebar-web-findbar input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.sidebar-web-findbar input:focus {
+  border-color: var(--accent);
+}
+
+.sidebar-web-findcount {
+  flex: 0 0 auto;
+  min-width: 34px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-web-findbar button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sidebar-web-findbar button:hover {
+  background: var(--surface);
+  color: var(--text);
+}

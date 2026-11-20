@@ -128,6 +128,7 @@ export class SidebarWebManager {
     zoom: number;
     canBack: boolean;
     canForward: boolean;
+    loading: boolean;
   } | null {
     const wc = this.activeWebContents();
     if (!wc || !this.activeId) return null;
@@ -138,7 +139,8 @@ export class SidebarWebManager {
       title: wc.getTitle() || '',
       zoom: this.getZoom(),
       canBack: wc.navigationHistory.canGoBack(),
-      canForward: wc.navigationHistory.canGoForward()
+      canForward: wc.navigationHistory.canGoForward(),
+      loading: wc.isLoading()
     };
   }
 
@@ -171,6 +173,17 @@ export class SidebarWebManager {
       this.win.webContents.send('page:zoom-changed', { target: 'sidebar', zoom });
     }
     this.emitState();
+  }
+
+  find(query: string, forward = true): void {
+    const wc = this.activeWebContents();
+    const text = String(query || '').trim();
+    if (!wc || !text) return;
+    wc.findInPage(text, { forward, findNext: true });
+  }
+
+  stopFind(): void {
+    this.activeWebContents()?.stopFindInPage('clearSelection');
   }
 
   navigate(url: string): void {
@@ -276,6 +289,15 @@ export class SidebarWebManager {
     wc.on('did-navigate', () => this.emitState());
     wc.on('did-navigate-in-page', () => this.emitState());
     wc.on('page-title-updated', () => this.emitState());
+    wc.on('did-start-loading', () => this.emitState());
+    wc.on('did-stop-loading', () => this.emitState());
+    wc.on('found-in-page', (_event, result) => {
+      if (this.win.isDestroyed()) return;
+      this.win.webContents.send('sidebar-web:find-result', {
+        matches: result.matches || 0,
+        active: result.activeMatchOrdinal || 0
+      });
+    });
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       // 之前 allow 会弹一个 520×720 的小窗；用户明确希望回主窗口。

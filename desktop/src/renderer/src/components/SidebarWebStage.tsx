@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Minus, Plus, RotateCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ExternalLink, Minus, Plus, RotateCw, Search, X } from 'lucide-react';
 import type { SidebarPage } from '../../../shared/types';
 
 interface BrowserState {
@@ -9,6 +9,7 @@ interface BrowserState {
   zoom: number;
   canBack: boolean;
   canForward: boolean;
+  loading: boolean;
 }
 
 /**
@@ -38,14 +39,31 @@ export function SidebarWebStage({
     title: page.title,
     zoom: 1,
     canBack: false,
-    canForward: false
+    canForward: false,
+    loading: false
   });
   const [address, setAddress] = useState(url);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [findResult, setFindResult] = useState<{ matches: number; active: number } | null>(null);
+  const findRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setState((current) => ({ ...current, id, url, title: page.title }));
     setAddress(url);
   }, [id, url, page.title]);
+
+  useEffect(() => {
+    return window.bsub.onSidebarWebFindResult?.((result) => setFindResult(result));
+  }, []);
+
+  useEffect(() => {
+    if (findOpen) window.setTimeout(() => findRef.current?.focus(), 20);
+    else {
+      setFindResult(null);
+      window.bsub.sidebarWebStopFind?.();
+    }
+  }, [findOpen]);
 
   useEffect(() => {
     return window.bsub.onSidebarWebState?.((next) => {
@@ -144,11 +162,28 @@ export function SidebarWebStage({
         </button>
         <button
           type="button"
-          title="刷新"
+          title={state.loading ? '加载中…' : '刷新'}
           aria-label="刷新"
           onClick={() => window.bsub.sidebarWebReload()}
         >
-          <RotateCw size={12} />
+          <RotateCw size={12} className={state.loading ? 'is-spinning' : ''} />
+        </button>
+        <button
+          type="button"
+          title="在侧栏查找"
+          aria-label="在侧栏查找"
+          className={findOpen ? 'is-active' : ''}
+          onClick={() => setFindOpen((value) => !value)}
+        >
+          <Search size={12} />
+        </button>
+        <button
+          type="button"
+          title="在标签页打开"
+          aria-label="在标签页打开"
+          onClick={() => void window.bsub.newTab(state.url)}
+        >
+          <ExternalLink size={12} />
         </button>
         <input
           ref={addressRef}
@@ -194,6 +229,63 @@ export function SidebarWebStage({
           <Plus size={11} />
         </button>
       </div>
+      {findOpen && (
+        <div className="sidebar-web-findbar">
+          <input
+            ref={findRef}
+            value={findQuery}
+            placeholder="在页面中查找"
+            onChange={(event) => {
+              const value = event.target.value;
+              setFindQuery(value);
+              if (value.trim()) void window.bsub.sidebarWebFind?.(value, true);
+              else {
+                setFindResult(null);
+                window.bsub.sidebarWebStopFind?.();
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                if (findQuery.trim()) {
+                  void window.bsub.sidebarWebFind?.(findQuery, !event.shiftKey);
+                }
+              } else if (event.key === 'Escape') {
+                setFindOpen(false);
+              }
+            }}
+          />
+          <span className="sidebar-web-findcount">
+            {findResult && findResult.matches > 0
+              ? `${findResult.active}/${findResult.matches}`
+              : '无结果'}
+          </span>
+          <button
+            type="button"
+            title="上一个"
+            aria-label="上一个"
+            onClick={() => void window.bsub.sidebarWebFind?.(findQuery, false)}
+          >
+            <ArrowLeft size={12} />
+          </button>
+          <button
+            type="button"
+            title="下一个"
+            aria-label="下一个"
+            onClick={() => void window.bsub.sidebarWebFind?.(findQuery, true)}
+          >
+            <ArrowRight size={12} />
+          </button>
+          <button
+            type="button"
+            title="关闭查找"
+            aria-label="关闭查找"
+            onClick={() => setFindOpen(false)}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       <div className="sidebar-web-stage" ref={ref} />
     </div>
   );

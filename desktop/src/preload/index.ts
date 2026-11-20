@@ -371,11 +371,34 @@ const api: BsubApi = {
   sidebarWebZoomReset: () =>
     ipcRenderer.invoke('sidebar-web:zoom-reset') as Promise<Result<number>>,
   sidebarWebState: () => ipcRenderer.invoke('sidebar-web:state'),
+  sidebarWebFind: (query: string, forward = true) =>
+    ipcRenderer.invoke('sidebar-web:find', query, forward) as Promise<Result<boolean>>,
+  sidebarWebStopFind: () => ipcRenderer.send('sidebar-web:find-stop'),
+  onSidebarWebFindResult: (cb: (result: { matches: number; active: number }) => void) =>
+    on<{ matches: number; active: number }>('sidebar-web:find-result', (result) => cb(result)),
   onSidebarWebState: (
-    cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean }) => void
+    cb: (state: {
+      id: string;
+      url: string;
+      title: string;
+      zoom: number;
+      canBack: boolean;
+      canForward: boolean;
+      loading: boolean;
+    }) => void
   ) =>
     on('sidebar-web:state', (state) =>
-      cb(state as { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean })
+      cb(
+        state as {
+          id: string;
+          url: string;
+          title: string;
+          zoom: number;
+          canBack: boolean;
+          canForward: boolean;
+          loading: boolean;
+        }
+      )
     ),
   sidebarWebBounds: (rect: LayoutRect) => ipcRenderer.send('sidebar-web:bounds', rect),
   sidebarWebVisible: (visible: boolean) => ipcRenderer.send('sidebar-web:visible', visible),

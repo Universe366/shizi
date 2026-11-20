@@ -274,6 +274,8 @@
   "sidebar-web:bounds",
   "sidebar-web:clear",
   "sidebar-web:deactivate",
+  "sidebar-web:find",
+  "sidebar-web:find-stop",
   "sidebar-web:forward",
   "sidebar-web:navigate",
   "sidebar-web:reload",
