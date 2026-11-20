@@ -964,6 +964,9 @@ export interface BsubApi {
   zoomOut(): Promise<void>;
   zoomReset(): Promise<void>;
   setZoom(value: number): Promise<void>;
+  /** 当前缩放目标（主标签页或侧栏网页）与比例。 */
+  getPageZoom(): Promise<Result<{ target: 'tab' | 'sidebar'; zoom: number }>>;
+  onPageZoomChanged(cb: (event: { target: 'tab' | 'sidebar'; zoom: number }) => void): () => void;
   findInPage(query: string, options?: { forward?: boolean; findNext?: boolean }): Promise<void>;
   stopFind(): Promise<void>;
   onFindResult(cb: (result: FindResult) => void): () => void;

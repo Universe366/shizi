@@ -275,6 +275,12 @@ const api: BsubApi = {
   zoomOut: () => ipcRenderer.invoke('tab:zoom-out') as Promise<void>,
   zoomReset: () => ipcRenderer.invoke('tab:zoom-reset') as Promise<void>,
   setZoom: (value: number) => ipcRenderer.invoke('tab:set-zoom', value) as Promise<void>,
+  getPageZoom: () =>
+    ipcRenderer.invoke('page:zoom-get') as Promise<
+      Result<{ target: 'tab' | 'sidebar'; zoom: number }>
+    >,
+  onPageZoomChanged: (cb: (event: { target: 'tab' | 'sidebar'; zoom: number }) => void) =>
+    on<{ target: 'tab' | 'sidebar'; zoom: number }>('page:zoom-changed', (event) => cb(event)),
   findInPage: (query: string, options?: { forward?: boolean; findNext?: boolean }) =>
     ipcRenderer.invoke('tab:find', query, options) as Promise<void>,
   stopFind: () => ipcRenderer.invoke('tab:stop-find') as Promise<void>,

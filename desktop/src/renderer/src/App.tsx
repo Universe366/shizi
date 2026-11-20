@@ -37,7 +37,7 @@ const LibraryPage = lazy(() =>
 );
 import { nextTabId, tabIdByNumber } from './lib/tabs';
 
-import { overlayVisible, useBrowserOverlayAuto } from './lib/browserOverlay';
+import { useBrowserOverlayAuto } from './lib/browserOverlay';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import type { PluginInfo } from '../../shared/plugins';
 import { pluginEntryUrl, pluginPanelSection } from '../../shared/plugins';
@@ -73,7 +73,8 @@ export default function App() {
   const [maximized, setMaximized] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomToast, setZoomToast] = useState(false);
-  const lastZoomRef = useRef(1);
+  const [zoomValue, setZoomValue] = useState(1);
+  const [overlayShot, setOverlayShot] = useState<string | null>(null);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [verticalTabs, setVerticalTabs] = useState(true);
   const [browserToolbar, setBrowserToolbar] = useState<BrowserToolbarSettings>(DEFAULT_BROWSER_TOOLBAR);
@@ -108,15 +109,8 @@ export default function App() {
     return () => cancelAnimationFrame(frame);
   }, [tabPeek.open, tabPeek.width, verticalTabs, tabs.length]);
 
-  // 折叠的垂直标签栏探出时是 DOM 浮层，原生网页视图会盖住它；
-  // 暂时隐藏网页，收起后按现有浮层状态恢复。
-  useEffect(() => {
-    if (!tabPeek.open) return;
-    void window.bsub.setBrowserVisible(false);
-    return () => {
-      void window.bsub.setBrowserVisible(!overlayVisible());
-    };
-  }, [tabPeek.open]);
+  // 折叠标签栏悬停展开时通过主区 padding 让位，不再隐藏网页，
+  // 否则展开期间会看到整片空白。
   const [bookmarked, setBookmarked] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
@@ -313,13 +307,29 @@ export default function App() {
   const zoom = Number(active?.zoom) || 1;
 
   useEffect(() => {
-    if (lastZoomRef.current === zoom) return;
-    lastZoomRef.current = zoom;
-    if (zoomOpen) return;
-    setZoomToast(true);
-    const timer = window.setTimeout(() => setZoomToast(false), 2600);
-    return () => window.clearTimeout(timer);
-  }, [zoom, zoomOpen]);
+    setZoomValue(zoom);
+  }, [zoom]);
+
+  useEffect(() => {
+    return window.bsub.onPageZoomChanged((event) => {
+      setZoomValue(event.zoom);
+      if (zoomOpen) return;
+      let alive = true;
+      void window.bsub.capturePage().then((result) => {
+        if (!alive) return;
+        if (result.ok) setOverlayShot(result.data.dataUrl);
+        setZoomToast(true);
+      });
+      const timer = window.setTimeout(() => {
+        setZoomToast(false);
+        setOverlayShot(null);
+      }, 2600);
+      return () => {
+        alive = false;
+        window.clearTimeout(timer);
+      };
+    });
+  }, [zoomOpen]);
 
   const toggleBookmark = async () => {
     if (!active || !/^https?:/i.test(active.url)) return;
@@ -898,10 +908,16 @@ export default function App() {
         hasUpdate={hasUpdate}
         appDark={appDark}
         onToggleDark={toggleAppDark}
-        zoom={zoom}
+        zoom={zoomValue}
         onOpenZoom={() => {
           setZoomToast(false);
-          setZoomOpen(true);
+          void Promise.all([window.bsub.getPageZoom(), window.bsub.capturePage()]).then(
+            ([zoomState, shot]) => {
+              if (zoomState.ok) setZoomValue(zoomState.data.zoom);
+              if (shot.ok) setOverlayShot(shot.data.dataUrl);
+              setZoomOpen(true);
+            }
+          );
         }}
       />
       {findOpen && (
@@ -949,7 +965,7 @@ export default function App() {
           sidebarPosition={sidebarPosition}
           sidebarCollapsed={sidebarCollapsed}
           sidebarWidth={sidebarWidth}
-          snapshot={dragSnapshot}
+          snapshot={overlayShot || dragSnapshot}
         />
       </div>
       {(startOpen || settingsOpen || libraryOpen || tabs.length === 0) && (
@@ -1084,10 +1100,11 @@ export default function App() {
       </div>
       <ZoomBubble
         open={zoomOpen || zoomToast}
-        zoom={zoom}
+        zoom={zoomValue}
         onClose={() => {
           setZoomOpen(false);
           setZoomToast(false);
+          setOverlayShot(null);
         }}
       />
       <CloseDialog

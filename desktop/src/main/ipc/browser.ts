@@ -20,6 +20,7 @@ import {
 } from '../library';
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
+import { getZoomTarget } from '../zoomTarget';
 import { failure, withStartParam, type IpcContext } from './shared';
 
 /** 标签页 / 书签 / 下载 / 浏览历史 / 布局 相关 IPC。 */
@@ -179,17 +180,34 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:stop', () => {
     ctx.tabs.stop();
   });
+  const useSidebarZoom = () =>
+    getZoomTarget() === 'sidebar' && Boolean(ctx.sidebarWeb?.activeWebContents());
+
   ipcMain.handle('tab:zoom-in', () => {
-    ctx.tabs.zoomIn();
+    if (useSidebarZoom()) ctx.sidebarWeb?.zoomIn();
+    else ctx.tabs.zoomIn();
   });
   ipcMain.handle('tab:zoom-out', () => {
-    ctx.tabs.zoomOut();
+    if (useSidebarZoom()) ctx.sidebarWeb?.zoomOut();
+    else ctx.tabs.zoomOut();
   });
   ipcMain.handle('tab:zoom-reset', () => {
-    ctx.tabs.zoomReset();
+    if (useSidebarZoom()) ctx.sidebarWeb?.zoomReset();
+    else ctx.tabs.zoomReset();
   });
   ipcMain.handle('tab:set-zoom', (_event, value: number) => {
-    ctx.tabs.setZoom(value);
+    if (useSidebarZoom()) ctx.sidebarWeb?.setZoom(value);
+    else ctx.tabs.setZoom(value);
+  });
+  ipcMain.handle('page:zoom-get', (): Result<{ target: 'tab' | 'sidebar'; zoom: number }> => {
+    const sidebar = useSidebarZoom();
+    return {
+      ok: true,
+      data: {
+        target: sidebar ? 'sidebar' : 'tab',
+        zoom: sidebar ? ctx.sidebarWeb?.getZoom() ?? 1 : ctx.tabs.getZoom()
+      }
+    };
   });
   ipcMain.handle(
     'tab:find',

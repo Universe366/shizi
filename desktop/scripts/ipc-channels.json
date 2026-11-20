@@ -211,6 +211,7 @@
   "page:time",
   "page:track-body",
   "page:trigger-subtitle",
+  "page:zoom-get",
   "permissions:clear",
   "permissions:list",
   "permissions:revoke",

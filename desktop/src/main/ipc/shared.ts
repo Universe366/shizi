@@ -6,6 +6,8 @@ import type { TabManager } from '../tabs';
 export interface IpcContext {
   win: BrowserWindow;
   tabs: TabManager;
+  /** 侧栏网页管理器；缩放/焦点路由用。 */
+  sidebarWeb?: import('../sidebarWeb').SidebarWebManager;
   /** 向渲染进程广播事件（窗口已销毁时自动忽略）。 */
   send: (channel: string, payload?: unknown) => void;
   /** 长任务取消句柄；ai:cancel 与 collection:summarize 共用。 */

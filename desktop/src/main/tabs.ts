@@ -17,6 +17,7 @@ import type { SearchEngineId } from '../shared/searchEngines';
 import { normalizeUrl } from './url';
 import { neighborAfterClose } from './tabOrder';
 import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
+import { setZoomTarget } from './zoomTarget';
 import { normalizeSelectionAction } from './selectionAction';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
@@ -376,6 +377,7 @@ export class TabManager {
         // 个别平台不支持圆角，退化成直角页面。
       }
       view.webContents.setZoomFactor(record.zoom || 1);
+      view.webContents.on('focus', () => setZoomTarget('tab'));
 
       record.view = view;
       record.suspended = false;
@@ -1331,6 +1333,9 @@ export class TabManager {
     wc.setZoomFactor(zoom);
     record.zoom = zoom;
     this.emit();
+    if (!this.win.isDestroyed()) {
+      this.win.webContents.send('page:zoom-changed', { target: 'tab', zoom });
+    }
   }
 
   private applyZoom(delta: number, reset: boolean): void {
@@ -1342,6 +1347,13 @@ export class TabManager {
     wc.setZoomFactor(zoom);
     record.zoom = zoom;
     this.emit();
+    if (!this.win.isDestroyed()) {
+      this.win.webContents.send('page:zoom-changed', { target: 'tab', zoom });
+    }
+  }
+
+  getZoom(): number {
+    return this.activeRecord()?.view?.webContents.getZoomFactor() ?? 1;
   }
 
   findInPage(query: string, options: { forward?: boolean; findNext?: boolean } = {}): void {

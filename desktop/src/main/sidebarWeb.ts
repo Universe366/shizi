@@ -1,5 +1,6 @@
 import { BrowserWindow, Menu, WebContentsView, clipboard, session } from 'electron';
-import type { Rectangle } from 'electron';
+import type { Rectangle, WebContents } from 'electron';
+import { setZoomTarget } from './zoomTarget';
 import type { SidebarPage } from '../shared/types';
 
 /** 所有侧栏网页共用一个独立分区：登录态与普通标签页隔离。 */
@@ -96,6 +97,39 @@ export class SidebarWebManager {
     else this.detach(entry);
   }
 
+  activeWebContents(): WebContents | null {
+    if (!this.activeId) return null;
+    const entry = this.entries.get(this.activeId);
+    const wc = entry?.view.webContents;
+    return wc && !wc.isDestroyed() ? wc : null;
+  }
+
+  getZoom(): number {
+    return this.activeWebContents()?.getZoomFactor() ?? 1;
+  }
+
+  zoomIn(): void {
+    this.setZoom(this.getZoom() + 0.1);
+  }
+
+  zoomOut(): void {
+    this.setZoom(this.getZoom() - 0.1);
+  }
+
+  zoomReset(): void {
+    this.setZoom(1);
+  }
+
+  setZoom(value: number): void {
+    const wc = this.activeWebContents();
+    if (!wc) return;
+    const zoom = Math.min(3, Math.max(0.5, Math.round(Number(value) * 100) / 100));
+    wc.setZoomFactor(zoom);
+    if (!this.win.isDestroyed()) {
+      this.win.webContents.send('page:zoom-changed', { target: 'sidebar', zoom });
+    }
+  }
+
   /** 重新加载当前侧栏网页（卡住/登录跳转时用）。 */
   reloadActive(): void {
     if (!this.activeId) return;
@@ -164,6 +198,7 @@ export class SidebarWebManager {
     });
     view.setBackgroundColor('#ffffff');
     const wc = view.webContents;
+    wc.on('focus', () => setZoomTarget('sidebar'));
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       // 之前 allow 会弹一个 520×720 的小窗；用户明确希望回主窗口。
@@ -215,6 +250,21 @@ export class SidebarWebManager {
       if (key === 'F5' || (modifier && key.toLowerCase() === 'r')) {
         event.preventDefault();
         wc.reload();
+        return;
+      }
+      if (modifier && (key === '=' || key === '+')) {
+        event.preventDefault();
+        this.zoomIn();
+        return;
+      }
+      if (modifier && (key === '-' || key === '_')) {
+        event.preventDefault();
+        this.zoomOut();
+        return;
+      }
+      if (modifier && key === '0') {
+        event.preventDefault();
+        this.zoomReset();
         return;
       }
       if (!input.alt) return;

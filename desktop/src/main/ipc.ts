@@ -58,6 +58,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
     // 侧栏网页的 target=_blank / window.open 回到主窗口标签页，不再弹独立小窗。
     void tabs.create(url);
   });
+  ctx.sidebarWeb = sidebarWeb;
   win.on('closed', () => sidebarWeb.dispose());
   registerSidebarWebIpc(ctx, sidebarWeb);
   registerLocalVideoIpc(ctx);
