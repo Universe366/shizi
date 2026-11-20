@@ -1,5 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Minus, Plus, RotateCw } from 'lucide-react';
 import type { SidebarPage } from '../../../shared/types';
+
+interface BrowserState {
+  id: string;
+  url: string;
+  title: string;
+  zoom: number;
+  canBack: boolean;
+  canForward: boolean;
+}
 
 /**
  * 侧栏网页的原生视图占位：位置由这里量出来报给主进程。
@@ -20,7 +30,38 @@ export function SidebarWebStage({
   const pageRef = useRef(page);
   pageRef.current = page;
   const ref = useRef<HTMLDivElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
   const reportRef = useRef<() => void>(() => undefined);
+  const [state, setState] = useState<BrowserState>({
+    id,
+    url,
+    title: page.title,
+    zoom: 1,
+    canBack: false,
+    canForward: false
+  });
+  const [address, setAddress] = useState(url);
+
+  useEffect(() => {
+    setState((current) => ({ ...current, id, url, title: page.title }));
+    setAddress(url);
+  }, [id, url, page.title]);
+
+  useEffect(() => {
+    return window.bsub.onSidebarWebState?.((next) => {
+      if (next.id !== id) return;
+      setState(next);
+      if (document.activeElement !== addressRef.current) setAddress(next.url);
+    });
+  }, [id]);
+
+  useEffect(() => {
+    void window.bsub.sidebarWebState?.().then((result) => {
+      if (!result?.ok || !result.data || result.data.id !== id) return;
+      setState(result.data);
+      setAddress(result.data.url);
+    });
+  }, [id]);
 
   useEffect(() => {
     const element = ref.current;
@@ -61,5 +102,99 @@ export function SidebarWebStage({
     return () => cancelAnimationFrame(frame);
   }, [layoutKey]);
 
-  return <div className="sidebar-web-stage" ref={ref} />;
+  const navigate = () => {
+    const value = address.trim();
+    if (!value) return;
+    const next = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    setAddress(next);
+    void window.bsub.sidebarWebNavigate(next);
+    addressRef.current?.blur();
+  };
+
+  const updateZoom = async (action: 'in' | 'out' | 'reset') => {
+    const result =
+      action === 'in'
+        ? await window.bsub.sidebarWebZoomIn?.()
+        : action === 'out'
+          ? await window.bsub.sidebarWebZoomOut?.()
+          : await window.bsub.sidebarWebZoomReset?.();
+    if (result?.ok) setState((current) => ({ ...current, zoom: result.data }));
+  };
+
+  return (
+    <div className="sidebar-web-browser">
+      <div className="sidebar-web-toolbar">
+        <button
+          type="button"
+          title="后退"
+          aria-label="后退"
+          disabled={!state.canBack}
+          onClick={() => window.bsub.sidebarWebBack?.()}
+        >
+          <ArrowLeft size={13} />
+        </button>
+        <button
+          type="button"
+          title="前进"
+          aria-label="前进"
+          disabled={!state.canForward}
+          onClick={() => window.bsub.sidebarWebForward?.()}
+        >
+          <ArrowRight size={13} />
+        </button>
+        <button
+          type="button"
+          title="刷新"
+          aria-label="刷新"
+          onClick={() => window.bsub.sidebarWebReload()}
+        >
+          <RotateCw size={12} />
+        </button>
+        <input
+          ref={addressRef}
+          className="sidebar-web-address"
+          value={address}
+          spellCheck={false}
+          aria-label="侧栏网页地址"
+          onChange={(event) => setAddress(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              navigate();
+            } else if (event.key === 'Escape') {
+              setAddress(state.url);
+              addressRef.current?.blur();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="sidebar-web-zoom"
+          title="缩小"
+          aria-label="缩小"
+          onClick={() => void updateZoom('out')}
+        >
+          <Minus size={11} />
+        </button>
+        <button
+          type="button"
+          className="sidebar-web-zoom-value"
+          title="重置缩放"
+          onClick={() => void updateZoom('reset')}
+        >
+          {Math.round(state.zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          className="sidebar-web-zoom"
+          title="放大"
+          aria-label="放大"
+          onClick={() => void updateZoom('in')}
+        >
+          <Plus size={11} />
+        </button>
+      </div>
+      <div className="sidebar-web-stage" ref={ref} />
+    </div>
+  );
 }

@@ -83,6 +83,7 @@ export class SidebarWebManager {
     this.activeId = entry.id;
     setZoomTarget('sidebar');
     this.attach(entry);
+    this.emitState();
   }
 
   /** 离开侧栏网页：保留进程，开始计时休眠。 */
@@ -120,6 +121,33 @@ export class SidebarWebManager {
     return this.activeWebContents()?.getZoomFactor() ?? 1;
   }
 
+  state(): {
+    id: string;
+    url: string;
+    title: string;
+    zoom: number;
+    canBack: boolean;
+    canForward: boolean;
+  } | null {
+    const wc = this.activeWebContents();
+    if (!wc || !this.activeId) return null;
+    const entry = this.entries.get(this.activeId);
+    return {
+      id: this.activeId,
+      url: wc.getURL() || entry?.url || '',
+      title: wc.getTitle() || '',
+      zoom: this.getZoom(),
+      canBack: wc.navigationHistory.canGoBack(),
+      canForward: wc.navigationHistory.canGoForward()
+    };
+  }
+
+  private emitState(): void {
+    if (this.win.isDestroyed()) return;
+    const state = this.state();
+    if (state) this.win.webContents.send('sidebar-web:state', state);
+  }
+
   zoomIn(): void {
     this.setZoom(this.getZoom() + 0.1);
   }
@@ -142,6 +170,25 @@ export class SidebarWebManager {
     if (!this.win.isDestroyed()) {
       this.win.webContents.send('page:zoom-changed', { target: 'sidebar', zoom });
     }
+    this.emitState();
+  }
+
+  navigate(url: string): void {
+    const wc = this.activeWebContents();
+    if (!wc || !/^https?:\/\//i.test(url)) return;
+    const entry = this.activeId ? this.entries.get(this.activeId) : null;
+    if (entry) entry.url = url;
+    void wc.loadURL(url).catch(() => undefined);
+  }
+
+  goBack(): void {
+    const wc = this.activeWebContents();
+    if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+  }
+
+  goForward(): void {
+    const wc = this.activeWebContents();
+    if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
   }
 
   /** 重新加载当前侧栏网页（卡住/登录跳转时用）。 */
@@ -226,6 +273,9 @@ export class SidebarWebManager {
       if (direction === 'in') this.zoomIn();
       else this.zoomOut();
     });
+    wc.on('did-navigate', () => this.emitState());
+    wc.on('did-navigate-in-page', () => this.emitState());
+    wc.on('page-title-updated', () => this.emitState());
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       // 之前 allow 会弹一个 520×720 的小窗；用户明确希望回主窗口。

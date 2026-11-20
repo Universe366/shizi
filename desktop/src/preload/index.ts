@@ -360,6 +360,23 @@ const api: BsubApi = {
   sidebarWebActivate: (page: SidebarPage) => ipcRenderer.invoke('sidebar-web:activate', page),
   sidebarWebDeactivate: () => ipcRenderer.send('sidebar-web:deactivate'),
   sidebarWebReload: () => ipcRenderer.send('sidebar-web:reload'),
+  sidebarWebNavigate: (url: string) =>
+    ipcRenderer.invoke('sidebar-web:navigate', url) as Promise<Result<boolean>>,
+  sidebarWebBack: () => ipcRenderer.send('sidebar-web:back'),
+  sidebarWebForward: () => ipcRenderer.send('sidebar-web:forward'),
+  sidebarWebZoomIn: () =>
+    ipcRenderer.invoke('sidebar-web:zoom-in') as Promise<Result<number>>,
+  sidebarWebZoomOut: () =>
+    ipcRenderer.invoke('sidebar-web:zoom-out') as Promise<Result<number>>,
+  sidebarWebZoomReset: () =>
+    ipcRenderer.invoke('sidebar-web:zoom-reset') as Promise<Result<number>>,
+  sidebarWebState: () => ipcRenderer.invoke('sidebar-web:state'),
+  onSidebarWebState: (
+    cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean }) => void
+  ) =>
+    on('sidebar-web:state', (state) =>
+      cb(state as { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean })
+    ),
   sidebarWebBounds: (rect: LayoutRect) => ipcRenderer.send('sidebar-web:bounds', rect),
   sidebarWebVisible: (visible: boolean) => ipcRenderer.send('sidebar-web:visible', visible),
   clearSidebarWebData: () => ipcRenderer.invoke('sidebar-web:clear'),

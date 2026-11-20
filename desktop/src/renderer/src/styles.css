@@ -16366,3 +16366,77 @@ sup:has(> .cite-ref) {
     transform: scale(1);
   }
 }
+
+/* 侧栏网页小浏览器工具条 */
+.sidebar-web-browser {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.sidebar-web-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 34px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-web-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sidebar-web-toolbar button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sidebar-web-toolbar button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sidebar-web-address {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.sidebar-web-address:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.sidebar-web-zoom-value {
+  width: auto !important;
+  min-width: 38px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-web-browser .sidebar-web-stage {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}

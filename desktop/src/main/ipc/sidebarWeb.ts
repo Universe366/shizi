@@ -68,6 +68,32 @@ export function registerSidebarWebIpc(ctx: IpcContext, manager: SidebarWebManage
 
   ipcMain.on('sidebar-web:reload', () => manager.reloadActive());
 
+  ipcMain.handle('sidebar-web:navigate', (_event, url: unknown) => {
+    try {
+      manager.navigate(String(url || ''));
+      return { ok: true, data: true };
+    } catch (error) {
+      return failure<boolean>(error);
+    }
+  });
+
+  ipcMain.on('sidebar-web:back', () => manager.goBack());
+  ipcMain.on('sidebar-web:forward', () => manager.goForward());
+
+  ipcMain.handle('sidebar-web:zoom-in', () => {
+    manager.zoomIn();
+    return { ok: true, data: manager.getZoom() };
+  });
+  ipcMain.handle('sidebar-web:zoom-out', () => {
+    manager.zoomOut();
+    return { ok: true, data: manager.getZoom() };
+  });
+  ipcMain.handle('sidebar-web:zoom-reset', () => {
+    manager.zoomReset();
+    return { ok: true, data: manager.getZoom() };
+  });
+  ipcMain.handle('sidebar-web:state', () => ({ ok: true, data: manager.state() }));
+
   ipcMain.on('sidebar-web:bounds', (_event, rect: { x?: number; y?: number; width?: number; height?: number }) => {
     manager.setBounds({
       x: Number(rect?.x) || 0,
