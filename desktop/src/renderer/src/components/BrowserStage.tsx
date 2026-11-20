@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { MonitorPlay } from 'lucide-react';
 import { EmptyState } from './ui/EmptyState';
+import { useOverlaySnapshot } from '../lib/overlaySnapshot';
 
 /** 与 CSS 里的卡片边框对齐：页面让出 1px，圆角由主进程设置为 13px。 */
 const PAGE_INSET = 1;
@@ -20,6 +21,7 @@ export function BrowserStage({
 }) {
   const ref = useRef<HTMLElement>(null);
   const reportRef = useRef<() => void>(() => undefined);
+  const overlaySnapshot = useOverlaySnapshot();
 
   useEffect(() => {
     const element = ref.current;
@@ -62,7 +64,9 @@ export function BrowserStage({
 
   return (
     <section ref={ref} className="browser-stage">
-      {snapshot && <img className="stage-snapshot" src={snapshot} alt="" />}
+      {(overlaySnapshot || snapshot) && (
+        <img className="stage-snapshot" src={overlaySnapshot || snapshot || ''} alt="" />
+      )}
       {!hasTab && (
         <EmptyState
           fill

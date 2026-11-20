@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { setOverlaySnapshot } from './overlaySnapshot';
 
 /**
  * 内置浏览器是原生 WebContentsView，永远盖在 renderer 上面。
@@ -43,11 +44,24 @@ export function useBrowserOverlayAuto(): void {
   useEffect(() => {
     let frame = 0;
     let last: boolean | null = null;
+    let request = 0;
 
-    const apply = () => {
+    const apply = async () => {
       frame = 0;
       const visible = !overlayVisible();
       if (visible === last) return;
+      const token = ++request;
+
+      if (visible) {
+        setOverlaySnapshot(null);
+      } else {
+        // 先截图，再隐藏；隐藏后的视图 capturePage 取不到画面。
+        const shot = await window.bsub.capturePage().catch(() => null);
+        if (token !== request) return;
+        setOverlaySnapshot(shot?.ok ? shot.data.dataUrl : null);
+      }
+      if (token !== request) return;
+
       last = visible;
       void window.bsub.setBrowserVisible(visible);
       // 侧栏网页也是原生视图，浮层出现时要一起让位。
@@ -56,7 +70,7 @@ export function useBrowserOverlayAuto(): void {
 
     const schedule = () => {
       if (frame) return;
-      frame = window.requestAnimationFrame(apply);
+      frame = window.requestAnimationFrame(() => void apply());
     };
 
     const observer = new MutationObserver(schedule);
@@ -68,8 +82,10 @@ export function useBrowserOverlayAuto(): void {
     });
     schedule();
     return () => {
+      request += 1;
       if (frame) window.cancelAnimationFrame(frame);
       observer.disconnect();
+      setOverlaySnapshot(null);
       void window.bsub.setBrowserVisible(true);
     };
   }, []);
