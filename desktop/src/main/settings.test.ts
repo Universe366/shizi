@@ -307,6 +307,40 @@ describe('设置的持久化字段', () => {
     expect(settings.general.siteZoom).toEqual({ 'bilibili.com': 1.25 });
   });
 
+  it('站点深色例外去重并规范化 host', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        general: { siteDarkDisabled: ['WWW.Bilibili.com', 'bilibili.com', '', 'example.com'] }
+      }),
+      'utf8'
+    );
+    const settings = loadSettings();
+    expect(settings.general.siteDarkDisabled).toEqual(['bilibili.com', 'example.com']);
+  });
+
+  it('起始页显式文件夹去重并保留空文件夹', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        general: {
+          startFolders: [
+            { group: '学习', name: '视频' },
+            { group: '学习', name: '视频' },
+            { group: '', name: '空文件夹' },
+            { name: '' }
+          ]
+        }
+      }),
+      'utf8'
+    );
+    const settings = loadSettings();
+    expect(settings.general.startFolders).toEqual([
+      { group: '学习', name: '视频' },
+      { group: '', name: '空文件夹' }
+    ]);
+  });
+
   it('主窗口置顶状态保存后不会丢', () => {
     const settings = loadSettings();
     settings.general.alwaysOnTop = true;

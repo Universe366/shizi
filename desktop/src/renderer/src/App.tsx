@@ -85,6 +85,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [siteDarkDisabled, setSiteDarkDisabled] = useState<string[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(initialSection === 'library');
   const [closeOpen, setCloseOpen] = useState(false);
   // 垂直标签栏折叠后悬停展开时，地址栏和网页一起让位，避免标签栏盖住前进/后退按钮。
@@ -237,6 +238,7 @@ export default function App() {
         verticalTabs?: boolean;
         assistantEnabled?: boolean;
         petEnabled?: boolean;
+        siteDarkDisabled?: string[];
       };
     };
   }) => {
@@ -253,6 +255,7 @@ export default function App() {
       )
     );
     setAssistantEnabled(snapshot.settings.general.assistantEnabled === true);
+    setSiteDarkDisabled(snapshot.settings.general.siteDarkDisabled || []);
   };
 
   useEffect(() => {
@@ -879,7 +882,9 @@ export default function App() {
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
         onOpenFind={() => setFindOpen(true)}
+        siteDarkDisabled={siteDarkDisabled}
         onOpenStart={() => {
+
           setSettingsOpen(false);
           setLibraryOpen(false);
           setStartOpen(true);

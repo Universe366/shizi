@@ -274,8 +274,13 @@ export class TabManager {
   /** 网页深色模式：模拟 prefers-color-scheme，并让 Chromium 自动暗色兜底。 */
   private async applyWebDarkMode(wc: WebContents): Promise<void> {
     const theme = loadSettings().general.theme;
+    const host = mediaSiteKey(wc.getURL());
+    const disabled =
+      Boolean(host) &&
+      (loadSettings().general.siteDarkDisabled || []).includes(host);
     const enabled =
-      theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors);
+      !disabled &&
+      (theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors));
     try {
       if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
       await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
@@ -761,6 +766,7 @@ export class TabManager {
       // 新页面沿用站点记忆 / 默认倍速；真正的下发在 dom-ready 之后。
       record.rate = this.resolveRateFor(url);
       this.previewShots.delete(record.id);
+      void this.applyWebDarkMode(wc);
       touch();
     });
     wc.on('did-navigate-in-page', (_event, url) => {

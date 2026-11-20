@@ -978,6 +978,7 @@ export interface BsubApi {
   setZoom(value: number): Promise<void>;
   /** 弹出原生缩放菜单（预设比例），不会遮挡网页。 */
   showZoomMenu(): Promise<Result<boolean>>;
+  setSiteDark(url: string, disabled: boolean): Promise<Result<{ host: string; disabled: boolean }>>;
   /** 当前缩放目标（主标签页或侧栏网页）与比例。 */
   getPageZoom(): Promise<Result<{ target: 'tab' | 'sidebar'; zoom: number }>>;
   onPageZoomChanged(cb: (event: { target: 'tab' | 'sidebar'; zoom: number }) => void): () => void;

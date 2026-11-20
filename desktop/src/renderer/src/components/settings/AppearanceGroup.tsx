@@ -338,6 +338,84 @@ export function AppearanceGroup({ value, onChange }: Props) {
         </details>
       </SettingsSection>
 
+      <SettingsSection title="站点缩放" defaultOpen={false}>
+        <div className="settings-group-desc">
+          各站点记住的缩放比例；清除后会回到 100%。
+        </div>
+        {Object.keys(value.siteZoom || {}).length === 0 ? (
+          <div className="settings-hint">还没有记住任何站点。</div>
+        ) : (
+          <div className="site-zoom-list">
+            {Object.entries(value.siteZoom || {})
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([host, zoom]) => (
+                <div className="site-zoom-row" key={host}>
+                  <span title={host}>{host}</span>
+                  <span>{Math.round(Number(zoom) * 100)}%</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...(value.siteZoom || {}) };
+                      delete next[host];
+                      onChange({ siteZoom: next });
+                    }}
+                  >
+                    清除
+                  </button>
+                </div>
+              ))}
+          </div>
+        )}
+        {Object.keys(value.siteZoom || {}).length > 0 && (
+          <button
+            type="button"
+            className="settings-inline"
+            onClick={() => onChange({ siteZoom: {} })}
+          >
+            清除全部站点缩放
+          </button>
+        )}
+      </SettingsSection>
+
+      <SettingsSection title="站点深色例外" defaultOpen={false}>
+        <div className="settings-group-desc">
+          这些站点不会跟随程序的网页深色模式；可随时恢复。
+        </div>
+        {(value.siteDarkDisabled || []).length === 0 ? (
+          <div className="settings-hint">所有站点都跟随程序深色模式。</div>
+        ) : (
+          <div className="site-zoom-list">
+            {(value.siteDarkDisabled || []).map((host) => (
+              <div className="site-zoom-row" key={host}>
+                <span title={host}>{host}</span>
+                <span>深色关闭</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      siteDarkDisabled: (value.siteDarkDisabled || []).filter(
+                        (item) => item !== host
+                      )
+                    })
+                  }
+                >
+                  恢复
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {(value.siteDarkDisabled || []).length > 0 && (
+          <button
+            type="button"
+            className="settings-inline"
+            onClick={() => onChange({ siteDarkDisabled: [] })}
+          >
+            全部恢复深色
+          </button>
+        )}
+      </SettingsSection>
+
       <SettingsSection title="浏览器工具栏" defaultOpen={false}>
         <div className="settings-group-desc">
           选择地址栏上显示的按钮；主菜单和设置至少保留一个入口。

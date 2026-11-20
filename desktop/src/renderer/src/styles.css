@@ -16555,3 +16555,46 @@ sup:has(> .cite-ref) {
   color: var(--accent);
   background: var(--accent-soft);
 }
+
+.site-zoom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.site-zoom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: var(--fs-xs);
+}
+
+.site-zoom-row > span:first-child {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-zoom-row > span:nth-child(2) {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.site-zoom-row button {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.site-zoom-row button:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}

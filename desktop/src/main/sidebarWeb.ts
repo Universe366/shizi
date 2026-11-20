@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, WebContentsView, clipboard, session } from 'electron';
+import { BrowserWindow, Menu, WebContentsView, clipboard, nativeTheme, session } from 'electron';
 import type { Rectangle, WebContents } from 'electron';
 import { setZoomTarget } from './zoomTarget';
 import { loadSettings, saveSettings } from './settings';
@@ -44,6 +44,41 @@ export class SidebarWebManager {
   private siteZoomSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly ses = session.fromPartition(SIDEBAR_WEB_PARTITION);
 
+  private async applyWebDarkMode(wc: WebContents): Promise<void> {
+    const theme = loadSettings().general.theme;
+    const host = mediaSiteKey(wc.getURL());
+    const disabled =
+      Boolean(host) &&
+      (loadSettings().general.siteDarkDisabled || []).includes(host);
+    const enabled =
+      !disabled &&
+      (theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors));
+    try {
+      if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+      await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
+        features: enabled ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []
+      });
+      await wc.debugger.sendCommand('Emulation.setAutoDarkModeOverride', { enabled });
+      if (enabled && host.endsWith('bilibili.com')) {
+        await wc.insertCSS(
+          '@media (prefers-color-scheme: dark){' +
+            '[class*="bpx-player-control"]{background-image:none !important;}' +
+            '.bpx-player-control-bottom{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.72)) !important;}' +
+            '}'
+        );
+      }
+    } catch {
+      // 旧内核或调试器占用时忽略。
+    }
+  }
+
+  setWebDarkMode(): void {
+    for (const entry of this.entries.values()) {
+      const wc = entry.view.webContents;
+      if (!wc.isDestroyed()) void this.applyWebDarkMode(wc);
+    }
+  }
+
   constructor(
     private readonly win: BrowserWindow,
     /** 侧栏网页里的 target=_blank / window.open 统一交给主窗口标签页，不再弹小窗。 */
@@ -51,6 +86,7 @@ export class SidebarWebManager {
   ) {
     // 渲染进程刷新/崩溃时，原生视图不会自己消失；先离开并计时休眠，避免残留在最上层。
     win.webContents.on('did-start-loading', () => this.deactivate());
+    nativeTheme.on('updated', () => this.setWebDarkMode());
     this.ses.setPermissionRequestHandler((_webContents, permission, callback) => {
       callback(ALLOWED_PERMISSIONS.has(permission));
     });
@@ -314,6 +350,7 @@ export class SidebarWebManager {
       } catch {
         // ignore
       }
+      void this.applyWebDarkMode(wc);
     });
     wc.on('zoom-changed', (_event, direction) => {
       if (direction === 'in') this.zoomIn();

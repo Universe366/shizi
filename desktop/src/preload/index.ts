@@ -277,6 +277,10 @@ const api: BsubApi = {
   setZoom: (value: number) => ipcRenderer.invoke('tab:set-zoom', value) as Promise<void>,
   showZoomMenu: () =>
     ipcRenderer.invoke('page:zoom-menu') as Promise<Result<boolean>>,
+  setSiteDark: (url: string, disabled: boolean) =>
+    ipcRenderer.invoke('page:set-site-dark', { url, disabled }) as Promise<
+      Result<{ host: string; disabled: boolean }>
+    >,
   getPageZoom: () =>
     ipcRenderer.invoke('page:zoom-get') as Promise<
       Result<{ target: 'tab' | 'sidebar'; zoom: number }>

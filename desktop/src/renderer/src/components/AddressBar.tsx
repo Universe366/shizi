@@ -43,6 +43,7 @@ export function AddressBar({
   onOpenReader,
   onOpenFind,
   onOpenStart,
+  siteDarkDisabled = [],
   onOpenLibrary,
   onOpenSettings,
   hasUpdate = false,
@@ -64,6 +65,7 @@ export function AddressBar({
   onOpenReader: () => void;
   onOpenFind?: () => void;
   onOpenStart: () => void;
+  siteDarkDisabled?: string[];
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
   hasUpdate?: boolean;
@@ -83,6 +85,14 @@ export function AddressBar({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const siteHost = useMemo(() => {
+    try {
+      return new URL(tab?.url || '').hostname.toLowerCase().replace(/^www\./, '');
+    } catch {
+      return '';
+    }
+  }, [tab?.url]);
+  const siteDarkOff = Boolean(siteHost) && siteDarkDisabled.includes(siteHost);
   const [startSaved, setStartSaved] = useState(false);
   const startTimer = useRef<number | null>(null);
   const [engine, setEngine] = useState<SearchEngineId>('bing');
@@ -736,6 +746,16 @@ export function AddressBar({
             <button onClick={() => { setMenuOpen(false); onOpenHub('tabs'); }}>标签页</button>
             <div className="address-menu-sep" />
             <button onClick={() => { setMenuOpen(false); onOpenFind?.(); }}>在页面中查找（Ctrl+F）</button>
+            {tab?.url && siteHost && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  void window.bsub.setSiteDark(tab.url, !siteDarkOff);
+                }}
+              >
+                {siteDarkOff ? '恢复此站深色' : '此站不启用深色'}
+              </button>
+            )}
             <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); onOpenReader(); }}>阅读模式（Alt+R）</button>
             <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? '')); }}>
               复制当前网址

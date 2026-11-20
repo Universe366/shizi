@@ -1228,6 +1228,12 @@ export interface SiteMeta {
   icon: string;
 }
 
+export interface StartFolder {
+  /** 所属分组；空字符串表示未分组 */
+  group?: string;
+  name: string;
+}
+
 export interface StartShortcut {
   id: string;
   label: string;
@@ -1440,6 +1446,10 @@ export interface AppSettings {
     startCity: string;
     /** 每个站点记住的网页缩放（hostname -> 0.5–3，1 = 100%） */
     siteZoom?: Record<string, number>;
+    /** 不启用网页深色的站点（hostname） */
+    siteDarkDisabled?: string[];
+    /** 显式创建的起始页文件夹（允许空文件夹） */
+    startFolders?: StartFolder[];
     /** 起始页热搜小组件 */
     startHotSearch: boolean;
     /** 云同步文件夹（OneDrive/坚果云等本地同步目录） */

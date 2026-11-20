@@ -210,13 +210,19 @@ export function StartPageClean({
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [history, setHistory] = useState<string[]>(readHistory);
   const [group, setGroup] = useState('全部');
-  const [folderFilter, setFolderFilter] = useState<string | null>(null);
+  const [folderFilter, setFolderFilter] = useState<{
+    group: string;
+    name: string;
+  } | null>(null);
   const [groupEdit, setGroupEdit] = useState<{ from: string; to: string } | null>(null);
   const [folderEdit, setFolderEdit] = useState<{
     group: string;
     from: string;
     to: string;
   } | null>(null);
+  const [folderDraft, setFolderDraft] = useState<{ group: string; name: string } | null>(
+    null
+  );
   const [weather, setWeather] = useState<Weather | null>(null);
   const [hot, setHot] = useState<string[]>([]);
   const [recent, setRecent] = useState<LibraryVideo[]>([]);
@@ -261,9 +267,12 @@ export function StartPageClean({
     offsetY: number;
   } | null>(null);
   const [dropGroup, setDropGroup] = useState<string | null>(null);
-  const [dropFolder, setDropFolder] = useState<string | null>(null);
+  const [dropFolder, setDropFolder] = useState<{
+    group: string;
+    name: string;
+  } | null>(null);
   const dropGroupRef = useRef<string | null>(null);
-  const dropFolderRef = useRef<string | null>(null);
+  const dropFolderRef = useRef<{ group: string; name: string } | null>(null);
   const dragRef = useRef<{
     item: StartShortcut;
     startX: number;
@@ -451,7 +460,7 @@ export function StartPageClean({
   const folderEntries = useMemo(() => {
     const map = new Map<
       string,
-      { group: string; name: string; count: number }
+      { key: string; group: string; name: string; count: number }
     >();
     for (const item of shortcuts) {
       const name = String(item.folder || '').trim();
@@ -460,27 +469,42 @@ export function StartPageClean({
       const key = `${groupName}\u0000${name}`;
       const current = map.get(key);
       if (current) current.count += 1;
-      else map.set(key, { group: groupName, name, count: 1 });
+      else map.set(key, { key, group: groupName, name, count: 1 });
     }
-    return Array.from(map, ([key, value]) => ({ key, ...value })).slice(0, 40);
-  }, [shortcuts]);
-
-  const folders = useMemo(() => {
-    const byName = new Map<string, typeof shortcuts>();
-    for (const item of groupShortcuts) {
-      const name = String(item.folder || '').trim();
+    for (const folder of general?.startFolders || []) {
+      const groupName = String(folder.group || '').trim();
+      const name = String(folder.name || '').trim();
       if (!name) continue;
-      const bucket = byName.get(name);
-      if (bucket) bucket.push(item);
-      else byName.set(name, [item]);
+      const key = `${groupName}\u0000${name}`;
+      if (!map.has(key)) map.set(key, { key, group: groupName, name, count: 0 });
     }
-    return Array.from(byName, ([name, items]) => ({ name, items })).slice(0, 24);
-  }, [groupShortcuts]);
+    return Array.from(map.values()).slice(0, 40);
+  }, [shortcuts, general?.startFolders]);
+
+  const folders = useMemo(
+    () =>
+      folderEntries
+        .filter((entry) => group === '全部' || entry.group === group)
+        .map((entry) => ({
+          ...entry,
+          items: shortcuts.filter(
+            (item) =>
+              String(item.group || '').trim() === entry.group &&
+              String(item.folder || '').trim() === entry.name
+          )
+        }))
+        .slice(0, 24),
+    [folderEntries, group, shortcuts]
+  );
 
   const visible = useMemo(
     () =>
       folderFilter
-        ? groupShortcuts.filter((item) => String(item.folder || '').trim() === folderFilter)
+        ? groupShortcuts.filter(
+            (item) =>
+              String(item.group || '').trim() === folderFilter.group &&
+              String(item.folder || '').trim() === folderFilter.name
+          )
         : groupShortcuts.filter((item) => !String(item.folder || '').trim()),
     [groupShortcuts, folderFilter]
   );
@@ -745,6 +769,28 @@ export function StartPageClean({
     });
   };
 
+  const createFolder = async () => {
+    if (!folderDraft) return;
+    const groupName = folderDraft.group.trim();
+    const name = folderDraft.name.trim();
+    if (!name) return;
+    if (
+      folderEntries.some(
+        (entry) => entry.group === groupName && entry.name === name
+      )
+    ) {
+      showNotice(`已存在文件夹“${name}”`);
+      return;
+    }
+    const next = [
+      ...(general?.startFolders || []),
+      { group: groupName, name }
+    ].slice(0, 200);
+    await patchGeneral({ startFolders: next });
+    setFolderDraft(null);
+    showNotice(`已创建文件夹“${name}”`);
+  };
+
   const commitFolderRename = () => {
     if (!folderEdit) return;
     const { group: groupName, from } = folderEdit;
@@ -767,7 +813,23 @@ export function StartPageClean({
           : item
       )
     );
-    if (folderFilter === from) setFolderFilter(to);
+    if (
+      (general?.startFolders || []).some(
+        (entry) =>
+          String(entry.group || '') === groupName && entry.name === from
+      )
+    ) {
+      void patchGeneral({
+        startFolders: (general?.startFolders || []).map((entry) =>
+          String(entry.group || '') === groupName && entry.name === from
+            ? { ...entry, name: to }
+            : entry
+        )
+      });
+    }
+    if (folderFilter?.group === groupName && folderFilter.name === from) {
+      setFolderFilter({ group: groupName, name: to });
+    }
     setFolderEdit(null);
     showNotice(`已重命名为“${to}”`);
   };
@@ -782,7 +844,24 @@ export function StartPageClean({
           : item
       )
     );
-    if (folderFilter === name) setFolderFilter(null);
+    if (
+      (general?.startFolders || []).some(
+        (entry) =>
+          String(entry.group || '') === groupName && entry.name === name
+      )
+    ) {
+      void patchGeneral({
+        startFolders: (general?.startFolders || []).filter(
+          (entry) =>
+            !(
+              String(entry.group || '') === groupName && entry.name === name
+            )
+        )
+      });
+    }
+    if (folderFilter?.group === groupName && folderFilter.name === name) {
+      setFolderFilter(null);
+    }
     if (folderEdit?.group === groupName && folderEdit.from === name) {
       setFolderEdit(null);
     }
@@ -885,7 +964,12 @@ export function StartPageClean({
     const groupButton = element?.closest<HTMLElement>('.sc-groups button[data-group]');
     const nextGroup = groupButton?.dataset.group || null;
     const folderButton = element?.closest<HTMLElement>('.sc-folder[data-folder]');
-    const nextFolder = folderButton?.dataset.folder || null;
+    const nextFolder = folderButton
+      ? {
+          group: folderButton.dataset.group || '',
+          name: folderButton.dataset.folder || ''
+        }
+      : null;
     dropGroupRef.current = nextFolder ? null : nextGroup;
     dropFolderRef.current = nextFolder;
     setDropGroup(nextFolder ? null : nextGroup);
@@ -906,14 +990,20 @@ export function StartPageClean({
     suppressClickRef.current = true;
     const group = dropGroupRef.current;
     const folder = dropFolderRef.current;
-    if (folder && folder !== (drag.item.folder || '')) {
+    if (
+      folder &&
+      (folder.name !== (drag.item.folder || '') ||
+        folder.group !== String(drag.item.group || '').trim())
+    ) {
       const next = shortcutsRef.current.map((item) =>
-        item.id === drag.item.id ? { ...item, folder } : item
+        item.id === drag.item.id
+          ? { ...item, folder: folder.name, group: folder.group || undefined }
+          : item
       );
       shortcutsRef.current = next;
       setShortcuts(next);
       void persistShortcuts(next);
-      showNotice(`已移入文件夹“${folder}”`);
+      showNotice(`已移入文件夹“${folder.name}”`);
     } else if (group && group !== (drag.item.group || '')) {
       const next = shortcutsRef.current.map((item) =>
         item.id === drag.item.id ? { ...item, group, folder: undefined } : item
@@ -1213,17 +1303,27 @@ export function StartPageClean({
             ) : (
               folders.map((folder) => (
                 <button
-                  key={folder.name}
+                  key={folder.key}
                   type="button"
                   data-folder={folder.name}
-                  className={`sc-link sc-folder${dropFolder === folder.name ? ' is-drop' : ''}`}
-                  title={`文件夹：${folder.name}（可把快捷方式拖进来）`}
-                  onClick={() => setFolderFilter(folder.name)}
+                  data-group={folder.group}
+                  className={`sc-link sc-folder${
+                    dropFolder?.group === folder.group && dropFolder.name === folder.name
+                      ? ' is-drop'
+                      : ''
+                  }`}
+                  title={`文件夹：${folder.group || '未分组'} / ${folder.name}（可把快捷方式拖进来）`}
+                  onClick={() =>
+                    setFolderFilter({ group: folder.group, name: folder.name })
+                  }
                 >
                   <span className="sc-folder-icon">
                     <Folder size={19} />
                   </span>
                   <span className="sc-link-label">{folder.name}</span>
+                  {group === '全部' && (
+                    <span className="sc-folder-group">{folder.group || '未分组'}</span>
+                  )}
                   <span className="sc-folder-count">{folder.items.length}</span>
                 </button>
               ))
@@ -1291,8 +1391,8 @@ export function StartPageClean({
                 setDraft({
                   label: '',
                   url: '',
-                  group: group === '全部' ? '' : group,
-                  folder: folderFilter || ''
+                  group: folderFilter?.group || (group === '全部' ? '' : group),
+                  folder: folderFilter?.name || ''
                 })
               }
             >
@@ -1843,10 +1943,48 @@ export function StartPageClean({
                     <div className="sc-hint">删除分组只取消分组，不会删除快捷方式。</div>
                   </section>
                 )}
-                {folderEntries.length > 0 && (
-                  <section>
-                    <h4>文件夹</h4>
-                    <div className="sc-edit-list">
+                <section>
+                  <h4>文件夹</h4>
+                  <div className="sc-folder-create">
+                    <input
+                      value={
+                        folderDraft?.group ?? (group === '全部' ? '' : group)
+                      }
+                      placeholder="分组（可选）"
+                      onChange={(event) =>
+                        setFolderDraft({
+                          group: event.target.value,
+                          name: folderDraft?.name || ''
+                        })
+                      }
+                    />
+                    <input
+                      value={folderDraft?.name || ''}
+                      placeholder="文件夹名"
+                      onChange={(event) =>
+                        setFolderDraft({
+                          group:
+                            folderDraft?.group ?? (group === '全部' ? '' : group),
+                          name: event.target.value
+                        })
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void createFolder();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="sc-secondary"
+                      disabled={!folderDraft?.name.trim()}
+                      onClick={() => void createFolder()}
+                    >
+                      <Plus size={12} /> 新建
+                    </button>
+                  </div>
+                  <div className="sc-edit-list">
                       {folderEntries.map((entry) => (
                         <div key={entry.key} className="sc-edit-row">
                           {folderEdit?.group === entry.group &&
@@ -1903,7 +2041,6 @@ export function StartPageClean({
                     </div>
                     <div className="sc-hint">删除文件夹只取消归类，不会删除快捷方式。</div>
                   </section>
-                )}
                 <section>
                   <h4>快捷方式</h4>
                   <div className="sc-edit-list">

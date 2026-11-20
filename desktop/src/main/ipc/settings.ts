@@ -287,6 +287,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         }
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setWebDarkMode();
+        ctx.sidebarWeb?.setWebDarkMode();
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshMediaState();
         ctx.tabs.refreshShortcuts();
@@ -360,6 +361,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         const saved = saveSettings(raw);
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setWebDarkMode();
+        ctx.sidebarWeb?.setWebDarkMode();
         ctx.tabs.setSuspendMinutes(saved.general.suspendMinutes);
         ctx.tabs.refreshShortcuts();
         await restartBridge(ctx.win);

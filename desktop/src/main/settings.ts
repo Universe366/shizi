@@ -219,6 +219,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     startCity: '上海',
     startHotSearch: true,
     siteZoom: {},
+    siteDarkDisabled: [],
+    startFolders: [],
     syncFolder: '',
     autoStart: false,
     searchEngineCustom: '',
@@ -910,6 +912,29 @@ function normalize(input: unknown): AppSettings {
         }
       }
       base.general.siteZoom = siteZoom;
+      base.general.siteDarkDisabled = Array.isArray(raw.general.siteDarkDisabled)
+        ? Array.from(
+            new Set(
+              (raw.general.siteDarkDisabled as unknown[])
+                .map((value) => String(value || '').trim().toLowerCase().replace(/^www\./, ''))
+                .filter(Boolean)
+            )
+          ).slice(0, 300)
+        : [];
+      const startFolders: Array<{ group: string; name: string }> = [];
+      const seenFolders = new Set<string>();
+      if (Array.isArray(raw.general.startFolders)) {
+        for (const entry of raw.general.startFolders.slice(0, 200)) {
+          if (!entry || typeof entry !== 'object') continue;
+          const group = String((entry as { group?: unknown }).group || '').trim().slice(0, 24);
+          const name = String((entry as { name?: unknown }).name || '').trim().slice(0, 40);
+          const key = `${group}\u0000${name}`;
+          if (!name || seenFolders.has(key)) continue;
+          seenFolders.add(key);
+          startFolders.push({ group, name });
+        }
+      }
+      base.general.startFolders = startFolders;
       base.general.startCity =
         typeof raw.general.startCity === 'string' && raw.general.startCity.trim()
           ? raw.general.startCity.trim().slice(0, 20)

@@ -21,6 +21,8 @@ import {
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
 import { getZoomTarget } from '../zoomTarget';
+import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
+import { mediaSiteKey } from '../../shared/media';
 import { failure, withStartParam, type IpcContext } from './shared';
 
 /** 标签页 / 书签 / 下载 / 浏览历史 / 布局 相关 IPC。 */
@@ -199,6 +201,27 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     if (useSidebarZoom()) ctx.sidebarWeb?.setZoom(value);
     else ctx.tabs.setZoom(value);
   });
+  ipcMain.handle('page:set-site-dark', (_event, input: unknown) => {
+    try {
+      const raw = (input || {}) as { url?: unknown; disabled?: unknown };
+      const host = mediaSiteKey(String(raw.url || ''));
+      if (!host) return { ok: false, error: '网址无效' };
+      const disabled = raw.disabled === true;
+      const settings = loadSettings();
+      const current = new Set(settings.general.siteDarkDisabled || []);
+      if (disabled) current.add(host);
+      else current.delete(host);
+      settings.general.siteDarkDisabled = Array.from(current).slice(0, 300);
+      saveSettings(settings);
+      ctx.tabs.setWebDarkMode();
+      ctx.sidebarWeb?.setWebDarkMode();
+      ctx.send('settings:changed', settingsSnapshot());
+      return { ok: true, data: { host, disabled } };
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
   ipcMain.handle('page:zoom-menu', (): Result<boolean> => {
     if (!ctx.win || ctx.win.isDestroyed()) return failure('主窗口不可用');
     const sidebar = useSidebarZoom();

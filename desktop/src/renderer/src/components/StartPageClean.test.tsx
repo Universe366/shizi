@@ -113,7 +113,7 @@ describe('StartPageClean', () => {
       installBsub();
       const { container } = render(<StartPageClean {...baseProps} />);
       await screen.findByText('GitHub');
-      const folder = screen.getByTitle(/文件夹：视频/);
+      const folder = screen.getByTitle(/文件夹：学习 \/ 视频/);
       expect(folder.textContent).toContain('2');
       fireEvent.click(folder);
       const links = container.querySelector('.sc-links')?.textContent || '';
@@ -160,6 +160,22 @@ describe('StartPageClean', () => {
       general: { startShortcuts: Array<{ label: string; group?: string }> };
     };
     expect(next.general.startShortcuts).toHaveLength(2);
+  });
+
+  it('可以创建空文件夹并显示磁贴', async () => {
+    const { saveSettings } = installBsub();
+    const { container } = render(<StartPageClean {...baseProps} />);
+    await screen.findByText('GitHub');
+    fireEvent.click(screen.getByTitle('自定义起始页'));
+    fireEvent.click(screen.getByRole('tab', { name: '快捷方式' }));
+    const inputs = container.querySelectorAll('.sc-folder-create input');
+    fireEvent.change(inputs[1], { target: { value: '空文件夹' } });
+    fireEvent.click(screen.getByRole('button', { name: /新建/ }));
+    await waitFor(() => expect(saveSettings).toHaveBeenCalled());
+    const next = saveSettings.mock.calls.at(-1)?.[0] as {
+      general: { startFolders: Array<{ group: string; name: string }> };
+    };
+    expect(next.general.startFolders).toContainEqual({ group: '', name: '空文件夹' });
   });
 
   it('文件夹可重命名，重命名只影响同组同文件夹', async () => {
