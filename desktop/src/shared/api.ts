@@ -296,6 +296,7 @@ export interface BsubApi {
   sidebarWebFind(query: string, forward?: boolean): Promise<Result<boolean>>;
   sidebarWebStopFind(): void;
   onSidebarWebFindResult(cb: (result: { matches: number; active: number }) => void): () => void;
+  onSidebarWebFindOpen(cb: () => void): () => void;
   sidebarWebState(): Promise<Result<{ id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean } | null>>;
   onSidebarWebState(cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean }) => void): () => void;
   /** 侧栏网页视图的位置（窗口坐标）。 */

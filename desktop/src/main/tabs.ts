@@ -228,6 +228,8 @@ export class TabManager {
   /** 倍速落盘节流：拖动滑块/长按快捷键时只保留最后一次。 */
   private pendingRateSave: { site: string; rate: number } | null = null;
   private rateSaveTimer: NodeJS.Timeout | null = null;
+  private pendingSiteZoomSave: { site: string; zoom: number } | null = null;
+  private siteZoomSaveTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly win: BrowserWindow,
@@ -348,7 +350,7 @@ export class TabManager {
       audible: false,
       muted: false,
       lastActiveAt: Date.now(),
-      zoom: 1,
+      zoom: this.siteZoomFor(url),
       rate: resolveMediaRate(loadSettings().general, url)
     };
     this.tabs.set(id, record);
@@ -1334,6 +1336,31 @@ export class TabManager {
     this.activeRecord()?.view?.webContents.stop();
   }
 
+  private siteZoomFor(url: string): number {
+    const key = mediaSiteKey(url);
+    if (!key) return 1;
+    const zoom = Number(loadSettings().general.siteZoom?.[key]);
+    return Number.isFinite(zoom) && zoom >= 0.5 && zoom <= 3 ? zoom : 1;
+  }
+
+  private queueSiteZoomSave(url: string, zoom: number): void {
+    const key = mediaSiteKey(url);
+    if (!key) return;
+    this.pendingSiteZoomSave = { site: key, zoom };
+    if (this.siteZoomSaveTimer) clearTimeout(this.siteZoomSaveTimer);
+    this.siteZoomSaveTimer = setTimeout(() => {
+      const pending = this.pendingSiteZoomSave;
+      this.pendingSiteZoomSave = null;
+      if (!pending) return;
+      const settings = loadSettings();
+      settings.general.siteZoom = {
+        ...(settings.general.siteZoom || {}),
+        [pending.site]: pending.zoom
+      };
+      saveSettings(settings);
+    }, 450);
+  }
+
   zoomIn(): void {
     this.applyZoom(0.1, false);
   }
@@ -1354,6 +1381,7 @@ export class TabManager {
     const zoom = Math.min(3, Math.max(0.5, Math.round(Number(value) * 100) / 100));
     wc.setZoomFactor(zoom);
     record.zoom = zoom;
+    this.queueSiteZoomSave(record.url, zoom);
     this.emit();
     if (!this.win.isDestroyed()) {
       this.win.webContents.send('page:zoom-changed', { target: 'tab', zoom });
@@ -1368,6 +1396,7 @@ export class TabManager {
     const zoom = Math.min(3, Math.max(0.5, Math.round(next * 100) / 100));
     wc.setZoomFactor(zoom);
     record.zoom = zoom;
+    this.queueSiteZoomSave(record.url, zoom);
     this.emit();
     if (!this.win.isDestroyed()) {
       this.win.webContents.send('page:zoom-changed', { target: 'tab', zoom });

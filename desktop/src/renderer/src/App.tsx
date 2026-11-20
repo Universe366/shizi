@@ -878,6 +878,7 @@ export default function App() {
         onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
+        onOpenFind={() => setFindOpen(true)}
         onOpenStart={() => {
           setSettingsOpen(false);
           setLibraryOpen(false);

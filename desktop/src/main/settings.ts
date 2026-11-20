@@ -218,6 +218,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     startWeather: true,
     startCity: '上海',
     startHotSearch: true,
+    siteZoom: {},
     syncFolder: '',
     autoStart: false,
     searchEngineCustom: '',
@@ -896,6 +897,19 @@ function normalize(input: unknown): AppSettings {
         : widgetIds;
       if (!base.general.startWidgets.length) base.general.startWidgets = widgetIds;
       base.general.startWeather = raw.general.startWeather !== false;
+      const siteZoom: Record<string, number> = {};
+      if (raw.general.siteZoom && typeof raw.general.siteZoom === 'object') {
+        for (const [key, value] of Object.entries(
+          raw.general.siteZoom as Record<string, unknown>
+        ).slice(0, 300)) {
+          const zoom = Number(value);
+          const host = String(key).trim().slice(0, 200);
+          if (host && Number.isFinite(zoom) && zoom >= 0.5 && zoom <= 3) {
+            siteZoom[host] = Math.round(zoom * 100) / 100;
+          }
+        }
+      }
+      base.general.siteZoom = siteZoom;
       base.general.startCity =
         typeof raw.general.startCity === 'string' && raw.general.startCity.trim()
           ? raw.general.startCity.trim().slice(0, 20)

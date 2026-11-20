@@ -376,6 +376,7 @@ const api: BsubApi = {
   sidebarWebStopFind: () => ipcRenderer.send('sidebar-web:find-stop'),
   onSidebarWebFindResult: (cb: (result: { matches: number; active: number }) => void) =>
     on<{ matches: number; active: number }>('sidebar-web:find-result', (result) => cb(result)),
+  onSidebarWebFindOpen: (cb: () => void) => on('sidebar-web:find-open', () => cb()),
   onSidebarWebState: (
     cb: (state: {
       id: string;

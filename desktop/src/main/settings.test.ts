@@ -288,6 +288,25 @@ describe('设置的持久化字段', () => {
     expect(loadSettings().search.maxResults).toBe(5);
   });
 
+  it('站点缩放只保留合法 host 与 0.5–3 的值', () => {
+    fs.writeFileSync(
+      path.join(state.dir, 'settings.json'),
+      JSON.stringify({
+        general: {
+          siteZoom: {
+            'bilibili.com': 1.25,
+            'example.com': 9,
+            bad: 'x',
+            '': 1.1
+          }
+        }
+      }),
+      'utf8'
+    );
+    const settings = loadSettings();
+    expect(settings.general.siteZoom).toEqual({ 'bilibili.com': 1.25 });
+  });
+
   it('主窗口置顶状态保存后不会丢', () => {
     const settings = loadSettings();
     settings.general.alwaysOnTop = true;

@@ -41,6 +41,7 @@ export function AddressBar({
   onNavigate,
   onOpenHub,
   onOpenReader,
+  onOpenFind,
   onOpenStart,
   onOpenLibrary,
   onOpenSettings,
@@ -61,6 +62,7 @@ export function AddressBar({
   onNavigate?: (input: string) => void;
   onOpenHub: (section: HubSection) => void;
   onOpenReader: () => void;
+  onOpenFind?: () => void;
   onOpenStart: () => void;
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
@@ -733,6 +735,7 @@ export function AddressBar({
             <button onClick={() => { setMenuOpen(false); onOpenHub('downloads'); }}>下载</button>
             <button onClick={() => { setMenuOpen(false); onOpenHub('tabs'); }}>标签页</button>
             <div className="address-menu-sep" />
+            <button onClick={() => { setMenuOpen(false); onOpenFind?.(); }}>在页面中查找（Ctrl+F）</button>
             <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); onOpenReader(); }}>阅读模式（Alt+R）</button>
             <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? '')); }}>
               复制当前网址

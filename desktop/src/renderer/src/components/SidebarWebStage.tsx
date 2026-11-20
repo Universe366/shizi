@@ -58,6 +58,10 @@ export function SidebarWebStage({
   }, []);
 
   useEffect(() => {
+    return window.bsub.onSidebarWebFindOpen?.(() => setFindOpen(true));
+  }, []);
+
+  useEffect(() => {
     if (findOpen) window.setTimeout(() => findRef.current?.focus(), 20);
     else {
       setFindResult(null);

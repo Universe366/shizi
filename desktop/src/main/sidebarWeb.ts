@@ -1,6 +1,8 @@
 import { BrowserWindow, Menu, WebContentsView, clipboard, session } from 'electron';
 import type { Rectangle, WebContents } from 'electron';
 import { setZoomTarget } from './zoomTarget';
+import { loadSettings, saveSettings } from './settings';
+import { mediaSiteKey } from '../shared/media';
 import type { SidebarPage } from '../shared/types';
 
 /** 所有侧栏网页共用一个独立分区：登录态与普通标签页隔离。 */
@@ -38,6 +40,8 @@ export class SidebarWebManager {
   private activeId: string | null = null;
   private visible = true;
   private lastBounds: Rectangle | null = null;
+  private pendingSiteZoomSave: { site: string; zoom: number } | null = null;
+  private siteZoomSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly ses = session.fromPartition(SIDEBAR_WEB_PARTITION);
 
   constructor(
@@ -71,6 +75,7 @@ export class SidebarWebManager {
     entry.lastActive = Date.now();
     // 渲染层的 bounds 可能先于 activate 到达：用最近一次量到的位置，避免视图停在 0 尺寸。
     if (this.lastBounds) entry.bounds = this.lastBounds;
+    if (entry.zoom === 1) entry.zoom = this.siteZoomFor(entry.url);
     try {
       entry.view.webContents.setZoomFactor(entry.zoom || 1);
     } catch {
@@ -162,13 +167,41 @@ export class SidebarWebManager {
     this.setZoom(1);
   }
 
+  private siteZoomFor(url: string): number {
+    const key = mediaSiteKey(url);
+    if (!key) return 1;
+    const zoom = Number(loadSettings().general.siteZoom?.[key]);
+    return Number.isFinite(zoom) && zoom >= 0.5 && zoom <= 3 ? zoom : 1;
+  }
+
+  private queueSiteZoomSave(url: string, zoom: number): void {
+    const key = mediaSiteKey(url);
+    if (!key) return;
+    this.pendingSiteZoomSave = { site: key, zoom };
+    if (this.siteZoomSaveTimer) clearTimeout(this.siteZoomSaveTimer);
+    this.siteZoomSaveTimer = setTimeout(() => {
+      const pending = this.pendingSiteZoomSave;
+      this.pendingSiteZoomSave = null;
+      if (!pending) return;
+      const settings = loadSettings();
+      settings.general.siteZoom = {
+        ...(settings.general.siteZoom || {}),
+        [pending.site]: pending.zoom
+      };
+      saveSettings(settings);
+    }, 450);
+  }
+
   setZoom(value: number): void {
     const wc = this.activeWebContents();
     if (!wc) return;
     const entry = this.activeId ? this.entries.get(this.activeId) : null;
     const zoom = Math.min(3, Math.max(0.5, Math.round(Number(value) * 100) / 100));
     wc.setZoomFactor(zoom);
-    if (entry) entry.zoom = zoom;
+    if (entry) {
+      entry.zoom = zoom;
+      this.queueSiteZoomSave(entry.url, zoom);
+    }
     if (!this.win.isDestroyed()) {
       this.win.webContents.send('page:zoom-changed', { target: 'sidebar', zoom });
     }
@@ -366,6 +399,11 @@ export class SidebarWebManager {
         this.zoomReset();
         return;
       }
+      if (modifier && key.toLowerCase() === 'f') {
+        event.preventDefault();
+        this.win.webContents.send('sidebar-web:find-open');
+        return;
+      }
       if (!input.alt) return;
       if (key === 'Left' || key === 'ArrowLeft') {
         event.preventDefault();
@@ -388,7 +426,7 @@ export class SidebarWebManager {
       bounds: { x: 0, y: 0, width: 0, height: 0 },
       attached: false,
       lastActive: Date.now(),
-      zoom: 1
+      zoom: this.siteZoomFor(page.url)
     };
     this.entries.set(entry.id, entry);
     return entry;

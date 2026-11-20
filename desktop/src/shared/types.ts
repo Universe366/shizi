@@ -1438,6 +1438,8 @@ export interface AppSettings {
     startWeather: boolean;
     /** 天气城市 */
     startCity: string;
+    /** 每个站点记住的网页缩放（hostname -> 0.5–3，1 = 100%） */
+    siteZoom?: Record<string, number>;
     /** 起始页热搜小组件 */
     startHotSearch: boolean;
     /** 云同步文件夹（OneDrive/坚果云等本地同步目录） */
