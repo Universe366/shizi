@@ -27,19 +27,19 @@ const LAYOUT_PRESETS: Array<{
     id: 'compact',
     label: '紧凑',
     desc: '更多内容，适合小屏',
-    patch: { density: 'compact', fontScale: 0.95, sidebarWidth: 280, verticalTabsWidth: 190 }
+    patch: { density: 'compact', fontScale: 0.95, sidebarWidth: 280, verticalTabsWidth: 160 }
   },
   {
     id: 'standard',
     label: '标准',
     desc: '默认比例',
-    patch: { density: 'comfortable', fontScale: 1, sidebarWidth: 300, verticalTabsWidth: 200 }
+    patch: { density: 'comfortable', fontScale: 1, sidebarWidth: 300, verticalTabsWidth: 180 }
   },
   {
     id: 'relaxed',
     label: '宽松',
     desc: '更大字号与留白',
-    patch: { density: 'comfortable', fontScale: 1.08, sidebarWidth: 340, verticalTabsWidth: 220 }
+    patch: { density: 'comfortable', fontScale: 1.08, sidebarWidth: 340, verticalTabsWidth: 200 }
   }
 ];
 
@@ -50,7 +50,7 @@ export function AppearanceGroup({ value, onChange }: Props) {
     onChange({ browserToolbar: { ...toolbar, [key]: checked } });
 
   const sidebarWidth = value.sidebarWidth || 300;
-  const tabWidth = value.verticalTabsWidth ?? 200;
+  const tabWidth = value.verticalTabsWidth ?? 180;
   const activePreset = LAYOUT_PRESETS.find(
     (preset) =>
       preset.patch.density === (value.density || 'comfortable') &&
@@ -210,11 +210,11 @@ export function AppearanceGroup({ value, onChange }: Props) {
             <input
               className="settings-range"
               type="range"
-              min={160}
-              max={360}
+              min={140}
+              max={320}
               step={10}
               aria-label="标签栏宽度"
-              value={Math.min(360, Math.max(160, tabWidth))}
+              value={Math.min(320, Math.max(140, tabWidth))}
               onChange={(event) => onChange({ verticalTabsWidth: Number(event.target.value) })}
             />
           </div>

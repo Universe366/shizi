@@ -149,7 +149,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sidebarWidth: 300,
     sidebarPosition: 'left',
     verticalTabs: true,
-    verticalTabsWidth: 200,
+    verticalTabsWidth: 180,
     verticalTabsCollapsed: false,
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
     panelLayout: { order: [], hidden: [] },
@@ -540,12 +540,12 @@ function normalize(input: unknown): AppSettings {
       base.general.verticalTabs = raw.general.verticalTabs !== false;
       const paneWidth = Number(raw.general.verticalTabsWidth);
       base.general.verticalTabsWidth = Number.isFinite(paneWidth)
-        ? Math.min(360, Math.max(160, Math.round(paneWidth)))
-        : 200;
+        ? Math.min(320, Math.max(140, Math.round(paneWidth)))
+        : 180;
       // 0.164 起收窄旧默认宽度，给中间网页让位；用户自己拖过的不动。
       if ((Number(raw.general.compactLayoutVersion) || 0) < 1) {
         if (base.general.sidebarWidth === 320) base.general.sidebarWidth = 300;
-        if (base.general.verticalTabsWidth === 220) base.general.verticalTabsWidth = 200;
+        if (base.general.verticalTabsWidth === 220) base.general.verticalTabsWidth = 180;
       }
       base.general.compactLayoutVersion = 1;
       base.general.verticalTabsCollapsed = raw.general.verticalTabsCollapsed === true;
@@ -1970,7 +1970,7 @@ export function setTabsLayout(patch: { width?: number; collapsed?: boolean }): A
   const settings = loadSettings();
   const width = Number(patch.width);
   if (Number.isFinite(width)) {
-    settings.general.verticalTabsWidth = Math.min(360, Math.max(160, Math.round(width)));
+    settings.general.verticalTabsWidth = Math.min(320, Math.max(140, Math.round(width)));
   }
   if (typeof patch.collapsed === 'boolean') {
     settings.general.verticalTabsCollapsed = patch.collapsed;

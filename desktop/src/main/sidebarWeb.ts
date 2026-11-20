@@ -17,6 +17,7 @@ interface SidebarWebEntry {
   bounds: Rectangle;
   attached: boolean;
   lastActive: number;
+  zoom: number;
   sleepTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -70,6 +71,11 @@ export class SidebarWebManager {
     entry.lastActive = Date.now();
     // 渲染层的 bounds 可能先于 activate 到达：用最近一次量到的位置，避免视图停在 0 尺寸。
     if (this.lastBounds) entry.bounds = this.lastBounds;
+    try {
+      entry.view.webContents.setZoomFactor(entry.zoom || 1);
+    } catch {
+      // ignore
+    }
     if (entry.sleepTimer) {
       clearTimeout(entry.sleepTimer);
       entry.sleepTimer = undefined;
@@ -92,6 +98,7 @@ export class SidebarWebManager {
   setVisible(visible: boolean): void {
     this.visible = visible;
     if (!this.activeId) return;
+    if (visible) setZoomTarget('sidebar');
     const entry = this.entries.get(this.activeId);
     if (!entry) return;
     if (visible) this.attach(entry);
@@ -106,6 +113,10 @@ export class SidebarWebManager {
   }
 
   getZoom(): number {
+    if (this.activeId) {
+      const entry = this.entries.get(this.activeId);
+      if (entry) return entry.zoom || 1;
+    }
     return this.activeWebContents()?.getZoomFactor() ?? 1;
   }
 
@@ -124,8 +135,10 @@ export class SidebarWebManager {
   setZoom(value: number): void {
     const wc = this.activeWebContents();
     if (!wc) return;
+    const entry = this.activeId ? this.entries.get(this.activeId) : null;
     const zoom = Math.min(3, Math.max(0.5, Math.round(Number(value) * 100) / 100));
     wc.setZoomFactor(zoom);
+    if (entry) entry.zoom = zoom;
     if (!this.win.isDestroyed()) {
       this.win.webContents.send('page:zoom-changed', { target: 'sidebar', zoom });
     }
@@ -200,6 +213,19 @@ export class SidebarWebManager {
     view.setBackgroundColor('#ffffff');
     const wc = view.webContents;
     wc.on('focus', () => setZoomTarget('sidebar'));
+    wc.on('did-finish-load', () => {
+      const entry = this.entries.get(page.id);
+      if (!entry) return;
+      try {
+        wc.setZoomFactor(entry.zoom || 1);
+      } catch {
+        // ignore
+      }
+    });
+    wc.on('zoom-changed', (_event, direction) => {
+      if (direction === 'in') this.zoomIn();
+      else this.zoomOut();
+    });
     wc.setWindowOpenHandler(({ url }) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       // 之前 allow 会弹一个 520×720 的小窗；用户明确希望回主窗口。
@@ -289,7 +315,8 @@ export class SidebarWebManager {
       view,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
       attached: false,
-      lastActive: Date.now()
+      lastActive: Date.now(),
+      zoom: 1
     };
     this.entries.set(entry.id, entry);
     return entry;

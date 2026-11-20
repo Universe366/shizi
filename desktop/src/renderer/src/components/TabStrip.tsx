@@ -38,7 +38,29 @@ const GROUP_COLORS: Array<{ id: TabGroup['color']; label: string }> = [
   { id: 'gray', label: '灰' }
 ];
 
-const DEFAULT_WIDTH = 220;
+const DEFAULT_WIDTH = 180;
+const MIN_WIDTH = 140;
+const MAX_WIDTH = 320;
+
+function readStoredWidth(): number {
+  try {
+    const migrated = localStorage.getItem('tabs.width.v2');
+    const raw = localStorage.getItem('tabs.width');
+    if (!migrated) {
+      localStorage.setItem('tabs.width.v2', '1');
+      if (raw === null || raw === '220') {
+        localStorage.setItem('tabs.width', String(DEFAULT_WIDTH));
+        return DEFAULT_WIDTH;
+      }
+    }
+    const saved = Number(raw);
+    return Number.isFinite(saved) && saved >= MIN_WIDTH
+      ? Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, saved))
+      : DEFAULT_WIDTH;
+  } catch {
+    return DEFAULT_WIDTH;
+  }
+}
 
 export function TabStrip({
   tabs,
@@ -68,10 +90,7 @@ export function TabStrip({
   const persistTimer = useRef<number | null>(null);
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('tabs.collapsed') === '1');
-  const [width, setWidth] = useState(() => {
-    const saved = Number(localStorage.getItem('tabs.width'));
-    return Number.isFinite(saved) && saved >= 160 ? Math.min(360, Math.max(160, saved)) : DEFAULT_WIDTH;
-  });
+  const [width, setWidth] = useState(readStoredWidth);
 
   const [selected, setSelected] = useState<string[]>([]);
   const [anchorId, setAnchorId] = useState<string | null>(null);
@@ -282,7 +301,7 @@ export function TabStrip({
       if (!snapshot.ok) return;
       const general = snapshot.data.settings.general;
       if (typeof general.verticalTabsWidth === 'number') {
-        setWidth(Math.min(360, Math.max(160, general.verticalTabsWidth)));
+        setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, general.verticalTabsWidth)));
       }
       if (typeof general.verticalTabsCollapsed === 'boolean') {
         setCollapsed(general.verticalTabsCollapsed);
@@ -855,8 +874,8 @@ export function TabStrip({
       style={
         vertical
           ? ({
-              width: collapsed && !peekOpen ? 48 : width,
-              '--tab-strip-width': `${collapsed && !peekOpen ? 48 : width}px`
+              width: collapsed && !peekOpen ? 44 : width,
+              '--tab-strip-width': `${collapsed && !peekOpen ? 44 : width}px`
             } as CSSProperties)
           : undefined
       }
@@ -1135,7 +1154,7 @@ export function TabStrip({
               const state = dragRef.current;
               if (!state) return;
               setWidth(
-                Math.min(360, Math.max(160, state.startWidth + moveEvent.clientX - state.startX))
+                Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, state.startWidth + moveEvent.clientX - state.startX))
               );
             };
             const up = () => {

@@ -43,14 +43,16 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   var slider = null, siteEl = null, hintEl = null, emptyEl = null;
   var hintLeft = null, hintRight = null;
   var pitchBtn = null, rememberBtn = null, presetEls = [];
-  var osd = null, badge = null;
+  var osd = null, badge = null, badgeWrap = null, badgeClose = null;
   var osdTimer = 0, commitTimer = 0, lastPostAt = 0, lastKeyAt = 0, mounted = false;
   var syncTimer = 0;
   // 倍速角标可拖动，位置按站点存在 page localStorage 里。
   var BADGE_POS_KEY = 'shizi.mediaBadgePos';
+  var BADGE_HIDDEN_KEY = 'shizi.mediaBadgeHidden';
   var badgePos = null;
   var badgeDrag = null;
   var badgeSuppressClick = false;
+  var badgeHidden = false;
 
   function clamp(value) {    var number = Number(value);
     if (!isFinite(number)) return 1;
@@ -254,18 +256,29 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     '  opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease;',
     '}',
     '.osd.is-show{opacity:1;transform:translate(-50%,0);}',
-    '.badge{',
+    '.badge-wrap{',
     // 离开播放器底部控制条：右下角 18px 会压住全屏/画质/倍速等按钮。
-    '  all:unset;box-sizing:border-box;position:absolute;right:18px;bottom:72px;padding:6px 10px;',
+    '  position:absolute;right:18px;bottom:72px;display:none;align-items:center;gap:3px;',
+    '  pointer-events:auto;z-index:2;',
+    '}',
+    '.badge{',
+    '  all:unset;box-sizing:border-box;padding:6px 10px;',
     '  border-radius:999px;background:var(--osd-bg);color:var(--osd-fg);cursor:pointer;',
     "  font:600 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;",
     '  font-variant-numeric:tabular-nums;box-shadow:0 6px 18px rgba(0,0,0,.26);',
-    '  opacity:.7;pointer-events:auto;transition:opacity .16s ease,transform .16s ease;display:none;',
+    '  opacity:.7;pointer-events:auto;transition:opacity .16s ease,transform .16s ease;',
     '  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;',
     '}',
     '.badge:hover{opacity:1;}',
     '.badge.is-dragging{cursor:grabbing;opacity:1;transform:scale(1.04);}',
-    '.preset:focus-visible,.step:focus-visible,.toggle:focus-visible,.close:focus-visible,.badge:focus-visible{',
+    '.badge-close{',
+    '  all:unset;box-sizing:border-box;display:grid;place-items:center;width:18px;height:18px;',
+    '  border-radius:50%;background:var(--osd-bg);color:var(--osd-fg);cursor:pointer;',
+    "  font:600 12px/1 -apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;",
+    '  opacity:.48;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .16s ease;',
+    '}',
+    '.badge-close:hover{opacity:1;}',
+    '.preset:focus-visible,.step:focus-visible,.toggle:focus-visible,.close:focus-visible,.badge:focus-visible,.badge-close:focus-visible{',
     '  outline:2px solid var(--fg);outline-offset:2px;}'
   ].join('\n');
 
@@ -460,8 +473,8 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   }
 
   function clampBadge(left, top) {
-    var width = badge ? badge.offsetWidth || 40 : 40;
-    var height = badge ? badge.offsetHeight || 26 : 26;
+    var width = badgeWrap ? badgeWrap.offsetWidth || 60 : 60;
+    var height = badgeWrap ? badgeWrap.offsetHeight || 26 : 26;
     var maxLeft = Math.max(4, window.innerWidth - width - 4);
     var maxTop = Math.max(4, window.innerHeight - height - 4);
     return {
@@ -471,12 +484,12 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   }
 
   function placeBadge(left, top, save) {
-    if (!badge) return;
+    if (!badgeWrap) return;
     var next = clampBadge(left, top);
-    badge.style.left = next.left + 'px';
-    badge.style.top = next.top + 'px';
-    badge.style.right = 'auto';
-    badge.style.bottom = 'auto';
+    badgeWrap.style.left = next.left + 'px';
+    badgeWrap.style.top = next.top + 'px';
+    badgeWrap.style.right = 'auto';
+    badgeWrap.style.bottom = 'auto';
     badgePos = next;
     if (save) {
       try {
@@ -492,17 +505,37 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   }
 
   function buildBadge() {
+    badgeWrap = mk('div', 'badge-wrap');
     badge = mk('button', 'badge', '1\u00d7');
     badge.type = 'button';
     badge.title = '\u62d6\u52a8\u79fb\u52a8\u4f4d\u7f6e \u00b7 \u70b9\u51fb\u8c03\u6574\u64ad\u653e\u901f\u5ea6';
     badge.setAttribute('aria-label', '\u8c03\u6574\u64ad\u653e\u901f\u5ea6\uff0c\u53ef\u62d6\u52a8');
+    badgeClose = mk('button', 'badge-close', '\u00d7');
+    badgeClose.type = 'button';
+    badgeClose.title = '\u5173\u95ed\u500d\u901f\u89d2\u6807';
+    badgeClose.addEventListener('click', function (event) {
+      event.stopPropagation();
+      badgeHidden = true;
+      try {
+        localStorage.setItem(BADGE_HIDDEN_KEY, '1');
+      } catch (error) {
+        // ignore
+      }
+      render();
+    });
+
+    try {
+      badgeHidden = localStorage.getItem(BADGE_HIDDEN_KEY) === '1';
+    } catch (error) {
+      badgeHidden = false;
+    }
 
     var saved = loadBadgePos();
     if (saved) placeBadge(saved.left, saved.top, false);
 
     badge.addEventListener('pointerdown', function (event) {
       if (event.button !== 0) return;
-      var rect = badge.getBoundingClientRect();
+      var rect = (badgeWrap || badge).getBoundingClientRect();
       badgeDrag = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -559,7 +592,9 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
       }
       openPanel();
     });
-    shadow.appendChild(badge);
+    badgeWrap.appendChild(badge);
+    badgeWrap.appendChild(badgeClose);
+    shadow.appendChild(badgeWrap);
   }
 
   function ensureUi() {
@@ -630,8 +665,8 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     emptyEl.style.display = mediaEls().length === 0 ? 'block' : 'none';
 
     panel.style.display = state.panel ? 'block' : 'none';
-    var showBadge = state.widget && state.rate !== 1 && !state.panel;
-    badge.style.display = showBadge ? 'block' : 'none';
+    var showBadge = state.widget && state.rate !== 1 && !state.panel && !badgeHidden;
+    if (badgeWrap) badgeWrap.style.display = showBadge ? 'flex' : 'none';
     badge.textContent = fmt(state.rate);
   }
 
@@ -754,6 +789,14 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
     setState: function (next) {
       if (!next) return;
       state.rate = clamp(next.rate);
+      if (next.widget === true && state.widget !== true) {
+        badgeHidden = false;
+        try {
+          localStorage.removeItem(BADGE_HIDDEN_KEY);
+        } catch (error) {
+          // ignore
+        }
+      }
       state.pitch = next.pitch !== false;
       state.remember = next.remember !== false;
       state.singleKey = next.singleKey === true;

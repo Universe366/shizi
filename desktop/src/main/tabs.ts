@@ -20,6 +20,24 @@ import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { setZoomTarget } from './zoomTarget';
 import { normalizeSelectionAction } from './selectionAction';
 import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
+
+/** B 站播放器在 Chromium 自动暗色下会把控件渐变反成白色，这里只覆盖控件层。 */
+const DARK_PLAYER_FIX = `(() => {
+  const CSS = '@media (prefers-color-scheme: dark) {' +
+    '[class*="bpx-player-control"]{background-image:none!important;}' +
+    '[class*="bpx-player-control"]::before,[class*="bpx-player-control"]::after{background-image:none!important;}' +
+    '.bpx-player-control-bottom{background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.72) 100%)!important;}' +
+    '}';
+  const add = () => {
+    if (!document.documentElement || document.getElementById('shizi-dark-player-fix')) return;
+    const style = document.createElement('style');
+    style.id = 'shizi-dark-player-fix';
+    style.textContent = CSS;
+    (document.head || document.documentElement).appendChild(style);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add, { once: true });
+  else add();
+})();`;
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
   actionForStroke,
@@ -261,7 +279,11 @@ export class TabManager {
       await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
         features: enabled ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []
       });
-      // 不再开启 Chromium 的自动暗色：它会改写视频控件/渐变，B 站播放条会出现白色渐变。
+      try {
+        await wc.debugger.sendCommand('Emulation.setAutoDarkModeOverride', { enabled });
+      } catch {
+        // 旧内核没有这个命令时，至少保留 prefers-color-scheme 模拟。
+      }
     } catch {
       // 页面尚未 ready 或调试器被占用时忽略，下一次 prepare 会再试。
     }
@@ -447,6 +469,9 @@ export class TabManager {
       });
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: MEDIA_CONTROL_SCRIPT
+      });
+      await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+        source: DARK_PLAYER_FIX
       });
       // 页内倍速面板 / 快捷键通过 binding 把动作送回主进程。
       await wc.debugger.sendCommand('Runtime.enable');

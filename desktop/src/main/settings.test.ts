@@ -109,15 +109,15 @@ describe('设置的持久化字段', () => {
     expect(reloaded.general.petY).toBe(-1);
   });
 
-  it('垂直标签栏宽度夹在 160–360，折叠状态可单独持久化', () => {
+  it('垂直标签栏宽度夹在 140–320，折叠状态可单独持久化', () => {
     setTabsLayout({ width: 999, collapsed: true });
     let reloaded = loadSettings();
-    expect(reloaded.general.verticalTabsWidth).toBe(360);
+    expect(reloaded.general.verticalTabsWidth).toBe(320);
     expect(reloaded.general.verticalTabsCollapsed).toBe(true);
 
     setTabsLayout({ width: 100 });
     reloaded = loadSettings();
-    expect(reloaded.general.verticalTabsWidth).toBe(160);
+    expect(reloaded.general.verticalTabsWidth).toBe(140);
     expect(reloaded.general.verticalTabsCollapsed).toBe(true);
     expect(reloaded.general.verticalTabs).toBe(true);
   });
@@ -264,7 +264,7 @@ describe('设置的持久化字段', () => {
     );
     const upgraded = loadSettings();
     expect(upgraded.general.sidebarWidth).toBe(300);
-    expect(upgraded.general.verticalTabsWidth).toBe(200);
+    expect(upgraded.general.verticalTabsWidth).toBe(180);
     expect(upgraded.general.compactLayoutVersion).toBe(1);
 
     upgraded.general.sidebarWidth = 320;

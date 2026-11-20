@@ -101,8 +101,8 @@ button:disabled {
 }
 
 .app-shell.vertical-tabs .tab-strip {
-  width: 200px;
-  flex: 0 0 200px;
+  width: 180px;
+  flex: 0 0 180px;
   height: auto;
   flex-direction: column;
   align-items: stretch;
@@ -8580,7 +8580,7 @@ html[data-density='compact'] .chat-history-row {
 /* 垂直标签栏：宽度由内联样式控制，折叠时只留图标 */
 .app-shell.vertical-tabs .tab-strip {
   flex: 0 0 auto;
-  min-width: 48px;
+  min-width: 44px;
 }
 
 .tab-strip.is-collapsed .tab-strip-list {
@@ -11333,7 +11333,7 @@ html[data-density='compact'] .chat-history-row {
 }
 
 .app-shell.vertical-tabs:has(.tab-strip.is-collapsed) {
-  padding-left: 48px;
+  padding-left: 44px;
 }
 
 .app-shell.vertical-tabs .tab-strip.is-collapsed {
@@ -15570,7 +15570,7 @@ sup:has(> .cite-ref) {
 
 /* 悬停探出时主区域让位，避免地址栏/前进后退被标签栏盖住 */
 .app-shell.vertical-tabs.is-tab-peek:has(.tab-strip.is-collapsed.is-peeking) {
-  padding-left: var(--tab-peek-width, 220px);
+  padding-left: var(--tab-peek-width, 180px);
 }
 
 /* 最近请求：固定高度滚动，避免把版本更新推到页面很远 */
@@ -15842,7 +15842,7 @@ sup:has(> .cite-ref) {
 .app-shell.vertical-tabs .tab-strip.is-peeking .tab-group-menu {
   left: 8px !important;
   min-width: 0;
-  width: max(120px, calc(var(--tab-strip-width, 220px) - 16px));
+  width: max(120px, calc(var(--tab-strip-width, 180px) - 16px));
   max-height: calc(100vh - 16px);
   overflow-y: auto;
 }
