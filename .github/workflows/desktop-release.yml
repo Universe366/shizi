@@ -14,6 +14,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
@@ -23,6 +27,18 @@ jobs:
         working-directory: desktop
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify tag matches package version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match desktop/package.json $pkg"
+            exit 1
+          fi
+          echo "version $pkg matches tag $GITHUB_REF_NAME"
 
       - uses: actions/setup-node@v4
         with:

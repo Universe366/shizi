@@ -244,7 +244,7 @@ shizi-extension/
 
 ## 版本
 
-- 桌面端：**0.163.23**（2026-11-20）
+- 桌面端：**0.163.23**（2026-11-21）
 - 插件：**2.20.16**
 - 变更记录：[desktop/CHANGELOG.md](desktop/CHANGELOG.md)、[shizi-extension/CHANGELOG.md](shizi-extension/CHANGELOG.md)
 
