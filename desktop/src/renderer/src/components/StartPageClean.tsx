@@ -19,7 +19,6 @@ import {
   Search,
   Settings,
   Trash2,
-  Upload,
   X
 } from 'lucide-react';
 import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
@@ -44,6 +43,7 @@ import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
 import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
 import { StartPageShortcutDialog } from './StartPageShortcutDialog';
+import { StartPageShortcutList } from './StartPageShortcutList';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import {
   StartPageOpenLinks,
@@ -1784,51 +1784,21 @@ export function StartPageClean({
                   onRemoveGroup={removeGroup}
                   onRemoveFolder={removeFolder}
                 />
-                <section>
-                  <h4>快捷方式</h4>
-                  <div className="sc-edit-list">
-                    {shortcuts.map((item) => (
-                      <div key={item.id} className="sc-edit-row">
-                        <span>{item.label}</span>
-                        <span>{hostOf(item.url)}</span>
-                        <button
-                          type="button"
-                          title="编辑"
-                          onClick={() =>
-                            setDraft({
-                              id: item.id,
-                              label: item.label,
-                              url: item.url,
-                              group: item.group || '',
-                              folder: item.folder || ''
-                            })
-                          }
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button type="button" title="删除" onClick={() => removeShortcut(item)}>
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="sc-inline-actions">
-                    <button
-                      type="button"
-                      className="sc-secondary"
-                      onClick={() => setDraft({ label: '', url: '', group: '', folder: '' })}
-                    >
-                      <Plus size={13} /> 添加
-                    </button>
-                    <button
-                      type="button"
-                      className="sc-secondary"
-                      onClick={() => bookmarkInputRef.current?.click()}
-                    >
-                      <Upload size={13} /> 导入书签
-                    </button>
-                  </div>
-                </section>
+                <StartPageShortcutList
+                  shortcuts={shortcuts}
+                  onEdit={(item) =>
+                    setDraft({
+                      id: item.id,
+                      label: item.label,
+                      url: item.url,
+                      group: item.group || '',
+                      folder: item.folder || ''
+                    })
+                  }
+                  onRemove={removeShortcut}
+                  onAdd={() => setDraft({ label: '', url: '', group: '', folder: '' })}
+                  onImport={() => bookmarkInputRef.current?.click()}
+                />
                 <StartPageBackupSettings
                   onExport={exportBackup}
                   onImport={() => backupInputRef.current?.click()}
