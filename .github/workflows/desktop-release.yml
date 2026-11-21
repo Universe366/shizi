@@ -48,6 +48,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - run: npm run build
+
       - name: Smoke (real Electron)
         run: npm run smoke
 
