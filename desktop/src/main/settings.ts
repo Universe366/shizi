@@ -221,6 +221,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     siteZoom: {},
     siteDarkDisabled: [],
     startFolders: [],
+    startGroupOrder: [],
+    startFolderOrder: [],
     syncFolder: '',
     autoStart: false,
     searchEngineCustom: '',
@@ -935,6 +937,18 @@ function normalize(input: unknown): AppSettings {
         }
       }
       base.general.startFolders = startFolders;
+      const orderList = (value: unknown, max: number): string[] =>
+        Array.isArray(value)
+          ? Array.from(
+              new Set(
+                value
+                  .map((entry) => String(entry || '').trim().slice(0, 200))
+                  .filter(Boolean)
+              )
+            ).slice(0, max)
+          : [];
+      base.general.startGroupOrder = orderList(raw.general.startGroupOrder, 100);
+      base.general.startFolderOrder = orderList(raw.general.startFolderOrder, 300);
       base.general.startCity =
         typeof raw.general.startCity === 'string' && raw.general.startCity.trim()
           ? raw.general.startCity.trim().slice(0, 20)

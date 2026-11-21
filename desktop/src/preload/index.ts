@@ -11,7 +11,6 @@ import type {
   AsrPlatform,
   SearchPlatform,
   AppSettings,
-  PageContextMenuPayload,
   BrowserExtensionStatus,
   BrowserExtensionsState,
   DiagnosticsInfo,
@@ -176,9 +175,7 @@ const api: BsubApi = {
     } | null>,
   getTabGroups: () => ipcRenderer.invoke('tabs:groups') as Promise<TabGroup[]>,
   onTabGroups: (cb: (groups: TabGroup[]) => void) => on<TabGroup[]>('tabs:groups', cb),
-  onPageContextMenu: (cb) => on<PageContextMenuPayload>('page:context-menu', cb),
-  pageContextAction: (action, pageX, pageY) =>
-    ipcRenderer.send('page:context-action', action, pageX, pageY),
+
   createTabGroup: (name: string, color: TabGroup['color']) =>
     ipcRenderer.invoke('group:create', name, color) as Promise<TabGroup>,
   assignTabGroup: (tabId: string, groupId: string | null) =>
@@ -390,6 +387,7 @@ const api: BsubApi = {
       canBack: boolean;
       canForward: boolean;
       loading: boolean;
+      error: string;
     }) => void
   ) =>
     on('sidebar-web:state', (state) =>
@@ -402,6 +400,7 @@ const api: BsubApi = {
           canBack: boolean;
           canForward: boolean;
           loading: boolean;
+          error: string;
         }
       )
     ),

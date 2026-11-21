@@ -28,6 +28,7 @@ import { registerWebIpc } from './ipc/web';
 import { registerSidebarWebIpc } from './ipc/sidebarWeb';
 import { registerLocalVideoIpc } from './ipc/localVideo';
 import { SidebarWebManager } from './sidebarWeb';
+import { PageControl } from './pageControl';
 import { registerConvertIpc } from './ipc/convert';
 import { registerExtensionsIpc } from './ipc/extensions';
 import { registerPluginsIpc } from './ipc/plugins';
@@ -59,6 +60,7 @@ export function registerIpc(win: BrowserWindow, tabs: TabManager): void {
     void tabs.create(url);
   });
   ctx.sidebarWeb = sidebarWeb;
+  ctx.pageControl = new PageControl(tabs, sidebarWeb);
   win.on('closed', () => sidebarWeb.dispose());
   registerSidebarWebIpc(ctx, sidebarWeb);
   registerLocalVideoIpc(ctx);

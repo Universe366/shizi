@@ -395,7 +395,11 @@ export function StartPageClean({
         return;
       }
 
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === 'k'
+      ) {
         event.preventDefault();
         setPaletteOpen(true);
         setSheetOpen(false);
@@ -444,13 +448,18 @@ export function StartPageClean({
     shortcutsRef.current = shortcuts;
   }, [shortcuts]);
 
-  const groups = useMemo(
-    () =>
-      Array.from(
-        new Set(shortcuts.map((item) => String(item.group || '').trim()).filter(Boolean))
-      ).slice(0, 8),
-    [shortcuts]
-  );
+  const groups = useMemo(() => {
+    const order = general?.startGroupOrder || [];
+    const rank = (name: string) => {
+      const index = order.indexOf(name);
+      return index < 0 ? order.length : index;
+    };
+    return Array.from(
+      new Set(shortcuts.map((item) => String(item.group || '').trim()).filter(Boolean))
+    )
+      .sort((a, b) => rank(a) - rank(b))
+      .slice(0, 8);
+  }, [shortcuts, general?.startGroupOrder]);
 
   const groupShortcuts = useMemo(
     () => (group === '全部' ? shortcuts : shortcuts.filter((item) => item.group === group)),
@@ -478,8 +487,15 @@ export function StartPageClean({
       const key = `${groupName}\u0000${name}`;
       if (!map.has(key)) map.set(key, { key, group: groupName, name, count: 0 });
     }
-    return Array.from(map.values()).slice(0, 40);
-  }, [shortcuts, general?.startFolders]);
+    const order = general?.startFolderOrder || [];
+    const rank = (key: string) => {
+      const index = order.indexOf(key);
+      return index < 0 ? order.length : index;
+    };
+    return Array.from(map.values())
+      .sort((a, b) => rank(a.key) - rank(b.key))
+      .slice(0, 40);
+  }, [shortcuts, general?.startFolders, general?.startFolderOrder]);
 
   const folders = useMemo(
     () =>
@@ -871,6 +887,33 @@ export function StartPageClean({
     });
   };
 
+  const moveBefore = (list: string[], from: string, to: string): string[] => {
+    const source = list.indexOf(from);
+    const target = list.indexOf(to);
+    if (source < 0 || target < 0 || source === target) return list;
+    const next = [...list];
+    next.splice(target, 0, next.splice(source, 1)[0]);
+    return next;
+  };
+
+  const reorderGroup = (from: string, to: string) => {
+    const current = groups.includes(from) ? groups : [from, ...groups];
+    const next = moveBefore(current, from, to);
+    if (next === current) return;
+    void patchGeneral({ startGroupOrder: next });
+  };
+
+  const reorderFolder = (from: string, to: string) => {
+    const allKeys = folderEntries.map((entry) => entry.key);
+    const base = [
+      ...(general?.startFolderOrder || []).filter((key) => allKeys.includes(key)),
+      ...allKeys.filter((key) => !(general?.startFolderOrder || []).includes(key))
+    ];
+    const next = moveBefore(base, from, to);
+    if (next === base) return;
+    void patchGeneral({ startFolderOrder: next });
+  };
+
   const removeShortcut = (item: StartShortcut) => {
     const previous = shortcuts;
     const next = shortcuts.filter((entry) => entry.id !== item.id);
@@ -1135,7 +1178,7 @@ export function StartPageClean({
           <button
             type="button"
             className="sc-icon-btn"
-            title="命令面板（Ctrl+K）"
+            title="命令面板（Ctrl+Shift+K）"
             onClick={() => setPaletteOpen(true)}
           >
             <Command size={16} />
@@ -1280,6 +1323,24 @@ export function StartPageClean({
                 key={item}
                 type="button"
                 data-group={item}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('text/sc-group', item);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(event) => {
+                  if (event.dataTransfer.types.includes('text/sc-group')) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(event) => {
+                  const from = event.dataTransfer.getData('text/sc-group');
+                  if (from) {
+                    event.preventDefault();
+                    reorderGroup(from, item);
+                  }
+                }}
                 className={`${group === item ? 'is-active' : ''}${dropGroup === item ? ' is-drop' : ''}`}
                 onClick={() => {
                   setGroup(item);
@@ -1307,6 +1368,24 @@ export function StartPageClean({
                   type="button"
                   data-folder={folder.name}
                   data-group={folder.group}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/sc-folder', folder.key);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(event) => {
+                    if (event.dataTransfer.types.includes('text/sc-folder')) {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                    }
+                  }}
+                  onDrop={(event) => {
+                    const from = event.dataTransfer.getData('text/sc-folder');
+                    if (from) {
+                      event.preventDefault();
+                      reorderFolder(from, folder.key);
+                    }
+                  }}
                   className={`sc-link sc-folder${
                     dropFolder?.group === folder.group && dropFolder.name === folder.name
                       ? ' is-drop'

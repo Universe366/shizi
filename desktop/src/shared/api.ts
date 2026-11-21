@@ -8,7 +8,6 @@ import type {
   AsrPlatform,
   SearchPlatform,
   AppSettings,
-  PageContextMenuPayload,
   BrowserExtensionStatus,
   BrowserExtensionsState,
   TabGroup,
@@ -297,8 +296,8 @@ export interface BsubApi {
   sidebarWebStopFind(): void;
   onSidebarWebFindResult(cb: (result: { matches: number; active: number }) => void): () => void;
   onSidebarWebFindOpen(cb: () => void): () => void;
-  sidebarWebState(): Promise<Result<{ id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean } | null>>;
-  onSidebarWebState(cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean }) => void): () => void;
+  sidebarWebState(): Promise<Result<{ id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean; error: string } | null>>;
+  onSidebarWebState(cb: (state: { id: string; url: string; title: string; zoom: number; canBack: boolean; canForward: boolean; loading: boolean; error: string }) => void): () => void;
   /** 侧栏网页视图的位置（窗口坐标）。 */
   sidebarWebBounds(rect: LayoutRect): void;
   /** 浮层/设置页出现时临时隐藏侧栏网页。 */
@@ -555,12 +554,7 @@ export interface BsubApi {
   popupMenu(
     items: Array<{ id?: string; label?: string; type?: 'separator'; enabled?: boolean }>
   ): Promise<string | null>;
-  onPageContextMenu(cb: (payload: PageContextMenuPayload) => void): () => void;
-  pageContextAction(
-    action: 'back' | 'forward' | 'reload' | 'paste' | 'select-all' | 'inspect',
-    pageX?: number,
-    pageY?: number
-  ): void;
+
   setTabMuted(id: string, muted: boolean): Promise<void>;
   sleepTab(id: string): Promise<boolean>;
   wakeTab(id: string): Promise<boolean>;

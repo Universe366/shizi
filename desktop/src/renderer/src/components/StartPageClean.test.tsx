@@ -224,6 +224,44 @@ describe('StartPageClean', () => {
     }
   });
 
+  it('分组和文件夹按持久化顺序显示', async () => {
+    const original = settings.general.startShortcuts;
+    const target = settings.general as {
+      startGroupOrder?: string[];
+      startFolders?: Array<{ group: string; name: string }>;
+      startFolderOrder?: string[];
+    };
+    settings.general.startShortcuts = [
+      ...original,
+      { id: 'g1', label: '工具站', url: 'https://example.com/tool', group: '工具', folder: '' }
+    ];
+    target.startGroupOrder = ['工具', '学习'];
+    target.startFolders = [
+      { group: '学习', name: '视频' },
+      { group: '学习', name: '文档' }
+    ];
+    target.startFolderOrder = ['学习\u0000文档', '学习\u0000视频'];
+    try {
+      installBsub();
+      render(<StartPageClean {...baseProps} />);
+      await screen.findByText('GitHub');
+      const groups = Array.from(document.querySelectorAll('.sc-groups button')).map(
+        (item) => item.textContent
+      );
+      expect(groups.slice(0, 3)).toEqual(['全部', '工具', '学习']);
+      const folders = Array.from(document.querySelectorAll('.sc-folder')).map(
+        (item) => item.textContent
+      );
+      expect(folders[0]).toContain('文档');
+      expect(folders[1]).toContain('视频');
+    } finally {
+      settings.general.startShortcuts = original;
+      delete target.startGroupOrder;
+      delete target.startFolders;
+      delete target.startFolderOrder;
+    }
+  });
+
   it('添加快捷方式会写回设置', async () => {
     const { saveSettings } = installBsub();
     const { container } = render(<StartPageClean {...baseProps} />);

@@ -3,6 +3,7 @@ import type { Rectangle, WebContents } from 'electron';
 import { setZoomTarget } from './zoomTarget';
 import { loadSettings, saveSettings } from './settings';
 import { mediaSiteKey } from '../shared/media';
+import { applyPageDarkMode } from './pageTheme';
 import type { SidebarPage } from '../shared/types';
 
 /** 所有侧栏网页共用一个独立分区：登录态与普通标签页隔离。 */
@@ -20,6 +21,7 @@ interface SidebarWebEntry {
   attached: boolean;
   lastActive: number;
   zoom: number;
+  error?: string;
   sleepTimer?: ReturnType<typeof setTimeout>;
 }
 
@@ -44,38 +46,10 @@ export class SidebarWebManager {
   private siteZoomSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly ses = session.fromPartition(SIDEBAR_WEB_PARTITION);
 
-  private async applyWebDarkMode(wc: WebContents): Promise<void> {
-    const theme = loadSettings().general.theme;
-    const host = mediaSiteKey(wc.getURL());
-    const disabled =
-      Boolean(host) &&
-      (loadSettings().general.siteDarkDisabled || []).includes(host);
-    const enabled =
-      !disabled &&
-      (theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors));
-    try {
-      if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
-      await wc.debugger.sendCommand('Emulation.setEmulatedMedia', {
-        features: enabled ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []
-      });
-      await wc.debugger.sendCommand('Emulation.setAutoDarkModeOverride', { enabled });
-      if (enabled && host.endsWith('bilibili.com')) {
-        await wc.insertCSS(
-          '@media (prefers-color-scheme: dark){' +
-            '[class*="bpx-player-control"]{background-image:none !important;}' +
-            '.bpx-player-control-bottom{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.72)) !important;}' +
-            '}'
-        );
-      }
-    } catch {
-      // 旧内核或调试器占用时忽略。
-    }
-  }
-
   setWebDarkMode(): void {
     for (const entry of this.entries.values()) {
       const wc = entry.view.webContents;
-      if (!wc.isDestroyed()) void this.applyWebDarkMode(wc);
+      if (!wc.isDestroyed()) void applyPageDarkMode(wc);
     }
   }
 
@@ -170,6 +144,7 @@ export class SidebarWebManager {
     canBack: boolean;
     canForward: boolean;
     loading: boolean;
+    error: string;
   } | null {
     const wc = this.activeWebContents();
     if (!wc || !this.activeId) return null;
@@ -181,7 +156,8 @@ export class SidebarWebManager {
       zoom: this.getZoom(),
       canBack: wc.navigationHistory.canGoBack(),
       canForward: wc.navigationHistory.canGoForward(),
-      loading: wc.isLoading()
+      loading: wc.isLoading(),
+      error: entry?.error || ''
     };
   }
 
@@ -345,12 +321,13 @@ export class SidebarWebManager {
     wc.on('did-finish-load', () => {
       const entry = this.entries.get(page.id);
       if (!entry) return;
+      entry.error = '';
       try {
         wc.setZoomFactor(entry.zoom || 1);
       } catch {
         // ignore
       }
-      void this.applyWebDarkMode(wc);
+      void applyPageDarkMode(wc);
     });
     wc.on('zoom-changed', (_event, direction) => {
       if (direction === 'in') this.zoomIn();
@@ -359,8 +336,18 @@ export class SidebarWebManager {
     wc.on('did-navigate', () => this.emitState());
     wc.on('did-navigate-in-page', () => this.emitState());
     wc.on('page-title-updated', () => this.emitState());
-    wc.on('did-start-loading', () => this.emitState());
+    wc.on('did-start-loading', () => {
+      const entry = this.entries.get(page.id);
+      if (entry) entry.error = '';
+      this.emitState();
+    });
     wc.on('did-stop-loading', () => this.emitState());
+    wc.on('did-fail-load', (_event, code, description, _url, isMainFrame) => {
+      if (!isMainFrame || code === -3) return;
+      const entry = this.entries.get(page.id);
+      if (entry) entry.error = description || `加载失败（${code}）`;
+      this.emitState();
+    });
     wc.on('found-in-page', (_event, result) => {
       if (this.win.isDestroyed()) return;
       this.win.webContents.send('sidebar-web:find-result', {

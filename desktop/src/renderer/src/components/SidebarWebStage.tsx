@@ -10,6 +10,7 @@ interface BrowserState {
   canBack: boolean;
   canForward: boolean;
   loading: boolean;
+  error: string;
 }
 
 /**
@@ -40,7 +41,8 @@ export function SidebarWebStage({
     zoom: 1,
     canBack: false,
     canForward: false,
-    loading: false
+    loading: false,
+    error: ''
   });
   const [address, setAddress] = useState(url);
   const [findOpen, setFindOpen] = useState(false);
@@ -233,6 +235,14 @@ export function SidebarWebStage({
           <Plus size={11} />
         </button>
       </div>
+      {state.error && (
+        <div className="sidebar-web-error">
+          <span>{state.error}</span>
+          <button type="button" onClick={() => window.bsub.sidebarWebReload()}>
+            重试
+          </button>
+        </div>
+      )}
       {findOpen && (
         <div className="sidebar-web-findbar">
           <input

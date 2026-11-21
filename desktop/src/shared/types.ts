@@ -82,22 +82,6 @@ export interface DownloadProgressEvent {
   message: string;
 }
 
-export interface PageContextMenuPayload {
-  x: number;
-  y: number;
-  pageX: number;
-  pageY: number;
-  selectionText: string;
-  linkURL: string;
-  srcURL: string;
-  isEditable: boolean;
-  canPaste: boolean;
-  canCopy: boolean;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  devMode: boolean;
-}
-
 export interface TabInfo {
   id: string;
   title: string;
@@ -1450,6 +1434,10 @@ export interface AppSettings {
     siteDarkDisabled?: string[];
     /** 显式创建的起始页文件夹（允许空文件夹） */
     startFolders?: StartFolder[];
+    /** 分组显示顺序 */
+    startGroupOrder?: string[];
+    /** 文件夹显示顺序（group\u0000name） */
+    startFolderOrder?: string[];
     /** 起始页热搜小组件 */
     startHotSearch: boolean;
     /** 云同步文件夹（OneDrive/坚果云等本地同步目录） */

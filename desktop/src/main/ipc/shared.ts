@@ -8,6 +8,8 @@ export interface IpcContext {
   tabs: TabManager;
   /** 侧栏网页管理器；缩放/焦点路由用。 */
   sidebarWeb?: import('../sidebarWeb').SidebarWebManager;
+  /** 主标签页 / 侧栏网页共用的页面控制入口。 */
+  pageControl?: import('../pageControl').PageControl;
   /** 向渲染进程广播事件（窗口已销毁时自动忽略）。 */
   send: (channel: string, payload?: unknown) => void;
   /** 长任务取消句柄；ai:cancel 与 collection:summarize 共用。 */

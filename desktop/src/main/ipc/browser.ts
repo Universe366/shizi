@@ -20,7 +20,6 @@ import {
 } from '../library';
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
-import { getZoomTarget } from '../zoomTarget';
 import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
 import { mediaSiteKey } from '../../shared/media';
 import { failure, withStartParam, type IpcContext } from './shared';
@@ -182,25 +181,12 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:stop', () => {
     ctx.tabs.stop();
   });
-  const useSidebarZoom = () =>
-    getZoomTarget() === 'sidebar' && Boolean(ctx.sidebarWeb?.activeWebContents());
+  const control = ctx.pageControl;
 
-  ipcMain.handle('tab:zoom-in', () => {
-    if (useSidebarZoom()) ctx.sidebarWeb?.zoomIn();
-    else ctx.tabs.zoomIn();
-  });
-  ipcMain.handle('tab:zoom-out', () => {
-    if (useSidebarZoom()) ctx.sidebarWeb?.zoomOut();
-    else ctx.tabs.zoomOut();
-  });
-  ipcMain.handle('tab:zoom-reset', () => {
-    if (useSidebarZoom()) ctx.sidebarWeb?.zoomReset();
-    else ctx.tabs.zoomReset();
-  });
-  ipcMain.handle('tab:set-zoom', (_event, value: number) => {
-    if (useSidebarZoom()) ctx.sidebarWeb?.setZoom(value);
-    else ctx.tabs.setZoom(value);
-  });
+  ipcMain.handle('tab:zoom-in', () => control?.zoomIn());
+  ipcMain.handle('tab:zoom-out', () => control?.zoomOut());
+  ipcMain.handle('tab:zoom-reset', () => control?.zoomReset());
+  ipcMain.handle('tab:set-zoom', (_event, value: number) => control?.setZoom(value));
   ipcMain.handle('page:set-site-dark', (_event, input: unknown) => {
     try {
       const raw = (input || {}) as { url?: unknown; disabled?: unknown };
@@ -213,8 +199,7 @@ export function registerBrowserIpc(ctx: IpcContext): void {
       else current.delete(host);
       settings.general.siteDarkDisabled = Array.from(current).slice(0, 300);
       saveSettings(settings);
-      ctx.tabs.setWebDarkMode();
-      ctx.sidebarWeb?.setWebDarkMode();
+      control?.reapplyTheme();
       ctx.send('settings:changed', settingsSnapshot());
       return { ok: true, data: { host, disabled } };
     } catch (error) {
@@ -224,12 +209,8 @@ export function registerBrowserIpc(ctx: IpcContext): void {
 
   ipcMain.handle('page:zoom-menu', (): Result<boolean> => {
     if (!ctx.win || ctx.win.isDestroyed()) return failure('主窗口不可用');
-    const sidebar = useSidebarZoom();
-    const current = sidebar ? ctx.sidebarWeb?.getZoom() ?? 1 : ctx.tabs.getZoom();
-    const apply = (value: number) => {
-      if (sidebar) ctx.sidebarWeb?.setZoom(value);
-      else ctx.tabs.setZoom(value);
-    };
+    const current = control?.getZoom() ?? 1;
+    const apply = (value: number) => control?.setZoom(value);
     const presets = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
     const menu = Menu.buildFromTemplate([
       { label: '放大', accelerator: 'CommandOrControl+=', click: () => apply(current + 0.1) },
@@ -248,23 +229,22 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle('page:zoom-get', (): Result<{ target: 'tab' | 'sidebar'; zoom: number }> => {
-    const sidebar = useSidebarZoom();
     return {
       ok: true,
       data: {
-        target: sidebar ? 'sidebar' : 'tab',
-        zoom: sidebar ? ctx.sidebarWeb?.getZoom() ?? 1 : ctx.tabs.getZoom()
+        target: control?.target() ?? 'tab',
+        zoom: control?.getZoom() ?? 1
       }
     };
   });
   ipcMain.handle(
     'tab:find',
     (_event, query: string, options?: { forward?: boolean; findNext?: boolean }) => {
-      ctx.tabs.findInPage(query, options || {});
+      control?.find(query, options || {});
     }
   );
   ipcMain.handle('tab:stop-find', () => {
-    ctx.tabs.stopFind();
+    control?.stopFind();
   });
   ipcMain.handle('tab:reopen-closed', async (): Promise<string | null> => ctx.tabs.reopenClosed());
 
