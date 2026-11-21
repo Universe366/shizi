@@ -5,9 +5,10 @@ import { ChatToolbar } from './ChatToolbar';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatComparePanel } from './ChatComparePanel';
 import { ChatApprovals } from './ChatApprovals';
+import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, Globe, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Brain, Captions, Eraser, FileText, Globe, Loader2, Mic, Pencil, Plus, Quote, Send, Square, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -2220,96 +2221,31 @@ export function ChatPanel({
               </select>
             </div>
           )}
-          <div className="chat-menu-grid">
-            <button className="chat-menu-card" onClick={() => void openToolPanel('tools')}>
-              <Wrench size={15} />
-              <span className="chat-menu-card-title">MCP 工具</span>
-              <span className="chat-menu-card-desc">
-                {toolSelection === null ? '全部可用工具' : `已选 ${toolSelection.length} 个`}
-              </span>
-            </button>
-            <button className="chat-menu-card" onClick={() => void openToolPanel('prompts')}>
-              <Quote size={15} />
-              <span className="chat-menu-card-title">MCP 提示词</span>
-              <span className="chat-menu-card-desc">插入服务预设的提示词</span>
-            </button>
-            <button className="chat-menu-card" onClick={() => void openToolPanel('resources')}>
-              <FileText size={15} />
-              <span className="chat-menu-card-title">MCP 资源</span>
-              <span className="chat-menu-card-desc">读取内容并放进输入框</span>
-            </button>
-            <button
-              className="chat-menu-card"
-              onClick={() => {
-                setMentionOpen(true);
-                setMentionQuery('');
-                setComposerOpen(false);
-              }}
-            >
-              <AtSign size={15} />
-              <span className="chat-menu-card-title">引用历史对话</span>
-              <span className="chat-menu-card-desc">输入 @ 也可打开</span>
-            </button>
-            <button
-              className="chat-menu-card"
-              onClick={() => {
-                setSlashOpen(true);
-                setSlashQuery('');
-                setComposerOpen(false);
-              }}
-            >
-              <Sparkles size={15} />
-              <span className="chat-menu-card-title">快捷指令</span>
-              <span className="chat-menu-card-desc">输入 / 也可打开</span>
-            </button>
-            <button
-              className="chat-menu-card"
-              disabled={!messages.length}
-              onClick={clearContext}
-            >
-              <Eraser size={15} />
-              <span className="chat-menu-card-title">清除上下文</span>
-              <span className="chat-menu-card-desc">保留消息，只把之后的内容发给模型</span>
-            </button>
-            <button className="chat-menu-card" onClick={() => void openCompressionSummary()}>
-              <FileText size={15} />
-              <span className="chat-menu-card-title">上下文摘要</span>
-              <span className="chat-menu-card-desc">查看自动压缩生成的摘要</span>
-            </button>
-            <button
-              className="chat-menu-card"
-              onClick={() => {
-                setCompareOpen(true);
-                setToolPanelOpen(false);
-              }}
-            >
-              <Sparkles size={15} />
-              <span className="chat-menu-card-title">多模型对比</span>
-              <span className="chat-menu-card-desc">两个以上平台并排回答</span>
-            </button>
-            <button
-              className="chat-menu-card"
-              disabled={!visionEnabled}
-              title={visionEnabled ? '添加图片' : '当前模型未开启图片能力，可在设置里勾选'}
-              onClick={() => imageInputRef.current?.click()}
-            >
-              <ImagePlus size={15} />
-              <span className="chat-menu-card-title">添加图片</span>
-              <span className="chat-menu-card-desc">
-                {visionEnabled ? '也可直接粘贴或拖入' : '当前模型未开启图片能力'}
-              </span>
-            </button>
-            <button className="chat-menu-card" onClick={() => fileInputRef.current?.click()}>
-              <FileText size={15} />
-              <span className="chat-menu-card-title">文本附件</span>
-              <span className="chat-menu-card-desc">txt / md / srt，最多 3 个</span>
-            </button>
-            <button className="chat-menu-card" onClick={clear}>
-              <Plus size={15} />
-              <span className="chat-menu-card-title">新对话</span>
-              <span className="chat-menu-card-desc">旧对话保留在历史里</span>
-            </button>
-          </div>
+          <ChatComposerMenuGrid
+            toolSelection={toolSelection}
+            visionEnabled={visionEnabled}
+            hasMessages={messages.length > 0}
+            onToolPanel={(mode) => void openToolPanel(mode)}
+            onMention={() => {
+              setMentionOpen(true);
+              setMentionQuery('');
+              setComposerOpen(false);
+            }}
+            onSlash={() => {
+              setSlashOpen(true);
+              setSlashQuery('');
+              setComposerOpen(false);
+            }}
+            onClearContext={clearContext}
+            onSummary={() => void openCompressionSummary()}
+            onCompare={() => {
+              setCompareOpen(true);
+              setToolPanelOpen(false);
+            }}
+            onImage={() => imageInputRef.current?.click()}
+            onFile={() => fileInputRef.current?.click()}
+            onClear={clear}
+          />
           <div className="chat-menu-row">
             <span className="chat-menu-row-label">助手档案</span>
             <select
