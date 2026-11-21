@@ -8,19 +8,16 @@ import {
   type PointerEvent as ReactPointerEvent
 } from 'react';
 import {
-  ArrowRight,
   Folder,
   Copy,
   ExternalLink,
   Pencil,
   Plus,
-  Search,
   Trash2,
   X
 } from 'lucide-react';
 import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
 import {
-  SEARCH_ENGINES,
   buildSearchUrl,
   isSearchEngineId,
   searchEngineLabel,
@@ -43,6 +40,7 @@ import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageShortcutList } from './StartPageShortcutList';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import { StartPageClock, StartPageTopbar } from './StartPageHeader';
+import { StartPageSearch } from './StartPageSearch';
 import {
   StartPageOpenLinks,
   StartPageSettingsTabs
@@ -298,7 +296,6 @@ export function StartPageClean({
   const noticeTimer = useRef<number>(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
-  const engineRef = useRef<HTMLDivElement>(null);
   const bookmarkInputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
@@ -364,7 +361,7 @@ export function StartPageClean({
   useEffect(() => {
     if (!engineOpen) return;
     const close = (event: MouseEvent) => {
-      if (engineRef.current && event.target instanceof Node && engineRef.current.contains(event.target)) {
+      if (searchWrapRef.current && event.target instanceof Node && searchWrapRef.current.contains(event.target)) {
         return;
       }
       setEngineOpen(false);
@@ -1165,109 +1162,36 @@ export function StartPageClean({
         <section className="sc-hero">
           <StartPageClock time={time} greeting={greeting(now)} dateText={dateText} />
 
-          <div className="sc-search-wrap" ref={(node) => {
-            searchWrapRef.current = node;
-            engineRef.current = node;
-          }}>
-            <button
-              type="button"
-              className="sc-engine"
-              title="切换搜索引擎"
-              onClick={() => setEngineOpen((value) => !value)}
-            >
-              {searchEngineLabel(engine)}
-            </button>
-            <Search size={17} className="sc-search-icon" />
-            <input
-              ref={searchRef}
-              className="sc-search-input"
-              value={query}
-              placeholder="搜索，或输入网址"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setSuggestOpen(true);
-                setActiveSuggestion(-1);
-              }}
-              onFocus={() => setSuggestOpen(true)}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  setActiveSuggestion((value) => Math.min(suggestions.length - 1, value + 1));
-                } else if (event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  setActiveSuggestion((value) => Math.max(-1, value - 1));
-                } else if (event.key === 'Enter') {
-                  event.preventDefault();
-                  const active = suggestions[activeSuggestion];
-                  if (active) pickSuggestion(active);
-                  else submitSearch();
-                } else if (event.key === 'Escape') {
-                  event.stopPropagation();
-                  setSuggestOpen(false);
-                }
-              }}
-            />
-            <kbd className="sc-kbd">/</kbd>
-            <button
-              type="button"
-              className="sc-go"
-              title="搜索"
-              onClick={() => submitSearch()}
-            >
-              <ArrowRight size={17} />
-            </button>
-
-            {engineOpen && (
-              <div className="sc-engine-menu">
-                {SEARCH_ENGINES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={item.id === engine ? 'is-active' : ''}
-                    onClick={() => {
-                      setEngineOpen(false);
-                      if (isSearchEngineId(item.id)) {
-                        setEngine(item.id);
-                        void patchGeneral({ searchEngine: item.id });
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {suggestOpen && suggestions.length > 0 && (
-              <div className="sc-suggest">
-                {suggestions.map((item, index) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={index === activeSuggestion ? 'is-active' : ''}
-                    onMouseEnter={() => setActiveSuggestion(index)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setSuggestOpen(false);
-                      pickSuggestion(item);
-                    }}
-                  >
-                    {item.kind === 'shortcut' ? (
-                      <span className="sc-suggest-kind">站点</span>
-                    ) : item.kind === 'history' ? (
-                      <span className="sc-suggest-kind">历史</span>
-                    ) : (
-                      <Search size={12} />
-                    )}
-                    <span className="sc-suggest-label">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
+          <StartPageSearch
+            engine={engine}
+            engineOpen={engineOpen}
+            query={query}
+            suggestOpen={suggestOpen}
+            suggestions={suggestions}
+            activeSuggestion={activeSuggestion}
+            searchRef={searchRef}
+            wrapRef={searchWrapRef}
+            onEngineToggle={() => setEngineOpen((value) => !value)}
+            onEngineSelect={(id) => {
+              setEngineOpen(false);
+              if (isSearchEngineId(id)) {
+                setEngine(id);
+                void patchGeneral({ searchEngine: id });
+              }
+            }}
+            onQuery={(value) => {
+              setQuery(value);
+              setSuggestOpen(true);
+            }}
+            onFocus={() => setSuggestOpen(true)}
+            onActive={setActiveSuggestion}
+            onSubmit={() => submitSearch()}
+            onPick={(item) => {
+              setSuggestOpen(false);
+              pickSuggestion(item);
+            }}
+            onCloseSuggest={() => setSuggestOpen(false)}
+          />
           <div className="sc-groups">
             <button
               type="button"
