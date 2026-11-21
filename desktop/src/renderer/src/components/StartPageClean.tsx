@@ -7,15 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import {
-  Folder,
-  Copy,
-  ExternalLink,
-  Pencil,
-  Plus,
-  Trash2,
-  X
-} from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
 import {
   buildSearchUrl,
@@ -41,6 +33,7 @@ import { StartPageShortcutList } from './StartPageShortcutList';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import { StartPageClock, StartPageTopbar } from './StartPageHeader';
 import { StartPageSearch } from './StartPageSearch';
+import { StartPageContextMenu } from './StartPageContextMenu';
 import {
   StartPageOpenLinks,
   StartPageSettingsTabs
@@ -1486,86 +1479,49 @@ export function StartPageClean({
       )}
 
       {contextMenu && (
-        <div
-          className="sc-context"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          role="menu"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setContextMenu(null);
-              openShortcut(contextMenu.item);
-            }}
-          >
-            <ExternalLink size={13} /> 打开
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setContextMenu(null);
-              onClose();
-              void window.bsub.newTab(contextMenu.item.url);
-            }}
-          >
-            <Plus size={13} /> 新标签打开
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setContextMenu(null);
-              void window.bsub.writeClipboard(contextMenu.item.url);
-              showNotice('链接已复制');
-            }}
-          >
-            <Copy size={13} /> 复制链接
-          </button>
-          {contextMenu.item.folder && (
-            <button
-              type="button"
-              onClick={() => {
-                const target = contextMenu.item;
-                setContextMenu(null);
-                void persistShortcuts(
-                  shortcuts.map((item) =>
-                    item.id === target.id ? { ...item, folder: undefined } : item
-                  )
-                );
-                showNotice(`已移出文件夹“${target.folder}”`);
-              }}
-            >
-              <Folder size={13} /> 移出文件夹
-            </button>
-          )}
-          <div className="sc-context-sep" />
-          <button
-            type="button"
-            onClick={() => {
-              setContextMenu(null);
-              setDraft({
-                id: contextMenu.item.id,
-                label: contextMenu.item.label,
-                url: contextMenu.item.url,
-                group: contextMenu.item.group || '',
-                folder: contextMenu.item.folder || ''
-              });
-            }}
-          >
-            <Pencil size={13} /> 编辑
-          </button>
-          <button
-            type="button"
-            className="is-danger"
-            onClick={() => {
-              setContextMenu(null);
-              removeShortcut(contextMenu.item);
-            }}
-          >
-            <Trash2 size={13} /> 删除
-          </button>
-        </div>
+        <StartPageContextMenu
+          menu={contextMenu}
+          onOpen={() => {
+            setContextMenu(null);
+            openShortcut(contextMenu.item);
+          }}
+          onNewTab={() => {
+            setContextMenu(null);
+            onClose();
+            void window.bsub.newTab(contextMenu.item.url);
+          }}
+          onCopy={() => {
+            setContextMenu(null);
+            void window.bsub.writeClipboard(contextMenu.item.url);
+            showNotice('链接已复制');
+          }}
+          onRemoveFolder={() => {
+            const target = contextMenu.item;
+            setContextMenu(null);
+            void persistShortcuts(
+              shortcuts.map((item) =>
+                item.id === target.id ? { ...item, folder: undefined } : item
+              )
+            );
+            showNotice(`已移出文件夹“${target.folder}”`);
+          }}
+          onEdit={() => {
+            setContextMenu(null);
+            setDraft({
+              id: contextMenu.item.id,
+              label: contextMenu.item.label,
+              url: contextMenu.item.url,
+              group: contextMenu.item.group || '',
+              folder: contextMenu.item.folder || ''
+            });
+          }}
+          onDelete={() => {
+            const target = contextMenu.item;
+            setContextMenu(null);
+            removeShortcut(target);
+          }}
+        />
       )}
-
       {notice && (
         <div className="sc-toast" role="status">
           <span>{notice.text}</span>
