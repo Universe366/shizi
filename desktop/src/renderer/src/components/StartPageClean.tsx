@@ -42,6 +42,7 @@ import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
+import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import {
   StartPageBackupSettings,
   StartPageSearchSettings
@@ -1911,85 +1912,31 @@ export function StartPageClean({
             )}
 
             {sheetTab === 'widgets' && (
-              <section>
-                <h4>小组件</h4>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={weatherOn}
-                    onChange={(event) => void patchGeneral({ startWeather: event.target.checked })}
-                  />
-                  天气
-                </label>
-                <label className="sc-field">
-                  <span>天气城市</span>
-                  <input
-                    value={cityDraft}
-                    onChange={(event) => setCityDraft(event.target.value)}
-                    onBlur={() => {
-                      const value = cityDraft.trim() || '上海';
-                      setCityDraft(value);
-                      void patchGeneral({ startCity: value });
-                    }}
-                  />
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={hotOn}
-                    onChange={(event) => void patchGeneral({ startHotSearch: event.target.checked })}
-                  />
-                  B 站热搜
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showRecent}
-                    onChange={(event) => setFlag(RECENT_KEY, setShowRecent, event.target.checked)}
-                  />
-                  最近打开
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showTabs}
-                    onChange={(event) => setFlag(TABS_KEY, setShowTabs, event.target.checked)}
-                  />
-                  打开的标签
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showNotes}
-                    onChange={(event) => setFlag(SHOW_NOTES_KEY, setShowNotes, event.target.checked)}
-                  />
-                  便签
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showTodo}
-                    onChange={(event) => setFlag(TODO_KEY, setShowTodo, event.target.checked)}
-                  />
-                  待办
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showPomodoro}
-                    onChange={(event) => setFlag(POMODORO_KEY, setShowPomodoro, event.target.checked)}
-                  />
-                  番茄钟
-                </label>
-                <label className="sc-check">
-                  <input
-                    type="checkbox"
-                    checked={showQuote}
-                    onChange={(event) => setFlag(QUOTE_KEY, setShowQuote, event.target.checked)}
-                  />
-                  每日一句
-                </label>
-              </section>
+              <StartPageWidgetSettings
+                weatherOn={weatherOn}
+                city={cityDraft}
+                hotOn={hotOn}
+                showRecent={showRecent}
+                showTabs={showTabs}
+                showNotes={showNotes}
+                showTodo={showTodo}
+                showPomodoro={showPomodoro}
+                showQuote={showQuote}
+                onWeather={(value) => void patchGeneral({ startWeather: value })}
+                onCity={setCityDraft}
+                onCityBlur={() => {
+                  const value = cityDraft.trim() || '上海';
+                  setCityDraft(value);
+                  void patchGeneral({ startCity: value });
+                }}
+                onHot={(value) => void patchGeneral({ startHotSearch: value })}
+                onRecent={(value) => setFlag(RECENT_KEY, setShowRecent, value)}
+                onTabs={(value) => setFlag(TABS_KEY, setShowTabs, value)}
+                onNotes={(value) => setFlag(SHOW_NOTES_KEY, setShowNotes, value)}
+                onTodo={(value) => setFlag(TODO_KEY, setShowTodo, value)}
+                onPomodoro={(value) => setFlag(POMODORO_KEY, setShowPomodoro, value)}
+                onQuote={(value) => setFlag(QUOTE_KEY, setShowQuote, value)}
+              />
             )}
 
             {sheetTab === 'data' && (
