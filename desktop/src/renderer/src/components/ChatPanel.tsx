@@ -4,9 +4,10 @@ import { ChatMessageBody } from './ChatMessageBody';
 import { ChatMessageActions } from './ChatMessageActions';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { ChatAuxPanels } from './ChatAuxPanels';
+import { ChatToolbar } from './ChatToolbar';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, Search, Send, Sparkles, Square, Star, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -1922,98 +1923,38 @@ export function ChatPanel({
 
   return (
     <div className="panel chat-panel">
-      <div className="panel-toolbar">
-        <div className="panel-title">对话</div>
-        <div className="toolbar-actions">
-          {activeTab && !isVideoPage && (
-            <button
-              className="mini-btn"
-              disabled={streaming}
-              title="总结当前网页，并把结果存入本地库"
-              onClick={summarizePage}
-            >
-              总结本页
-            </button>
-          )}
-          {activeTab && !isVideoPage && messages.some((message) => message.role === 'assistant') && (
-            <button
-              className="mini-btn"
-              disabled={streaming}
-              title="把最近一条回答存为这个网页的总结"
-              onClick={() => void saveAnswer()}
-            >
-              存入库
-            </button>
-          )}
-          <button
-            className="mini-btn"
-            disabled={!messages.length}
-            onClick={() => {
-              setMessageSearchOpen((value) => !value);
-              setMessageSearchQuery('');
-              setHistoryOpen(false);
-              setOutlineOpen(false);
-            }}
-            title="在当前对话内搜索"
-          >
-            <Search size={12} /> 搜索
-          </button>
-          <button
-            className="mini-btn"
-            disabled={!messages.some((message) => message.role === 'user')}
-            onClick={() => {
-              setOutlineOpen((value) => !value);
-              setMessageSearchOpen(false);
-              setHistoryOpen(false);
-            }}
-            title="按提问列出对话大纲"
-          >
-            <List size={12} /> 大纲
-          </button>
-          <button
-            className="mini-btn"
-            onClick={() => {
-              setCrossSearchOpen((value) => !value);
-              setCrossHits([]);
-              setMessageSearchOpen(false);
-              setOutlineOpen(false);
-              setHistoryOpen(false);
-              setFavoritesOpen(false);
-            }}
-            title="在所有历史对话里搜索消息"
-          >
-            <Search size={12} /> 跨对话
-          </button>
-          <button
-            className="mini-btn"
-            onClick={() => void openFavorites()}
-            title="收藏的消息"
-          >
-            <Star size={12} /> 收藏
-          </button>
-          <button
-            className="mini-btn"
-            disabled={streaming}
-            onClick={() => setHistoryOpen((value) => !value)}
-            title="历史对话"
-          >
-            <History size={12} /> 历史
-          </button>
-          <button
-            className="mini-btn"
-            disabled={(!messages.length && !streaming) || streaming}
-            onClick={clear}
-            title="开始新对话（旧对话保留在历史里）"
-          >
-            <Plus size={12} /> 新对话
-          </button>
-          {streaming && (
-            <button className="mini-btn" onClick={stop} title="停止回答">
-              <Square size={11} /> 停止
-            </button>
-          )}
-        </div>
-      </div>
+      <ChatToolbar
+        activeTab={Boolean(activeTab)}
+        isVideoPage={Boolean(isVideoPage)}
+        streaming={streaming}
+        hasMessages={messages.length > 0}
+        hasUserMessages={messages.some((message) => message.role === 'user')}
+        onSummarize={summarizePage}
+        onSaveAnswer={() => void saveAnswer()}
+        onSearch={() => {
+          setMessageSearchOpen((value) => !value);
+          setMessageSearchQuery('');
+          setHistoryOpen(false);
+          setOutlineOpen(false);
+        }}
+        onOutline={() => {
+          setOutlineOpen((value) => !value);
+          setMessageSearchOpen(false);
+          setHistoryOpen(false);
+        }}
+        onCrossSearch={() => {
+          setCrossSearchOpen((value) => !value);
+          setCrossHits([]);
+          setMessageSearchOpen(false);
+          setOutlineOpen(false);
+          setHistoryOpen(false);
+          setFavoritesOpen(false);
+        }}
+        onFavorites={() => void openFavorites()}
+        onHistory={() => setHistoryOpen((value) => !value)}
+        onClear={clear}
+        onStop={stop}
+      />
 
       <ChatAuxPanels
         messages={messages}
