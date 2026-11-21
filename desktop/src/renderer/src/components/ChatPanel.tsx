@@ -7,12 +7,12 @@ import { ChatComparePanel } from './ChatComparePanel';
 import { ChatApprovals } from './ChatApprovals';
 import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
 import { ChatComposerRight } from './ChatComposerRight';
+import { ChatComposerChips } from './ChatComposerChips';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, Brain, Captions, Eraser, FileText, Globe, Loader2, Pencil, Plus, Quote, X } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, Pencil, Plus, Quote, X } from 'lucide-react';
 import {
   chatWebModeHint,
-  chatWebModeLabel,
   nextChatWebMode,
   normalizeChatWebMode,
   type ChatWebMode
@@ -2927,91 +2927,38 @@ export function ChatPanel({
                 </div>
               )}
             </div>
-            <button
-              className={`chat-chip${includePage ? ' is-on' : ''}`}
-              title={includePage ? '本次会带上当前网页正文' : '不带当前网页正文'}
-              onClick={() => setIncludePage((value) => !value)}
-            >
-              <FileText size={12} /> 页面
-            </button>
-            <button
-              className={`chat-chip${includeTranscript ? ' is-on' : ''}`}
-              title={
-                includeTranscript
-                  ? '本次会带上当前视频字幕；关掉可只做联网问答'
-                  : '本次不带字幕，只按问题/联网回答'
-              }
-              onClick={() => {
-                const next = !includeTranscript;
+            <ChatComposerChips
+              includePage={includePage}
+              includeTranscript={includeTranscript}
+              searchEnabled={searchEnabled}
+              searchProviderName={searchProviderName}
+              webMode={webMode}
+              deepThink={deepThink}
+              profileName={(() => {
+                const profile = profiles.find((item) => item.id === profileId);
+                return profile ? `${profile.icon} ${profile.name}` : '';
+              })()}
+              contextCleared={contextStart !== null}
+              onIncludePage={setIncludePage}
+              onIncludeTranscript={(next) => {
                 setIncludeTranscript(next);
-                try {
-                  localStorage.setItem('chat-transcript', next ? '1' : '0');
-                } catch {
-                  // ignore
-                }
+                try { localStorage.setItem('chat-transcript', next ? '1' : '0'); } catch {}
               }}
-            >
-              <Captions size={12} /> 字幕
-            </button>
-            <button
-              className={`chat-chip${webMode !== 'off' ? ' is-on' : ''}`}
-              title={
-                searchEnabled
-                  ? `搜索服务：${searchProviderName || '未选择'}；${chatWebModeHint(webMode)}`
-                  : '联网检索未启用，去设置开启'
-              }
-              disabled={!searchEnabled}
-              onClick={() => {
+              onNextWebMode={() => {
                 const next = nextChatWebMode(webMode);
                 setWebMode(next);
                 try {
                   localStorage.setItem('chat-web-mode', next);
                   localStorage.setItem('chat-web', next === 'force' ? '1' : '0');
-                } catch {
-                  // ignore
-                }
+                } catch {}
               }}
-            >
-              <Globe size={12} /> 联网 · {chatWebModeLabel(webMode)}
-            </button>
-            <button
-              className={`chat-chip${deepThink ? ' is-on' : ''}`}
-              title={
-                deepThink
-                  ? '深度思考已开启：DeepSeek 平台使用推理模型'
-                  : '开启深度思考（DeepSeek 平台使用推理模型）'
-              }
-              onClick={() => {
-                const next = !deepThink;
+              onDeepThink={(next) => {
                 setDeepThink(next);
-                try {
-                  localStorage.setItem('chat-deep', next ? '1' : '0');
-                } catch {
-                  // ignore
-                }
+                try { localStorage.setItem('chat-deep', next ? '1' : '0'); } catch {}
               }}
-            >
-              <Brain size={12} /> 深度思考
-            </button>
-            {profiles.find((profile) => profile.id === profileId) && (
-              <button
-                className="chat-chip is-on chat-chip-profile"
-                title="当前助手档案，点击切换"
-                onClick={() => setComposerOpen(true)}
-              >
-                {profiles.find((profile) => profile.id === profileId)?.icon}{' '}
-                {profiles.find((profile) => profile.id === profileId)?.name}
-              </button>
-            )}
-            {contextStart !== null && (
-              <button
-                className="chat-chip is-on"
-                title="之前的消息不再发送给模型，点击恢复"
-                onClick={restoreContext}
-              >
-                <Eraser size={12} /> 上下文已清除 ↺
-              </button>
-            )}
+              onOpenProfile={() => setComposerOpen(true)}
+              onRestoreContext={restoreContext}
+            />
           </div>
           <ChatComposerRight
             budgetTokens={chatBudgetTokens}
