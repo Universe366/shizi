@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ChatRequestDetails } from './ChatRequestDetails';
+import { ChatMessageBody } from './ChatMessageBody';
 import { ChatMessageActions } from './ChatMessageActions';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
@@ -51,10 +52,8 @@ import type {
   StoredChatMessage,
   SubtitleLine,
   TabInfo,
-  WebReference
 } from '../../../shared/types';
 import { Markdown } from './Markdown';
-import { ChatSources } from './ChatSources';
 import { pickTrack, isVideoKey, videoKeyOf } from '../lib/video';
 import { getAsrResult } from '../lib/asrStore';
 import { speakText } from '../lib/speech';
@@ -65,23 +64,6 @@ const SUGGESTIONS = [
   '总结一下今天有哪些科技新闻',
   '把这句话翻译成英文'
 ];
-
-/** 历史记录来自 localStorage，渲染前过滤掉损坏/非 http(s) 的来源。 */
-function safeSources(value: unknown): WebReference[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is WebReference => {
-      if (!item || typeof item !== 'object') return false;
-      const candidate = item as WebReference;
-      return typeof candidate.url === 'string' && /^https?:\/\//i.test(candidate.url);
-    })
-    .map((item) => ({
-      title:
-        typeof item.title === 'string' && item.title.trim() ? item.title.trim() : item.url,
-      url: item.url,
-      snippet: typeof item.snippet === 'string' ? item.snippet : ''
-    }));
-}
 
 function chatStorageKey(videoKey: string): string {
   return videoKey ? `bsub-chat:${videoKey}` : '';
@@ -112,20 +94,6 @@ function newRequestId(): string {
   } catch {
     return `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   }
-}
-
-function ReasoningBlock({ text, defaultOpen }: { text: string; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <details
-      className="chat-reasoning"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>💭 思考过程</summary>
-      <pre>{text}</pre>
-    </details>
-  );
 }
 
 function fromStoredMessage(row: StoredChatMessage): ChatMessage {
@@ -2408,81 +2376,11 @@ export function ChatPanel({
               <div className="chat-bubble">
                 {message.role === 'assistant' ? (
                   <>
-                    {message.reasoning && (
-                      <ReasoningBlock text={message.reasoning} defaultOpen={expandReasoning} />
-                    )}
-                    {message.compare?.length ? (
-                      <div className="chat-compare-inline">
-                        {message.compare.map((result) => (
-                          <div
-                            key={`${result.platformId}:${result.model}`}
-                            className="chat-compare-inline-col"
-                          >
-                            <div className="chat-compare-inline-title">
-                              {result.platformName}
-                              <span>{result.model}</span>
-                            </div>
-                            {result.error ? (
-                              <div className="compare-error">{result.error}</div>
-                            ) : (
-                              <Markdown content={result.text} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <Markdown
-                        content={message.content}
-                        citations={safeSources(message.sources)}
-                        citePrefix={`m${index}`}
-                      />
-                    )}
-                    <ChatSources
-                      sources={safeSources(message.sources)}
-                      engine={message.webEngine}
-                      messageIndex={index}
+                    <ChatMessageBody
+                      message={message}
+                      index={index}
+                      expandReasoning={expandReasoning}
                     />
-                    {typeof message.webNotice === 'string' && message.webNotice && (
-                      <div className="chat-web-notice" title={message.webNotice}>
-                        {message.webNotice}
-                      </div>
-                    )}
-                    {message.tools?.length ? (
-                      <details className="chat-tool-history">
-                        <summary>工具调用 {message.tools.length} 次</summary>
-                        <div className="chat-tool-cards">
-                          {message.tools.map((tool, toolIndex) => (
-                            <div
-                              key={`${tool.name}-${toolIndex}`}
-                              className={`chat-tool-card${tool.ok ? '' : ' is-error'}`}
-                            >
-                              <div className="chat-tool-head">
-                                <span className="chat-tool-name">{tool.name}</span>
-                                <span className="chat-tool-state">
-                                  {tool.ok ? '完成' : '失败'}
-                                </span>
-                              </div>
-                              {tool.detail && (
-                                <div className="chat-tool-detail">{tool.detail}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    ) : null}
-                    {message.usage && (
-                      <div
-                        className="chat-usage"
-                        title={`输入 ${message.usage.inputTokens.toLocaleString('zh-CN')} · 输出 ${message.usage.outputTokens.toLocaleString('zh-CN')}${
-                          message.usage.cacheReadTokens
-                            ? ` · 缓存命中 ${message.usage.cacheReadTokens.toLocaleString('zh-CN')}`
-                            : ''
-                        }`}
-                      >
-                        输入 {formatTokens(message.usage.inputTokens)} · 输出{' '}
-                        {formatTokens(message.usage.outputTokens)}
-                      </div>
-                    )}
                     {detailsIndex === index && <ChatRequestDetails message={message} />}
                     <ChatMessageActions
                       message={message}
