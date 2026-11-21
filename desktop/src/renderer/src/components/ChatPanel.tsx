@@ -3,6 +3,7 @@ import { ChatRequestDetails } from './ChatRequestDetails';
 import { ChatMessageBody } from './ChatMessageBody';
 import { ChatMessageActions } from './ChatMessageActions';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
+import { ChatAuxPanels } from './ChatAuxPanels';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, Search, Send, Sparkles, Square, Star, Wrench, X } from 'lucide-react';
@@ -1889,17 +1890,6 @@ export function ChatPanel({
     }
   };
 
-  const searchQuery = messageSearchQuery.trim().toLowerCase();
-  const messageSearchResults = searchQuery
-    ? messages
-        .map((message, index) => ({ message, index }))
-        .filter(({ message }) =>
-          `${message.role === 'assistant' ? 'AI' : '用户'} ${message.content}`
-            .toLowerCase()
-            .includes(searchQuery)
-        )
-        .slice(0, 60)
-    : [];
   const slashQueryText = slashQuery.trim().toLowerCase();
   const slashResults = chatPrompts.filter(
     (prompt) =>
@@ -2025,218 +2015,43 @@ export function ChatPanel({
         </div>
       </div>
 
-      {messageSearchOpen && (
-        <div className="chat-history-panel chat-search-panel">
-          <div className="chat-history-head">
-            <span>对话内搜索</span>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                setMessageSearchOpen(false);
-                setMessageSearchQuery('');
-              }}
-            >
-              关闭
-            </button>
-          </div>
-          <input
-            autoFocus
-            className="settings-input chat-history-search"
-            placeholder="搜索当前对话…"
-            value={messageSearchQuery}
-            spellCheck={false}
-            onChange={(event) => setMessageSearchQuery(event.target.value)}
-          />
-          {searchQuery && !messageSearchResults.length && (
-            <div className="settings-hint">没有匹配的消息</div>
-          )}
-          {messageSearchResults.map(({ message, index }) => {
-            const raw = message.content.replace(/\s+/g, ' ');
-            const position = raw.toLowerCase().indexOf(searchQuery);
-            const start = Math.max(0, position - 30);
-            const snippet = `${start > 0 ? '…' : ''}${raw.slice(start, start + 120)}${
-              raw.length > start + 120 ? '…' : ''
-            }`;
-            return (
-              <button
-                key={index}
-                className="chat-search-result"
-                onClick={() => jumpToMessage(index)}
-              >
-                <span className="chat-search-role">
-                  {message.role === 'assistant' ? 'AI' : '用户'}
-                </span>
-                <span className="chat-search-snippet">{snippet}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {outlineOpen && (
-        <div className="chat-history-panel chat-outline-panel">
-          <div className="chat-history-head">
-            <span>对话大纲</span>
-            <button className="mini-btn" onClick={() => setOutlineOpen(false)}>
-              关闭
-            </button>
-          </div>
-          {messages.map((message, index) => {
-            if (message.role !== 'user') return null;
-            const answer = messages
-              .slice(index + 1)
-              .find((item) => item.role === 'assistant' && item.content.trim());
-            const answerLine = answer
-              ? answer.content
-                  .replace(/[#>*`-]/g, ' ')
-                  .replace(/\s+/g, ' ')
-                  .trim()
-                  .slice(0, 100)
-              : '';
-            return (
-              <button
-                key={index}
-                className="chat-search-result chat-outline-item"
-                onClick={() => jumpToMessage(index)}
-              >
-                <span className="chat-search-role">
-                  {messages.slice(0, index + 1).filter((item) => item.role === 'user').length}
-                </span>
-                <span className="chat-search-snippet">
-                  <span>
-                    {message.content.replace(/\s+/g, ' ').slice(0, 120) || '附件提问'}
-                  </span>
-                  {answerLine && (
-                    <span className="chat-outline-answer">{answerLine}</span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {crossSearchOpen && (
-        <div className="chat-history-panel chat-cross-panel">
-          <div className="chat-history-head">
-            <span>跨对话搜索</span>
-            <button
-              className="mini-btn"
-              disabled={!crossQuery.trim() || crossLoading}
-              onClick={() => void searchAcrossConversations()}
-            >
-              搜索
-            </button>
-            <button className="mini-btn" onClick={() => setCrossSearchOpen(false)}>
-              关闭
-            </button>
-          </div>
-          <input
-            autoFocus
-            className="settings-input chat-history-search"
-            placeholder="在所有历史对话里搜索消息…"
-            value={crossQuery}
-            spellCheck={false}
-            onChange={(event) => setCrossQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              void searchAcrossConversations();
-            }}
-          />
-          {crossLoading && <div className="settings-hint">正在搜索…</div>}
-          {!crossLoading && crossQuery.trim() && !crossHits.length && (
-            <div className="settings-hint">没有匹配的消息</div>
-          )}
-          {crossHits.map((hit) => (
-            <button
-              key={`${hit.conversationId}-${hit.messageId}`}
-              className="chat-search-result"
-              onClick={() => void openConversationById(hit.conversationId, hit.messageId)}
-            >
-              <span className="chat-search-role">
-                {hit.role === 'assistant' ? 'AI' : '用户'}
-              </span>
-              <span className="chat-search-snippet">
-                {hit.conversationTitle} · {hit.content.replace(/\s+/g, ' ').slice(0, 100)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {favoritesOpen && (
-        <div className="chat-history-panel chat-favorites-panel">
-          <div className="chat-history-head">
-            <span>收藏消息（{favorites.length}）</span>
-            <button className="mini-btn" onClick={() => void openFavorites()}>
-              刷新
-            </button>
-            <button className="mini-btn" onClick={() => setFavoritesOpen(false)}>
-              关闭
-            </button>
-          </div>
-          {!favorites.length && (
-            <div className="settings-hint">还没有收藏：在回答下方点星标即可收藏。</div>
-          )}
-          {favorites.map((favorite) => (
-            <button
-              key={favorite.id}
-              className="chat-search-result"
-              onClick={() => void openConversationById(favorite.conversationId, favorite.id)}
-            >
-              <span className="chat-search-role">
-                {favorite.role === 'assistant' ? 'AI' : '用户'}
-              </span>
-              <span className="chat-search-snippet">
-                {favorite.conversationTitle} ·{' '}
-                {favorite.content.replace(/\s+/g, ' ').slice(0, 100)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {summaryOpen && (
-        <div className="chat-history-panel chat-summary-panel">
-          <div className="chat-history-head">
-            <span>上下文压缩摘要</span>
-            <button
-              className="mini-btn"
-              onClick={() => void openCompressionSummary()}
-            >
-              刷新
-            </button>
-            <button className="mini-btn" onClick={() => setSummaryOpen(false)}>
-              关闭
-            </button>
-          </div>
-          {compressionSummary ? (
-            <>
-              <div className="settings-hint">
-                已压缩 {compressionSummary.covered} 条旧消息；之后的请求会带上这段摘要。
-              </div>
-              <pre className="chat-summary-text">{compressionSummary.summary}</pre>
-              <button
-                className="mini-btn"
-                onClick={async () => {
-                  if (!conversationRef.current) return;
-                  await window.bsub.clearChatCompression(conversationRef.current);
-                  setCompressionSummary(null);
-                  setSavedNotice('已清除上下文摘要，下次超长时会重新压缩');
-                }}
-              >
-                清除摘要
-              </button>
-            </>
-          ) : (
-            <div className="settings-hint">
-              当前没有压缩摘要：对话未超过阈值，或摘要已被清除。
-            </div>
-          )}
-        </div>
-      )}
-
+      <ChatAuxPanels
+        messages={messages}
+        messageSearchOpen={messageSearchOpen}
+        messageSearchQuery={messageSearchQuery}
+        onMessageSearchQuery={setMessageSearchQuery}
+        onCloseMessageSearch={() => {
+          setMessageSearchOpen(false);
+          setMessageSearchQuery('');
+        }}
+        outlineOpen={outlineOpen}
+        onCloseOutline={() => setOutlineOpen(false)}
+        crossSearchOpen={crossSearchOpen}
+        crossQuery={crossQuery}
+        crossLoading={crossLoading}
+        crossHits={crossHits}
+        onCrossQuery={setCrossQuery}
+        onCrossSearch={() => void searchAcrossConversations()}
+        onCloseCross={() => setCrossSearchOpen(false)}
+        favoritesOpen={favoritesOpen}
+        favorites={favorites}
+        onRefreshFavorites={() => void openFavorites()}
+        onCloseFavorites={() => setFavoritesOpen(false)}
+        summaryOpen={summaryOpen}
+        compressionSummary={compressionSummary}
+        onRefreshSummary={() => void openCompressionSummary()}
+        onCloseSummary={() => setSummaryOpen(false)}
+        onClearSummary={() => {
+          void (async () => {
+            if (!conversationRef.current) return;
+            await window.bsub.clearChatCompression(conversationRef.current);
+            setCompressionSummary(null);
+            setSavedNotice('已清除上下文摘要，下次超长时会重新压缩');
+          })();
+        }}
+        onJump={jumpToMessage}
+        onOpenConversation={(id, messageId) => void openConversationById(id, messageId)}
+      />
       {historyOpen && (
         <ChatHistoryPanel
           conversations={conversations}
