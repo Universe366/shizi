@@ -2,9 +2,10 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ChatRequestDetails } from './ChatRequestDetails';
 import { ChatMessageBody } from './ChatMessageBody';
 import { ChatMessageActions } from './ChatMessageActions';
+import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Brain, Captions, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, Search, Send, Sparkles, Square, Star, Trash2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, Search, Send, Sparkles, Square, Star, Wrench, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -2237,102 +2238,30 @@ export function ChatPanel({
       )}
 
       {historyOpen && (
-        <div className="chat-history-panel">
-          <div className="chat-history-head">
-            <span>历史对话（{conversations.length}）</span>
-            <button className="mini-btn" onClick={() => void refreshConversations()}>
-              刷新
-            </button>
-          </div>
-          <input
-            className="settings-input chat-history-search"
-            placeholder="搜索标题 / 视频"
-            value={historyQuery}
-            spellCheck={false}
-            onChange={(event) => setHistoryQuery(event.target.value)}
-          />
-          {!conversations.length && (
-            <div className="settings-hint">还没有历史对话，发第一句话就会保存。</div>
-          )}
-          {conversations
-            .filter((conversation) => {
-              const query = historyQuery.trim().toLowerCase();
-              if (!query) return true;
-              return `${conversation.title} ${conversation.videoTitle}`
-                .toLowerCase()
-                .includes(query);
-            })
-            .map((conversation) => (
-            <div
-              key={conversation.id}
-              className={`chat-history-row${conversationId === conversation.id ? ' is-active' : ''}`}
-            >
-              {editingConversationId === conversation.id ? (
-                <input
-                  className="settings-input chat-history-rename"
-                  autoFocus
-                  value={editingTitle}
-                  onChange={(event) => setEditingTitle(event.target.value)}
-                  onBlur={() => void saveConversationTitle()}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void saveConversationTitle();
-                    if (event.key === 'Escape') {
-                      setEditingConversationId(null);
-                      setEditingTitle('');
-                    }
-                  }}
-                />
-              ) : (
-                <button
-                  className="chat-history-main"
-                  onClick={() => void openConversation(conversation)}
-                >
-                  <span className="chat-history-title">{conversation.title}</span>
-                  <span className="chat-history-meta">
-                    {[
-                      conversation.videoTitle,
-                      profiles.find((profile) => profile.id === conversation.profileId)?.name,
-                      conversation.model
-                        ? `${
-                            platforms.find((platform) => platform.id === conversation.platformId)
-                              ?.name || conversation.platformId
-                          } / ${conversation.model}`
-                        : '',
-                      `${conversation.messageCount} 条`,
-                      new Date(conversation.updatedAt).toLocaleString('zh-CN')
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </button>
-              )}
-              <button
-                className="chat-action"
-                title="重命名"
-                onClick={() => {
-                  setEditingConversationId(conversation.id);
-                  setEditingTitle(conversation.title);
-                }}
-              >
-                <Pencil size={11} />
-              </button>
-              <button
-                className="chat-action"
-                title="导出 Markdown"
-                onClick={() => void exportConversation(conversation.id)}
-              >
-                <Download size={11} />
-              </button>
-              <button
-                className="chat-action"
-                title="删除对话"
-                onClick={() => void removeConversation(conversation.id)}
-              >
-                <Trash2 size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <ChatHistoryPanel
+          conversations={conversations}
+          conversationId={conversationId}
+          historyQuery={historyQuery}
+          editingConversationId={editingConversationId}
+          editingTitle={editingTitle}
+          profiles={profiles}
+          platforms={platforms}
+          onHistoryQuery={setHistoryQuery}
+          onRefresh={() => void refreshConversations()}
+          onOpen={(conversation) => void openConversation(conversation)}
+          onStartRename={(conversation) => {
+            setEditingConversationId(conversation.id);
+            setEditingTitle(conversation.title);
+          }}
+          onEditingTitle={setEditingTitle}
+          onSaveTitle={() => void saveConversationTitle()}
+          onCancelRename={() => {
+            setEditingConversationId(null);
+            setEditingTitle('');
+          }}
+          onExport={(id) => void exportConversation(id)}
+          onRemove={(id) => void removeConversation(id)}
+        />
       )}
 
       {!activeTab && <div className="panel-empty">打开一个网页或视频后开始对话</div>}
