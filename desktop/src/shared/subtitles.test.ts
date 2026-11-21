@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSubtitleText } from './subtitles';
+import { parseSubtitleText, shiftSubtitleLines } from './subtitles';
 
 describe('parseSubtitleText', () => {
   it('解析 SRT（含序号、逗号毫秒、多行文本）', () => {
@@ -46,6 +46,21 @@ describe('parseSubtitleText', () => {
   it('纯文本 / 空内容返回空数组', () => {
     expect(parseSubtitleText('没有时间轴的文本')).toEqual([]);
     expect(parseSubtitleText('')).toEqual([]);
+  });
+
+  it('时间轴平移会夹住负时间并保证 end >= start', () => {
+    expect(
+      shiftSubtitleLines(
+        [
+          { start: 0.2, end: 1, text: 'a' },
+          { start: 3, end: 4, text: 'b' }
+        ],
+        -500
+      )
+    ).toEqual([
+      { start: 0, end: 0.5, text: 'a' },
+      { start: 2.5, end: 3.5, text: 'b' }
+    ]);
   });
 
   it('结束时间早于开始时间时兜底 0.3 秒', () => {

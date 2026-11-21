@@ -21,7 +21,11 @@ import {
   type TrackPreference
 } from '../lib/video';
 import { getAsrResult, setAsrResult } from '../lib/asrStore';
-import { parseSubtitleText, subtitleFileNameHint } from '../../../shared/subtitles';
+import {
+  parseSubtitleText,
+  shiftSubtitleLines,
+  subtitleFileNameHint
+} from '../../../shared/subtitles';
 import {
   clearTranslationResult,
   getTranslationResult,
@@ -29,6 +33,7 @@ import {
 } from '../lib/translationStore';
 import { ExportMenu } from './ExportMenu';
 import { ResegmentDialog } from './ResegmentDialog';
+import { TimelineShiftDialog } from './TimelineShiftDialog';
 import { SynthesizeDialog } from './SynthesizeDialog';
 import { DubDialog } from './DubDialog';
 import { SubtitleVideoHeader } from './SubtitleVideoHeader';
@@ -129,6 +134,9 @@ export function SubtitlesPanel({
   const [quality, setQuality] = useState<QualityReport | null>(null);
   const [resegmentOpen, setResegmentOpen] = useState(false);
   const [resegmentUndo, setResegmentUndo] = useState(false);
+  const [timelineShiftOpen, setTimelineShiftOpen] = useState(false);
+  const [timelineShiftUndo, setTimelineShiftUndo] = useState(false);
+  const timelineUndoRef = useRef<SubtitleLine[] | null>(null);
   const [synthesizeOpen, setSynthesizeOpen] = useState(false);
   const [dubOpen, setDubOpen] = useState(false);
   const resegmentUndoRef = useRef<SubtitleLine[] | null>(null);
@@ -1096,6 +1104,38 @@ export function SubtitlesPanel({
     window.setTimeout(() => setSaveMessage(''), 3000);
   };
 
+  const applyTimelineShift = (deltaMs: number) => {
+    if (!deltaMs || !lines.length) return;
+    timelineUndoRef.current = lines;
+    setTimelineShiftUndo(true);
+    const next = shiftSubtitleLines(lines, deltaMs);
+    setLines(next);
+    setTranslated(null);
+    setTranslatedLang('');
+    setViewMode('original');
+    if (track) clearTranslationResult(videoKey, track.url);
+    if ((track?.source === 'asr' || track?.source === 'import') && infoRef.current) {
+      setAsrResult(videoKey, infoRef.current, next, track.source, track.lanDoc);
+    }
+    setSaveMessage(
+      `时间轴平移 ${deltaMs > 0 ? '+' : ''}${(deltaMs / 1000).toFixed(1)}s`
+    );
+    window.setTimeout(() => setSaveMessage(''), 2500);
+  };
+
+  const undoTimelineShift = () => {
+    const previous = timelineUndoRef.current;
+    if (!previous) return;
+    setLines(previous);
+    if ((track?.source === 'asr' || track?.source === 'import') && infoRef.current) {
+      setAsrResult(videoKey, infoRef.current, previous, track.source, track.lanDoc);
+    }
+    timelineUndoRef.current = null;
+    setTimelineShiftUndo(false);
+    setSaveMessage('已撤销时间轴平移');
+    window.setTimeout(() => setSaveMessage(''), 2500);
+  };
+
   const startAsr = async () => {
     if (!info || asrRunning) return;
     const requestId = (() => {
@@ -1218,6 +1258,14 @@ export function SubtitlesPanel({
             onClick={() => setResegmentOpen(true)}
           >
             断句
+          </button>
+          <button
+            className="mini-btn"
+            disabled={!lines.length || asrRunning}
+            title="整体平移字幕起止时间"
+            onClick={() => setTimelineShiftOpen(true)}
+          >
+            时间轴
           </button>
           <button
             className="mini-btn"
@@ -1664,6 +1712,13 @@ export function SubtitlesPanel({
           {bundle?.identity && <span className="mono" title={bundle.identity}>{bundle.identity}</span>}
         </div>
       )}
+      <TimelineShiftDialog
+        open={timelineShiftOpen}
+        canUndo={timelineShiftUndo}
+        onClose={() => setTimelineShiftOpen(false)}
+        onApply={applyTimelineShift}
+        onUndo={undoTimelineShift}
+      />
       <ResegmentDialog
         open={resegmentOpen}
         lines={lines}

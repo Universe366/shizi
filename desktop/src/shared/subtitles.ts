@@ -1,5 +1,19 @@
 import type { SubtitleLine } from './types';
 
+/** 整体平移字幕时间轴；越过 0 的起止时间夹到 0，并保证 end >= start。 */
+export function shiftSubtitleLines(
+  lines: SubtitleLine[],
+  deltaMs: number
+): SubtitleLine[] {
+  const delta = Number(deltaMs) / 1000;
+  if (!Number.isFinite(delta) || delta === 0) return lines;
+  return lines.map((line) => {
+    const start = Math.max(0, line.start + delta);
+    const end = Math.max(start, line.end + delta);
+    return { ...line, start, end };
+  });
+}
+
 /** 解析 SRT / WebVTT 文本；不支持的时间轴（纯文本）返回空数组。 */
 export function parseSubtitleText(text: string): SubtitleLine[] {
   const raw = String(text || '')
