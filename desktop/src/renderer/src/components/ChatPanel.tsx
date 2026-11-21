@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { ChatRequestDetails } from './ChatRequestDetails';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, AtSign, Brain, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Info, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Star, Trash2, Volume2, Wrench, X } from 'lucide-react';
@@ -2481,46 +2482,7 @@ export function ChatPanel({
                         {formatTokens(message.usage.outputTokens)}
                       </div>
                     )}
-                    {detailsIndex === index && (
-                      <div className="chat-request-details">
-                        <div className="chat-detail-row">
-                          <span>模型</span>
-                          <b>{message.model || '未知'}</b>
-                        </div>
-                        <div className="chat-detail-row">
-                          <span>联网</span>
-                          <b>{message.webEngine || '未联网'}</b>
-                        </div>
-                        <div className="chat-detail-row">
-                          <span>来源 / 工具</span>
-                          <b>
-                            {safeSources(message.sources).length} 条 /{' '}
-                            {message.tools?.length || 0} 次
-                          </b>
-                        </div>
-                        {message.usage && (
-                          <div className="chat-detail-row">
-                            <span>Token</span>
-                            <b>
-                              入 {message.usage.inputTokens.toLocaleString('zh-CN')} · 出{' '}
-                              {message.usage.outputTokens.toLocaleString('zh-CN')}
-                              {message.usage.cacheReadTokens
-                                ? ` · 缓存 ${message.usage.cacheReadTokens.toLocaleString('zh-CN')}`
-                                : ''}
-                            </b>
-                          </div>
-                        )}
-                        {typeof message.elapsedMs === 'number' && (
-                          <div className="chat-detail-row">
-                            <span>耗时</span>
-                            <b>{(message.elapsedMs / 1000).toFixed(1)}s</b>
-                          </div>
-                        )}
-                        {message.webNotice && (
-                          <div className="chat-detail-notice">{message.webNotice}</div>
-                        )}
-                      </div>
-                    )}
+                    {detailsIndex === index && <ChatRequestDetails message={message} />}
                     <div className="chat-msg-actions">
                       <button
                         className={`chat-action${detailsIndex === index ? ' is-active' : ''}`}

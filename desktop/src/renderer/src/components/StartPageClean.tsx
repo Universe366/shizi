@@ -42,6 +42,7 @@ import {
 } from './start/model';
 import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
+import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 
 type General = AppSettings['general'];
@@ -1952,154 +1953,23 @@ export function StartPageClean({
 
             {sheetTab === 'links' && (
               <>
-                {groups.length > 0 && (
-                  <section>
-                    <h4>分组</h4>
-                    <div className="sc-edit-list">
-                      {groups.map((name) => (
-                        <div key={name} className="sc-edit-row">
-                          {groupEdit?.from === name ? (
-                            <input
-                              className="sc-group-input"
-                              autoFocus
-                              value={groupEdit.to}
-                              onChange={(event) =>
-                                setGroupEdit({ from: name, to: event.target.value })
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  commitGroupRename();
-                                } else if (event.key === 'Escape') {
-                                  setGroupEdit(null);
-                                }
-                              }}
-                              onBlur={commitGroupRename}
-                            />
-                          ) : (
-                            <span>{name}</span>
-                          )}
-                          <span>
-                            {shortcuts.filter((item) => item.group === name).length} 个
-                          </span>
-                          <button
-                            type="button"
-                            title="重命名分组"
-                            onClick={() => setGroupEdit({ from: name, to: name })}
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            title="删除分组"
-                            onClick={() => removeGroup(name)}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="sc-hint">删除分组只取消分组，不会删除快捷方式。</div>
-                  </section>
-                )}
-                <section>
-                  <h4>文件夹</h4>
-                  <div className="sc-folder-create">
-                    <input
-                      value={
-                        folderDraft?.group ?? (group === '全部' ? '' : group)
-                      }
-                      placeholder="分组（可选）"
-                      onChange={(event) =>
-                        setFolderDraft({
-                          group: event.target.value,
-                          name: folderDraft?.name || ''
-                        })
-                      }
-                    />
-                    <input
-                      value={folderDraft?.name || ''}
-                      placeholder="文件夹名"
-                      onChange={(event) =>
-                        setFolderDraft({
-                          group:
-                            folderDraft?.group ?? (group === '全部' ? '' : group),
-                          name: event.target.value
-                        })
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void createFolder();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="sc-secondary"
-                      disabled={!folderDraft?.name.trim()}
-                      onClick={() => void createFolder()}
-                    >
-                      <Plus size={12} /> 新建
-                    </button>
-                  </div>
-                  <div className="sc-edit-list">
-                      {folderEntries.map((entry) => (
-                        <div key={entry.key} className="sc-edit-row">
-                          {folderEdit?.group === entry.group &&
-                          folderEdit.from === entry.name ? (
-                            <input
-                              className="sc-group-input"
-                              autoFocus
-                              value={folderEdit.to}
-                              onChange={(event) =>
-                                setFolderEdit({
-                                  group: entry.group,
-                                  from: entry.name,
-                                  to: event.target.value
-                                })
-                              }
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
-                                  commitFolderRename();
-                                } else if (event.key === 'Escape') {
-                                  setFolderEdit(null);
-                                }
-                              }}
-                              onBlur={commitFolderRename}
-                            />
-                          ) : (
-                            <span>
-                              {entry.group || '未分组'} / {entry.name}
-                            </span>
-                          )}
-                          <span>{entry.count} 个</span>
-                          <button
-                            type="button"
-                            title="重命名文件夹"
-                            onClick={() =>
-                              setFolderEdit({
-                                group: entry.group,
-                                from: entry.name,
-                                to: entry.name
-                              })
-                            }
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            title="删除文件夹"
-                            onClick={() => removeFolder(entry.group, entry.name)}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="sc-hint">删除文件夹只取消归类，不会删除快捷方式。</div>
-                  </section>
+                <StartPageGroupFolderManager
+                  groups={groups}
+                  shortcuts={shortcuts}
+                  currentGroup={group}
+                  folderEntries={folderEntries}
+                  groupEdit={groupEdit}
+                  folderEdit={folderEdit}
+                  folderDraft={folderDraft}
+                  onGroupEdit={setGroupEdit}
+                  onFolderEdit={setFolderEdit}
+                  onFolderDraft={setFolderDraft}
+                  onCreateFolder={() => void createFolder()}
+                  onCommitGroupRename={commitGroupRename}
+                  onCommitFolderRename={commitFolderRename}
+                  onRemoveGroup={removeGroup}
+                  onRemoveFolder={removeFolder}
+                />
                 <section>
                   <h4>快捷方式</h4>
                   <div className="sc-edit-list">
