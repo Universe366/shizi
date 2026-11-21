@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import { X } from 'lucide-react';
+
 import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
 import {
   buildSearchUrl,
@@ -40,6 +40,7 @@ import { StartPageSearch } from './StartPageSearch';
 import { StartPageMainWidgets } from './StartPageMainWidgets';
 import { StartPageTabQuoteWidgets } from './StartPageTabQuoteWidgets';
 import { StartPageContextMenu } from './StartPageContextMenu';
+import { StartPageSettingsShell } from './StartPageSettingsShell';
 import {
   StartPageDragGhost,
   StartPageFooter,
@@ -1400,16 +1401,7 @@ export function StartPageClean({
         }
       />
 
-      {sheetOpen && (
-        <>
-          <div className="sc-sheet-mask" onClick={() => setSheetOpen(false)} />
-          <aside className="sc-sheet" aria-label="自定义起始页">
-            <header>
-              <span>自定义起始页</span>
-              <button type="button" onClick={() => setSheetOpen(false)}>
-                <X size={15} />
-              </button>
-            </header>
+      <StartPageSettingsShell open={sheetOpen} onClose={() => setSheetOpen(false)}>
 
             <StartPageSettingsTabs value={sheetTab} onChange={setSheetTab} />
 
@@ -1557,9 +1549,7 @@ export function StartPageClean({
                 onOpenGlobalSearch={onOpenGlobalSearch}
               />
             )}
-          </aside>
-        </>
-      )}
+      </StartPageSettingsShell>
 
       {draft && (
         <StartPageShortcutDialog

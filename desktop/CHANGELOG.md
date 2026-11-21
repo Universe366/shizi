@@ -7,7 +7,7 @@
 - 抽出统一的 `main/pageTheme.ts`，主标签页和侧栏网页共用同一套深色/B 站播放控件覆盖逻辑；
 - 侧栏网页新增加载失败原因和「重试」按钮；
 - 修复命令面板重复「打开设置」、错误的「打开起始页 Ctrl+T」提示；起始页命令面板改为 Ctrl+Shift+K，不再抢全局搜索 Ctrl+K；
-- 拆分巨型组件：起始页分组/文件夹管理抽成 `StartPageGroupFolderManager`，主快捷方式网格抽成 `StartPageLinks`，顶栏/时钟/搜索区/右键菜单/热搜/最近打开/打开的标签/每日一句/便签/待办/番茄钟/底栏/拖拽幽灵/Toast/设置标签/打开入口/快捷方式列表/外观/搜索/备份/小组件设置抽成 `StartPageAppearanceSettings` / `StartPageSearchSettings` / `StartPageBackupSettings` / `StartPageWidgetSettings`，快捷方式弹窗抽成 `StartPageShortcutDialog`，对话工具栏/模型选择器/输入区左右操作条/文本域/附件预览/排队条/更多工具卡片/MCP 面板/对比面板/消息列表/正文/详情/操作栏/审批/历史/辅助面板抽成 `ChatToolbar` / `ChatComparePanel` / `ChatMessageList` / `ChatMessageBody` / `ChatRequestDetails` / `ChatMessageActions` / `ChatHistoryPanel` / `ChatAuxPanels`；
+- 拆分巨型组件：起始页分组/文件夹管理抽成 `StartPageGroupFolderManager`，主快捷方式网格抽成 `StartPageLinks`，顶栏/时钟/搜索区/右键菜单/热搜/最近打开/打开的标签/每日一句/便签/待办/番茄钟/底栏/拖拽幽灵/Toast/设置壳/设置标签/打开入口/快捷方式列表/外观/搜索/备份/小组件设置抽成 `StartPageAppearanceSettings` / `StartPageSearchSettings` / `StartPageBackupSettings` / `StartPageWidgetSettings`，快捷方式弹窗抽成 `StartPageShortcutDialog`，对话工具栏/模型选择器/输入区左右操作条/文本域/附件预览/排队条/更多工具卡片/MCP 面板/对比面板/消息列表/正文/详情/操作栏/审批/历史/辅助面板抽成 `ChatToolbar` / `ChatComparePanel` / `ChatMessageList` / `ChatMessageBody` / `ChatRequestDetails` / `ChatMessageActions` / `ChatHistoryPanel` / `ChatAuxPanels`；
 - 起始页分组和文件夹支持拖拽排序，顺序持久化到 `startGroupOrder` / `startFolderOrder`；
 - 删除起始页独立命令面板，合并到全局 `CommandPalette`；起始页打开时追加添加/自定义/关闭命令；
 - AI 对话新增单对话 token 预算：设置里可配置，输入区显示已用/预算，超预算只提示不中断；
