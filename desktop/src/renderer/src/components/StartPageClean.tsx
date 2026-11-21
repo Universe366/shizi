@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from 'react';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { AppSettings, LibraryVideo, StartShortcut, TabInfo } from '../../../shared/types';
 import {
   buildSearchUrl,
@@ -31,6 +31,11 @@ import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
 import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageShortcutList } from './StartPageShortcutList';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
+import {
+  StartPageNotesWidget,
+  StartPagePomodoroWidget,
+  StartPageTodoWidget
+} from './StartPageSmallWidgets';
 import { StartPageClock, StartPageTopbar } from './StartPageHeader';
 import { StartPageSearch } from './StartPageSearch';
 import { StartPageContextMenu } from './StartPageContextMenu';
@@ -1321,105 +1326,45 @@ export function StartPageClean({
           )}
 
           {showNotes && (
-            <article className="sc-card sc-notes">
-              <header>
-                <span>便签</span>
-                <button type="button" onClick={() => setShowNotes(false)}>
-                  隐藏
-                </button>
-              </header>
-              <textarea
-                value={notes}
-                placeholder="随手记点什么…"
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setNotes(value);
-                  try {
-                    localStorage.setItem(NOTES_KEY, value);
-                  } catch {
-                    // ignore
-                  }
-                }}
-              />
-            </article>
+            <StartPageNotesWidget
+              value={notes}
+              onChange={(value) => {
+                setNotes(value);
+                try {
+                  localStorage.setItem(NOTES_KEY, value);
+                } catch {
+                  // ignore
+                }
+              }}
+              onHide={() => setShowNotes(false)}
+            />
           )}
 
           {showTodo && (
-            <article className="sc-card">
-              <header>
-                <span>待办</span>
-                <span>{todos.filter((item) => !item.done).length} 项</span>
-              </header>
-              <form
-                className="sc-todo-add"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  addTodo();
-                }}
-              >
-                <input
-                  value={todoDraft}
-                  placeholder="添加一项待办，回车确认"
-                  onChange={(event) => setTodoDraft(event.target.value)}
-                />
-                <button type="submit" title="添加">
-                  <Plus size={13} />
-                </button>
-              </form>
-              <div className="sc-todo-list">
-                {todos.slice(0, 5).map((item) => (
-                  <label key={item.id} className={item.done ? 'is-done' : ''}>
-                    <input
-                      type="checkbox"
-                      checked={item.done}
-                      onChange={() =>
-                        writeTodos(
-                          todos.map((entry) =>
-                            entry.id === item.id ? { ...entry, done: !entry.done } : entry
-                          )
-                        )
-                      }
-                    />
-                    <span>{item.text}</span>
-                    <button
-                      type="button"
-                      title="删除"
-                      onClick={() =>
-                        writeTodos(todos.filter((entry) => entry.id !== item.id))
-                      }
-                    >
-                      <X size={11} />
-                    </button>
-                  </label>
-                ))}
-              </div>
-            </article>
+            <StartPageTodoWidget
+              todos={todos}
+              draft={todoDraft}
+              onDraft={setTodoDraft}
+              onAdd={addTodo}
+              onToggle={(id) =>
+                writeTodos(
+                  todos.map((entry) =>
+                    entry.id === id ? { ...entry, done: !entry.done } : entry
+                  )
+                )
+              }
+              onRemove={(id) => writeTodos(todos.filter((entry) => entry.id !== id))}
+            />
           )}
 
           {showPomodoro && (
-            <article className="sc-card sc-pomodoro">
-              <header>
-                <span>番茄钟</span>
-                <span>
-                  {pomodoro.phase === 'work'
-                    ? '专注'
-                    : pomodoro.phase === 'short'
-                      ? '短休'
-                      : '长休'}
-                </span>
-              </header>
-              <div className="sc-pomodoro-time">
-                {Math.floor(pomodoro.left / 60)}:{pad(pomodoro.left % 60)}
-              </div>
-              <div className="sc-pomodoro-actions">
-                <button type="button" onClick={() => pomodoroActions.toggle()}>
-                  {pomodoro.running ? '暂停' : '开始'}
-                </button>
-                <button type="button" onClick={() => pomodoroActions.reset()}>
-                  重置
-                </button>
-              </div>
-            </article>
+            <StartPagePomodoroWidget
+              phase={pomodoro.phase}
+              left={pomodoro.left}
+              running={pomodoro.running}
+              onToggle={pomodoroActions.toggle}
+              onReset={pomodoroActions.reset}
+            />
           )}
 
           {showTabs && tabs.length > 0 && (
