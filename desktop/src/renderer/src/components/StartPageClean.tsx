@@ -8,7 +8,6 @@ import {
   type PointerEvent as ReactPointerEvent
 } from 'react';
 import {
-  ArrowLeft,
   ArrowRight,
   CloudSun,
   Folder,
@@ -43,6 +42,7 @@ import {
 import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
+import { StartPageLinks } from './StartPageLinks';
 import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 
 type General = AppSettings['general'];
@@ -1333,133 +1333,38 @@ export function StartPageClean({
             ))}
           </div>
 
-          <div className="sc-links">
-            {folderFilter ? (
-              <button
-                type="button"
-                className="sc-folder-back"
-                onClick={() => setFolderFilter(null)}
-              >
-                <ArrowLeft size={13} /> 返回全部
-              </button>
-            ) : (
-              folders.map((folder) => (
-                <button
-                  key={folder.key}
-                  type="button"
-                  data-folder={folder.name}
-                  data-group={folder.group}
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData('text/sc-folder', folder.key);
-                    event.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onDragOver={(event) => {
-                    if (event.dataTransfer.types.includes('text/sc-folder')) {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = 'move';
-                    }
-                  }}
-                  onDrop={(event) => {
-                    const from = event.dataTransfer.getData('text/sc-folder');
-                    if (from) {
-                      event.preventDefault();
-                      reorderFolder(from, folder.key);
-                    }
-                  }}
-                  className={`sc-link sc-folder${
-                    dropFolder?.group === folder.group && dropFolder.name === folder.name
-                      ? ' is-drop'
-                      : ''
-                  }`}
-                  title={`文件夹：${folder.group || '未分组'} / ${folder.name}（可把快捷方式拖进来）`}
-                  onClick={() =>
-                    setFolderFilter({ group: folder.group, name: folder.name })
-                  }
-                >
-                  <span className="sc-folder-icon">
-                    <Folder size={19} />
-                  </span>
-                  <span className="sc-link-label">{folder.name}</span>
-                  {group === '全部' && (
-                    <span className="sc-folder-group">{folder.group || '未分组'}</span>
-                  )}
-                  <span className="sc-folder-count">{folder.items.length}</span>
-                </button>
-              ))
-            )}
-            {visible.map((item) => (
-              <div
-                key={item.id}
-                data-link-id={item.id}
-                className={`sc-link-wrap${dragState?.item.id === item.id ? ' is-dragging' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="sc-link"
-                  title={`${item.label} · ${item.url}`}
-                  onPointerDown={(event) => startLinkDrag(event, item)}
-                  onClick={() => {
-                    if (suppressClickRef.current) {
-                      suppressClickRef.current = false;
-                      return;
-                    }
-                    openShortcut(item);
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    setContextMenu({ x: event.clientX, y: event.clientY, item });
-                  }}
-                >
-                  <SiteIcon item={item} />
-                  <span className="sc-link-label">{item.label}</span>
-                </button>
-                <span className="sc-link-actions">
-                  <button
-                    type="button"
-                    title="编辑"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setDraft({
-                        id: item.id,
-                        label: item.label,
-                        url: item.url,
-                        group: item.group || '',
-                        folder: item.folder || ''
-                      });
-                    }}
-                  >
-                    <Pencil size={11} />
-                  </button>
-                  <button
-                    type="button"
-                    title="删除"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeShortcut(item);
-                    }}
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </span>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="sc-add-link"
-              onClick={() =>
-                setDraft({
-                  label: '',
-                  url: '',
-                  group: folderFilter?.group || (group === '全部' ? '' : group),
-                  folder: folderFilter?.name || ''
-                })
-              }
-            >
-              <Plus size={20} />
-              <span>添加</span>
-            </button>
-          </div>
+          <StartPageLinks
+            folders={folders}
+            visible={visible}
+            group={group}
+            folderFilter={folderFilter}
+            dropFolder={dropFolder}
+            dragItemId={dragState?.item.id}
+            suppressClickRef={suppressClickRef}
+            onFolderFilter={setFolderFilter}
+            onReorderFolder={reorderFolder}
+            onOpenShortcut={openShortcut}
+            onStartLinkDrag={startLinkDrag}
+            onEdit={(item) =>
+              setDraft({
+                id: item.id,
+                label: item.label,
+                url: item.url,
+                group: item.group || '',
+                folder: item.folder || ''
+              })
+            }
+            onRemove={removeShortcut}
+            onContextMenu={(x, y, item) => setContextMenu({ x, y, item })}
+            onAdd={(folder, currentGroup) =>
+              setDraft({
+                label: '',
+                url: '',
+                group: folder?.group || (currentGroup === '全部' ? '' : currentGroup),
+                folder: folder?.name || ''
+              })
+            }
+          />
         </section>
 
         <section className="sc-widgets">
