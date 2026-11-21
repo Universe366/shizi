@@ -9,8 +9,9 @@ import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
 import { ChatComposerRight } from './ChatComposerRight';
 import { ChatComposerChips } from './ChatComposerChips';
 import { ChatModelPicker } from './ChatModelPicker';
+import { ChatComposerQueue } from './ChatComposerQueue';
 import { EmptyState } from './ui/EmptyState';
-import { AlertTriangle, FileText, Loader2, Pencil, Plus, Quote, X } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, Plus, Quote, X } from 'lucide-react';
 import {
   chatWebModeHint,
   nextChatWebMode,
@@ -24,8 +25,7 @@ import {
 import { describeMcpParameters } from '../../../shared/mcpSchema';
 import {
   contextMessages,
-  formatConversationReference,
-  moveQueueItem
+  formatConversationReference
 } from '../../../shared/chatContext';
 import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
 import { invalidCitationNumbers } from '../../../shared/chatCitations';
@@ -283,7 +283,6 @@ export function ChatPanel({
     }>
   >([]);
   const [queuePaused, setQueuePaused] = useState(false);
-  const queueDragRef = useRef<number | null>(null);
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
@@ -2704,54 +2703,18 @@ export function ChatPanel({
           </div>
         )}
         {queue.length > 0 && (
-          <div className="chat-queue">
-            <span className="chat-queue-label">排队 {queue.length}</span>
-            {queue.map((item, index) => (
-              <span
-                key={`${index}-${item.text.slice(0, 8)}`}
-                className="chat-queue-chip"
-                title={item.text || '附件'}
-                draggable
-                onDragStart={() => {
-                  queueDragRef.current = index;
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const from = queueDragRef.current;
-                  queueDragRef.current = null;
-                  if (from === null) return;
-                  setQueue((previous) => moveQueueItem(previous, from, index));
-                }}
-                onDragEnd={() => {
-                  queueDragRef.current = null;
-                }}
-              >
-                {item.text.replace(/\s+/g, ' ').slice(0, 22) || '附件'}
-                <button
-                  title="编辑这条排队消息"
-                  onClick={() => {
-                    setInput(item.text);
-                    setQueue((previous) => previous.filter((_, i) => i !== index));
-                  }}
-                >
-                  <Pencil size={9} />
-                </button>
-                <button
-                  title="移出队列"
-                  onClick={() => setQueue((previous) => previous.filter((_, i) => i !== index))}
-                >
-                  <X size={9} />
-                </button>
-              </span>
-            ))}
-            <button className="mini-btn" onClick={() => setQueuePaused((value) => !value)}>
-              {queuePaused ? '继续' : '暂停'}
-            </button>
-            <button className="mini-btn" onClick={() => setQueue([])}>
-              清空
-            </button>
-          </div>
+          <ChatComposerQueue
+            queue={queue}
+            paused={queuePaused}
+            onPaused={setQueuePaused}
+            onEdit={(item) => {
+              setInput(item.text);
+              setQueue((previous) => previous.filter((entry) => entry !== item));
+            }}
+            onRemove={(index) => setQueue((previous) => previous.filter((_, i) => i !== index))}
+            onClear={() => setQueue([])}
+            onReorder={setQueue}
+          />
         )}
         <textarea
           className="chat-input"
