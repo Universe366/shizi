@@ -39,6 +39,7 @@ import {
 import { StartPageClock, StartPageTopbar } from './StartPageHeader';
 import { StartPageSearch } from './StartPageSearch';
 import { StartPageMainWidgets } from './StartPageMainWidgets';
+import { StartPageTabQuoteWidgets } from './StartPageTabQuoteWidgets';
 import { StartPageContextMenu } from './StartPageContextMenu';
 import {
   StartPageOpenLinks,
@@ -1323,46 +1324,21 @@ export function StartPageClean({
             />
           )}
 
-          {showTabs && tabs.length > 0 && (
-            <article className="sc-card">
-              <header>
-                <span>打开的标签</span>
-                <button type="button" onClick={() => setShowTabs(false)}>
-                  隐藏
-                </button>
-              </header>
-              <div className="sc-recent-list">
-                {tabs.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.title}
-                    onClick={() => {
-                      onClose();
-                      onNavigate(item.url);
-                    }}
-                  >
-                    <span className="sc-recent-title">{item.title || item.url}</span>
-                    <span className="sc-recent-meta">{hostOf(item.url)}</span>
-                  </button>
-                ))}
-              </div>
-            </article>
-          )}
-
-          {showQuote && (
-            <article className="sc-card sc-quote">
-              <header>
-                <span>今日一句</span>
-              </header>
-              <p>
-                {QUOTES[
-                  Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000) %
-                    QUOTES.length
-                ]}
-              </p>
-            </article>
-          )}
+          <StartPageTabQuoteWidgets
+            showTabs={showTabs}
+            tabs={tabs}
+            showQuote={showQuote}
+            quote={
+              QUOTES[
+                Math.floor(
+                  (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
+                ) % QUOTES.length
+              ]
+            }
+            onHideTabs={() => setShowTabs(false)}
+            onClose={onClose}
+            onNavigate={onNavigate}
+          />
         </section>
       </main>
 
