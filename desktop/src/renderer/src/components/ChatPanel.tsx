@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { ChatRequestDetails } from './ChatRequestDetails';
+import { ChatMessageActions } from './ChatMessageActions';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Brain, Captions, Copy, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, Info, List, Loader2, Mic, Pencil, Plus, Quote, RotateCcw, Search, Send, Sparkles, Square, Star, Trash2, Volume2, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Brain, Captions, Download, Eraser, FileText, GitBranch, Globe, History, ImagePlus, List, Loader2, Mic, Pencil, Plus, Quote, Search, Send, Sparkles, Square, Star, Trash2, Wrench, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -2483,66 +2484,20 @@ export function ChatPanel({
                       </div>
                     )}
                     {detailsIndex === index && <ChatRequestDetails message={message} />}
-                    <div className="chat-msg-actions">
-                      <button
-                        className={`chat-action${detailsIndex === index ? ' is-active' : ''}`}
-                        title="请求详情"
-                        onClick={() =>
-                          setDetailsIndex((current) => (current === index ? null : index))
-                        }
-                      >
-                        <Info size={11} />
-                      </button>
-                      {message.id && (
-                        <button
-                          className="chat-action"
-                          title={message.favorite ? '取消收藏' : '收藏这条回答'}
-                          onClick={() => void toggleFavorite(index)}
-                        >
-                          <Star
-                            size={11}
-                            fill={message.favorite ? 'currentColor' : 'none'}
-                          />
-                        </button>
-                      )}
-                      <button
-                        className="chat-action"
-                        title="朗读回答"
-                        onClick={() => void speakText(message.content)}
-                      >
-                        <Volume2 size={11} />
-                      </button>
-                      <button
-                        className="chat-action"
-                        title="复制回答"
-                        onClick={() => void window.bsub.writeClipboard(message.content)}
-                      >
-                        <Copy size={11} />
-                      </button>
-                      <button
-                        className="chat-action"
-                        title="引用这条回答"
-                        onClick={() => setQuote(message)}
-                      >
-                        <Quote size={11} />
-                      </button>
-                      <button
-                        className="chat-action"
-                        title="从此回答新建分支"
-                        onClick={() => void branchAt(index)}
-                      >
-                        <GitBranch size={11} />
-                      </button>
-                      {index === messages.length - 1 && (
-                        <button
-                          className="chat-action"
-                          title="重新生成"
-                          onClick={() => void regenerate()}
-                        >
-                          <RotateCcw size={11} />
-                        </button>
-                      )}
-                    </div>
+                    <ChatMessageActions
+                      message={message}
+                      isLast={index === messages.length - 1}
+                      detailsOpen={detailsIndex === index}
+                      onToggleDetails={() =>
+                        setDetailsIndex((current) => (current === index ? null : index))
+                      }
+                      onFavorite={() => void toggleFavorite(index)}
+                      onSpeak={() => void speakText(message.content)}
+                      onCopy={() => void window.bsub.writeClipboard(message.content)}
+                      onQuote={() => setQuote(message)}
+                      onBranch={() => void branchAt(index)}
+                      onRegenerate={() => void regenerate()}
+                    />
                   </>
                 ) : (
                   <>
