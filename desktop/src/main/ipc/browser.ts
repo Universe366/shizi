@@ -21,6 +21,7 @@ import {
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
 import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
+import { showZoomOverlay } from '../overlayHost';
 import { mediaSiteKey } from '../../shared/media';
 import { failure, withStartParam, type IpcContext } from './shared';
 
@@ -207,26 +208,48 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     }
   });
 
-  ipcMain.handle('page:zoom-menu', (): Result<boolean> => {
-    if (!ctx.win || ctx.win.isDestroyed()) return failure('主窗口不可用');
-    const current = control?.getZoom() ?? 1;
-    const apply = (value: number) => control?.setZoom(value);
-    const presets = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
-    const menu = Menu.buildFromTemplate([
-      { label: '放大', accelerator: 'CommandOrControl+=', click: () => apply(current + 0.1) },
-      { label: '缩小', accelerator: 'CommandOrControl+-', click: () => apply(current - 0.1) },
-      { label: '重置为 100%', click: () => apply(1) },
-      { type: 'separator' },
-      ...presets.map((value) => ({
-        label: `${Math.round(value * 100)}%`,
-        type: 'radio' as const,
-        checked: Math.abs(current - value) < 0.001,
-        click: () => apply(value)
-      }))
-    ]);
-    menu.popup({ window: ctx.win });
-    return { ok: true, data: true };
-  });
+  ipcMain.handle(
+    'page:zoom-menu',
+    async (
+      _event,
+      rect?: { x?: unknown; y?: unknown; width?: unknown; height?: unknown }
+    ): Promise<Result<boolean>> => {
+      if (!ctx.win || ctx.win.isDestroyed()) return failure('主窗口不可用');
+      const current = control?.getZoom() ?? 1;
+      const anchor =
+        rect &&
+        [rect.x, rect.y, rect.width, rect.height].every((value) =>
+          Number.isFinite(Number(value))
+        )
+          ? {
+              x: Number(rect.x),
+              y: Number(rect.y),
+              width: Number(rect.width),
+              height: Number(rect.height)
+            }
+          : null;
+      if (anchor) {
+        const shown = await showZoomOverlay(ctx.win, { current, anchor });
+        if (shown) return { ok: true, data: true };
+      }
+      const apply = (value: number) => control?.setZoom(value);
+      const presets = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
+      const menu = Menu.buildFromTemplate([
+        { label: '放大', accelerator: 'CommandOrControl+=', click: () => apply(current + 0.1) },
+        { label: '缩小', accelerator: 'CommandOrControl+-', click: () => apply(current - 0.1) },
+        { label: '重置为 100%', click: () => apply(1) },
+        { type: 'separator' },
+        ...presets.map((value) => ({
+          label: `${Math.round(value * 100)}%`,
+          type: 'radio' as const,
+          checked: Math.abs(current - value) < 0.001,
+          click: () => apply(value)
+        }))
+      ]);
+      menu.popup({ window: ctx.win });
+      return { ok: true, data: true };
+    }
+  );
 
   ipcMain.handle('page:zoom-get', (): Result<{ target: 'tab' | 'sidebar'; zoom: number }> => {
     return {

@@ -75,7 +75,7 @@ export function AddressBar({
   /** 当前标签缩放比例 */
   zoom?: number;
   zoomPulse?: number;
-  onOpenZoom?: () => void;
+  onOpenZoom?: (rect: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState('');
@@ -705,7 +705,15 @@ export function AddressBar({
           title="缩放"
           aria-label={`缩放 ${Math.round((Number(zoom) || 1) * 100)}%`}
           disabled={!tab}
-          onClick={() => onOpenZoom?.()}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            onOpenZoom?.({
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height
+            });
+          }}
         >
           {Math.round((Number(zoom) || 1) * 100)}%
         </button>

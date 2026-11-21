@@ -926,8 +926,8 @@ export default function App() {
         onToggleDark={toggleAppDark}
         zoom={zoomValue}
         zoomPulse={zoomPulse}
-        onOpenZoom={() => {
-          void window.bsub.showZoomMenu();
+        onOpenZoom={(rect) => {
+          void window.bsub.showZoomMenu(rect);
         }}
       />
       {findOpen && (
