@@ -8,8 +8,8 @@ import { ChatApprovals } from './ChatApprovals';
 import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
 import { ChatComposerRight } from './ChatComposerRight';
 import { ChatComposerChips } from './ChatComposerChips';
+import { ChatModelPicker } from './ChatModelPicker';
 import { EmptyState } from './ui/EmptyState';
-import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, FileText, Loader2, Pencil, Plus, Quote, X } from 'lucide-react';
 import {
   chatWebModeHint,
@@ -19,9 +19,7 @@ import {
 } from '../../../shared/chatModes';
 import {
   capabilityKey,
-  effectiveContextWindow,
-  effectiveModelCapabilities,
-  formatContextWindow
+  effectiveModelCapabilities
 } from '../../../shared/modelCapabilities';
 import { describeMcpParameters } from '../../../shared/mcpSchema';
 import {
@@ -2806,127 +2804,23 @@ export function ChatPanel({
             >
               <Plus size={14} />
             </button>
-            <div className="chat-model-picker">
-              <button
-                type="button"
-                className="chat-chip chat-model-chip"
-                disabled={Boolean(currentProfile)}
-                title={
-                  currentProfile
-                    ? '当前使用助手档案，模型由档案决定'
-                    : '选择对话模型（可跨服务商）'
-                }
-                onClick={() => setModelMenuOpen((value) => !value)}
-              >
-                {currentPlatform?.name || '模型'} · {currentModel || '未选'}
-                {modelOverride ? '（临时）' : ''}
-              </button>
-              {modelMenuOpen && (
-                <div className="chat-model-menu">
-                  <input
-                    className="settings-input chat-model-search"
-                    value={modelQuery}
-                    placeholder="搜索模型…"
-                    spellCheck={false}
-                    onChange={(event) => setModelQuery(event.target.value)}
-                  />
-                  {platforms
-                    .filter((platform) => platform.enabled !== false)
-                    .map((platform) => {
-                      const models = (platform.models?.length
-                        ? platform.models
-                        : [platform.model]
-                      )
-                        .filter(Boolean)
-                        .filter((model) =>
-                          modelQuery.trim()
-                            ? model.toLowerCase().includes(modelQuery.trim().toLowerCase())
-                            : true
-                        );
-                      return (
-                        <div key={platform.id} className="chat-model-group">
-                          <div className="chat-model-group-title">
-                            <ProviderBrandIcon
-                              name={platform.name}
-                              kind={platform.kind}
-                              size={12}
-                              style={{ marginRight: 4, verticalAlign: '-2px' }}
-                            />
-                            {platform.name}
-                          </div>
-                          {models.map((model) => (
-                            <button
-                              key={model}
-                              type="button"
-                              className={`chat-model-option${
-                                (modelOverride
-                                  ? platform.id === modelOverride.platformId &&
-                                    model === modelOverride.model
-                                  : platform.id === defaultModel?.platformId &&
-                                    model === defaultModel?.model)
-                                  ? ' is-active'
-                                  : ''
-                              }`}
-                              onClick={() => useModel(platform.id, model)}
-                            >
-                              {model}
-                              {(() => {
-                                const capability = effectiveModelCapabilities(
-                                  platform.kind,
-                                  model,
-                                  capabilityOverrides[capabilityKey(platform.id, model)]
-                                );
-                                const context = formatContextWindow(
-                                  effectiveContextWindow(
-                                    model,
-                                    capabilityOverrides[capabilityKey(platform.id, model)]
-                                      ?.contextWindow
-                                  )
-                                );
-                                return (
-                                  <>
-                                    {context && (
-                                      <span className="chat-model-tag">{context}</span>
-                                    )}
-                                    {capability.vision && (
-                                      <span className="chat-model-tag">图片</span>
-                                    )}
-                                    {capability.audio && (
-                                      <span className="chat-model-tag">音频</span>
-                                    )}
-                                    {capability.web && (
-                                      <span
-                                        className="chat-model-tag"
-                                        title="支持模型内置联网"
-                                      >
-                                        联网
-                                      </span>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  <div className="chat-model-footer">
-                    {modelOverride && (
-                      <button type="button" onClick={clearModelOverride}>
-                        跟随默认
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!overridePlatform || !modelOverride}
-                      onClick={() => void saveCurrentAsDefault()}
-                    >
-                      设为全局默认
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ChatModelPicker
+              platforms={platforms}
+              defaultModel={defaultModel}
+              modelOverride={modelOverride}
+              capabilityOverrides={capabilityOverrides}
+              currentProfileName={currentProfile?.name}
+              currentPlatformName={currentPlatform?.name}
+              currentModel={currentModel}
+              menuOpen={modelMenuOpen}
+              query={modelQuery}
+              overridePlatform={Boolean(overridePlatform)}
+              onToggle={() => setModelMenuOpen((value) => !value)}
+              onQuery={setModelQuery}
+              onUseModel={useModel}
+              onClearOverride={clearModelOverride}
+              onSaveDefault={() => void saveCurrentAsDefault()}
+            />
             <ChatComposerChips
               includePage={includePage}
               includeTranscript={includeTranscript}
