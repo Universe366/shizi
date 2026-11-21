@@ -38,6 +38,7 @@ import {
 } from './StartPageSmallWidgets';
 import { StartPageClock, StartPageTopbar } from './StartPageHeader';
 import { StartPageSearch } from './StartPageSearch';
+import { StartPageMainWidgets } from './StartPageMainWidgets';
 import { StartPageContextMenu } from './StartPageContextMenu';
 import {
   StartPageOpenLinks,
@@ -1270,61 +1271,16 @@ export function StartPageClean({
         </section>
 
         <section className="sc-widgets">
-          {hotOn && hot.length > 0 && (
-            <article className="sc-card">
-              <header>
-                <span>B 站热搜</span>
-                <button type="button" onClick={() => onOpenGlobalSearch()}>
-                  更多
-                </button>
-              </header>
-              <div className="sc-rank-list">
-                {hot.map((item, index) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onNavigate(
-                        `https://search.bilibili.com/all?keyword=${encodeURIComponent(item)}`
-                      );
-                    }}
-                  >
-                    <span className={`sc-rank${index < 3 ? ' is-hot' : ''}`}>{index + 1}</span>
-                    <span>{item}</span>
-                  </button>
-                ))}
-              </div>
-            </article>
-          )}
-
-          {showRecent && recent.length > 0 && (
-            <article className="sc-card">
-              <header>
-                <span>最近打开</span>
-                <button type="button" onClick={onOpenLibrary}>
-                  工作台
-                </button>
-              </header>
-              <div className="sc-recent-list">
-                {recent.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.title}
-                    onClick={() => {
-                      onClose();
-                      onNavigate(item.url);
-                    }}
-                  >
-                    <span className="sc-recent-title">{item.title}</span>
-                    <span className="sc-recent-meta">{item.owner || hostOf(item.url)}</span>
-                  </button>
-                ))}
-              </div>
-            </article>
-          )}
-
+          <StartPageMainWidgets
+            hotOn={hotOn}
+            hot={hot}
+            showRecent={showRecent}
+            recent={recent}
+            onGlobalSearch={onOpenGlobalSearch}
+            onLibrary={onOpenLibrary}
+            onClose={onClose}
+            onNavigate={onNavigate}
+          />
           {showNotes && (
             <StartPageNotesWidget
               value={notes}
