@@ -10,8 +10,10 @@ import { ChatComposerRight } from './ChatComposerRight';
 import { ChatComposerChips } from './ChatComposerChips';
 import { ChatModelPicker } from './ChatModelPicker';
 import { ChatComposerQueue } from './ChatComposerQueue';
+import { ChatComposerAttachments } from './ChatComposerAttachments';
+import { ChatComposerTextarea } from './ChatComposerTextarea';
 import { EmptyState } from './ui/EmptyState';
-import { AlertTriangle, FileText, Loader2, Plus, Quote, X } from 'lucide-react';
+import { AlertTriangle, Loader2, Plus, X } from 'lucide-react';
 import {
   chatWebModeHint,
   nextChatWebMode,
@@ -2601,33 +2603,14 @@ export function ChatPanel({
             event.target.value = '';
           }}
         />
-        {(quote || attachments.length > 0) && (
-          <div className="chat-attach-row">
-            {quote && (
-              <span className="chat-quote-chip" title={quote.content.slice(0, 500)}>
-                <Quote size={10} />
-                引用：{quote.content.replace(/\s+/g, ' ').slice(0, 48)}
-                <button title="取消引用" onClick={() => setQuote(null)}>
-                  <X size={9} />
-                </button>
-              </span>
-            )}
-            {attachments.map((attachment, index) => (
-              <span key={`${attachment.name}-${index}`} className="chat-attachment-chip">
-                <FileText size={10} /> {attachment.name}
-                <span>{attachment.chars.toLocaleString('zh-CN')} 字</span>
-                <button
-                  title="移除附件"
-                  onClick={() =>
-                    setAttachments((items) => items.filter((_, item) => item !== index))
-                  }
-                >
-                  <X size={9} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <ChatComposerAttachments
+          quote={quote}
+          attachments={attachments}
+          onClearQuote={() => setQuote(null)}
+          onRemoveAttachment={(index) =>
+            setAttachments((items) => items.filter((_, item) => item !== index))
+          }
+        />
         {slashOpen && (
           <div className="chat-history-panel chat-slash-panel">
             <div className="chat-history-head">
@@ -2716,47 +2699,23 @@ export function ChatPanel({
             onReorder={setQueue}
           />
         )}
-        <textarea
-          className="chat-input"
-          rows={2}
+        <ChatComposerTextarea
           value={input}
-          placeholder={
-            activeTab
-              ? `就当前页面提问…（${sendOnEnter ? 'Enter' : 'Ctrl+Enter'} 发送）`
-              : '打开网页后可用'
-          }
-          disabled={!activeTab}
-          onChange={(event) => setInput(event.target.value)}
-          onPaste={(event) => {
-            const files = Array.from(event.clipboardData.files || []);
-            if (files.some((file) => file.type.startsWith('image/'))) {
-              event.preventDefault();
-              void addImages(files);
-            }
+          activeTab={Boolean(activeTab)}
+          sendOnEnter={sendOnEnter}
+          onChange={setInput}
+          onPasteImages={(files) => void addImages(files)}
+          onMention={() => {
+            setMentionOpen(true);
+            setMentionQuery('');
+            setComposerOpen(false);
           }}
-          onKeyDown={(event) => {
-            if (event.key === '@' && (!input || /\s$/.test(input))) {
-              event.preventDefault();
-              setMentionOpen(true);
-              setMentionQuery('');
-              setComposerOpen(false);
-              return;
-            }
-            if (event.key === '/' && !input.trim()) {
-              event.preventDefault();
-              setSlashOpen(true);
-              setSlashQuery('');
-              setComposerOpen(false);
-              return;
-            }
-            const enterSends = sendOnEnter
-              ? event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey
-              : event.key === 'Enter' && (event.ctrlKey || event.metaKey);
-            if (enterSends) {
-              event.preventDefault();
-              void send();
-            }
+          onSlash={() => {
+            setSlashOpen(true);
+            setSlashQuery('');
+            setComposerOpen(false);
           }}
+          onSend={() => void send()}
         />
         <div className="chat-composer-bar">
           <div className="chat-bar-left">
