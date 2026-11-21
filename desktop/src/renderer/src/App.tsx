@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
   BrowserToolbarSettings,
-  FindResult,
   PanelLayout,
   Section,
   SettingsSnapshot,
@@ -13,7 +12,6 @@ import { DEFAULT_BROWSER_TOOLBAR, normalizeBrowserToolbar } from '../../shared/b
 import { TabStrip } from './components/TabStrip';
 import { AddressBar } from './components/AddressBar';
 import { TitleBar } from './components/TitleBar';
-import { FindBar } from './components/FindBar';
 import { Sidebar } from './components/Sidebar';
 import { BrowserStage } from './components/BrowserStage';
 import { SpeechBar } from './components/SpeechBar';
@@ -56,9 +54,6 @@ export default function App() {
       : 'subtitles';
   });
   const [addressFocus, setAddressFocus] = useState(0);
-  const [findOpen, setFindOpen] = useState(false);
-  const [findQuery, setFindQuery] = useState('');
-  const [findResult, setFindResult] = useState<FindResult | null>(null);
   const [fontScale, setFontScale] = useState(1);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
@@ -501,38 +496,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    return window.bsub.onFindResult((result) => {
-      if (active && result.tabId === active.id) setFindResult(result);
-    });
-  }, [active]);
-
-  useEffect(() => {
-    if (!findOpen) return;
-    if (!findQuery) {
-      setFindResult(null);
-      void window.bsub.stopFind();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void window.bsub.findInPage(findQuery);
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [findQuery, findOpen]);
-
-  useEffect(() => {
-    if (!findOpen) return;
-    setFindResult(null);
-    if (findQuery) void window.bsub.findInPage(findQuery);
-  }, [active?.id]);
-
-  const closeFind = () => {
-    setFindOpen(false);
-    setFindQuery('');
-    setFindResult(null);
-    void window.bsub.stopFind();
-  };
-
-  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
 
@@ -540,10 +503,6 @@ export default function App() {
       if (event.key === 'Escape') {
         if (readerOpen) {
           setReaderOpen(false);
-          return;
-        }
-        if (findOpen) {
-          closeFind();
           return;
         }
         if (hub) setHub(null);
@@ -606,7 +565,7 @@ export default function App() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [active, findOpen, findQuery, hub, readerOpen, shortcutMap, tabs]);
+  }, [active, hub, readerOpen, shortcutMap, tabs]);
 
   // 焦点在网页里时，主进程把配置好的快捷键以动作 id 转发过来。
   useEffect(
@@ -777,7 +736,7 @@ export default function App() {
         setAddressFocus((value) => value + 1);
         break;
       case 'find':
-        setFindOpen(true);
+        void window.bsub.showFindOverlay();
         break;
       case 'search':
         setSearchOpen(true);
@@ -853,7 +812,7 @@ export default function App() {
       setLibraryOpen(false);
       setStartOpen(true);
     } else if (action === 'find') {
-      setFindOpen(true);
+      void window.bsub.showFindOverlay();
     } else if (action === 'reader') {
       setReaderOpen(true);
     } else if (action === 'reload') {
@@ -908,7 +867,7 @@ export default function App() {
         onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
         onOpenReader={() => setReaderOpen(true)}
-        onOpenFind={() => setFindOpen(true)}
+        onOpenFind={() => void window.bsub.showFindOverlay()}
         siteDarkDisabled={siteDarkDisabled}
         onOpenStart={() => {
 
@@ -930,16 +889,6 @@ export default function App() {
           void window.bsub.showZoomMenu(rect);
         }}
       />
-      {findOpen && (
-        <FindBar
-          query={findQuery}
-          result={findResult}
-          onChange={setFindQuery}
-          onNext={() => void window.bsub.findInPage(findQuery, { forward: true, findNext: true })}
-          onPrev={() => void window.bsub.findInPage(findQuery, { forward: false, findNext: true })}
-          onClose={closeFind}
-        />
-      )}
       <div className={`app-body sidebar-${sidebarPosition}${sidebarCollapsed ? ' is-collapsed' : ''}`}>
         <Sidebar
           section={section}

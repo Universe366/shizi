@@ -204,6 +204,7 @@
   "page:context",
   "page:context-action",
   "page:document",
+  "page:find-overlay",
   "page:info",
   "page:saved-subtitles",
   "page:seek",

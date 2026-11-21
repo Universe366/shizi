@@ -21,7 +21,8 @@ import {
 import { controlDownload } from '../downloads';
 import { seek } from '../page';
 import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
-import { showZoomOverlay } from '../overlayHost';
+import { setZoomTarget } from '../zoomTarget';
+import { showFindOverlay, showZoomOverlay } from '../overlayHost';
 import { mediaSiteKey } from '../../shared/media';
 import { failure, withStartParam, type IpcContext } from './shared';
 
@@ -250,6 +251,13 @@ export function registerBrowserIpc(ctx: IpcContext): void {
       return { ok: true, data: true };
     }
   );
+
+  ipcMain.handle('page:find-overlay', async (): Promise<Result<boolean>> => {
+    if (!ctx.win || ctx.win.isDestroyed()) return failure('主窗口不可用');
+    // Overlay 查找只针对主页面；侧栏网页有自己的查找条。
+    setZoomTarget('tab');
+    return { ok: true, data: await showFindOverlay(ctx.win) };
+  });
 
   ipcMain.handle('page:zoom-get', (): Result<{ target: 'tab' | 'sidebar'; zoom: number }> => {
     return {

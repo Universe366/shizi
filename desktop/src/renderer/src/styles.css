@@ -5216,42 +5216,6 @@ html[data-density='compact'] .chat-history-row {
 }
 
 /* ---------- 页内查找 / 缩放 ---------- */
-.find-bar {
-  height: 38px;
-  flex: 0 0 38px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.find-input {
-  flex: 1;
-  height: 28px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-2);
-  font-size: var(--fs-sm);
-  outline: none;
-  user-select: text;
-}
-
-.find-input:focus {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-
-.find-count {
-  min-width: 44px;
-  text-align: right;
-  font-size: var(--fs-xs);
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
 .zoom-btn {
   height: 26px;
   padding: 0 7px;
