@@ -24,7 +24,6 @@ import {
   type Weather
 } from './start/model';
 import { parseBookmarksHtml } from './start/bookmarks';
-import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
 import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
@@ -41,6 +40,11 @@ import { StartPageSearch } from './StartPageSearch';
 import { StartPageMainWidgets } from './StartPageMainWidgets';
 import { StartPageTabQuoteWidgets } from './StartPageTabQuoteWidgets';
 import { StartPageContextMenu } from './StartPageContextMenu';
+import {
+  StartPageDragGhost,
+  StartPageFooter,
+  StartPageToast
+} from './StartPageChrome';
 import {
   StartPageOpenLinks,
   StartPageSettingsTabs
@@ -1342,18 +1346,7 @@ export function StartPageClean({
         </section>
       </main>
 
-      {dragState && (
-        <div
-          className="sc-drag-ghost"
-          style={{
-            left: dragState.x - dragState.offsetX,
-            top: dragState.y - dragState.offsetY
-          }}
-        >
-          <SiteIcon item={dragState.item} />
-          <span>{dragState.item.label}</span>
-        </div>
-      )}
+      {dragState && <StartPageDragGhost drag={dragState} />}
 
       {contextMenu && (
         <StartPageContextMenu
@@ -1399,21 +1392,13 @@ export function StartPageClean({
           }}
         />
       )}
-      {notice && (
-        <div className="sc-toast" role="status">
-          <span>{notice.text}</span>
-          {notice.undo && (
-            <button type="button" onClick={notice.undo}>
-              撤销
-            </button>
-          )}
-        </div>
-      )}
+      {notice && <StartPageToast text={notice.text} onUndo={notice.undo} />}
 
-      <footer className="sc-foot">
-        <span>Ctrl K 命令 · / 聚焦搜索 · 右键或悬停编辑快捷方式</span>
-        <span className={`sc-wall-name`}>{WALLPAPERS.find((item) => item.id === wallpaper)?.label || '自定义'}</span>
-      </footer>
+      <StartPageFooter
+        wallpaperLabel={
+          WALLPAPERS.find((item) => item.id === wallpaper)?.label || '自定义'
+        }
+      />
 
       {sheetOpen && (
         <>
