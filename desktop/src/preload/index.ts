@@ -113,6 +113,7 @@ import type {
   LibraryList,
   LibrarySearchResult,
   LibraryDetail,
+  LibraryDuplicateGroup,
   LibrarySort,
   LibraryTag,
   LibraryCollection,
@@ -526,6 +527,10 @@ const api: BsubApi = {
   bulkRemove: (videoIds: number[]) =>
     ipcRenderer.invoke('library:bulk-remove', { videoIds }) as Promise<
       Result<{ removed: number }>
+    >,
+  libraryDuplicates: () =>
+    ipcRenderer.invoke('library:duplicates') as Promise<
+      Result<LibraryDuplicateGroup[]>
     >,
   ingestLocalFile: (payload) =>
     ipcRenderer.invoke('library:ingest-file', payload) as Promise<

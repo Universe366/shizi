@@ -17,6 +17,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onImport: vi.fn(),
     onDownload: vi.fn(),
     onOpenTrash: vi.fn(),
+    onFindDuplicates: vi.fn(),
     onToggleSelect: vi.fn(),
     onRefresh: vi.fn(),
     ...overrides

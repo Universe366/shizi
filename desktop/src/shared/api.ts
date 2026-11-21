@@ -76,6 +76,7 @@ import type {
   LibraryList,
   LibrarySearchResult,
   LibraryDetail,
+  LibraryDuplicateGroup,
   LibrarySort,
   LibraryTag,
   LibraryCollection,
@@ -374,6 +375,7 @@ export interface BsubApi {
   bulkTag(videoIds: number[], name: string): Promise<Result<{ linked: number }>>;
   bulkCollection(videoIds: number[], name: string): Promise<Result<{ linked: number }>>;
   bulkRemove(videoIds: number[]): Promise<Result<{ removed: number }>>;
+  libraryDuplicates(): Promise<Result<LibraryDuplicateGroup[]>>;
   importLocalMedia(): Promise<
     Result<{ canceled: boolean; requestId?: string; filename?: string }>
   >;

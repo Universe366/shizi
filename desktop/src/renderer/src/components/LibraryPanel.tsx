@@ -8,6 +8,7 @@ import type {
   CollectionSummaryVersionMeta,
   LibraryCollection,
   LibraryDetail,
+  LibraryDuplicateGroup,
   LibraryList,
   SubtitleLine,
   LibrarySearchResult,
@@ -34,6 +35,7 @@ import { LibraryEmptyState } from './LibraryEmptyState';
 import { LibraryListHeader } from './LibraryListHeader';
 import { LibraryFilters } from './LibraryFilters';
 import { LibraryTrashDialog } from './LibraryTrashDialog';
+import { LibraryDuplicatesDialog } from './LibraryDuplicatesDialog';
 import { LibraryVideoRow } from './LibraryVideoRow';
 import { activeDownloadFor, trackDownload, useActiveDownloads } from '../lib/downloadStore';
 import { PodcastImport } from './PodcastImport';
@@ -107,6 +109,10 @@ export function LibraryPanel() {
   const [bulkCollectionName, setBulkCollectionName] = useState('');
   const [bulkConcurrency, setBulkConcurrency] = useState(2);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const [duplicatesLoading, setDuplicatesLoading] = useState(false);
+  const [duplicatesBusy, setDuplicatesBusy] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<LibraryDuplicateGroup[]>([]);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [notice, setNotice] = useState('');
@@ -809,6 +815,36 @@ export function LibraryPanel() {
     }
   };
 
+  const openDuplicates = async () => {
+    setDuplicatesOpen(true);
+    setDuplicatesLoading(true);
+    try {
+      const response = await window.bsub.libraryDuplicates();
+      if (response.ok) setDuplicateGroups(response.data);
+      else setError(response.error);
+    } finally {
+      setDuplicatesLoading(false);
+    }
+  };
+
+  const removeDuplicates = async (ids: number[]) => {
+    if (!ids.length || duplicatesBusy) return;
+    setDuplicatesBusy(true);
+    try {
+      const response = await window.bsub.bulkRemove(ids);
+      if (!response.ok) {
+        setError(response.error);
+        return;
+      }
+      flash(`已清理 ${response.data.removed} 个重复条目`);
+      const next = await window.bsub.libraryDuplicates();
+      if (next.ok) setDuplicateGroups(next.data);
+      await load();
+    } finally {
+      setDuplicatesBusy(false);
+    }
+  };
+
   const addToCollection = async (name: string) => {
     const clean = name.trim();
     if (!clean || !detail) return;
@@ -1127,6 +1163,7 @@ export function LibraryPanel() {
         onImport={() => setImportOpen(true)}
         onDownload={() => setDownloadOpen(true)}
         onOpenTrash={openTrash}
+        onFindDuplicates={() => void openDuplicates()}
         onToggleSelect={() => {
           if (selectMode) exitSelect();
           else {
@@ -1549,6 +1586,14 @@ export function LibraryPanel() {
         onRestore={(item) => void restoreFromTrash(item)}
         onPurge={(item) => void purgeTrashItem(item)}
         onClearAll={() => void clearAllTrash()}
+      />
+      <LibraryDuplicatesDialog
+        open={duplicatesOpen}
+        loading={duplicatesLoading}
+        busy={duplicatesBusy}
+        groups={duplicateGroups}
+        onClose={() => setDuplicatesOpen(false)}
+        onRemove={(ids) => void removeDuplicates(ids)}
       />
       <DownloadVideoDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} />
     </div>

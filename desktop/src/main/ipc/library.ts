@@ -9,6 +9,7 @@ import type {
   GlobalSearchResult,
   LibraryCollection,
   LibraryDetail,
+  LibraryDuplicateGroup,
   LibraryIngestPayload,
   LibraryIngestResult,
   LibraryList,
@@ -69,6 +70,7 @@ import {
   vacuumLibrary
 } from '../library';
 import { summarizeCollection } from '../collectionSummary';
+import { findDuplicateVideos } from '../library/duplicates';
 import { failure, trackJob, type IpcContext } from './shared';
 
 /** 库 / 笔记 / 标签 / 合集 / 回收站 / 检索 相关 IPC。 */
@@ -123,6 +125,14 @@ export function registerLibraryIpc(ctx: IpcContext): void {
       return { ok: true, data: listLibrary(sort as LibrarySort) };
     } catch (error) {
       return failure<LibraryList>(error);
+    }
+  });
+
+  ipcMain.handle('library:duplicates', (): Result<LibraryDuplicateGroup[]> => {
+    try {
+      return { ok: true, data: findDuplicateVideos() };
+    } catch (error) {
+      return failure<LibraryDuplicateGroup[]>(error);
     }
   });
 

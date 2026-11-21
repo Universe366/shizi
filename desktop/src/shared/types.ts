@@ -308,6 +308,12 @@ export interface LibraryVideo {
   chars: number;
 }
 
+export interface LibraryDuplicateGroup {
+  key: string;
+  reason: 'url' | 'title';
+  videos: LibraryVideo[];
+}
+
 export interface LibraryTag {
   name: string;
   count: number;

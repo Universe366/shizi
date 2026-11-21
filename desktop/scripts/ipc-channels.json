@@ -144,6 +144,7 @@
   "library:collection-remove",
   "library:collection-rename",
   "library:collections",
+  "library:duplicates",
   "library:get",
   "library:get-summary",
   "library:ingest",

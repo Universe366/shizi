@@ -8,9 +8,10 @@
 - 修复命令面板重复「打开设置」、错误的「打开起始页 Ctrl+T」提示；起始页命令面板改为 Ctrl+Shift+K，不再抢全局搜索 Ctrl+K；
 - 起始页分组和文件夹支持拖拽排序，顺序持久化到 `startGroupOrder` / `startFolderOrder`；
 - 删除起始页独立命令面板，合并到全局 `CommandPalette`；起始页打开时追加添加/自定义/关闭命令；
+- 资料库新增重复检测：按 BVID/规范化链接优先、标题兜底，弹窗按组清理并保留最早条目；
 - 删除无入口死代码：ZoomBubble、PageContextMenu、useStartWeather、summarizeMerge 及其测试/API；
 - CI 增加真实 Electron smoke 步骤；
-- 测试：桌面 191 文件 / 1132 用例（1 跳过）；冒烟 22/22。
+- 测试：桌面 192 文件 / 1133 用例（1 跳过）；冒烟 22/22。
 
 ## 0.163.22（2026-11-20）
 

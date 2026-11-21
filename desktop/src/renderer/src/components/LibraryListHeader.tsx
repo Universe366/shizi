@@ -1,4 +1,4 @@
-import { RefreshCw, Search, Trash2 } from 'lucide-react';
+import { Copy, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 interface LibraryListHeaderProps {
   query: string;
@@ -13,6 +13,7 @@ interface LibraryListHeaderProps {
   onImport: () => void;
   onDownload: () => void;
   onOpenTrash: () => void;
+  onFindDuplicates: () => void;
   onToggleSelect: () => void;
   onRefresh: () => void;
 }
@@ -31,6 +32,7 @@ export function LibraryListHeader({
   onImport,
   onDownload,
   onOpenTrash,
+  onFindDuplicates,
   onToggleSelect,
   onRefresh
 }: LibraryListHeaderProps) {
@@ -57,6 +59,9 @@ export function LibraryListHeader({
             onClick={onToggleFilters}
           >
             筛选
+          </button>
+          <button className="mini-btn" title="查找重复条目" onClick={onFindDuplicates}>
+            <Copy size={12} /> 重复
           </button>
           <button className="icon-btn" title="回收站" onClick={onOpenTrash}>
             <Trash2 size={13} />
