@@ -46,6 +46,10 @@ import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
 import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import {
+  StartPageOpenLinks,
+  StartPageSettingsTabs
+} from './StartPageSettingsHeader';
+import {
   StartPageBackupSettings,
   StartPageSearchSettings
 } from './StartPageSettingsSmall';
@@ -1695,26 +1699,7 @@ export function StartPageClean({
               </button>
             </header>
 
-            <div className="sc-sheet-tabs" role="tablist">
-              {([
-                ['look', '外观'],
-                ['search', '搜索'],
-                ['links', '快捷方式'],
-                ['widgets', '小组件'],
-                ['data', '数据']
-              ] as const).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={sheetTab === id}
-                  className={sheetTab === id ? 'is-active' : ''}
-                  onClick={() => setSheetTab(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <StartPageSettingsTabs value={sheetTab} onChange={setSheetTab} />
 
             {sheetTab === 'look' && (
               <StartPageAppearanceSettings
@@ -1880,21 +1865,15 @@ export function StartPageClean({
             )}
 
             {sheetTab === 'data' && (
-              <section>
-                <h4>打开</h4>
-                <div className="sc-sheet-actions">
-                  <button type="button" onClick={onOpenSettings}>完整设置</button>
-                  <button type="button" onClick={onOpenLibrary}>工作台</button>
-                  <button type="button" onClick={onOpenHistory}>历史记录</button>
-                  <button type="button" onClick={onOpenBookmarks}>书签</button>
-                  <button type="button" onClick={onOpenDownloads}>下载</button>
-                  <button type="button" onClick={onOpenTasks}>任务</button>
-                  <button type="button" onClick={onOpenGlobalSearch}>全局搜索</button>
-                </div>
-                <div className="sc-hint">
-                  更多设置（主题、代理、快捷键、数据目录）在「完整设置」里。
-                </div>
-              </section>
+              <StartPageOpenLinks
+                onOpenSettings={onOpenSettings}
+                onOpenLibrary={onOpenLibrary}
+                onOpenHistory={onOpenHistory}
+                onOpenBookmarks={onOpenBookmarks}
+                onOpenDownloads={onOpenDownloads}
+                onOpenTasks={onOpenTasks}
+                onOpenGlobalSearch={onOpenGlobalSearch}
+              />
             )}
           </aside>
         </>
