@@ -42,6 +42,7 @@ import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
+import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import {
   StartPageBackupSettings,
@@ -1961,80 +1962,14 @@ export function StartPageClean({
       )}
 
       {draft && (
-        <div className="sc-modal-mask" onPointerDown={() => setDraft(null)}>
-          <form
-            className="sc-modal"
-            onPointerDown={(event) => event.stopPropagation()}
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveDraft();
-            }}
-          >
-            <h3>{draft.id ? '编辑快捷方式' : '添加快捷方式'}</h3>
-            <label>
-              名称
-              <input
-                value={draft.label}
-                placeholder="例如 哔哩哔哩"
-                onChange={(event) =>
-                  setDraft((current) => (current ? { ...current, label: event.target.value } : current))
-                }
-              />
-            </label>
-            <label>
-              网址
-              <input
-                value={draft.url}
-                placeholder="https://www.bilibili.com/"
-                onChange={(event) =>
-                  setDraft((current) => (current ? { ...current, url: event.target.value } : current))
-                }
-              />
-            </label>
-            <label>
-              分组
-              <input
-                value={draft.group}
-                list="sc-groups"
-                placeholder="可选，例如 学习"
-                onChange={(event) =>
-                  setDraft((current) => (current ? { ...current, group: event.target.value } : current))
-                }
-              />
-              <datalist id="sc-groups">
-                {groups.map((item) => (
-                  <option key={item} value={item} />
-                ))}
-              </datalist>
-            </label>
-            <label>
-              文件夹
-              <input
-                value={draft.folder}
-                list="sc-folders"
-                placeholder="可选，例如 视频"
-                onChange={(event) =>
-                  setDraft((current) =>
-                    current ? { ...current, folder: event.target.value } : current
-                  )
-                }
-              />
-              <datalist id="sc-folders">
-                {folders.map((item) => (
-                  <option key={item.name} value={item.name} />
-                ))}
-              </datalist>
-            </label>
-            <div className="sc-modal-actions">
-              <button type="button" onClick={() => setDraft(null)}>
-                取消
-              </button>
-              <button type="submit" className="is-primary">
-                保存
-              </button>
-            </div>
-          </form>
-        </div>
+        <StartPageShortcutDialog
+          draft={draft}
+          groups={groups}
+          folders={folders.map((item) => item.name)}
+          onChange={setDraft}
+          onClose={() => setDraft(null)}
+          onSave={saveDraft}
+        />
       )}
     </div>
   );
