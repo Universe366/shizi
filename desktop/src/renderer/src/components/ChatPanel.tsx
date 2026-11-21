@@ -6,9 +6,10 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatComparePanel } from './ChatComparePanel';
 import { ChatApprovals } from './ChatApprovals';
 import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
+import { ChatComposerRight } from './ChatComposerRight';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, Brain, Captions, Eraser, FileText, Globe, Loader2, Mic, Pencil, Plus, Quote, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, Brain, Captions, Eraser, FileText, Globe, Loader2, Pencil, Plus, Quote, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -30,7 +31,6 @@ import {
 } from '../../../shared/chatContext';
 import { estimateMessagesTokens, estimateTextTokens } from '../../../shared/chatTokens';
 import { invalidCitationNumbers } from '../../../shared/chatCitations';
-import { formatTokens } from '../lib/usageStats';
 import type {
   AiPlatform,
   AssistantProfile,
@@ -3013,55 +3013,22 @@ export function ChatPanel({
               </button>
             )}
           </div>
-          <div className="chat-bar-right">
-            {chatBudgetTokens > 0 && (
-              <span
-                className={`chat-budget${budgetExceeded ? ' is-over' : ''}`}
-                title="当前对话已记录的实际输入/输出 token 与预算"
-              >
-                预算 {formatTokens(usedBudgetTokens)}/{formatTokens(chatBudgetTokens)}
-              </span>
-            )}
-            <span
-              className="chat-token-hint"
-              title="输入 + 对话历史 + 页面正文的粗略估算"
-            >
-              ≈{' '}
-              {(
-                estimateMessagesTokens(messages) +
-                estimateTextTokens(input) +
-                (includePage ? Math.ceil((pageContext?.chars || 0) / 1.6) : 0)
-              ).toLocaleString('zh-CN')}
-            </span>
-            <button
-              className={`icon-btn${voiceState === 'recording' ? ' is-recording' : ''}`}
-              title={
-                voiceState === 'recording'
-                  ? '停止录音并识别'
-                  : voiceState === 'transcribing'
-                    ? '正在识别…'
-                    : '语音输入'
-              }
-              disabled={!activeTab || streaming || voiceState === 'transcribing'}
-              onClick={() => void toggleVoice()}
-            >
-              {voiceState === 'transcribing' ? (
-                <Loader2 size={14} className="spin" />
-              ) : voiceState === 'recording' ? (
-                <Square size={14} />
-              ) : (
-                <Mic size={14} />
-              )}
-            </button>
-            <button
-              className="chat-send"
-              disabled={!activeTab || (!input.trim() && !images.length && !attachments.length)}
-              onClick={() => void send()}
-              title="发送"
-            >
-              <Send size={12} /> 发送
-            </button>
-          </div>
+          <ChatComposerRight
+            budgetTokens={chatBudgetTokens}
+            usedBudgetTokens={usedBudgetTokens}
+            budgetExceeded={budgetExceeded}
+            tokenEstimate={
+              estimateMessagesTokens(messages) +
+              estimateTextTokens(input) +
+              (includePage ? Math.ceil((pageContext?.chars || 0) / 1.6) : 0)
+            }
+            voiceState={voiceState}
+            activeTab={Boolean(activeTab)}
+            streaming={streaming}
+            canSend={Boolean(input.trim() || images.length || attachments.length)}
+            onVoice={() => void toggleVoice()}
+            onSend={() => void send()}
+          />
         </div>
       </div>
 
