@@ -9,15 +9,12 @@ import {
 } from 'react';
 import {
   ArrowRight,
-  CloudSun,
   Folder,
-  Command,
   Copy,
   ExternalLink,
   Pencil,
   Plus,
   Search,
-  Settings,
   Trash2,
   X
 } from 'lucide-react';
@@ -45,6 +42,7 @@ import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
 import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageShortcutList } from './StartPageShortcutList';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
+import { StartPageClock, StartPageTopbar } from './StartPageHeader';
 import {
   StartPageOpenLinks,
   StartPageSettingsTabs
@@ -1154,46 +1152,18 @@ export function StartPageClean({
         }}
       />
 
-      <header className="sc-topbar">
-        <div className="sc-weather">
-          {weatherOn && weather && (
-            <>
-              <CloudSun size={16} />
-              <span className="sc-weather-temp">{Math.round(weather.temperature)}°</span>
-              <span className="sc-weather-city">{weather.city || city}</span>
-              <span className="sc-weather-desc">{weather.description}</span>
-            </>
-          )}
-        </div>
-        <div className="sc-actions">
-          <button
-            type="button"
-            className="sc-icon-btn"
-            title="命令面板"
-            onClick={onOpenCommandPalette}
-          >
-            <Command size={16} />
-          </button>
-          <button
-            type="button"
-            className="sc-icon-btn"
-            title="自定义起始页"
-            onClick={() => setSheetOpen(true)}
-          >
-            <Settings size={16} />
-          </button>
-          <button type="button" className="sc-icon-btn" title="关闭起始页（Esc）" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
-      </header>
+      <StartPageTopbar
+        weatherOn={weatherOn}
+        weather={weather}
+        city={city}
+        onCommand={onOpenCommandPalette}
+        onSettings={() => setSheetOpen(true)}
+        onClose={onClose}
+      />
 
       <main className="sc-main">
         <section className="sc-hero">
-          <div className="sc-clock">{time}</div>
-          <div className="sc-sub">
-            {greeting(now)}，{dateText}
-          </div>
+          <StartPageClock time={time} greeting={greeting(now)} dateText={dateText} />
 
           <div className="sc-search-wrap" ref={(node) => {
             searchWrapRef.current = node;
