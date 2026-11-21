@@ -1,14 +1,12 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
-import { ChatRequestDetails } from './ChatRequestDetails';
-import { ChatMessageBody } from './ChatMessageBody';
-import { ChatMessageActions } from './ChatMessageActions';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { ChatAuxPanels } from './ChatAuxPanels';
 import { ChatToolbar } from './ChatToolbar';
+import { ChatMessageList } from './ChatMessageList';
 import { ChatComparePanel } from './ChatComparePanel';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
-import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
+import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, Globe, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
 import {
   chatWebModeHint,
   chatWebModeLabel,
@@ -2043,102 +2041,23 @@ export function ChatPanel({
             </EmptyState>
           )}
 
-          {messages.map((message, index) => (
-            <Fragment key={`${message.role}-${index}-${message.content.slice(0, 16)}`}>
-              {contextStart === index && (
-                <div className="chat-context-divider">
-                  上下文从这里开始，之前的消息不再发送
-                </div>
-              )}
-              <div
-                className={`chat-msg ${message.role}${
-                  highlightIndex === index ? ' is-search-hit' : ''
-                }`}
-                data-chat-index={index}
-              >
-              {message.role === 'assistant' && <div className="chat-avatar">AI</div>}
-              <div className="chat-bubble">
-                {message.role === 'assistant' ? (
-                  <>
-                    <ChatMessageBody
-                      message={message}
-                      index={index}
-                      expandReasoning={expandReasoning}
-                    />
-                    {detailsIndex === index && <ChatRequestDetails message={message} />}
-                    <ChatMessageActions
-                      message={message}
-                      isLast={index === messages.length - 1}
-                      detailsOpen={detailsIndex === index}
-                      onToggleDetails={() =>
-                        setDetailsIndex((current) => (current === index ? null : index))
-                      }
-                      onFavorite={() => void toggleFavorite(index)}
-                      onSpeak={() => void speakText(message.content)}
-                      onCopy={() => void window.bsub.writeClipboard(message.content)}
-                      onQuote={() => setQuote(message)}
-                      onBranch={() => void branchAt(index)}
-                      onRegenerate={() => void regenerate()}
-                    />
-                  </>
-                ) : (
-                  <>
-                    {message.images?.length ? (
-                      <div className="chat-images">
-                        {message.images.map((src, imageIndex) => (
-                          <img
-                            key={`${imageIndex}-${src.slice(-12)}`}
-                            className="chat-image"
-                            src={src}
-                            alt=""
-                          />
-                        ))}
-                      </div>
-                    ) : null}
-                    {message.attachments?.length ? (
-                      <div className="chat-attachments">
-                        {message.attachments.map((attachment) => (
-                          <span
-                            key={`${attachment.name}-${attachment.chars}`}
-                            className="chat-attachment-chip"
-                            title={attachment.name}
-                          >
-                            <FileText size={10} /> {attachment.name}
-                            <span>{attachment.chars.toLocaleString('zh-CN')} 字</span>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div>{message.content}</div>
-                    <div className="chat-msg-actions">
-                      <button
-                        className="chat-action"
-                        title="引用这条消息"
-                        onClick={() => setQuote(message)}
-                      >
-                        <Quote size={11} />
-                      </button>
-                      <button
-                        className="chat-action"
-                        title="从这条消息新建分支"
-                        onClick={() => void branchAt(index)}
-                      >
-                        <GitBranch size={11} />
-                      </button>
-                      <button
-                        className="chat-action"
-                        title="编辑这条消息并重发"
-                        onClick={() => void editMessage(index)}
-                      >
-                        <Pencil size={11} />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-              </div>
-            </Fragment>
-          ))}
+          <ChatMessageList
+            messages={messages}
+            contextStart={contextStart}
+            highlightIndex={highlightIndex}
+            detailsIndex={detailsIndex}
+            expandReasoning={expandReasoning}
+            onDetails={(index) =>
+              setDetailsIndex((current) => (current === index ? null : index))
+            }
+            onFavorite={(index) => void toggleFavorite(index)}
+            onSpeak={(text) => void speakText(text)}
+            onCopy={(text) => void window.bsub.writeClipboard(text)}
+            onQuote={setQuote}
+            onBranch={(index) => void branchAt(index)}
+            onRegenerate={() => void regenerate()}
+            onEdit={(index) => void editMessage(index)}
+          />
 
           {contextStart !== null && contextStart >= messages.length && (
             <div className="chat-context-divider">
