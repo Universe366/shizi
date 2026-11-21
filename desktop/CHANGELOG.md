@@ -8,6 +8,8 @@
 - 修复命令面板重复「打开设置」、错误的「打开起始页 Ctrl+T」提示；起始页命令面板改为 Ctrl+Shift+K，不再抢全局搜索 Ctrl+K；
 - 起始页分组和文件夹支持拖拽排序，顺序持久化到 `startGroupOrder` / `startFolderOrder`；
 - 删除起始页独立命令面板，合并到全局 `CommandPalette`；起始页打开时追加添加/自定义/关闭命令；
+- AI 对话新增单对话 token 预算：设置里可配置，输入区显示已用/预算，超预算只提示不中断；
+- 回答失败卡片新增「重试」，复用上一次请求的文本/图片/附件/引用；
 - 资料库新增重复检测：按 BVID/规范化链接优先、标题兜底，弹窗按组清理并保留最早条目；
 - 删除无入口死代码：ZoomBubble、PageContextMenu、useStartWeather、summarizeMerge 及其测试/API；
 - CI 增加真实 Electron smoke 步骤；

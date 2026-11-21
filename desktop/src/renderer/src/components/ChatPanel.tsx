@@ -190,6 +190,15 @@ export function ChatPanel({
   const requestStartedAtRef = useRef(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [chatBudgetTokens, setChatBudgetTokens] = useState(0);
+  const lastRequestRef = useRef<{
+    text: string;
+    images: string[];
+    attachments: ChatAttachment[];
+    quote: ChatMessage | null;
+    base: ChatMessage[];
+    forcePage: boolean;
+  } | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [quote, setQuote] = useState<ChatMessage | null>(null);
@@ -805,6 +814,7 @@ export function ChatPanel({
           ? current
           : ''
       );
+      setChatBudgetTokens(Number(response.data.settings.ai.chatBudgetTokens) || 0);
       setSendOnEnter(response.data.settings.ai.sendOnEnter !== false);
       setExpandReasoning(response.data.settings.ai.expandReasoning === true);
       autoReadChatRef.current = response.data.settings.tts?.autoRead?.chat === true;
@@ -862,6 +872,7 @@ export function ChatPanel({
           ? current
           : ''
       );
+      setChatBudgetTokens(Number(snapshot.settings.ai.chatBudgetTokens) || 0);
       autoReadChatRef.current = snapshot.settings.tts?.autoRead?.chat === true;
       setSkillId((current) =>
         snapshot.settings.skills.items.some((item) => item.id === current) ? current : ''
@@ -1034,6 +1045,7 @@ export function ChatPanel({
           detail: tool.detail || '',
           at: Date.now()
         }));
+      lastRequestRef.current = null;
       setMessages((previous) => [
         ...previous,
         {
@@ -1364,6 +1376,14 @@ export function ChatPanel({
       : '';
     const content = `${quoted}${text || '请阅读并分析这个附件。'}`.trim();
     const outgoingAttachments = sendingAttachments;
+    lastRequestRef.current = {
+      text,
+      images: sendingImages,
+      attachments: sendingAttachments,
+      quote: sendingQuote,
+      base: base ?? messages,
+      forcePage
+    };
 
     setInput('');
     setError(null);
@@ -1662,6 +1682,18 @@ export function ChatPanel({
   }, [send]);
 
   /** 重新生成最后一条回答：截断数据库与界面，再把同一个问题发一次。 */
+  const retryLast = () => {
+    const request = lastRequestRef.current;
+    if (!request || streaming) return;
+    setError(null);
+    void send(request.text, request.forcePage, request.base, {
+      text: request.text,
+      images: request.images,
+      attachments: request.attachments,
+      quote: request.quote
+    });
+  };
+
   const regenerate = async () => {
     if (streaming) return;
     let assistantIndex = -1;
@@ -1916,6 +1948,16 @@ export function ChatPanel({
     .slice(0, 20);
 
   const showSettingsHint = Boolean(error) && /Key|模型|平台|设置|401|403|404/.test(error || '');
+  const usedBudgetTokens = messages.reduce(
+    (sum, message) =>
+      sum +
+      (message.usage
+        ? message.usage.inputTokens + message.usage.outputTokens
+        : 0),
+    0
+  );
+  const budgetExceeded =
+    chatBudgetTokens > 0 && usedBudgetTokens > chatBudgetTokens;
 
   return (
     <div className="panel chat-panel">
@@ -2666,11 +2708,16 @@ export function ChatPanel({
               <div className="warn-body">
                 <div className="warn-title">回答失败</div>
                 <div className="warn-desc">{error}</div>
-                {showSettingsHint && (
-                  <button className="warn-btn" onClick={onOpenSettings}>
-                    去设置
+                <div className="warn-actions">
+                  <button className="warn-btn" onClick={retryLast}>
+                    重试
                   </button>
-                )}
+                  {showSettingsHint && (
+                    <button className="warn-btn" onClick={onOpenSettings}>
+                      去设置
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -3775,6 +3822,14 @@ export function ChatPanel({
             )}
           </div>
           <div className="chat-bar-right">
+            {chatBudgetTokens > 0 && (
+              <span
+                className={`chat-budget${budgetExceeded ? ' is-over' : ''}`}
+                title="当前对话已记录的实际输入/输出 token 与预算"
+              >
+                预算 {formatTokens(usedBudgetTokens)}/{formatTokens(chatBudgetTokens)}
+              </span>
+            )}
             <span
               className="chat-token-hint"
               title="输入 + 对话历史 + 页面正文的粗略估算"

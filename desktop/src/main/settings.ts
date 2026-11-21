@@ -270,6 +270,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     temperature: 0.3,
     chatTemperature: 1,
     maxTokens: 128000,
+    chatBudgetTokens: 0,
     maxTokensVersion: 1,
     contextAutoCompress: true,
     contextKeepRecent: 10,
@@ -1069,6 +1070,10 @@ function normalize(input: unknown): AppSettings {
         base.ai.maxTokens = 128000;
       }
     }
+    base.ai.chatBudgetTokens = Math.min(
+      10_000_000,
+      Math.max(0, Math.round(Number(raw.ai?.chatBudgetTokens) || 0))
+    );
     base.ai.maxTokensVersion = 1;
     base.ai.contextAutoCompress = raw.ai?.contextAutoCompress !== false;
     const keepRecent = Number(raw.ai?.contextKeepRecent);

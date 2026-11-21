@@ -1501,6 +1501,8 @@ export interface AppSettings {
     /** 对话温度；默认更高，回答更自然 */
     chatTemperature: number;
     maxTokens: number;
+    /** 当前对话累计 token 预算（0 = 不限） */
+    chatBudgetTokens: number;
     /** 输出上限默认值的迁移版本（内部字段） */
     maxTokensVersion?: number;
     /** 对话过长时自动把较早消息压缩成摘要 */

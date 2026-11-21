@@ -789,6 +789,22 @@ export function AiSection({
             控制单次回答长度；上下文窗口按模型自动识别，可在「模型能力」里覆盖。
           </div>
         </div>
+        <div className="settings-field">
+          <label>单对话 token 预算</label>
+          <input
+            type="number"
+            min={0}
+            max={10000000}
+            step={10000}
+            value={draft.ai.chatBudgetTokens ?? 0}
+            onChange={(event) =>
+              updateAi({ chatBudgetTokens: Math.max(0, Number(event.target.value) || 0) })
+            }
+          />
+          <div className="settings-hint">
+            0 表示不限；按已记录的实际输入/输出 token 累计，超预算只提示，不强制中断。
+          </div>
+        </div>
       </div>
     </details>
   </div>
