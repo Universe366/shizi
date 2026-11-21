@@ -42,6 +42,7 @@ import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
+import { StartPageAppearanceSettings } from './StartPageAppearanceSettings';
 import { StartPageShortcutDialog } from './StartPageShortcutDialog';
 import { StartPageWidgetSettings } from './StartPageWidgetSettings';
 import {
@@ -1716,109 +1717,47 @@ export function StartPageClean({
             </div>
 
             {sheetTab === 'look' && (
-              <>
-                <section>
-                  <h4>背景</h4>
-                  <div className="sc-wall-grid">
-                    {WALLPAPERS.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`sc-wall sc-wall-${item.id}${wallpaper === item.id ? ' is-active' : ''}`}
-                        onClick={() => {
-                          setGeneral((current) =>
-                            current ? { ...current, startWallpaper: item.id } : current
-                          );
-                          void patchGeneral({ startWallpaper: item.id });
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="sc-inline-actions">
-                    <button type="button" className="sc-secondary" onClick={() => wallpaperInputRef.current?.click()}>
-                      <Upload size={13} /> 上传图片
-                    </button>
-                    {customWallpaper && (
-                      <button
-                        type="button"
-                        className="sc-secondary"
-                        onClick={() => {
-                          setGeneral((current) =>
-                            current ? { ...current, startWallpaperImage: '' } : current
-                          );
-                          void patchGeneral({ startWallpaperImage: '' });
-                        }}
-                      >
-                        恢复默认背景
-                      </button>
-                    )}
-                  </div>
-                  <label className="sc-field">
-                    <span>背景暗度 {Math.round(dim * 100)}%</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={0.7}
-                      step={0.05}
-                      value={dim}
-                      onChange={(event) => {
-                        const value = Number(event.target.value);
-                        setDim(value);
-                        try {
-                          localStorage.setItem(DIM_KEY, String(value));
-                        } catch {
-                          // ignore
-                        }
-                      }}
-                    />
-                  </label>
-                </section>
-
-                <section>
-                  <h4>布局</h4>
-                  <div className="sc-segment">
-                    {([
-                      ['small', '小图标'],
-                      ['medium', '中图标'],
-                      ['large', '大图标']
-                    ] as const).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={iconSize === id ? 'is-active' : ''}
-                        onClick={() => {
-                          setIconSize(id);
-                          try {
-                            localStorage.setItem(ICON_SIZE_KEY, id);
-                          } catch {
-                            // ignore
-                          }
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="sc-check">
-                    <input
-                      type="checkbox"
-                      checked={labels}
-                      onChange={(event) => setFlag(LABELS_KEY, setLabels, event.target.checked)}
-                    />
-                    显示快捷方式名称
-                  </label>
-                  <label className="sc-check">
-                    <input
-                      type="checkbox"
-                      checked={showSeconds}
-                      onChange={(event) => setFlag(SECONDS_KEY, setShowSeconds, event.target.checked)}
-                    />
-                    时钟显示秒
-                  </label>
-                </section>
-              </>
+              <StartPageAppearanceSettings
+                wallpapers={WALLPAPERS.map((item) => ({ id: item.id, label: item.label }))}
+                wallpaper={wallpaper}
+                customWallpaper={Boolean(customWallpaper)}
+                dim={dim}
+                iconSize={iconSize}
+                labels={labels}
+                showSeconds={showSeconds}
+                onWallpaper={(id) => {
+                  const next = id as General['startWallpaper'];
+                  setGeneral((current) =>
+                    current ? { ...current, startWallpaper: next } : current
+                  );
+                  void patchGeneral({ startWallpaper: next });
+                }}
+                onUpload={() => wallpaperInputRef.current?.click()}
+                onResetWallpaper={() => {
+                  setGeneral((current) =>
+                    current ? { ...current, startWallpaperImage: '' } : current
+                  );
+                  void patchGeneral({ startWallpaperImage: '' });
+                }}
+                onDim={(value) => {
+                  setDim(value);
+                  try {
+                    localStorage.setItem(DIM_KEY, String(value));
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onIconSize={(value) => {
+                  setIconSize(value);
+                  try {
+                    localStorage.setItem(ICON_SIZE_KEY, value);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onLabels={(value) => setFlag(LABELS_KEY, setLabels, value)}
+                onShowSeconds={(value) => setFlag(SECONDS_KEY, setShowSeconds, value)}
+              />
             )}
 
             {sheetTab === 'search' && (
