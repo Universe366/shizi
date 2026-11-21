@@ -7,7 +7,7 @@
 - 抽出统一的 `main/pageTheme.ts`，主标签页和侧栏网页共用同一套深色/B 站播放控件覆盖逻辑；
 - 侧栏网页新增加载失败原因和「重试」按钮；
 - 修复命令面板重复「打开设置」、错误的「打开起始页 Ctrl+T」提示；起始页命令面板改为 Ctrl+Shift+K，不再抢全局搜索 Ctrl+K；
-- 拆分巨型组件：起始页分组/文件夹管理抽成 `StartPageGroupFolderManager`，主快捷方式网格抽成 `StartPageLinks`，对话工具栏/正文/详情/操作栏/历史/辅助面板抽成 `ChatToolbar` / `ChatMessageBody` / `ChatRequestDetails` / `ChatMessageActions` / `ChatHistoryPanel` / `ChatAuxPanels`；
+- 拆分巨型组件：起始页分组/文件夹管理抽成 `StartPageGroupFolderManager`，主快捷方式网格抽成 `StartPageLinks`，搜索/备份设置抽成 `StartPageSearchSettings` / `StartPageBackupSettings`，对话工具栏/正文/详情/操作栏/历史/辅助面板抽成 `ChatToolbar` / `ChatMessageBody` / `ChatRequestDetails` / `ChatMessageActions` / `ChatHistoryPanel` / `ChatAuxPanels`；
 - 起始页分组和文件夹支持拖拽排序，顺序持久化到 `startGroupOrder` / `startFolderOrder`；
 - 删除起始页独立命令面板，合并到全局 `CommandPalette`；起始页打开时追加添加/自定义/关闭命令；
 - AI 对话新增单对话 token 预算：设置里可配置，输入区显示已用/预算，超预算只提示不中断；

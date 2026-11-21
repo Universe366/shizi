@@ -13,7 +13,6 @@ import {
   Folder,
   Command,
   Copy,
-  Download,
   ExternalLink,
   Pencil,
   Plus,
@@ -43,6 +42,10 @@ import { parseBookmarksHtml } from './start/bookmarks';
 import { SiteIcon } from './start/SiteIcon';
 import { StartPageGroupFolderManager } from './StartPageGroupFolderManager';
 import { StartPageLinks } from './StartPageLinks';
+import {
+  StartPageBackupSettings,
+  StartPageSearchSettings
+} from './StartPageSettingsSmall';
 import { pomodoroActions, usePomodoro } from './start/pomodoroStore';
 
 type General = AppSettings['general'];
@@ -1817,43 +1820,23 @@ export function StartPageClean({
             )}
 
             {sheetTab === 'search' && (
-              <section>
-                <h4>搜索引擎</h4>
-                <select
-                  className="sc-select"
-                  value={engine}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    if (!isSearchEngineId(next)) return;
-                    setEngine(next);
-                    void patchGeneral({ searchEngine: next });
-                  }}
-                >
-                  {SEARCH_ENGINES.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="sc-hint">
-                  自定义引擎的模板在「完整设置 → 外观与浏览器」里配置。
-                </div>
-                <button
-                  type="button"
-                  className="sc-secondary"
-                  onClick={() => {
-                    setHistory([]);
-                    try {
-                      localStorage.removeItem(HISTORY_KEY);
-                    } catch {
-                      // ignore
-                    }
-                    showNotice('搜索历史已清空');
-                  }}
-                >
-                  <Trash2 size={13} /> 清空搜索历史
-                </button>
-              </section>
+              <StartPageSearchSettings
+                engine={engine}
+                onChange={(next) => {
+                  if (!isSearchEngineId(next)) return;
+                  setEngine(next);
+                  void patchGeneral({ searchEngine: next });
+                }}
+                onClearHistory={() => {
+                  setHistory([]);
+                  try {
+                    localStorage.removeItem(HISTORY_KEY);
+                  } catch {
+                    // ignore
+                  }
+                  showNotice('搜索历史已清空');
+                }}
+              />
             )}
 
             {sheetTab === 'links' && (
@@ -1920,22 +1903,10 @@ export function StartPageClean({
                     </button>
                   </div>
                 </section>
-                <section>
-                  <h4>备份</h4>
-                  <div className="sc-inline-actions">
-                    <button type="button" className="sc-secondary" onClick={exportBackup}>
-                      <Download size={13} /> 导出起始页
-                    </button>
-                    <button
-                      type="button"
-                      className="sc-secondary"
-                      onClick={() => backupInputRef.current?.click()}
-                    >
-                      <Upload size={13} /> 导入起始页
-                    </button>
-                  </div>
-                  <div className="sc-hint">备份包含快捷方式、背景、搜索引擎与城市。</div>
-                </section>
+                <StartPageBackupSettings
+                  onExport={exportBackup}
+                  onImport={() => backupInputRef.current?.click()}
+                />
               </>
             )}
 
