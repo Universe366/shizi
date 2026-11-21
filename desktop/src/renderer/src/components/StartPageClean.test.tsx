@@ -55,6 +55,7 @@ const baseProps = {
   onOpenBookmarks: noop,
   onOpenDownloads: noop,
   onOpenGlobalSearch: noop,
+  onOpenCommandPalette: noop,
   onClose: noop
 };
 

@@ -55,6 +55,7 @@ export interface StartPageCleanProps {
   onOpenBookmarks: () => void;
   onOpenDownloads: () => void;
   onOpenGlobalSearch: () => void;
+  onOpenCommandPalette: () => void;
   onClose: () => void;
 }
 
@@ -197,6 +198,7 @@ export function StartPageClean({
   onOpenBookmarks,
   onOpenDownloads,
   onOpenGlobalSearch,
+  onOpenCommandPalette,
   onClose
 }: StartPageCleanProps) {
   const [general, setGeneral] = useState<General | null>(null);
@@ -249,8 +251,6 @@ export function StartPageClean({
   } | null>(null);
   const [sheetTab, setSheetTab] = useState<'look' | 'search' | 'links' | 'widgets' | 'data'>('look');
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [paletteQuery, setPaletteQuery] = useState('');
   const [draft, setDraft] = useState<{
     id?: string;
     label: string;
@@ -290,7 +290,6 @@ export function StartPageClean({
   const searchRef = useRef<HTMLInputElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<HTMLDivElement>(null);
-  const paletteRef = useRef<HTMLInputElement>(null);
   const bookmarkInputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
@@ -375,10 +374,6 @@ export function StartPageClean({
           target.isContentEditable);
 
       if (event.key === 'Escape') {
-        if (paletteOpen) {
-          setPaletteOpen(false);
-          return;
-        }
         if (sheetOpen) {
           setSheetOpen(false);
           return;
@@ -395,18 +390,7 @@ export function StartPageClean({
         return;
       }
 
-      if (
-        (event.ctrlKey || event.metaKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === 'k'
-      ) {
-        event.preventDefault();
-        setPaletteOpen(true);
-        setSheetOpen(false);
-        return;
-      }
-
-      if (editing || paletteOpen || sheetOpen || draft) return;
+      if (editing || sheetOpen || draft) return;
 
       if (event.key === '/') {
         event.preventDefault();
@@ -422,11 +406,7 @@ export function StartPageClean({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [paletteOpen, sheetOpen, draft, suggestOpen, onClose]);
-
-  useEffect(() => {
-    if (paletteOpen) window.setTimeout(() => paletteRef.current?.focus(), 20);
-  }, [paletteOpen]);
+  }, [sheetOpen, draft, suggestOpen, onClose]);
 
   useEffect(() => {
     if (!suggestOpen) return;
@@ -741,6 +721,21 @@ export function StartPageClean({
     }
     setDraft(null);
   };
+
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (detail === 'add') {
+        setDraft({ label: '', url: '', group: '', folder: '' });
+      } else if (detail === 'customize') {
+        setSheetOpen(true);
+      } else if (detail === 'close') {
+        onClose();
+      }
+    };
+    window.addEventListener('shizi:start-command', onCommand);
+    return () => window.removeEventListener('shizi:start-command', onCommand);
+  }, [onClose]);
 
   const showNotice = (text: string, undo?: () => void) => {
     window.clearTimeout(noticeTimer.current);
@@ -1092,21 +1087,6 @@ export function StartPageClean({
   const wallpaper = String(general?.startWallpaper || 'aurora');
   const customWallpaper =
     general?.startWallpaperMedia?.url || general?.startWallpaperImage || '';
-  const paletteActions = [
-    { id: 'add', label: '添加快捷方式', run: () => setDraft({ label: '', url: '', group: '', folder: '' }) },
-    { id: 'settings', label: '打开设置', run: onOpenSettings },
-    { id: 'library', label: '打开工作台', run: onOpenLibrary },
-    { id: 'history', label: '历史记录', run: onOpenHistory },
-    { id: 'tasks', label: '任务中心', run: onOpenTasks },
-    { id: 'bookmarks', label: '书签', run: onOpenBookmarks },
-    { id: 'downloads', label: '下载', run: onOpenDownloads },
-    { id: 'global', label: '全局搜索', run: onOpenGlobalSearch },
-    { id: 'sheet', label: '自定义起始页', run: () => setSheetOpen(true) },
-    { id: 'close', label: '关闭起始页', run: onClose }
-  ].filter((item) =>
-    paletteQuery.trim() ? item.label.includes(paletteQuery.trim()) : true
-  );
-
   const time = showSeconds
     ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     : `${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -1178,8 +1158,8 @@ export function StartPageClean({
           <button
             type="button"
             className="sc-icon-btn"
-            title="命令面板（Ctrl+Shift+K）"
-            onClick={() => setPaletteOpen(true)}
+            title="命令面板"
+            onClick={onOpenCommandPalette}
           >
             <Command size={16} />
           </button>
@@ -2285,41 +2265,6 @@ export function StartPageClean({
             )}
           </aside>
         </>
-      )}
-
-      {paletteOpen && (
-        <div className="sc-palette-mask" onPointerDown={() => setPaletteOpen(false)}>
-          <div className="sc-palette" onPointerDown={(event) => event.stopPropagation()}>
-            <input
-              ref={paletteRef}
-              value={paletteQuery}
-              placeholder="输入命令…"
-              onChange={(event) => setPaletteQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') setPaletteOpen(false);
-                if (event.key === 'Enter' && paletteActions[0]) {
-                  event.preventDefault();
-                  setPaletteOpen(false);
-                  paletteActions[0].run();
-                }
-              }}
-            />
-            <div className="sc-palette-list">
-              {paletteActions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setPaletteOpen(false);
-                    item.run();
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       )}
 
       {draft && (

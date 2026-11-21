@@ -696,7 +696,35 @@ export default function App() {
         setVerticalTabs(next);
         void persistGeneral({ verticalTabs: next });
       }
-    }
+    },
+    ...(startOpen
+      ? [
+          {
+            id: 'start-add-shortcut',
+            label: '起始页：添加快捷方式',
+            run: () =>
+              window.dispatchEvent(
+                new CustomEvent('shizi:start-command', { detail: 'add' })
+              )
+          },
+          {
+            id: 'start-customize',
+            label: '起始页：自定义',
+            run: () =>
+              window.dispatchEvent(
+                new CustomEvent('shizi:start-command', { detail: 'customize' })
+              )
+          },
+          {
+            id: 'start-close',
+            label: '起始页：关闭',
+            run: () =>
+              window.dispatchEvent(
+                new CustomEvent('shizi:start-command', { detail: 'close' })
+              )
+          }
+        ]
+      : [])
   ];
 
   // 插件命令：能定位到面板就切侧栏，否则在新标签页打开插件入口。
@@ -995,6 +1023,7 @@ export default function App() {
                 setStartOpen(false);
                 setSearchOpen(true);
               }}
+              onOpenCommandPalette={() => setPaletteOpen(true)}
               onClose={() => setStartOpen(false)}
             />
           )}
