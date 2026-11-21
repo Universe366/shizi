@@ -5,6 +5,7 @@ import { ChatMessageActions } from './ChatMessageActions';
 import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { ChatAuxPanels } from './ChatAuxPanels';
 import { ChatToolbar } from './ChatToolbar';
+import { ChatComparePanel } from './ChatComparePanel';
 import { EmptyState } from './ui/EmptyState';
 import { ProviderBrandIcon } from './settings/ProviderBrandIcon';
 import { AlertTriangle, AtSign, Brain, Captions, Eraser, FileText, GitBranch, Globe, ImagePlus, Loader2, Mic, Pencil, Plus, Quote, Send, Sparkles, Square, Wrench, X } from 'lucide-react';
@@ -647,8 +648,6 @@ export function ChatPanel({
     );
     await window.bsub.chatApprove(approval.approvalId, allow);
   };
-
-  const compareKey = (platformId: string, model: string) => `${platformId}::${model}`;
 
   const toggleCompareTarget = (key: string): void => {
     const next = compareSelection.includes(key)
@@ -2832,52 +2831,14 @@ export function ChatPanel({
             </div>
           )}
           {compareOpen && (
-            <div className="chat-compare-panel">
-              <div className="settings-hint">
-                选 2–3 个平台，用同一个问题并排回答；对比模式不启用 MCP 工具与联网。
-              </div>
-              <div className="chat-compare-options">
-                {platforms
-                  .filter((platform) => platform.enabled !== false)
-                  .map((platform) => {
-                    const models = (platform.models?.length
-                      ? platform.models
-                      : [platform.model]
-                    ).filter(Boolean);
-                    if (!models.length) return null;
-                    return (
-                      <div key={platform.id} className="chat-compare-group">
-                        <div className="chat-compare-group-title">{platform.name}</div>
-                        {models.map((model) => {
-                          const key = compareKey(platform.id, model);
-                          const legacy =
-                            compareSelection.includes(platform.id) && model === platform.model;
-                          const checked = compareSelection.includes(key) || legacy;
-                          return (
-                            <label key={key} className="chat-tool-option" title={model}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={!checked && compareSelection.length >= 3}
-                                onChange={() => toggleCompareTarget(key)}
-                              />
-                              <span>{model}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-              </div>
-              <button
-                className="mini-btn primary"
-                disabled={compareTargets.length < 2 || comparing}
-                onClick={() => void runCompare()}
-              >
-                {comparing ? <Loader2 size={12} className="spin" /> : null}
-                开始对比
-              </button>
-            </div>
+            <ChatComparePanel
+              platforms={platforms}
+              selection={compareSelection}
+              targetCount={compareTargets.length}
+              comparing={comparing}
+              onToggle={toggleCompareTarget}
+              onRun={() => void runCompare()}
+            />
           )}
         </div>
       )}
