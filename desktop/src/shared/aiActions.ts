@@ -23,6 +23,13 @@ export const AI_ACTIONS: AiAction[] = [
     prompt: () => '用 5 条要点总结当前页面，先给结论，再列依据。'
   },
   {
+    id: 'translate-page',
+    label: '翻译整个页面',
+    scope: 'page',
+    prompt: () =>
+      '把当前页面的正文完整翻译成中文（原文是中文就翻译成英文），保留标题与段落结构；代码、命令、专有名词不翻译。'
+  },
+  {
     id: 'extract-actions',
     label: '提取可执行事项',
     scope: 'page',

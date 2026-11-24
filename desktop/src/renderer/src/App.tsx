@@ -664,6 +664,25 @@ export default function App() {
       label: `AI：${action.label}`,
       run: () => askAi(action.prompt({}))
     })),
+    {
+      id: 'ai-tabs-overview',
+      label: 'AI：总结打开的标签页',
+      hint: `${tabs.length} 个标签`,
+      run: () =>
+        askAi(
+          [
+            '我在浏览器里打开了这些标签页，请按主题分组总结，并指出哪些可能重复或可以关掉：',
+            ...tabs.map((tab, index) => `${index + 1}. ${tab.title || tab.url} — ${tab.url}`)
+          ].join('\n'),
+          false
+        )
+    },
+    ...tabs.map((tab) => ({
+      id: `switch-tab-${tab.id}`,
+      label: `切换标签：${tab.title || tab.url}`,
+      hint: tab.active ? '当前标签' : '标签',
+      run: () => void window.bsub.activateTab(tab.id)
+    })),
     { id: 'section-subtitles', label: '打开面板：字幕', hint: 'Ctrl+Shift+1', run: () => setSection('subtitles') },
     { id: 'section-summary', label: '打开面板：总结', run: () => setSection('summary') },
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
@@ -827,7 +846,8 @@ export default function App() {
         void window.bsub.printPage?.();
         break;
       case 'tab-search':
-        setHub('tabs');
+        // Ctrl+Shift+A：直接打开命令面板，里面现在包含所有打开的标签，输入即搜。
+        setPaletteOpen(true);
         break;
       case 'section-subtitles':
         sectionHandlerRef.current('subtitles');
