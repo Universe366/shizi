@@ -441,7 +441,7 @@ export function Sidebar({
           title="拖动调宽；拖得很窄会折叠；双击折叠；拖标题栏换边"
         />
       )}
-      <div className="side-content" style={{ zoom: fontScale }}>
+      <div className="side-content">
         <div className={`side-panel${section === 'subtitles' ? ' is-active' : ''}`}>
           {visited.has('subtitles') && (
             <SubtitlesPanel
