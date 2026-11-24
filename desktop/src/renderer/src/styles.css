@@ -5612,6 +5612,10 @@ html[data-density='compact'] .chat-history-row {
   box-shadow: 0 0 0 1px var(--border);
 }
 
+:root[data-ui-glass='on'] .sidebar,
+:root[data-ui-glass='on'] .chat-panel,
+:root[data-ui-glass='on'] .browser-hub,
+:root[data-ui-glass='on'] .settings-page-head,
 :root[data-ui-glass='on'] .settings-section,
 :root[data-ui-glass='on'] .settings-guide,
 :root[data-ui-glass='on'] .start-widget,

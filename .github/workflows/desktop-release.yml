@@ -46,7 +46,30 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      - run: npm ci
+      # node_modules 直接缓存：命中时跳过 npm ci（这是发布链路里最慢的一步，约 78s）。
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: desktop/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
+
+      # electron-builder 的 winCodeSign / nsis 等工具缓存，避免每次重新下载。
+      - name: Cache electron-builder tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-builder-${{ runner.os }}-${{ hashFiles('desktop/package-lock.json') }}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ -d node_modules/electron ]; then
+            echo "node_modules cache hit, skip npm ci"
+          else
+            npm ci --prefer-offline --no-audit --no-fund
+          fi
       - run: npm run typecheck
       - run: npm run lint
       - name: Run unit tests

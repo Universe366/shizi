@@ -32,12 +32,15 @@
   --danger-border: #f3c9c9;
 
   /* 字号刻度：11 / 12 / 13 / 14 / 16 / 20 */
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-base: 13px;
-  --fs-md: 14px;
-  --fs-lg: 16px;
-  --fs-xl: 20px;
+  /* 界面字号：统一乘一个比例，设置里的滑杆才能真正影响全局 */
+  --fs-scale: 1;
+
+  --fs-xs: calc(11px * var(--fs-scale));
+  --fs-sm: calc(12px * var(--fs-scale));
+  --fs-base: calc(13px * var(--fs-scale));
+  --fs-md: calc(14px * var(--fs-scale));
+  --fs-lg: calc(16px * var(--fs-scale));
+  --fs-xl: calc(20px * var(--fs-scale));
 
   /* 间距刻度：4 的倍数 */
   --sp-1: 4px;

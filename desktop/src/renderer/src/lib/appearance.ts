@@ -8,6 +8,7 @@ interface AppearanceInput {
   uiRadius?: number;
   uiGlass?: boolean;
   uiMotion?: boolean;
+  fontScale?: number;
 }
 
 let current: AppearanceInput = {};
@@ -71,6 +72,8 @@ export function applyAppearance(general: AppearanceInput): void {
   root.style.setProperty('--radius-md', `${Math.max(6, radius - 4)}px`);
   root.dataset.uiGlass = general.uiGlass === false ? 'off' : 'on';
   root.dataset.uiMotion = general.uiMotion === false ? 'off' : 'on';
+  const fontScale = Math.min(1.6, Math.max(0.8, Number(general.fontScale) || 1));
+  root.style.setProperty('--fs-scale', String(fontScale));
 
   // 跟随系统深浅色时，预设配色需要跟着切换；监听只绑定一次。
   if (!media) {

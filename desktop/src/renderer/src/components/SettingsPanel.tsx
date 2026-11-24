@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { askConfirm } from './ui/confirm';
+import { applyAppearance } from '../lib/appearance';
 import type { DiagnosticsInfo } from '../../../shared/types';
 import { BridgeSection } from './settings/BridgeSection';
 import { DataBackupSection } from './settings/DataBackupSection';
@@ -1231,6 +1232,21 @@ export function SettingsPanel({
     if (status.ok) setBridge(status.data);
   };
 
+
+  // 外观改动实时预览；关闭设置页时回到已保存的值（不保存就不会留下脏样式）。
+  useEffect(() => {
+    if (!draft) return;
+    applyAppearance(draft.general);
+  }, [draft?.general]);
+
+  useEffect(
+    () => () => {
+      void window.bsub.getSettings().then((response) => {
+        if (response.ok) applyAppearance(response.data.settings.general);
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     if (!draft) return;
