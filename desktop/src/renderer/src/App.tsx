@@ -19,7 +19,6 @@ import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { BookmarkDialog } from './components/BookmarkDialog';
-import { BookmarkBar } from './components/BookmarkBar';
 import { ClearBrowsingDataDialog } from './components/ClearBrowsingDataDialog';
 import { ReaderMode } from './components/ReaderMode';
 import { StartPageClean } from './components/StartPageClean';
@@ -80,8 +79,12 @@ export default function App() {
   const [wizard, setWizard] = useState<SettingsSnapshot | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hub, setHub] = useState<HubSection | null>(null);
-  // 下载按钮只展示下载：不再把历史/书签一起端出来。
+  // 每个入口只展示自己的分区（历史/书签/下载/标签页），不再弹综合面板。
   const [hubOnly, setHubOnly] = useState<HubSection | null>(null);
+  const openHub = (next: HubSection) => {
+    setHubOnly(next);
+    setHub(next);
+  };
   const [readerOpen, setReaderOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
@@ -112,7 +115,6 @@ export default function App() {
   // 否则展开期间会看到整片空白。
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState<{ url: string; title: string } | null>(null);
-  const [bookmarkBar, setBookmarkBar] = useState(true);
   const [homeUrl, setHomeUrl] = useState('');
   const [activeDownloads, setActiveDownloads] = useState(0);
   const [clearDataOpen, setClearDataOpen] = useState(false);
@@ -374,7 +376,7 @@ export default function App() {
     []
   );
 
-  useEffect(() => window.bsub.onTabSearchRequest(() => setHub('tabs')), []);
+  useEffect(() => window.bsub.onTabSearchRequest(() => openHub('tabs')), []);
   useEffect(() => window.bsub.onReaderRequest(() => setReaderOpen(true)), []);
   // 桌宠里的「打开设置」：主进程把窗口叫到前台后，这里负责真的切到设置页。
   useEffect(() => window.bsub.onOpenSettings(() => setSettingsOpen(true)), []);
@@ -507,7 +509,6 @@ export default function App() {
         setFontScale(response.data.settings.general.fontScale || 1);
         setShortcutOverrides(response.data.settings.general.shortcuts || {});
         setRadialSectors(response.data.settings.general.radial?.sectors || []);
-        setBookmarkBar(response.data.settings.general.bookmarkBar !== false);
         setHomeUrl(response.data.settings.general.homeUrl || '');
         applyAppearance(response.data.settings.general);
         applyLayout(response.data);
@@ -518,7 +519,6 @@ export default function App() {
       setFontScale(snapshot.settings.general.fontScale || 1);
       setShortcutOverrides(snapshot.settings.general.shortcuts || {});
       setRadialSectors(snapshot.settings.general.radial?.sectors || []);
-      setBookmarkBar(snapshot.settings.general.bookmarkBar !== false);
       setHomeUrl(snapshot.settings.general.homeUrl || '');
       applyAppearance(snapshot.settings.general);
       applyLayout(snapshot);
@@ -736,10 +736,10 @@ export default function App() {
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
     { id: 'section-library', label: '打开工作台', run: () => handleSectionSelect('library') },
     { id: 'section-settings', label: '打开设置', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
-    { id: 'hub-tabs', label: '打开面板：标签页', hint: 'Ctrl+Shift+A', run: () => setHub('tabs') },
-    { id: 'hub-history', label: '浏览历史', hint: 'Ctrl+H', run: () => setHub('history') },
-    { id: 'hub-bookmarks', label: '书签管理', hint: 'Ctrl+Shift+O', run: () => setHub('bookmarks') },
-    { id: 'hub-downloads', label: '下载记录', hint: 'Ctrl+J', run: () => setHub('downloads') },
+    { id: 'hub-tabs', label: '打开面板：标签页', hint: 'Ctrl+Shift+A', run: () => openHub('tabs') },
+    { id: 'hub-history', label: '浏览历史', hint: 'Ctrl+H', run: () => openHub('history') },
+    { id: 'hub-bookmarks', label: '书签管理', hint: 'Ctrl+Shift+O', run: () => openHub('bookmarks') },
+    { id: 'hub-downloads', label: '下载记录', hint: 'Ctrl+J', run: () => openHub('downloads') },
     { id: 'clear-data', label: '清除浏览数据…', run: () => setClearDataOpen(true) },
     { id: 'reader', label: '打开阅读模式', hint: 'Alt+R', run: () => setReaderOpen(true) },
     { id: 'search', label: '全局搜索', hint: 'Ctrl+K', run: () => setSearchOpen(true) },
@@ -879,13 +879,13 @@ export default function App() {
         openBookmarkDialog();
         break;
       case 'history':
-        setHub('history');
+        openHub('history');
         break;
       case 'bookmarks':
-        setHub('bookmarks');
+        openHub('bookmarks');
         break;
       case 'downloads':
-        setHub('downloads');
+        openHub('downloads');
         break;
       case 'reload':
         void window.bsub.reload();
@@ -1005,7 +1005,7 @@ export default function App() {
         onNavigate={navigateAddress}
         onOpenHub={(section) => {
           setHubOnly(null);
-          setHub(section);
+          openHub(section);
         }}
         onOpenClearData={() => setClearDataOpen(true)}
         downloadsActive={activeDownloads}
@@ -1014,7 +1014,7 @@ export default function App() {
           setSettingsOpen(false);
           setLibraryOpen(false);
           setHubOnly('downloads');
-          setHub('downloads');
+          openHub('downloads');
         }}
         onOpenReader={() => setReaderOpen(true)}
         onOpenFind={() => void window.bsub.showFindOverlay()}
@@ -1052,12 +1052,6 @@ export default function App() {
           void window.bsub.showZoomMenu(rect);
         }}
       />
-      {bookmarkBar && !settingsOpen && (
-        <BookmarkBar
-          onOpen={(url) => void window.bsub.newTab(url)}
-          onManage={() => setHub('bookmarks')}
-        />
-      )}
       <div className={`app-body sidebar-${sidebarPosition}${sidebarCollapsed ? ' is-collapsed' : ''}`}>
         <Sidebar
           section={section}
@@ -1118,16 +1112,16 @@ export default function App() {
               }}
               onOpenHistory={() => {
                 setStartOpen(false);
-                setHub('history');
+                openHub('history');
               }}
               onOpenBookmarks={() => {
                 setStartOpen(false);
-                setHub('bookmarks');
+                openHub('bookmarks');
               }}
               onOpenDownloads={() => {
                 setStartOpen(false);
                 setHubOnly('downloads');
-                setHub('downloads');
+                openHub('downloads');
               }}
               onOpenTasks={() => {
                 setStartOpen(false);

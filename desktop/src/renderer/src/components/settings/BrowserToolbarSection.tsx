@@ -50,16 +50,6 @@ export function BrowserToolbarSection({
         ))}
       </div>
       <div className="settings-inline">
-        <label className="settings-check">
-          <input
-            type="checkbox"
-            checked={value.bookmarkBar !== false}
-            onChange={(event) => onChange({ bookmarkBar: event.target.checked })}
-          />
-          显示书签栏（地址栏下方）
-        </label>
-      </div>
-      <div className="settings-inline">
         <button
           className="mini-btn"
           onClick={() => onChange({ browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR } })}
