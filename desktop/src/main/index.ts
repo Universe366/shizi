@@ -47,6 +47,7 @@ import { startTodoReminders } from './todoReminders';
 import { foregroundFullscreen } from './ipc/petTools';
 import {
   buildUserAgent,
+  launchUrlFromArgv,
   resolveStartUrl,
   shortcutAction,
   windowFrameOptions
@@ -258,6 +259,8 @@ function createWindow(): void {
       loadSession,
       manager: tabManager,
       startUrl: START_URL,
+      // 被设为默认浏览器后，系统启动本程序时会带上要打开的链接。
+      launchUrl: launchUrlFromArgv(process.argv),
       packaged: app.isPackaged,
       enableDevHooks: process.env.BSUB_ENABLE_DEV_HOOKS === '1',
       // 开发探针不进生产包：按需动态加载。

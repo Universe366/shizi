@@ -146,6 +146,45 @@ describe('bootstrapRenderer', () => {
     expect(manager.create).toHaveBeenCalledWith('https://start');
   });
 
+  it('冷启动带链接时额外打开该链接', async () => {
+    manager.create.mockClear();
+    manager.activate.mockClear();
+    await bootstrapRenderer({
+      loadSettings: () => ({ general: {} }),
+      loadSession: () => ({ tabs: [{ url: 'https://a' }], activeUrl: 'https://a' }),
+      manager,
+      startUrl: 'https://start',
+      launchUrl: 'https://www.bilibili.com/video/BV1xx',
+      packaged: true,
+      enableDevHooks: false,
+      log: vi.fn()
+    });
+    expect(manager.create).toHaveBeenCalledWith('https://www.bilibili.com/video/BV1xx');
+  });
+
+  it('打开启动链接失败不影响启动', async () => {
+    manager.create.mockClear();
+    const failing = {
+      create: vi.fn(async (url: string) => {
+        if (url.includes('bad')) throw new Error('boom');
+        return 'id';
+      }),
+      activate: vi.fn(async () => {})
+    };
+    const log = vi.fn();
+    await bootstrapRenderer({
+      loadSettings: () => ({ general: { restoreSession: false } }),
+      loadSession: () => null,
+      manager: failing,
+      startUrl: 'https://start',
+      launchUrl: 'https://bad.example/x',
+      packaged: true,
+      enableDevHooks: false,
+      log
+    });
+    expect(log).toHaveBeenCalledWith('[launch] 打开启动链接失败', 'boom');
+  });
+
   it('没有 manager 时什么都不做', async () => {
     const result = await bootstrapRenderer({
       loadSettings: () => ({ general: {} }),

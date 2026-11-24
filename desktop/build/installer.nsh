@@ -74,6 +74,12 @@ FunctionEnd
 !macroend
 
 !macro customUnInstall
+  ; 移除「默认应用」登记，避免卸载后残留一个指向不存在程序的浏览器项。
+  ; 键与 src/main/defaultBrowser.ts 的 browserRegistrationPlan 一一对应。
+  DeleteRegKey HKCU "Software\Classes\ShiziHTML"
+  DeleteRegKey HKCU "Software\Clients\StartMenuInternet\Shizi"
+  DeleteRegValue HKCU "Software\RegisteredApplications" "Shizi"
+
   ${If} $DeleteAppData == "1"
     ; 设置、字幕库、总结、登录 Cookie、Electron 缓存、日志都在 userData 里。
     RMDir /r "$APPDATA\shizi"

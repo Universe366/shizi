@@ -1,3 +1,15 @@
+## 0.163.24（2026-11-24）
+
+### 默认浏览器：按 Chrome / Edge 的方式登记与跳转
+
+- 新增 `src/main/defaultBrowser.ts`：把拾字登记进 Windows「默认应用」（`StartMenuInternet` + `Capabilities` + `RegisteredApplications` + ProgId）。之前只调协议客户端，设置列表里根本选不到拾字；
+- 默认状态改为读 `UrlAssociations\http|https\UserChoice`，不再依赖会误报的 `isDefaultProtocolClient`；设置页显示系统当前默认浏览器（Edge / Chrome …）；
+- 「设为默认浏览器」= 登记 + 打开系统设置；Win11 用 `ms-settings:defaultapps?registeredAppUser=Shizi` 直达拾字页面，Win10 打开总页面；
+- 新增「打开系统默认应用」按钮；窗口重新获得焦点后自动刷新状态；
+- 修复被设为默认浏览器后**冷启动带链接不打开**的问题（首帧 `bootstrapRenderer` 读取 `process.argv`）；
+- 清理旧版按钮写下的 `HKCU\Software\Classes\http|https`（只删指向本程序的项）；卸载时删除登记键；
+- 测试：新增 15 项默认浏览器单测与 4 项启动链接测试。
+
 ## 0.163.23（2026-11-21）
 
 ### 统一页面深色、侧栏错误页、死代码清理与 CI smoke

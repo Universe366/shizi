@@ -1673,6 +1673,21 @@ export interface BridgeStatus {
   error?: string;
 }
 
+/** 系统默认浏览器状态（Windows 读 UserChoice，其它平台走 Electron）。 */
+export interface DefaultBrowserStatus {
+  platform: string;
+  /** 拾字当前是不是系统默认浏览器 */
+  isDefault: boolean;
+  /** 是否已登记进系统「默认应用」列表；没登记时用户在列表里选不到拾字 */
+  registered: boolean;
+  /** 系统当前默认浏览器的显示名；读不到时为空串 */
+  currentDefault: string;
+  /** 系统当前默认浏览器的 ProgId，便于排查 */
+  currentProgId: string;
+  /** 程序能否直接把自己设为默认（Windows 恒为 false，必须用户点选） */
+  canAutoSet: boolean;
+}
+
 export interface SettingsSnapshot {
   settings: AppSettings;
   dataDir: string;

@@ -89,6 +89,17 @@ export function resolveStartUrl(env: NodeJS.ProcessEnv = process.env): string {
   return env.BSUB_START_URL || 'https://www.bilibili.com/';
 }
 
+/**
+ * 冷启动时从命令行取要打开的链接：设为默认浏览器后，系统会用
+ * `"拾字.exe" "https://…"` 启动；只认 http(s)，忽略入口脚本与开关。
+ */
+export function launchUrlFromArgv(argv: readonly string[]): string {
+  for (const arg of argv) {
+    if (/^https?:\/\//i.test(arg)) return arg;
+  }
+  return '';
+}
+
 /** 「恢复上次会话」开关；只有显式 false 才关闭。 */
 export function shouldRestoreSession(
   settings: { general?: { restoreSession?: boolean } } | null | undefined

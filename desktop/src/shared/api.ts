@@ -13,6 +13,7 @@ import type {
   TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
+  DefaultBrowserStatus,
   BridgeStatus,
   AgentStatus,
   ChatDeltaEvent,
@@ -665,8 +666,13 @@ export interface BsubApi {
     platform: AiPlatform | AsrPlatform | SearchPlatform
   ): Promise<Result<{ ok: boolean; ms: number; sample: string }>>;
   openDataDir(): Promise<void>;
-  defaultBrowserStatus(): Promise<Result<{ isDefault: boolean; platform: string }>>;
-  setDefaultBrowser(): Promise<Result<{ isDefault: boolean; settingsOpened: boolean }>>;
+  defaultBrowserStatus(): Promise<Result<DefaultBrowserStatus>>;
+  /** 登记进「默认应用」并打开系统设置；Windows 需要用户自己点「设为默认」 */
+  setDefaultBrowser(): Promise<
+    Result<{ status: DefaultBrowserStatus; settingsOpened: boolean }>
+  >;
+  /** 只打开系统「默认应用」设置（会先登记，保证列表里有拾字） */
+  openDefaultApps?(): Promise<Result<{ opened: boolean; registered: boolean }>>;
   /** 打开系统文件选择框（本地 ASR 选 exe/模型用） */
   pickFile?(options?: {
     title?: string;

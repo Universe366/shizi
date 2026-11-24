@@ -8,6 +8,12 @@ import { applyQuickAsk } from '../quickAsk';
 import { resetMcpSession } from '../mcp';
 import { applyRadial } from '../radial';
 import { registerPetShortcuts } from '../petShortcuts';
+import {
+  getDefaultBrowserStatus,
+  openDefaultAppsSettings,
+  registerBrowser,
+  setDefaultBrowser
+} from '../defaultBrowser';
 
 type CloseDecisionPayload = { choice?: string; remember?: boolean };
 let closeDecisionHandler: ((payload: CloseDecisionPayload) => void) | null = null;
@@ -28,6 +34,7 @@ import type {
   AsrPlatform,
   AppSettings,
   BridgeStatus,
+  DefaultBrowserStatus,
   Result,
   SearchPlatform,
   UpdateStatus
@@ -666,57 +673,37 @@ export function registerSettingsIpc(ctx: IpcContext): void {
 
   ipcMain.handle(
     'browser:default-status',
-    (): Result<{ isDefault: boolean; platform: string }> => {
+    async (): Promise<Result<DefaultBrowserStatus>> => {
       try {
-        return {
-          ok: true,
-          data: {
-            isDefault: app.isDefaultProtocolClient('http') && app.isDefaultProtocolClient('https'),
-            platform: process.platform
-          }
-        };
+        return { ok: true, data: await getDefaultBrowserStatus() };
       } catch (error) {
-        return failure<{ isDefault: boolean; platform: string }>(error);
+        return failure<DefaultBrowserStatus>(error);
+      }
+    }
+  );
+
+  // Windows 不允许程序直接改默认浏览器：先登记进「默认应用」，再打开系统设置。
+  ipcMain.handle(
+    'browser:set-default',
+    async (): Promise<Result<{ status: DefaultBrowserStatus; settingsOpened: boolean }>> => {
+      try {
+        const { settingsOpened } = await setDefaultBrowser();
+        return { ok: true, data: { status: await getDefaultBrowserStatus(), settingsOpened } };
+      } catch (error) {
+        return failure<{ status: DefaultBrowserStatus; settingsOpened: boolean }>(error);
       }
     }
   );
 
   ipcMain.handle(
-    'browser:set-default',
-    async (): Promise<Result<{ isDefault: boolean; settingsOpened: boolean }>> => {
+    'browser:open-default-apps',
+    async (): Promise<Result<{ opened: boolean; registered: boolean }>> => {
       try {
-        const register = (protocol: string) => {
-          try {
-            if (process.defaultApp && process.argv.length >= 2) {
-              return app.setAsDefaultProtocolClient(protocol, process.execPath, [
-                path.resolve(process.argv[1])
-              ]);
-            }
-            return app.setAsDefaultProtocolClient(protocol);
-          } catch {
-            return false;
-          }
-        };
-        register('http');
-        register('https');
-        let settingsOpened = false;
-        if (process.platform === 'win32') {
-          try {
-            await shell.openExternal('ms-settings:defaultapps');
-            settingsOpened = true;
-          } catch {
-            // Windows 不允许直接打开设置时，至少保留已注册的协议。
-          }
-        }
-        return {
-          ok: true,
-          data: {
-            isDefault: app.isDefaultProtocolClient('http') && app.isDefaultProtocolClient('https'),
-            settingsOpened
-          }
-        };
+        const registered = await registerBrowser();
+        const opened = await openDefaultAppsSettings();
+        return { ok: true, data: { opened, registered } };
       } catch (error) {
-        return failure<{ isDefault: boolean; settingsOpened: boolean }>(error);
+        return failure<{ opened: boolean; registered: boolean }>(error);
       }
     }
   );

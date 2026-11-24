@@ -378,7 +378,9 @@ start-footnote   操作提示、导入导出设置
 - 侧栏网页工具条：后退/前进/刷新/地址栏/缩小/比例/放大/查找/在标签页打开；地址栏回车跳转，导航/标题/缩放/查找与加载状态实时同步，加载失败显示原因和「重试」，原生视图从工具条下方开始量取。
 - 侧栏网页入口支持拖动排序（写入 `sidebarPages`）；侧栏网页里的 `target=_blank` / `window.open` 不再弹独立小窗，统一在主窗口新标签打开，右键链接也可选择「在标签页打开链接」。
 - 后退/前进只跳到 http(s) 历史条目，跳过起始页/空白页，避免白屏。
-- 设置 → 通用 → 默认浏览器：注册 http/https 协议，Windows 会打开默认应用设置让用户选择拾字。
+- 设置 → 通用 → 默认浏览器：先把拾字登记进系统「默认应用」（StartMenuInternet + Capabilities + RegisteredApplications + ProgId），再打开系统设置；Win11 直达拾字页面（`registeredAppUser`），Win10 打开总页面。
+- 默认状态读 `UrlAssociationshttp|httpsUserChoice`，显示系统当前默认浏览器（Edge / Chrome …），不再用会误报的 `isDefaultProtocolClient`；从系统设置回来后窗口获得焦点即自动刷新。
+- 设为默认浏览器后，冷启动（`process.argv`）与二次启动（`second-instance`）都会打开传入的链接；登记逻辑集中在 `main/defaultBrowser.ts`。
 - URL 展示：`shared/url.ts` 的 `compactUrl()`（去协议、`www.`、末尾斜杠；保留 query，去掉 hash）。
 - 复制 URL：`canonicalUrl()` 保留协议/路径/有效参数，去掉常见跟踪参数；地址栏聚焦和右键复制都走它。
 - 搜索引擎：`shared/searchEngines.ts`，地址栏、起始页、设置页共用；新增引擎只改这一处。

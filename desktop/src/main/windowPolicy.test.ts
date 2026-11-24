@@ -3,6 +3,7 @@ import {
   buildUserAgent,
   closeAction,
   closeChoiceFromDialog,
+  launchUrlFromArgv,
   resolveStartUrl,
   shortcutAction,
   shouldRestoreSession,
@@ -90,6 +91,25 @@ describe('启动参数', () => {
     expect(shouldRestoreSession({ general: {} })).toBe(true);
     expect(shouldRestoreSession({ general: { restoreSession: true } })).toBe(true);
     expect(shouldRestoreSession({ general: { restoreSession: false } })).toBe(false);
+  });
+});
+
+describe('launchUrlFromArgv', () => {
+  it('取命令行里的 http(s) 链接', () => {
+    expect(launchUrlFromArgv(['C:\\拾字\\拾字.exe', 'https://www.bilibili.com/video/BV1xx'])).toBe(
+      'https://www.bilibili.com/video/BV1xx'
+    );
+    expect(launchUrlFromArgv(['electron', '.', 'http://example.com/a'])).toBe('http://example.com/a');
+  });
+
+  it('没有链接或只有开关时返回空串', () => {
+    expect(launchUrlFromArgv(['C:\\拾字\\拾字.exe'])).toBe('');
+    expect(launchUrlFromArgv(['C:\\拾字\\拾字.exe', '--lang=zh-CN'])).toBe('');
+    expect(launchUrlFromArgv([])).toBe('');
+  });
+
+  it('忽略非 http(s) 协议', () => {
+    expect(launchUrlFromArgv(['file:///C:/a.mp4', 'shizi-plugin://x'])).toBe('');
   });
 });
 

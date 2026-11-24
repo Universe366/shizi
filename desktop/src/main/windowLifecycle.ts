@@ -117,6 +117,8 @@ export interface BootstrapDeps {
   loadSession: () => SavedSession | null;
   manager: RestoreManager | null;
   startUrl: string;
+  /** 冷启动时命令行带来的链接（默认浏览器被点开的情况） */
+  launchUrl?: string;
   packaged: boolean;
   enableDevHooks: boolean;
   runDevHooks?: () => void | Promise<void>;
@@ -142,6 +144,14 @@ export async function bootstrapRenderer(deps: BootstrapDeps): Promise<BootstrapR
     });
     restored = result.restored;
     if (!result.usedStartUrl) log('[session] restored', result.restored, 'tabs');
+
+    if (deps.launchUrl) {
+      try {
+        await deps.manager.create(deps.launchUrl);
+      } catch (error) {
+        log('[launch] 打开启动链接失败', (error as Error).message);
+      }
+    }
   }
 
   const devHooks = !!deps.manager && !!deps.runDevHooks && (!deps.packaged || deps.enableDevHooks);

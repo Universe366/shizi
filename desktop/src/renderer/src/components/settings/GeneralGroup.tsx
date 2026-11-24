@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { AppSettings } from '../../../../shared/types';
+import { useCallback, useEffect, useState } from 'react';
+import type { AppSettings, DefaultBrowserStatus } from '../../../../shared/types';
 import { SettingsSection } from './SettingsSection';
 
 interface Props {
@@ -13,15 +13,23 @@ export function GeneralGroup({ value, onChange }: Props) {
   const patch = (next: Partial<AppSettings['general']['proxy']>) =>
     onChange({ proxy: { ...proxy, ...next } });
 
-  const [defaultBrowser, setDefaultBrowser] = useState<{ isDefault: boolean } | null>(null);
+  const [defaultBrowser, setDefaultBrowser] = useState<DefaultBrowserStatus | null>(null);
   const [defaultNotice, setDefaultNotice] = useState('');
   const [defaultBusy, setDefaultBusy] = useState(false);
 
-  useEffect(() => {
+  const refreshDefaultBrowser = useCallback(() => {
     void window.bsub?.defaultBrowserStatus?.().then((response) => {
       if (response?.ok) setDefaultBrowser(response.data);
     });
   }, []);
+
+  useEffect(() => {
+    refreshDefaultBrowser();
+    // 用户从系统「默认应用」回来后刷新一次，和 Chrome/Edge 一样以系统状态为准。
+    const onFocus = () => refreshDefaultBrowser();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshDefaultBrowser]);
 
   const makeDefault = async () => {
     setDefaultBusy(true);
@@ -36,30 +44,65 @@ export function GeneralGroup({ value, onChange }: Props) {
         setDefaultNotice(response.error);
         return;
       }
-      setDefaultBrowser({ isDefault: response.data.isDefault });
-      setDefaultNotice(
-        response.data.isDefault
-          ? '已设为默认浏览器'
-          : response.data.settingsOpened
-            ? '已注册协议，请在 Windows 默认应用里选择「拾字」'
-            : '已注册 http/https 协议'
-      );
+      setDefaultBrowser(response.data.status);
+      if (response.data.status.isDefault) {
+        setDefaultNotice('拾字已是默认浏览器');
+      } else if (response.data.settingsOpened) {
+        setDefaultNotice('已登记到「默认应用」，请在打开的设置里选中「拾字」');
+      } else {
+        setDefaultNotice('已登记到「默认应用」，但没能自动打开系统设置');
+      }
     } finally {
       setDefaultBusy(false);
     }
   };
 
+  const openDefaultApps = async () => {
+    if (!window.bsub?.openDefaultApps) {
+      await makeDefault();
+      return;
+    }
+    setDefaultBusy(true);
+    setDefaultNotice('');
+    try {
+      const response = await window.bsub.openDefaultApps();
+      if (!response.ok) {
+        setDefaultNotice(response.error);
+        return;
+      }
+      setDefaultNotice(
+        response.data.opened
+          ? '已打开系统「默认应用」，选中「拾字」即可'
+          : '没能自动打开系统设置，请手动打开「设置 → 应用 → 默认应用」'
+      );
+      refreshDefaultBrowser();
+    } finally {
+      setDefaultBusy(false);
+    }
+  };
+
+  const statusText = !defaultBrowser
+    ? '检测中…'
+    : defaultBrowser.isDefault
+      ? '拾字已是默认浏览器'
+      : defaultBrowser.currentDefault
+        ? `系统当前默认：${defaultBrowser.currentDefault}`
+        : '拾字还不是默认浏览器';
+
   return (
     <>
     <SettingsSection title="默认浏览器" defaultOpen>
       <div className="settings-group-desc">
-        把拾字注册为 http / https 链接的处理程序。Windows 10/11 受系统保护，
-        会打开「默认应用」设置，需要手动选择「拾字」；macOS / Linux 由系统确认。
+        Windows 10/11 不允许程序直接修改默认浏览器，只能先把拾字登记到系统「默认应用」，
+        再打开设置由你确认。点下面的按钮后，在列表里选中「拾字」并「设为默认」即可。
       </div>
       <div className="settings-inline">
-        <span className="settings-hint">
-          当前：{defaultBrowser?.isDefault ? '已是默认浏览器' : '不是默认浏览器'}
-        </span>
+        <span className="settings-hint">{statusText}</span>
+        {defaultBrowser && !defaultBrowser.registered && (
+          <span className="settings-hint">· 尚未登记到默认应用</span>
+        )}
+      </div>
+      <div className="settings-inline">
         <button
           className="mini-btn primary"
           disabled={defaultBusy}
@@ -67,8 +110,16 @@ export function GeneralGroup({ value, onChange }: Props) {
         >
           {defaultBusy ? '设置中…' : '设为默认浏览器'}
         </button>
+        {defaultBrowser?.platform === 'win32' && (
+          <button className="mini-btn" disabled={defaultBusy} onClick={() => void openDefaultApps()}>
+            打开系统默认应用
+          </button>
+        )}
       </div>
       {defaultNotice && <div className="settings-hint">{defaultNotice}</div>}
+      <div className="settings-hint">
+        从系统设置回来后状态会自动刷新；如果列表里没有「拾字」，再点一次「设为默认浏览器」重新登记。
+      </div>
     </SettingsSection>
 
     <SettingsSection title="网络代理" defaultOpen>

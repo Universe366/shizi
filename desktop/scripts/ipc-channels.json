@@ -36,6 +36,7 @@
   "browser:clear-data",
   "browser:default-status",
   "browser:end-drag",
+  "browser:open-default-apps",
   "browser:set-default",
   "browser:set-visible",
   "chapters:generate",

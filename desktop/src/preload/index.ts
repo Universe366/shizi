@@ -15,6 +15,7 @@ import type {
   BrowserExtensionsState,
   DiagnosticsInfo,
   CorrectionRuleGroup,
+  DefaultBrowserStatus,
   BridgeStatus,
   AgentStatus,
   ChatDeltaEvent,
@@ -823,12 +824,14 @@ const api: BsubApi = {
     >,
   openDataDir: () => ipcRenderer.invoke('settings:open-data') as Promise<void>,
   defaultBrowserStatus: () =>
-    ipcRenderer.invoke('browser:default-status') as Promise<
-      Result<{ isDefault: boolean; platform: string }>
-    >,
+    ipcRenderer.invoke('browser:default-status') as Promise<Result<DefaultBrowserStatus>>,
   setDefaultBrowser: () =>
     ipcRenderer.invoke('browser:set-default') as Promise<
-      Result<{ isDefault: boolean; settingsOpened: boolean }>
+      Result<{ status: DefaultBrowserStatus; settingsOpened: boolean }>
+    >,
+  openDefaultApps: () =>
+    ipcRenderer.invoke('browser:open-default-apps') as Promise<
+      Result<{ opened: boolean; registered: boolean }>
     >,
   pickFile: (options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) =>
     ipcRenderer.invoke('dialog:pick-file', options) as Promise<Result<string | null>>,
