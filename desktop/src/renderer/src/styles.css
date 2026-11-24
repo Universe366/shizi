@@ -16745,6 +16745,13 @@ sup:has(> .cite-ref) {
   width: min(480px, 92vw);
 }
 
+.hub-only-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  padding: 4px 2px;
+}
+
 .settings-dialog {
   width: min(560px, 94vw);
   max-height: min(78vh, 720px);

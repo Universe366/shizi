@@ -855,8 +855,8 @@ const api: BsubApi = {
   onTrayAction: (cb: (action: string) => void) => on<string>('tray:action', cb),
   onRadialOpen: (cb: () => void) => on<unknown>('radial:open', () => cb()),
   onWebContextAction: (
-    cb: (event: { action: string; text: string; url: string }) => void
-  ) => on<{ action: string; text: string; url: string }>('web:context-action', cb),
+    cb: (event: { action: string; text: string; url: string; title?: string }) => void
+  ) => on<{ action: string; text: string; url: string; title?: string }>('web:context-action', cb),
   testSearch: (query: string, override?: unknown) =>
     ipcRenderer.invoke('search:test', query, override) as Promise<Result<WebReference[]>>,
   exportRuleGroup: (group: CorrectionRuleGroup) =>

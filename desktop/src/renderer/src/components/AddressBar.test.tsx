@@ -133,7 +133,7 @@ describe('AddressBar', () => {
     expect(screen.getByTitle('切换浅色模式')).toBeTruthy();
   });
 
-  it('展示紧凑 URL、缩放与书签状态', async () => {
+  it('展示紧凑 URL，并把菜单收敛为浏览器中心入口', async () => {
     render(<AddressBar {...props()} />);
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
     fireEvent.focus(screen.getByDisplayValue('bilibili.com/video/BV1'));
@@ -144,7 +144,10 @@ describe('AddressBar', () => {
     };
     await vi.waitFor(() => {
       const items = api.popupMenu.mock.calls.at(-1)?.[0] || [];
-      expect(items.some((item) => /重置缩放（125%/.test(String(item.label || '')))).toBe(true);
+      const labels = items.map((item) => String(item.label || ''));
+      expect(labels.some((label) => label.includes('浏览器中心'))).toBe(true);
+      // 历史、书签、下载、标签页不再各占一行。
+      expect(labels.filter((label) => /^(历史记录|书签|下载|标签页)$/.test(label))).toHaveLength(0);
     });
   });
 
@@ -319,11 +322,11 @@ describe('AddressBar 原生菜单', () => {
 
   it('有 popupMenu 时走系统菜单，选中后派发动作', async () => {
     const api = installBsub();
-    api.popupMenu.mockResolvedValue('bookmarks');
+    api.popupMenu.mockResolvedValue('history');
     const p = props();
     const { container } = render(<AddressBar {...p} />);
     fireEvent.click(container.querySelector('button[title="菜单"]') as HTMLElement);
     await vi.waitFor(() => expect(api.popupMenu).toHaveBeenCalled());
-    expect(p.onOpenHub).toHaveBeenCalledWith('bookmarks');
+    expect(p.onOpenHub).toHaveBeenCalledWith('history');
   });
 });

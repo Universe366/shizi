@@ -20,6 +20,7 @@ type BinaryVariant = 'cpu' | 'vulkan' | 'cuda118' | 'cuda124';
 
 interface Props {
   activeAsr: AsrPlatform | null;
+  bare?: boolean;
   updateAsrPlatform: (patch: Partial<AsrPlatform>) => void;
 }
 
@@ -30,7 +31,7 @@ function formatSize(bytes: number): string {
 }
 
 /** 本地模型：whisper 模型与运行组件统一管理。 */
-export function LocalModelsSection({ activeAsr, updateAsrPlatform }: Props) {
+export function LocalModelsSection({ activeAsr, updateAsrPlatform, bare = false }: Props) {
   const [status, setStatus] = useState<AsrLocalStatus | null>(null);
   const [progress, setProgress] = useState<AsrDownloadProgress | null>(null);
   const [notice, setNotice] = useState('');
@@ -140,7 +141,7 @@ export function LocalModelsSection({ activeAsr, updateAsrPlatform }: Props) {
   const installedBinaries = binaries.filter((row) => row.downloaded).length;
 
   return (
-    <SettingsSection title="本地识别模型" defaultOpen={false}>
+    <SettingsSection title="本地识别模型" defaultOpen={false} bare={bare}>
       <div className="settings-hint">
         语音识别的一键下载版：模型和 whisper.cpp 都存在用户数据目录，软件更新不会丢。
         下载会校验体积与 SHA-256，也可以删除不再用的模型腾空间。

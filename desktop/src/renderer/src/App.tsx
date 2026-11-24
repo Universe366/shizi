@@ -80,6 +80,8 @@ export default function App() {
   const [wizard, setWizard] = useState<SettingsSnapshot | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hub, setHub] = useState<HubSection | null>(null);
+  // 下载按钮只展示下载：不再把历史/书签一起端出来。
+  const [hubOnly, setHubOnly] = useState<HubSection | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [startOpen, setStartOpen] = useState(false);
@@ -379,7 +381,7 @@ export default function App() {
   useEffect(() => window.bsub.onRadialOpen(() => setRadialOpen(true)), []);
   useEffect(
     () =>
-      window.bsub.onWebContextAction(({ action, text }) => {
+      window.bsub.onWebContextAction(({ action, text, url, title }) => {
         const openChat = (prompt: string) => {
           setStartOpen(false);
           setSettingsOpen(false);
@@ -404,6 +406,11 @@ export default function App() {
           setSection('summary');
           window.setTimeout(() => requestSummaryPanel('summary'), 60);
         } else if (action === 'ask-page') openChat('请基于当前页面内容，提炼核心观点并指出值得继续追问的问题。');
+        else if (action === 'translate-page')
+          openChat('请把当前页面的正文完整翻译成中文（原文是中文就翻译成英文），保留标题与段落结构；代码与专名不翻译。');
+        else if (action === 'reader') setReaderOpen(true);
+        else if (action === 'bookmark') openBookmarkDialog();
+        else if (action === 'reading-list') void window.bsub.addToReadingList({ url, title });
       }),
     []
   );
@@ -989,20 +996,24 @@ export default function App() {
       )}
       <div className="app-main">
       <AddressBar
-        tab={active}
+        tab={startOpen || settingsOpen || libraryOpen ? null : active}
         toolbar={browserToolbar}
         focusSignal={addressFocus}
         bookmarked={bookmarked}
         onToggleBookmark={() => openBookmarkDialog()}
         onSelectionAction={handleSelectionAction}
         onNavigate={navigateAddress}
-        onOpenHub={(section) => setHub(section)}
+        onOpenHub={(section) => {
+          setHubOnly(null);
+          setHub(section);
+        }}
         onOpenClearData={() => setClearDataOpen(true)}
         downloadsActive={activeDownloads}
         onOpenDownloads={() => {
           setStartOpen(false);
           setSettingsOpen(false);
           setLibraryOpen(false);
+          setHubOnly('downloads');
           setHub('downloads');
         }}
         onOpenReader={() => setReaderOpen(true)}
@@ -1115,6 +1126,7 @@ export default function App() {
               }}
               onOpenDownloads={() => {
                 setStartOpen(false);
+                setHubOnly('downloads');
                 setHub('downloads');
               }}
               onOpenTasks={() => {
@@ -1140,8 +1152,12 @@ export default function App() {
       <BrowserHub
         open={Boolean(hub)}
         initial={hub || 'history'}
+        only={hubOnly || undefined}
         tabs={tabs}
-        onClose={() => setHub(null)}
+        onClose={() => {
+          setHub(null);
+          setHubOnly(null);
+        }}
         onOpenUrl={(url) => void window.bsub.openUrl(url)}
         onSelectTab={(id) => void window.bsub.activateTab(id)}
         onEditBookmark={(item) => setBookmarkTarget({ url: item.url, title: item.title })}

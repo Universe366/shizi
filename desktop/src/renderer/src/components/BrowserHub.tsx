@@ -77,6 +77,7 @@ function groupByDay<T>(rows: T[], timeOf: (row: T) => number): Array<{ label: st
 export function BrowserHub({
   open,
   initial,
+  only,
   tabs,
   onClose,
   onOpenUrl,
@@ -86,6 +87,8 @@ export function BrowserHub({
 }: {
   open: boolean;
   initial: HubSection;
+  /** 只展示某一个分区（例如工具栏的下载按钮），不显示历史/书签等入口。 */
+  only?: HubSection;
   tabs: TabInfo[];
   onClose: () => void;
   onOpenUrl: (url: string) => void;
@@ -94,7 +97,7 @@ export function BrowserHub({
   /** 把问题交给对话（带不带当前页面由调用方决定） */
   onAskAi?: (prompt: string, forcePage?: boolean) => void;
 }) {
-  const [section, setSection] = useState<HubSection>(initial);
+  const [section, setSection] = useState<HubSection>(only ?? initial);
   const [query, setQuery] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
@@ -395,7 +398,12 @@ export function BrowserHub({
       >
         <div className="hub-head">
           <div className="hub-tabs">
-            {SECTIONS.map((item) => {
+            {only ? (
+              <span className="hub-only-title">
+                {SECTIONS.find((item) => item.id === only)?.label || '下载'}
+              </span>
+            ) : null}
+            {!only && SECTIONS.map((item) => {
               const Icon = item.icon;
               return (
                 <button

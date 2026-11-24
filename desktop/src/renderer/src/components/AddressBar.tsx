@@ -300,12 +300,6 @@ export function AddressBar({
     else void window.bsub.navigate(input);
   };
 
-  const pasteAndGo = async () => {
-    const text = (await window.bsub.readClipboard()).trim();
-    if (!text) return;
-    go(text);
-  };
-
   useEffect(() => {
     if (!suggestOpen) return;
     const text = value.trim();
@@ -376,16 +370,9 @@ export function AddressBar({
   const runMenuChoice = (choice: string | null) => {
     if (!choice) return;
     if (choice === 'history') onOpenHub('history');
-    else if (choice === 'bookmarks') onOpenHub('bookmarks');
-    else if (choice === 'downloads') onOpenHub('downloads');
     else if (choice === 'clear-data') onOpenClearData?.();
-    else if (choice === 'tabs') onOpenHub('tabs');
     else if (choice === 'reader') onOpenReader();
-    else if (choice === 'zoom-in') void window.bsub.zoomIn();
-    else if (choice === 'zoom-out') void window.bsub.zoomOut();
-    else if (choice === 'zoom') void window.bsub.zoomReset();
     else if (choice === 'copy') void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? ''));
-    else if (choice === 'paste') void pasteAndGo();
     else if (choice === 'sidebar-add') void addToSidebar();
     else if (choice === 'start-add') void saveToStart();
     else if (choice === 'reading-add' && tab?.url) {
@@ -403,7 +390,6 @@ export function AddressBar({
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
     else if (choice === 'find') onOpenFind?.();
     else if (choice === 'site-dark' && tab?.url) void window.bsub.setSiteDark(tab.url, !siteDarkOff);
-    else if (choice === 'home') (onOpenHome || onOpenStart)();
   };
 
   /** 后退/前进右键菜单：显示该方向可回到的历史条目。 */
@@ -468,39 +454,29 @@ export function AddressBar({
       readingResponse?.ok && tab?.url
         ? readingResponse.data.find((item) => item.url === tab.url)
         : undefined;
+    // 只放「这一行才有意义」的动作：历史/书签/下载/标签页已经在浏览器中心里，不再重复列出。
     const choice = await window.bsub.popupMenu([
-      { id: 'history', label: '历史记录' },
-      { id: 'bookmarks', label: '书签' },
-      { id: 'downloads', label: '下载' },
-      { id: 'tabs', label: '标签页' },
+      { id: 'history', label: '浏览器中心（历史 / 书签 / 下载 / 标签页）' },
       { id: 'clear-data', label: '清除浏览数据…' },
       { type: 'separator' },
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },
-      { id: 'paste', label: '粘贴并打开' },
-      { id: 'sidebar-add', label: '添加到侧栏网页', enabled: Boolean(tab?.url) },
+      { id: 'external', label: '在外部浏览器打开', enabled: Boolean(tab?.url) },
+      { type: 'separator' },
       {
         id: savedReading ? 'reading-remove' : 'reading-add',
         label: savedReading ? '已在阅读清单（点击移除）' : '添加到阅读清单',
         enabled: Boolean(tab?.url)
       },
       { id: 'start-add', label: '添加到起始页', enabled: Boolean(tab?.url) },
-      { id: 'external', label: '在外部浏览器打开', enabled: Boolean(tab?.url) },
+      { id: 'sidebar-add', label: '添加到侧栏网页', enabled: Boolean(tab?.url) },
+      { type: 'separator' },
       { id: 'find', label: '在页面中查找（Ctrl+F）', enabled: Boolean(tab?.url) },
+      { id: 'reader', label: '阅读模式（Alt+R）', enabled: Boolean(tab?.url) },
       {
         id: 'site-dark',
         label: siteDarkOff ? '恢复此站深色' : '此站不启用深色',
         enabled: Boolean(tab?.url)
-      },
-      { id: 'reader', label: '阅读模式（Alt+R）', enabled: Boolean(tab?.url) },
-      { id: 'zoom-in', label: '放大（Ctrl++）', enabled: Boolean(tab) },
-      { id: 'zoom-out', label: '缩小（Ctrl+-）', enabled: Boolean(tab) },
-      {
-        id: 'zoom',
-        label: `重置缩放（${Math.round((tab?.zoom ?? 1) * 100)}%）`,
-        enabled: Boolean(tab)
-      },
-      { type: 'separator' },
-      { id: 'home', label: '主页' }
+      }
     ]);
     runMenuChoice(choice);
   };

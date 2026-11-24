@@ -19,7 +19,6 @@ import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
 import { RadialSection } from './settings/RadialSection';
-import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
 import { OcrSection } from './settings/OcrSection';
 import { ImageGenSection } from './settings/ImageGenSection';
@@ -1364,10 +1363,6 @@ export function SettingsPanel({
 
       {show('voice') && (
         <>
-          <LocalModelsSection
-            activeAsr={activeAsr}
-            updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
-          />
           <TtsSection
             value={draft.tts}
             onChange={(patch) => setDraft({ ...draft, tts: { ...draft.tts, ...patch } })}

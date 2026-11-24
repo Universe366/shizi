@@ -691,7 +691,7 @@ export interface BsubApi {
   onTrayAction(cb: (action: string) => void): () => void;
   onRadialOpen(cb: () => void): () => void;
   onWebContextAction(
-    cb: (event: { action: string; text: string; url: string }) => void
+    cb: (event: { action: string; text: string; url: string; title?: string }) => void
   ): () => void;
   testSearch(
     query: string,

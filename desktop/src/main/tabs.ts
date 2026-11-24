@@ -6,6 +6,7 @@ import {
   dialog,
   nativeTheme,
   session,
+  shell,
   WebContentsView
 } from 'electron';
 import type { MenuItemConstructorOptions, WebContents, WebFrameMain } from 'electron';
@@ -537,7 +538,8 @@ export class TabManager {
         this.win.webContents.send('web:context-action', {
           action,
           text: selected.slice(0, 8000),
-          url: pageUrl
+          url: pageUrl,
+          title: wc.getTitle()
         });
       };
       const template: MenuItemConstructorOptions[] = [];
@@ -556,7 +558,17 @@ export class TabManager {
       template.push(
         { label: '用 AI 总结本页', click: () => sendAction('summarize-page') },
         { label: '就当前页面提问', click: () => sendAction('ask-page') },
+        { label: '翻译此页', click: () => sendAction('translate-page') },
+        { label: '阅读模式', click: () => sendAction('reader') },
+        { type: 'separator' },
+        { label: '添加书签…', click: () => sendAction('bookmark') },
+        { label: '加入阅读列表', click: () => sendAction('reading-list') },
+        {
+          label: '复制标题与链接',
+          click: () => clipboard.writeText(`${wc.getTitle()}\n${pageUrl}`)
+        },
         { label: '复制页面链接', click: () => clipboard.writeText(pageUrl) },
+        { label: '打印…', click: () => wc.print() },
         { type: 'separator' },
         {
           label: '后退',
@@ -571,10 +583,21 @@ export class TabManager {
         { label: '刷新', click: () => wc.reload() }
       );
       if (params.isEditable) {
+        const flags = params.editFlags;
         template.push(
           { type: 'separator' },
-          { label: '粘贴', enabled: params.editFlags.canPaste, click: () => wc.paste() },
-          { label: '全选', click: () => wc.selectAll() }
+          { label: '剪切', role: 'cut', enabled: flags.canCut },
+          { label: '复制', role: 'copy', enabled: flags.canCopy },
+          { label: '粘贴', role: 'paste', enabled: flags.canPaste },
+          { label: '全选', role: 'selectAll', enabled: flags.canSelectAll }
+        );
+      }
+      if (params.misspelledWord && params.dictionarySuggestions.length) {
+        template.push(
+          ...params.dictionarySuggestions.slice(0, 5).map((word) => ({
+            label: word,
+            click: () => wc.replaceMisspelling(word)
+          }))
         );
       }
       if (params.linkURL) {
@@ -584,11 +607,29 @@ export class TabManager {
             label: '在新标签页打开链接',
             click: () => void this.create(params.linkURL)
           },
-          { label: '复制链接地址', click: () => clipboard.writeText(params.linkURL) }
+          { label: '在默认浏览器打开', click: () => void shell.openExternal(params.linkURL) },
+          { label: '复制链接地址', click: () => clipboard.writeText(params.linkURL) },
+          {
+            label: '下载链接',
+            enabled: /^https?:/i.test(params.linkURL),
+            click: () => wc.downloadURL(params.linkURL)
+          },
+          ...(params.linkText
+            ? [{ label: '复制链接文字', click: () => clipboard.writeText(params.linkText) }]
+            : [])
         );
       }
       if (params.srcURL) {
-        template.push({ label: '复制图片地址', click: () => clipboard.writeText(params.srcURL) });
+        template.push(
+          { type: 'separator' },
+          { label: '复制图片', click: () => wc.copyImageAt(params.x, params.y) },
+          {
+            label: '图片另存为…',
+            enabled: /^https?:/i.test(params.srcURL),
+            click: () => wc.downloadURL(params.srcURL)
+          },
+          { label: '复制图片地址', click: () => clipboard.writeText(params.srcURL) }
+        );
       }
       if (!app.isPackaged) {
         template.push(

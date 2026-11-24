@@ -2,6 +2,7 @@ import { HardDrive, Loader2, Plus, RefreshCw, Trash2, Wifi } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AppSettings, AsrLocalStatus, AsrPlatform } from '../../../../shared/types';
 import { ModelChips, SettingsSection } from './SettingsSection';
+import { LocalModelsSection } from './LocalModelsSection';
 
 interface AsrSectionProps {
   draft: AppSettings;
@@ -152,8 +153,7 @@ export function AsrSection({
     {isLocal ? (
       <>
         <div className="settings-group-desc">
-          音频只在本机处理，不会上传。模型与 whisper.cpp 的下载、选用、删除统一在下方
-          「本地 Whisper 模型」里管理，这里只保留当前平台的线程数和测试。
+          音频只在本机处理，不会上传。模型与 whisper.cpp 的下载、选用、删除就在下面，不用再去别处找。
         </div>
         <div className="settings-label">平台名称</div>
         <input
@@ -195,6 +195,7 @@ export function AsrSection({
           </button>
         </div>
         {platformStatus('asr')}
+        <LocalModelsSection bare activeAsr={activeAsr} updateAsrPlatform={updateAsrPlatform} />
         <div className="settings-hint">
           已就绪：
           {localStatus?.binary ? ' whisper.cpp ✓' : ' whisper.cpp 未下载'}
