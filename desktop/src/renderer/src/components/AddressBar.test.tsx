@@ -171,7 +171,7 @@ describe('AddressBar', () => {
     const p = props({ bookmarked: true });
     render(<AddressBar {...p} />);
 
-    fireEvent.click(screen.getByTitle(/取消书签/));
+    fireEvent.click(screen.getByTitle(/编辑书签/));
     expect(p.onToggleBookmark).toHaveBeenCalled();
 
     fireEvent.click(screen.getByTitle('起始页'));
