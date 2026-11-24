@@ -26,7 +26,7 @@
 | 插件 `panel-test` | 478 项，0 失败 |
 | 桌面 CI | `master`/PR 通过 |
 | 插件 CI | `master`/PR 通过 |
-| 发布 CI | `v0.169.0`（tag 触发） |
+| 发布 CI | `v0.169.0`（tag 触发，run 45402641701，通过） |
 | 安装包 | 未签名；SmartScreen 会提示 |
 | 自动更新 | `latest.yml` 指向 0.169.0 |
 
