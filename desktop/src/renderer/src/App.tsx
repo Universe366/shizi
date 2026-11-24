@@ -19,6 +19,8 @@ import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
 import { BookmarkDialog } from './components/BookmarkDialog';
+import { BookmarkBar } from './components/BookmarkBar';
+import { ClearBrowsingDataDialog } from './components/ClearBrowsingDataDialog';
 import { ReaderMode } from './components/ReaderMode';
 import { StartPageClean } from './components/StartPageClean';
 import { RadialMenu } from './components/RadialMenu';
@@ -107,6 +109,8 @@ export default function App() {
   // 否则展开期间会看到整片空白。
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState<{ url: string; title: string } | null>(null);
+  const [bookmarkBar, setBookmarkBar] = useState(true);
+  const [clearDataOpen, setClearDataOpen] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
   // 插件列表是侧栏、命令面板和后续拆窗共用的数据源；安装/启停后由主进程广播刷新。
@@ -478,6 +482,7 @@ export default function App() {
         setFontScale(response.data.settings.general.fontScale || 1);
         setShortcutOverrides(response.data.settings.general.shortcuts || {});
         setRadialSectors(response.data.settings.general.radial?.sectors || []);
+        setBookmarkBar(response.data.settings.general.bookmarkBar !== false);
         applyAppearance(response.data.settings.general);
         applyLayout(response.data);
         if (!response.data.settings.general.wizardDone) setWizard(response.data);
@@ -487,6 +492,7 @@ export default function App() {
       setFontScale(snapshot.settings.general.fontScale || 1);
       setShortcutOverrides(snapshot.settings.general.shortcuts || {});
       setRadialSectors(snapshot.settings.general.radial?.sectors || []);
+      setBookmarkBar(snapshot.settings.general.bookmarkBar !== false);
       applyAppearance(snapshot.settings.general);
       applyLayout(snapshot);
       if (snapshot.settings.general.wizardDone) setWizard(null);
@@ -622,6 +628,7 @@ export default function App() {
     { id: 'hub-history', label: '浏览历史', hint: 'Ctrl+H', run: () => setHub('history') },
     { id: 'hub-bookmarks', label: '书签管理', hint: 'Ctrl+Shift+O', run: () => setHub('bookmarks') },
     { id: 'hub-downloads', label: '下载记录', hint: 'Ctrl+J', run: () => setHub('downloads') },
+    { id: 'clear-data', label: '清除浏览数据…', run: () => setClearDataOpen(true) },
     { id: 'reader', label: '打开阅读模式', hint: 'Alt+R', run: () => setReaderOpen(true) },
     { id: 'search', label: '全局搜索', hint: 'Ctrl+K', run: () => setSearchOpen(true) },
     { id: 'print', label: '打印页面', hint: 'Ctrl+P', run: () => void window.bsub.printPage?.() },
@@ -881,6 +888,7 @@ export default function App() {
         onSelectionAction={handleSelectionAction}
         onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
+        onOpenClearData={() => setClearDataOpen(true)}
         onOpenReader={() => setReaderOpen(true)}
         onOpenFind={() => void window.bsub.showFindOverlay()}
         siteDarkDisabled={siteDarkDisabled}
@@ -904,6 +912,12 @@ export default function App() {
           void window.bsub.showZoomMenu(rect);
         }}
       />
+      {bookmarkBar && !settingsOpen && (
+        <BookmarkBar
+          onOpen={(url) => void window.bsub.newTab(url)}
+          onManage={() => setHub('bookmarks')}
+        />
+      )}
       <div className={`app-body sidebar-${sidebarPosition}${sidebarCollapsed ? ' is-collapsed' : ''}`}>
         <Sidebar
           section={section}
@@ -1003,6 +1017,7 @@ export default function App() {
         onSelectTab={(id) => void window.bsub.activateTab(id)}
         onEditBookmark={(item) => setBookmarkTarget({ url: item.url, title: item.title })}
       />
+      {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}
       {bookmarkTarget && (
         <BookmarkDialog
           url={bookmarkTarget.url}

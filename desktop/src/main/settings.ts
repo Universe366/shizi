@@ -152,6 +152,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     verticalTabsWidth: 180,
     verticalTabsCollapsed: false,
     browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR },
+    bookmarkBar: true,
     panelLayout: { order: [], hidden: [] },
     sidebarCollapsed: false,
     sidebarPages: SIDEBAR_PAGE_PRESETS.map((page) => ({ ...page })),
@@ -961,6 +962,8 @@ function normalize(input: unknown): AppSettings {
       base.general.autoFollow = raw.general.autoFollow !== false;
       base.general.wizardDone = raw.general.wizardDone === true;
       base.general.restoreSession = raw.general.restoreSession !== false;
+    // 书签栏默认开：老配置没这个字段也按开处理。
+    base.general.bookmarkBar = raw.general.bookmarkBar !== false;
       base.general.selectionToolbar = raw.general.selectionToolbar !== false;
       base.general.mediaRate = clampMediaRate(raw.general.mediaRate, 1);
       base.general.mediaRememberSite = raw.general.mediaRememberSite !== false;

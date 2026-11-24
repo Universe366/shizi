@@ -41,6 +41,7 @@ export function AddressBar({
   onSelectionAction,
   onNavigate,
   onOpenHub,
+  onOpenClearData,
   onOpenReader,
   onOpenFind,
   onOpenStart,
@@ -63,6 +64,7 @@ export function AddressBar({
   /** 地址栏导航；起始页/无标签时由上层决定新建标签 */
   onNavigate?: (input: string) => void;
   onOpenHub: (section: HubSection) => void;
+  onOpenClearData?: () => void;
   onOpenReader: () => void;
   onOpenFind?: () => void;
   onOpenStart: () => void;
@@ -385,6 +387,7 @@ export function AddressBar({
     if (choice === 'history') onOpenHub('history');
     else if (choice === 'bookmarks') onOpenHub('bookmarks');
     else if (choice === 'downloads') onOpenHub('downloads');
+    else if (choice === 'clear-data') onOpenClearData?.();
     else if (choice === 'tabs') onOpenHub('tabs');
     else if (choice === 'reader') onOpenReader();
     else if (choice === 'zoom-in') void window.bsub.zoomIn();
@@ -396,6 +399,25 @@ export function AddressBar({
     else if (choice === 'start-add') void saveToStart();
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
     else if (choice === 'start') onOpenStart();
+  };
+
+  /** 后退/前进右键菜单：显示该方向可回到的历史条目。 */
+  const openHistoryMenu = async (direction: 'back' | 'forward') => {
+    const response = await window.bsub.navigationHistory?.();
+    if (!response?.ok) return;
+    const { entries, activeIndex } = response.data;
+    const candidates =
+      direction === 'back'
+        ? entries.filter((entry) => entry.index < activeIndex).reverse()
+        : entries.filter((entry) => entry.index > activeIndex);
+    if (!candidates.length) return;
+    const choice = await window.bsub.popupMenu?.(
+      candidates.slice(0, 20).map((entry) => ({
+        id: String(entry.index),
+        label: entry.title || entry.url
+      }))
+    );
+    if (choice != null) void window.bsub.goToNavigationHistory?.(Number(choice));
   };
 
   /** 站点信息：Chrome / Edge 的锁图标——连接状态 + 只清这个站点。 */
@@ -446,6 +468,7 @@ export function AddressBar({
       { id: 'bookmarks', label: '书签' },
       { id: 'downloads', label: '下载' },
       { id: 'tabs', label: '标签页' },
+      { id: 'clear-data', label: '清除浏览数据…' },
       { type: 'separator' },
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },
       { id: 'paste', label: '粘贴并打开' },
@@ -480,8 +503,12 @@ export function AddressBar({
             <button
               className="nav-btn"
               disabled={!tab?.canGoBack}
-              title="后退"
+              title="后退（右键查看历史）"
               onClick={() => void window.bsub.back()}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                void openHistoryMenu('back');
+              }}
             >
               <ArrowLeft size={16} />
             </button>
@@ -490,8 +517,12 @@ export function AddressBar({
             <button
               className="nav-btn"
               disabled={!tab?.canGoForward}
-              title="前进"
+              title="前进（右键查看历史）"
               onClick={() => void window.bsub.forward()}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                void openHistoryMenu('forward');
+              }}
             >
               <ArrowRight size={16} />
             </button>

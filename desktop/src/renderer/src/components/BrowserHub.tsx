@@ -91,6 +91,7 @@ export function BrowserHub({
   const [folders, setFolders] = useState<BookmarkFolder[]>([]);
   const [activeFolder, setActiveFolder] = useState('');
   const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
+  const [closed, setClosed] = useState<Array<{ url: string; title: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -132,6 +133,9 @@ export function BrowserHub({
           const response = await window.bsub.listDownloads();
           if (alive && response.ok) setDownloads(response.data);
           else if (alive && !response.ok) setError(response.error);
+        } else if (section === 'tabs') {
+          const response = await window.bsub.listClosedTabs?.();
+          if (alive && Array.isArray(response)) setClosed(response);
         }
       } finally {
         if (alive) setLoading(false);
@@ -575,6 +579,26 @@ export function BrowserHub({
             ))}
           {section === 'tabs' && !filteredTabs.length && (
             <div className="panel-empty">没有匹配的标签页</div>
+          )}
+          {section === 'tabs' && closed.length > 0 && (
+            <div className="hub-group">
+              <div className="hub-group-title">最近关闭</div>
+              {closed.slice(0, 12).map((item, index) => (
+                <div key={`${item.url}-${index}`} className="hub-row is-static">
+                  <button
+                    className="hub-main"
+                    onClick={() => {
+                      void window.bsub.reopenClosedAt?.(index).then((id) => {
+                        if (id) onClose();
+                      });
+                    }}
+                  >
+                    <span className="hub-title">{item.title || item.url}</span>
+                    <span className="hub-sub">{item.url}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

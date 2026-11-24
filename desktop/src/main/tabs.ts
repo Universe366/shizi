@@ -1291,6 +1291,39 @@ export class TabManager {
     if (wc && index !== null) wc.navigationHistory.goToIndex(index);
   }
 
+  /** 书签式「后退/前进」历史菜单：只保留 http(s) 条目。 */
+  navigationEntries(): {
+    entries: Array<{ index: number; url: string; title: string }>;
+    activeIndex: number;
+  } {
+    const wc = this.activeRecord()?.view?.webContents;
+    if (!wc) return { entries: [], activeIndex: -1 };
+    try {
+      const history = wc.navigationHistory;
+      const entries = history
+        .getAllEntries()
+        .map((entry, index) => ({
+          index,
+          url: entry.url || '',
+          title: entry.title || entry.url || ''
+        }))
+        .filter((entry) => /^https?:/i.test(entry.url));
+      return { entries, activeIndex: history.getActiveIndex() };
+    } catch {
+      return { entries: [], activeIndex: -1 };
+    }
+  }
+
+  goToNavigationIndex(index: number): void {
+    const wc = this.activeRecord()?.view?.webContents;
+    if (!wc) return;
+    try {
+      wc.navigationHistory.goToIndex(Number(index));
+    } catch {
+      // 历史条目可能已被站点替换，忽略即可。
+    }
+  }
+
   reload(): void {
     this.activeRecord()?.view?.webContents.reload();
   }

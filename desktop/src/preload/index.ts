@@ -267,6 +267,12 @@ const api: BsubApi = {
   reloadTab: (id: string) => ipcRenderer.send('tab:reload-tab', id),
   activateTab: (id: string) => ipcRenderer.invoke('tab:activate', id) as Promise<void>,
   navigate: (url: string) => ipcRenderer.invoke('tab:navigate', url) as Promise<void>,
+  navigationHistory: () =>
+    ipcRenderer.invoke('tab:nav-history') as Promise<
+      Result<{ entries: Array<{ index: number; url: string; title: string }>; activeIndex: number }>
+    >,
+  goToNavigationHistory: (index: number) =>
+    ipcRenderer.invoke('tab:go-nav-index', index) as Promise<void>,
   back: () => ipcRenderer.invoke('tab:back') as Promise<void>,
   forward: () => ipcRenderer.invoke('tab:forward') as Promise<void>,
   reload: () => ipcRenderer.invoke('tab:reload') as Promise<void>,
@@ -479,7 +485,18 @@ const api: BsubApi = {
     ipcRenderer.invoke('browser:clear-data') as Promise<Result<{ cleared: boolean }>>,
   clearSiteData: (url: string) =>
     ipcRenderer.invoke('page:clear-site-data', url) as Promise<Result<{ origin: string }>>,
+  clearBrowsingDataRange: (payload: {
+    since?: number;
+    history?: boolean;
+    downloads?: boolean;
+    cookies?: boolean;
+    cache?: boolean;
+  }) =>
+    ipcRenderer.invoke('browser:clear-data-range', payload) as Promise<
+      Result<{ history: number; downloads: number }>
+    >,
   onDownloadsChanged: (cb: () => void) => on<null>('downloads:changed', () => cb()),
+  onBookmarksChanged: (cb: () => void) => on<null>('bookmarks:changed', () => cb()),
 
   getPageInfo: (tabId?: string) =>
     ipcRenderer.invoke('page:info', tabId) as Promise<Result<PageInfo>>,

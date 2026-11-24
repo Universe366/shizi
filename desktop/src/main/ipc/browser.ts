@@ -11,6 +11,7 @@ import {
   clearBrowseHistory,
   clearBrowseHistorySince,
   clearDownloads,
+  clearDownloadsSince,
   createBookmarkFolder,
   deleteBookmarkFolder,
   deleteBrowseHistoryEntry,
@@ -180,6 +181,21 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   });
   ipcMain.handle('tab:navigate', (_event, url: string) => {
     ctx.tabs.navigate(url);
+  });
+  ipcMain.handle(
+    'tab:nav-history',
+    (): Result<{ entries: Array<{ index: number; url: string; title: string }>; activeIndex: number }> => {
+      try {
+        return { ok: true, data: ctx.tabs.navigationEntries() };
+      } catch (error) {
+        return failure<{ entries: Array<{ index: number; url: string; title: string }>; activeIndex: number }>(
+          error
+        );
+      }
+    }
+  );
+  ipcMain.handle('tab:go-nav-index', (_event, index: number) => {
+    ctx.tabs.goToNavigationIndex(Number(index));
   });
   ipcMain.handle('tab:back', () => {
     ctx.tabs.back();
@@ -361,7 +377,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
 
   ipcMain.handle('bookmarks:remove', (_event, url: string): Result<{ removed: boolean }> => {
     try {
-      return { ok: true, data: { removed: removeBookmark(String(url || '')) } };
+      const removed = removeBookmark(String(url || ''));
+      if (removed) ctx.send('bookmarks:changed', null);
+      return { ok: true, data: { removed } };
     } catch (error) {
       return failure<{ removed: boolean }>(error);
     }
@@ -375,7 +393,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
       payload: { url: string; title?: string; favicon?: string | null; folder?: string }
     ): Result<Bookmark> => {
       try {
-        return { ok: true, data: saveBookmark(payload || { url: '' }) };
+        const saved = saveBookmark(payload || { url: '' });
+        ctx.send('bookmarks:changed', null);
+        return { ok: true, data: saved };
       } catch (error) {
         return failure<Bookmark>(error);
       }
@@ -386,7 +406,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     'bookmarks:update',
     (_event, payload: { url: string; title?: string; folder?: string }): Result<{ updated: boolean }> => {
       try {
-        return { ok: true, data: { updated: updateBookmark(payload || { url: '' }) } };
+        const updated = updateBookmark(payload || { url: '' });
+        if (updated) ctx.send('bookmarks:changed', null);
+        return { ok: true, data: { updated } };
       } catch (error) {
         return failure<{ updated: boolean }>(error);
       }
@@ -403,7 +425,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
 
   ipcMain.handle('bookmark-folders:create', (_event, name: string): Result<BookmarkFolder[]> => {
     try {
-      return { ok: true, data: createBookmarkFolder(String(name || '')) };
+      const folders = createBookmarkFolder(String(name || ''));
+      ctx.send('bookmarks:changed', null);
+      return { ok: true, data: folders };
     } catch (error) {
       return failure<BookmarkFolder[]>(error);
     }
@@ -413,7 +437,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     'bookmark-folders:rename',
     (_event, from: string, to: string): Result<BookmarkFolder[]> => {
       try {
-        return { ok: true, data: renameBookmarkFolder(String(from || ''), String(to || '')) };
+        const folders = renameBookmarkFolder(String(from || ''), String(to || ''));
+        ctx.send('bookmarks:changed', null);
+        return { ok: true, data: folders };
       } catch (error) {
         return failure<BookmarkFolder[]>(error);
       }
@@ -422,7 +448,9 @@ export function registerBrowserIpc(ctx: IpcContext): void {
 
   ipcMain.handle('bookmark-folders:delete', (_event, name: string): Result<BookmarkFolder[]> => {
     try {
-      return { ok: true, data: deleteBookmarkFolder(String(name || '')) };
+      const folders = deleteBookmarkFolder(String(name || ''));
+      ctx.send('bookmarks:changed', null);
+      return { ok: true, data: folders };
     } catch (error) {
       return failure<BookmarkFolder[]>(error);
     }
@@ -557,6 +585,47 @@ export function registerBrowserIpc(ctx: IpcContext): void {
         return { ok: true, data: { origin } };
       } catch (error) {
         return failure<{ origin: string }>(error);
+      }
+    }
+  );
+
+  // 按范围清理：历史/下载按时间筛选；Cookie 与缓存由 Chromium 全量清（Electron 不支持按时间清）。
+  ipcMain.handle(
+    'browser:clear-data-range',
+    async (
+      _event,
+      payload: {
+        since?: number;
+        history?: boolean;
+        downloads?: boolean;
+        cookies?: boolean;
+        cache?: boolean;
+      }
+    ): Promise<Result<{ history: number; downloads: number }>> => {
+      try {
+        const since = Math.max(0, Number(payload?.since) || 0);
+        let history = 0;
+        let downloads = 0;
+        if (payload?.history) history = since ? clearBrowseHistorySince(since) : clearBrowseHistory();
+        if (payload?.downloads) downloads = since ? clearDownloadsSince(since) : clearDownloads();
+        if (payload?.cookies) {
+          await session.defaultSession.clearStorageData({
+            storages: [
+              'cookies',
+              'filesystem',
+              'indexdb',
+              'localstorage',
+              'cachestorage',
+              'serviceworkers',
+              'shadercache'
+            ]
+          });
+        }
+        if (payload?.cache) await session.defaultSession.clearCache();
+        if (downloads) ctx.send('downloads:changed', null);
+        return { ok: true, data: { history, downloads } };
+      } catch (error) {
+        return failure<{ history: number; downloads: number }>(error);
       }
     }
   );

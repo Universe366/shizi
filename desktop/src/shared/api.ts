@@ -212,6 +212,11 @@ export interface BsubApi {
   reloadTab(id: string): void;
   activateTab(id: string): Promise<void>;
   navigate(url: string): Promise<void>;
+  /** 当前标签的浏览历史（后退/前进菜单） */
+  navigationHistory(): Promise<
+    Result<{ entries: Array<{ index: number; url: string; title: string }>; activeIndex: number }>
+  >;
+  goToNavigationHistory(index: number): Promise<void>;
   back(): Promise<void>;
   forward(): Promise<void>;
   reload(): Promise<void>;
@@ -351,7 +356,17 @@ export interface BsubApi {
   clearBrowsingData(): Promise<Result<{ cleared: boolean }>>;
   /** 只清当前站点（origin）的 Cookie 与存储 */
   clearSiteData(url: string): Promise<Result<{ origin: string }>>;
+  /** 按范围清理浏览数据：历史/下载按时间，Cookie/缓存全量 */
+  clearBrowsingDataRange(payload: {
+    since?: number;
+    history?: boolean;
+    downloads?: boolean;
+    cookies?: boolean;
+    cache?: boolean;
+  }): Promise<Result<{ history: number; downloads: number }>>;
   onDownloadsChanged(cb: () => void): () => void;
+  /** 书签或文件夹变化（书签栏实时刷新） */
+  onBookmarksChanged?(cb: () => void): () => void;
 
   getPageInfo(tabId?: string): Promise<Result<PageInfo>>;
   getPageContext(): Promise<Result<PageContextSummary>>;

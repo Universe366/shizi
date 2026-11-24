@@ -34,6 +34,7 @@ export type {
 export {
   addDownload,
   clearDownloads,
+  clearDownloadsSince,
   deleteDownload,
   listDownloads,
   updateDownload

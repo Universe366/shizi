@@ -142,9 +142,9 @@ describe('AddressBar', () => {
   it('按前后退/刷新调用 IPC，无历史时禁用', () => {
     const api = installBsub();
     render(<AddressBar {...props()} />);
-    expect((screen.getByTitle('后退') as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByTitle('前进') as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByTitle('后退'));
+    expect((screen.getByTitle(/后退/) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTitle(/前进/) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTitle(/后退/));
     fireEvent.click(screen.getByTitle('刷新'));
     expect(api.back).toHaveBeenCalled();
     expect(api.reload).toHaveBeenCalled();

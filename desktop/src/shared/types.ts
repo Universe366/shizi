@@ -1315,6 +1315,8 @@ export interface AppSettings {
     verticalTabsCollapsed: boolean;
     /** 顶部地址栏按钮显示配置 */
     browserToolbar: BrowserToolbarSettings;
+    /** 地址栏下方的书签栏 */
+    bookmarkBar: boolean;
     /** 侧栏面板顺序与显隐 */
     panelLayout: PanelLayout;
     sidebarCollapsed: boolean;

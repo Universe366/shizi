@@ -94,3 +94,12 @@ export function clearDownloads(): number {
   const database = requireDb();
   return toNumber(database.prepare('DELETE FROM downloads').run().changes);
 }
+
+/** 按开始时间清理下载记录（不删磁盘文件）。 */
+export function clearDownloadsSince(since: number): number {
+  const database = requireDb();
+  const cutoff = Math.max(0, Math.round(Number(since) || 0));
+  return (
+    toNumber(database.prepare('DELETE FROM downloads WHERE started_at >= ?').run(cutoff).changes) || 0
+  );
+}
