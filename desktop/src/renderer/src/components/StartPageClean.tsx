@@ -601,7 +601,7 @@ export function StartPageClean({
   const importBookmarks = async (file: File) => {
     const parsed = parseBookmarksHtml(await file.text());
     if (!parsed.shortcuts.length) {
-      showNotice('没有从书签文件里找到可用网址');
+      showNotice('没有从文件里找到可用网址');
       return;
     }
     const seen = new Set(shortcuts.map((item) => item.url.toLowerCase()));
@@ -613,7 +613,7 @@ export function StartPageClean({
     ];
     await persistShortcuts(merged);
     showNotice(
-      `已导入 ${merged.length - shortcuts.length} 个书签${
+      `已添加 ${merged.length - shortcuts.length} 个快捷方式${
         parsed.folders ? `，涉及 ${parsed.folders} 个分组/文件夹` : ''
       }`
     );

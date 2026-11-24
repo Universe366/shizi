@@ -4,6 +4,7 @@ import type { DiagnosticsInfo } from '../../../shared/types';
 import { AssistantSection } from './settings/AssistantSection';
 import { BridgeSection } from './settings/BridgeSection';
 import { DataBackupSection } from './settings/DataBackupSection';
+import { ClearBrowsingDataDialog } from './ClearBrowsingDataDialog';
 import { CorrectionSection } from './settings/CorrectionSection';
 import { AiSection } from './settings/AiSection';
 import { AsrSection } from './settings/AsrSection';
@@ -97,6 +98,7 @@ export function SettingsPanel({
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [dataDir, setDataDir] = useState('');
   const [migrating, setMigrating] = useState(false);
+  const [clearDataOpen, setClearDataOpen] = useState(false);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsInfo | null>(null);
   const [version, setVersion] = useState('');
   const [message, setMessage] = useState('');
@@ -1207,24 +1209,6 @@ export function SettingsPanel({
     await refreshSitePermissions();
   };
 
-  const clearBrowsingData = async () => {
-    if (
-      !(await askConfirm({
-        title: '清除浏览数据？',
-        description: '将清除所有网站的 Cookie、缓存、站点数据和登录状态，所有网站都需要重新登录。',
-        confirmText: '清除'
-      }))
-    ) {
-      return;
-    }
-    const response = await window.bsub.clearBrowsingData();
-    if (!response.ok) {
-      setError(response.error);
-      return;
-    }
-    setMessage('浏览数据已清除，建议刷新已打开的页面');
-  };
-
   const importSettings = async () => {
     if (
       !(await askConfirm({
@@ -1657,10 +1641,12 @@ export function SettingsPanel({
         onBackup={() => void backupAll()}
         onRestore={() => void restoreAll()}
         onCompact={() => void compactDatabase()}
-        onClearBrowsingData={() => void clearBrowsingData()}
+        onClearBrowsingData={() => setClearDataOpen(true)}
       />
       )}
 
+
+      {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}
 
       {(message || error) && (
         <div

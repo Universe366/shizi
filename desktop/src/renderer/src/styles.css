@@ -8466,51 +8466,6 @@ html[data-density='compact'] .chat-history-row {
   position: relative;
 }
 
-.address-menu {
-  position: absolute;
-  right: 0;
-  top: 32px;
-  z-index: 30;
-  min-width: 168px;
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
-  display: flex;
-  flex-direction: column;
-}
-
-.address-menu button {
-  padding: 6px 9px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text);
-  font-size: var(--fs-xs);
-  text-align: left;
-  cursor: pointer;
-}
-
-.address-menu button:hover {
-  background: var(--surface-2);
-}
-
-.address-menu button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.address-menu button:disabled:hover {
-  background: transparent;
-}
-
-.address-menu-sep {
-  height: 1px;
-  margin: 3px 4px;
-  background: var(--border);
-}
-
 .tab-vertical-head {
   display: flex;
   align-items: center;

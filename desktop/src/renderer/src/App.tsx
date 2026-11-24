@@ -636,13 +636,18 @@ export default function App() {
     void window.bsub.finishWizard();
   };
 
+  const openStartPage = () => {
+    setSettingsOpen(false);
+    setLibraryOpen(false);
+    setStartOpen(true);
+  };
+
   const commands: CommandItem[] = [
     { id: 'section-subtitles', label: '打开面板：字幕', hint: 'Ctrl+Shift+1', run: () => setSection('subtitles') },
     { id: 'section-summary', label: '打开面板：总结', run: () => setSection('summary') },
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
     { id: 'section-library', label: '打开工作台', run: () => handleSectionSelect('library') },
     { id: 'section-settings', label: '打开设置', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
-    { id: 'start-page', label: '打开起始页', run: () => setStartOpen(true) },
     { id: 'hub-tabs', label: '打开面板：标签页', hint: 'Ctrl+Shift+A', run: () => setHub('tabs') },
     { id: 'hub-history', label: '浏览历史', hint: 'Ctrl+H', run: () => setHub('history') },
     { id: 'hub-bookmarks', label: '书签管理', hint: 'Ctrl+Shift+O', run: () => setHub('bookmarks') },
@@ -652,7 +657,7 @@ export default function App() {
     { id: 'search', label: '全局搜索', hint: 'Ctrl+K', run: () => setSearchOpen(true) },
     { id: 'print', label: '打印页面', hint: 'Ctrl+P', run: () => void window.bsub.printPage?.() },
     { id: 'save-pdf', label: '另存为 PDF', run: () => void window.bsub.savePagePdf?.() },
-    { id: 'new-tab', label: '新建标签页', hint: 'Ctrl+T', run: () => void window.bsub.newTab() },
+    { id: 'new-tab', label: '新建标签页（起始页）', hint: 'Ctrl+T', run: () => openStartPage() },
     {
       id: 'reopen-tab',
       label: '重新打开关闭的标签页',
@@ -747,7 +752,10 @@ export default function App() {
   runShortcutRef.current = (action) => {
     switch (action) {
       case 'new-tab':
-        void window.bsub.newTab();
+        // 当前模型里「新标签页」就是起始页；不再像旧版那样直接开 B 站。
+        setSettingsOpen(false);
+        setLibraryOpen(false);
+        setStartOpen(true);
         break;
       case 'close-tab':
         if (active) void window.bsub.closeTab(active.id);

@@ -33,7 +33,7 @@ const SECTIONS: Array<{ id: HubSection; label: string; icon: typeof Clock }> = [
   { id: 'history', label: '历史', icon: Clock },
   { id: 'bookmarks', label: '书签', icon: Bookmark },
   { id: 'downloads', label: '下载', icon: Download },
-  { id: 'tabs', label: '标签', icon: Layers }
+  { id: 'tabs', label: '标签页', icon: Layers }
 ];
 
 function fmtBytes(bytes: number): string {

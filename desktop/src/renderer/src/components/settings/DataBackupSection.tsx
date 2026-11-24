@@ -136,7 +136,7 @@ export function DataBackupSection({
           <RefreshCw size={12} /> 压缩数据库
         </button>
         <button className="mini-btn danger" onClick={onClearBrowsingData}>
-          清除浏览数据
+          清除浏览数据…
         </button>
       </div>
       <div className="settings-label">云同步（网盘文件夹）</div>

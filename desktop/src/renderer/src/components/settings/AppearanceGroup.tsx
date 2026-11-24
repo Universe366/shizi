@@ -278,7 +278,7 @@ export function AppearanceGroup({ value, onChange }: Props) {
         </details>
 
         <details className="settings-advanced">
-          <summary>起始页与启动</summary>
+          <summary>起始页外观</summary>
           <div className="settings-label">起始页壁纸</div>
           <select
             className="settings-input"
@@ -429,9 +429,9 @@ export function AppearanceGroup({ value, onChange }: Props) {
             ['speed', '播放倍速'],
             ['zoom', '缩放百分比'],
             ['bookmark', '收藏'],
-            ['startFavorite', '收藏到起始页'],
+            ['startFavorite', '添加到起始页'],
             ['library', '工作台'],
-            ['home', '起始页'],
+            ['home', '主页'],
             ['downloads', '下载'],
             ['dark', '网页深色模式'],
             ['settings', '设置'],

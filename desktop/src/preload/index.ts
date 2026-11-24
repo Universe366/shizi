@@ -465,8 +465,6 @@ const api: BsubApi = {
     >,
   isBookmarked: (url: string) =>
     ipcRenderer.invoke('bookmarks:check', url) as Promise<Result<{ bookmarked: boolean }>>,
-  toggleBookmark: (payload: { url: string; title?: string; favicon?: string | null }) =>
-    ipcRenderer.invoke('bookmarks:toggle', payload) as Promise<Result<{ bookmarked: boolean }>>,
   removeBookmark: (url: string) =>
     ipcRenderer.invoke('bookmarks:remove', url) as Promise<Result<{ removed: boolean }>>,
 
@@ -485,8 +483,6 @@ const api: BsubApi = {
     ipcRenderer.invoke('downloads:bulk', action) as Promise<Result<{ changed: number }>>,
   revealDownloadsFolder: () =>
     ipcRenderer.invoke('downloads:reveal-folder') as Promise<Result<boolean>>,
-  clearBrowsingData: () =>
-    ipcRenderer.invoke('browser:clear-data') as Promise<Result<{ cleared: boolean }>>,
   clearSiteData: (url: string) =>
     ipcRenderer.invoke('page:clear-site-data', url) as Promise<Result<{ origin: string }>>,
   clearBrowsingDataRange: (payload: {

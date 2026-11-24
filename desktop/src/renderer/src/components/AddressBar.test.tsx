@@ -53,7 +53,10 @@ function installBsub() {
     zoomOut: vi.fn(async () => undefined),
     newTab: vi.fn(),
     setPlaybackRate: vi.fn(async () => ({ ok: true as const, data: 1.5 })),
-    toggleMediaPanel: vi.fn(async () => undefined)
+    toggleMediaPanel: vi.fn(async () => undefined),
+    popupMenu: vi.fn(
+      async (_items: Array<{ id?: string; label?: string }>): Promise<string | null> => null
+    )
   };
   Object.defineProperty(window, 'bsub', { configurable: true, value: api });
   return api;
@@ -136,7 +139,11 @@ describe('AddressBar', () => {
     fireEvent.focus(screen.getByDisplayValue('bilibili.com/video/BV1'));
     expect(screen.getByDisplayValue(tab.url)).toBeTruthy();
     fireEvent.click(screen.getByTitle('菜单'));
-    expect(screen.getByText(/重置缩放（125%/)).toBeTruthy();
+    const api = window.bsub as unknown as {
+      popupMenu: { mock: { calls: Array<[Array<{ label?: string }>]> } };
+    };
+    const items = api.popupMenu.mock.calls.at(-1)?.[0] || [];
+    expect(items.some((item) => /重置缩放（125%/.test(String(item.label || '')))).toBe(true);
   });
 
   it('按前后退/刷新调用 IPC，无历史时禁用', () => {
@@ -167,7 +174,8 @@ describe('AddressBar', () => {
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
   });
 
-  it('书签、起始页与菜单项回调', () => {
+  it('书签、起始页与菜单项回调', async () => {
+    const api = installBsub();
     const p = props({ bookmarked: true });
     render(<AddressBar {...p} />);
 
@@ -180,13 +188,14 @@ describe('AddressBar', () => {
     fireEvent.click(screen.getByTitle(/^工作台：/));
     expect(p.onOpenLibrary).toHaveBeenCalled();
 
+    // 菜单走系统菜单：用 popupMenu 的返回值驱动回调。
+    api.popupMenu.mockResolvedValueOnce('history');
     fireEvent.click(screen.getByTitle('菜单'));
-    fireEvent.click(screen.getByText('历史记录'));
-    expect(p.onOpenHub).toHaveBeenCalledWith('history');
+    await vi.waitFor(() => expect(p.onOpenHub).toHaveBeenCalledWith('history'));
 
+    api.popupMenu.mockResolvedValueOnce('reader');
     fireEvent.click(screen.getByTitle('菜单'));
-    fireEvent.click(screen.getByText(/阅读模式/));
-    expect(p.onOpenReader).toHaveBeenCalled();
+    await vi.waitFor(() => expect(p.onOpenReader).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTitle('设置'));
     expect(p.onOpenSettings).toHaveBeenCalled();
@@ -195,14 +204,14 @@ describe('AddressBar', () => {
   it('顶部按钮把当前页收藏为起始页网址', async () => {
     const api = installBsub();
     render(<AddressBar {...props()} />);
-    fireEvent.click(screen.getByTitle('收藏到起始页'));
+    fireEvent.click(screen.getByTitle('添加到起始页'));
     await vi.waitFor(() =>
       expect(api.startAddShortcut).toHaveBeenCalledWith({
         url: 'https://www.bilibili.com/video/BV1',
         title: '视频页'
       })
     );
-    await vi.waitFor(() => expect(screen.getByTitle('已收藏到起始页')).toBeTruthy());
+    await vi.waitFor(() => expect(screen.getByTitle('已添加到起始页')).toBeTruthy());
   });
 
   it('倍速按钮展示当前倍速并打开页内面板', () => {
@@ -296,7 +305,7 @@ describe('AddressBar 原生菜单', () => {
       '前进',
       '刷新',
       '切换搜索引擎',
-      '收藏到起始页',
+      '添加到起始页',
       '工作台：资料库 / 成片',
       '主页',
       '设置',
@@ -307,10 +316,8 @@ describe('AddressBar 原生菜单', () => {
   });
 
   it('有 popupMenu 时走系统菜单，选中后派发动作', async () => {
-    const api = installBsub() as ReturnType<typeof installBsub> & {
-      popupMenu?: (items: unknown) => Promise<string | null>;
-    };
-    api.popupMenu = vi.fn(async () => 'bookmarks');
+    const api = installBsub();
+    api.popupMenu.mockResolvedValue('bookmarks');
     const p = props();
     const { container } = render(<AddressBar {...p} />);
     fireEvent.click(container.querySelector('button[title="菜单"]') as HTMLElement);

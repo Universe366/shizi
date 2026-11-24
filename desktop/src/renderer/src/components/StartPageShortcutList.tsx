@@ -33,8 +33,8 @@ export function StartPageShortcutList({ shortcuts, onEdit, onRemove, onAdd, onIm
         <button type="button" className="sc-secondary" onClick={onAdd}>
           <Plus size={13} /> 添加
         </button>
-        <button type="button" className="sc-secondary" onClick={onImport}>
-          <Upload size={13} /> 导入书签
+        <button type="button" className="sc-secondary" title="把浏览器书签导入为起始页快捷方式" onClick={onImport}>
+          <Upload size={13} /> 导入为快捷方式
         </button>
       </div>
     </section>

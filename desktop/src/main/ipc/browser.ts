@@ -27,7 +27,6 @@ import {
   removeBookmark,
   renameBookmarkFolder,
   saveBookmark,
-  toggleBookmark,
   updateBookmark,
   updateDownload
 } from '../library';
@@ -361,22 +360,6 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     }
   });
 
-  ipcMain.handle(
-    'bookmarks:toggle',
-    (
-      _event,
-      payload: { url: string; title?: string; favicon?: string | null }
-    ): Result<{
-      bookmarked: boolean;
-    }> => {
-      try {
-        return { ok: true, data: toggleBookmark(payload || { url: '' }) };
-      } catch (error) {
-        return failure<{ bookmarked: boolean }>(error);
-      }
-    }
-  );
-
   ipcMain.handle('bookmarks:remove', (_event, url: string): Result<{ removed: boolean }> => {
     try {
       const removed = removeBookmark(String(url || ''));
@@ -653,28 +636,6 @@ export function registerBrowserIpc(ctx: IpcContext): void {
       }
     }
   );
-
-  ipcMain.handle('browser:clear-data', async (): Promise<Result<{ cleared: boolean }>> => {
-    try {
-      const ses = session.defaultSession;
-      await ses.clearStorageData({
-        storages: [
-          'cookies',
-          'filesystem',
-          'indexdb',
-          'localstorage',
-          'shadercache',
-          'serviceworkers',
-          'cachestorage'
-        ]
-      });
-      await ses.clearCache();
-      await ses.clearAuthCache();
-      return { ok: true, data: { cleared: true } };
-    } catch (error) {
-      return failure<{ cleared: boolean }>(error);
-    }
-  });
 
   ipcMain.handle('downloads:open', async (_event, id: number): Promise<Result<boolean>> => {
     try {

@@ -20,7 +20,6 @@ export const OVERLAY_SELECTORS = [
   '.address-suggest',
   '.address-engine-menu',
   '.address-selection-toolbar',
-  '.address-menu',
   '.tab-menu',
   '.tab-actions-menu',
   '.tab-group-menu',

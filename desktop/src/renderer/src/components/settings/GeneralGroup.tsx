@@ -93,7 +93,7 @@ export function GeneralGroup({ value, onChange }: Props) {
     <>
     <SettingsSection title="启动与主页" defaultOpen>
       <div className="settings-group-desc">
-        启动拾字时打开什么，以及地址栏「起始页」按钮去哪里。启动行为下次启动生效。
+        启动拾字时打开什么，以及地址栏「主页」按钮去哪里。启动行为下次启动生效。
       </div>
       <div className="settings-inline">
         <select

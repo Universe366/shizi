@@ -12,14 +12,9 @@ interface Props {
 export function SessionsGroup({ value, onChange }: Props) {
   return (
     <SettingsSection title="标签页与会话" defaultOpen>
-      <label className="settings-check">
-        <input
-          type="checkbox"
-          checked={value.restoreSession !== false}
-          onChange={(event) => onChange({ restoreSession: event.target.checked })}
-        />
-        启动时恢复上次打开的标签页
-      </label>
+      <div className="settings-hint">
+        启动行为（起始页 / 恢复上次会话 / 指定网页）已统一到「通用 → 启动与主页」。
+      </div>
 
       <label className="settings-check">
         <input

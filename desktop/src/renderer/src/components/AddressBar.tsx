@@ -96,7 +96,6 @@ export function AddressBar({
   const [suggestIndex, setSuggestIndex] = useState(-1);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const siteHost = useMemo(() => {
     try {
       return new URL(tab?.url || '').hostname.toLowerCase().replace(/^www\./, '');
@@ -115,7 +114,6 @@ export function AddressBar({
     left: number;
     top: number;
   } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const showSelectionMenu = () => {
     const input = inputRef.current;
@@ -139,22 +137,6 @@ export function AddressBar({
       top: Math.min(rect.bottom + 6, window.innerHeight - 52)
     });
   };
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     if (!editing) setValue(tab?.url ?? '');
@@ -407,7 +389,9 @@ export function AddressBar({
     else if (choice === 'sidebar-add') void addToSidebar();
     else if (choice === 'start-add') void saveToStart();
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
-    else if (choice === 'start') onOpenStart();
+    else if (choice === 'find') onOpenFind?.();
+    else if (choice === 'site-dark' && tab?.url) void window.bsub.setSiteDark(tab.url, !siteDarkOff);
+    else if (choice === 'home') (onOpenHome || onOpenStart)();
   };
 
   /** 后退/前进右键菜单：显示该方向可回到的历史条目。 */
@@ -466,12 +450,7 @@ export function AddressBar({
   };
 
   const openMenu = async () => {
-    // 网页视图是原生层，HTML 菜单会被盖住；优先用系统菜单。
-    if (typeof window.bsub.popupMenu !== 'function') {
-      setMenuOpen((value) => !value);
-      return;
-    }
-    setMenuOpen(false);
+    // 网页视图是原生层，HTML 菜单会被盖住，所以只用系统菜单。
     const choice = await window.bsub.popupMenu([
       { id: 'history', label: '历史记录' },
       { id: 'bookmarks', label: '书签' },
@@ -482,8 +461,14 @@ export function AddressBar({
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },
       { id: 'paste', label: '粘贴并打开' },
       { id: 'sidebar-add', label: '添加到侧栏网页', enabled: Boolean(tab?.url) },
-      { id: 'start-add', label: '收藏到起始页', enabled: Boolean(tab?.url) },
+      { id: 'start-add', label: '添加到起始页', enabled: Boolean(tab?.url) },
       { id: 'external', label: '在外部浏览器打开', enabled: Boolean(tab?.url) },
+      { id: 'find', label: '在页面中查找（Ctrl+F）', enabled: Boolean(tab?.url) },
+      {
+        id: 'site-dark',
+        label: siteDarkOff ? '恢复此站深色' : '此站不启用深色',
+        enabled: Boolean(tab?.url)
+      },
       { id: 'reader', label: '阅读模式（Alt+R）', enabled: Boolean(tab?.url) },
       { id: 'zoom-in', label: '放大（Ctrl++）', enabled: Boolean(tab) },
       { id: 'zoom-out', label: '缩小（Ctrl+-）', enabled: Boolean(tab) },
@@ -493,7 +478,7 @@ export function AddressBar({
         enabled: Boolean(tab)
       },
       { type: 'separator' },
-      { id: 'start', label: '起始页' }
+      { id: 'home', label: '主页' }
     ]);
     runMenuChoice(choice);
   };
@@ -767,7 +752,7 @@ export function AddressBar({
       {toolbar.startFavorite && (
         <button
           className={`nav-btn${startSaved ? ' is-active' : ''}`}
-          title={startSaved ? '已收藏到起始页' : '收藏到起始页'}
+          title={startSaved ? '已添加到起始页' : '添加到起始页'}
           disabled={!tab || !/^https?:/i.test(tab.url)}
           onClick={() => void saveToStart()}
         >
@@ -841,63 +826,10 @@ export function AddressBar({
       )}
 
       {toolbar.menu && (
-      <div className="address-menu-wrap" ref={menuRef}>
-        <button
-          className={`nav-btn${menuOpen ? ' is-active' : ''}`}
-          title="菜单"
-          onClick={() => void openMenu()}
-        >
+      <div className="address-menu-wrap">
+        <button className="nav-btn" title="菜单" onClick={() => void openMenu()}>
           <MoreHorizontal size={17} />
         </button>
-        {menuOpen && (
-          <div className="address-menu" role="menu">
-            <button onClick={() => { setMenuOpen(false); onOpenHub('history'); }}>历史记录</button>
-            <button onClick={() => { setMenuOpen(false); onOpenHub('bookmarks'); }}>书签</button>
-            <button onClick={() => { setMenuOpen(false); onOpenHub('downloads'); }}>下载</button>
-            <button onClick={() => { setMenuOpen(false); onOpenHub('tabs'); }}>标签页</button>
-            <div className="address-menu-sep" />
-            <button onClick={() => { setMenuOpen(false); onOpenFind?.(); }}>在页面中查找（Ctrl+F）</button>
-            {tab?.url && siteHost && (
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  void window.bsub.setSiteDark(tab.url, !siteDarkOff);
-                }}
-              >
-                {siteDarkOff ? '恢复此站深色' : '此站不启用深色'}
-              </button>
-            )}
-            <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); onOpenReader(); }}>阅读模式（Alt+R）</button>
-            <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? '')); }}>
-              复制当前网址
-            </button>
-            <button onClick={() => { setMenuOpen(false); void pasteAndGo(); }}>
-              粘贴并打开
-            </button>
-            <button
-              disabled={!tab?.url}
-              onClick={() => { setMenuOpen(false); void addToSidebar(); }}
-            >
-              添加到侧栏网页
-            </button>
-            <button
-              disabled={!tab?.url}
-              onClick={() => { setMenuOpen(false); void saveToStart(); }}
-            >
-              收藏到起始页
-            </button>
-            <button disabled={!tab?.url} onClick={() => { setMenuOpen(false); if (tab?.url) void window.bsub.openExternal(tab.url); }}>
-              在外部浏览器打开
-            </button>
-            <div className="address-menu-sep" />
-            <button disabled={!tab} onClick={() => { setMenuOpen(false); void window.bsub.zoomIn(); }}>放大</button>
-            <button disabled={!tab} onClick={() => { setMenuOpen(false); void window.bsub.zoomOut(); }}>缩小</button>
-            <button disabled={!tab} onClick={() => { setMenuOpen(false); void window.bsub.zoomReset(); }}>
-              重置缩放（{Math.round((tab?.zoom ?? 1) * 100)}%）
-            </button>
-            <button onClick={() => { setMenuOpen(false); onOpenStart(); }}>起始页</button>
-          </div>
-        )}
       </div>
       )}
 

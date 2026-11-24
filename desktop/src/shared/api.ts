@@ -341,11 +341,6 @@ export interface BsubApi {
   /** 把导出的 bookmarks.html 保存到磁盘 */
   exportBookmarksHtml(html: string): Promise<Result<{ canceled: boolean; path?: string }>>;
   isBookmarked(url: string): Promise<Result<{ bookmarked: boolean }>>;
-  toggleBookmark(payload: {
-    url: string;
-    title?: string;
-    favicon?: string | null;
-  }): Promise<Result<{ bookmarked: boolean }>>;
   removeBookmark(url: string): Promise<Result<{ removed: boolean }>>;
   listDownloads(): Promise<Result<DownloadRecord[]>>;
   deleteDownload(id: number): Promise<Result<{ removed: boolean }>>;
@@ -355,7 +350,6 @@ export interface BsubApi {
   controlDownload(id: number, action: 'pause' | 'resume' | 'cancel'): Promise<Result<{ state: string }>>;
   bulkDownloads(action: 'pause' | 'resume'): Promise<Result<{ changed: number }>>;
   revealDownloadsFolder(): Promise<Result<boolean>>;
-  clearBrowsingData(): Promise<Result<{ cleared: boolean }>>;
   /** 只清当前站点（origin）的 Cookie 与存储 */
   clearSiteData(url: string): Promise<Result<{ origin: string }>>;
   /** 按范围清理浏览数据：历史/下载按时间，Cookie/缓存全量 */
