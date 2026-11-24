@@ -17,7 +17,7 @@ import { PanelLayoutSection } from './settings/PanelLayoutSection';
 import { AgentSection } from './settings/AgentSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
-import { EfficiencyGroup } from './settings/EfficiencyGroup';
+import { AdvancedSettings } from './settings/AdvancedSettings';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
@@ -1329,26 +1329,30 @@ export function SettingsPanel({
       {show('general') && (
         <>
           <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <DownloadSection
-            value={draft.general.download}
-            onChange={(next) => updateGeneral({ download: next })}
-          />
-          <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <AdvancedSettings count={3}>
+            <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+            <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+            <DownloadSection
+              value={draft.general.download}
+              onChange={(next) => updateGeneral({ download: next })}
+            />
+          </AdvancedSettings>
         </>
       )}
       {show('appearance') && (
         <>
           <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <PanelLayoutSection
-            value={draft.general.panelLayout}
-            onChange={(next) => updateGeneral({ panelLayout: next })}
-          />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <AdvancedSettings count={1}>
+            <PanelLayoutSection
+              value={draft.general.panelLayout}
+              onChange={(next) => updateGeneral({ panelLayout: next })}
+            />
+          </AdvancedSettings>
         </>
       )}
-      {show('voice') && (
+      {show('media') && (
         <>
           <AsrSection
             draft={draft}
@@ -1366,6 +1370,7 @@ export function SettingsPanel({
             setEditingAsrId={setEditingAsrId}
             platformStatus={platformStatusNode}
           />
+          <AdvancedSettings count={5}>
           <LocalModelsSection
             activeAsr={activeAsr}
             updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
@@ -1386,10 +1391,11 @@ export function SettingsPanel({
             ai={draft.ai}
             onAiChange={(patch) => updateAi(patch)}
           />
+          </AdvancedSettings>
         </>
       )}
 
-      {show('subtitles') && (
+      {show('media') && (
         <>
           <SubtitleGroup
             value={draft.general}
@@ -1397,6 +1403,7 @@ export function SettingsPanel({
             ai={draft.ai}
             onAiChange={(patch) => updateAi(patch)}
           />
+          <AdvancedSettings count={2}>
           <CorrectionSection
             value={draft.correction}
             ai={draft.ai}
@@ -1424,22 +1431,24 @@ export function SettingsPanel({
             value={draft.export}
             onChange={(next) => setDraft({ ...draft, export: next })}
           />
+          </AdvancedSettings>
         </>
       )}
       {show('desktop') && (
         <>
-          <EfficiencyGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <QuickAskSection
-            value={draft.general.quickAsk}
-            onChange={(patch) =>
-              updateGeneral({ quickAsk: { ...draft.general.quickAsk, ...patch } })
-            }
-          />
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <RadialSection
-            value={draft.general.radial}
-            onChange={(next) => updateGeneral({ radial: next })}
-          />
+          <AdvancedSettings count={2}>
+            <QuickAskSection
+              value={draft.general.quickAsk}
+              onChange={(patch) =>
+                updateGeneral({ quickAsk: { ...draft.general.quickAsk, ...patch } })
+              }
+            />
+            <RadialSection
+              value={draft.general.radial}
+              onChange={(next) => updateGeneral({ radial: next })}
+            />
+          </AdvancedSettings>
         </>
       )}
 
@@ -1464,27 +1473,7 @@ export function SettingsPanel({
       )}
 
       {show('ai') && (
-        <ImageGenSection
-          value={draft.image}
-          onChange={(patch) => setDraft({ ...draft, image: { ...draft.image, ...patch } })}
-        />
-      )}
-
-      {show('ai') && (
         <ContextSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
-      )}
-
-      {show('ai') && (
-        <ChatPromptsSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
-      )}
-
-      {show('ai') && (
-        <AssistantSection
-          value={draft.ai}
-          platforms={draft.ai.platforms}
-          skills={draft.skills.items}
-          updateAi={(patch) => updateAi(patch)}
-        />
       )}
 
       {show('ai') && (
@@ -1499,13 +1488,21 @@ export function SettingsPanel({
       />
       )}
 
-      {show('data') && (
-        <UsageSection
-          value={draft.usage}
-          onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
-        />
+      {show('ai') && (
+        <AdvancedSettings count={3}>
+          <ImageGenSection
+            value={draft.image}
+            onChange={(patch) => setDraft({ ...draft, image: { ...draft.image, ...patch } })}
+          />
+          <ChatPromptsSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
+          <AssistantSection
+            value={draft.ai}
+            platforms={draft.ai.platforms}
+            skills={draft.skills.items}
+            updateAi={(patch) => updateAi(patch)}
+          />
+        </AdvancedSettings>
       )}
-
 
       {show('search') && (
       <SearchSection
@@ -1526,21 +1523,60 @@ export function SettingsPanel({
       />
       )}
 
-
-      {show('search') && <AgentSection />}
-
-      {show('search') && <PluginsSection />}
-
-      {show('search') && <BrowserExtensionsSection />}
-
       {show('search') && (
-      <BridgeSection
-        value={draft.bridge}
-        status={bridge}
-        installing={installingExtension}
-        onChange={(next) => setDraft({ ...draft, bridge: next })}
-        onInstall={installExtension}
-      />
+        <AdvancedSettings count={6}>
+          <McpSection
+            value={draft.mcp}
+            testing={mcpTesting}
+            tools={mcpTools}
+            resources={mcpResources}
+            prompts={mcpPrompts}
+            args={mcpArgs}
+            result={mcpResult}
+            onChange={(next) => updateMcp(next)}
+            onArgs={setMcpArgs}
+            onAddServer={addMcpServer}
+            onUpdateServer={(id, patch) => updateMcpServer(id, patch)}
+            onRemoveServer={removeMcpServer}
+            onTest={(server) => void testMcp(server)}
+            onCall={(server, tool) => void callMcp(server, tool)}
+            onReadResource={(server, uri) => void readMcpResource(server, uri)}
+            onGetPrompt={(server, name, args) => void getMcpPrompt(server, name, args)}
+            onTestAll={() => void testAllMcp()}
+            onOAuth={(server) => void oauthMcp(server)}
+            onWatchResource={(server, uri, watched) =>
+              void watchMcpResource(server, uri, watched)
+            }
+          />
+          <SkillsSection
+            value={draft.skills}
+            onToggle={(enabled) => updateSkills({ enabled })}
+            onImport={() => void importSkill()}
+            onImportUrl={(url) => void importSkillUrl(url)}
+            onImportRepo={(url) => void importSkillRepo(url)}
+            onImportJson={(items) => importSkillsJson(items)}
+            onLoadIndex={(url) => loadSkillIndex(url)}
+            onInstallIndex={(entry) => void installIndexedSkill(entry)}
+            onIndexUrlChange={(url) => updateSkills({ indexUrl: url })}
+            onImportFolder={() => void importSkillFolder()}
+            onCreate={addSkill}
+            onUpdate={(id, patch) => updateSkill(id, patch)}
+            onRemove={removeSkill}
+            onRefresh={(id, url) => void refreshSkillUrl(id, url)}
+            onRefreshAll={() => void refreshAllSkills()}
+            onInstall={(template) => installSkillTemplate(template)}
+          />
+          <PluginsSection />
+          <BrowserExtensionsSection />
+          <BridgeSection
+            value={draft.bridge}
+            status={bridge}
+            installing={installingExtension}
+            onChange={(next) => setDraft({ ...draft, bridge: next })}
+            onInstall={installExtension}
+          />
+          <AgentSection />
+        </AdvancedSettings>
       )}
 
 
@@ -1560,77 +1596,6 @@ export function SettingsPanel({
       )}
 
 
-      {show('search') && (
-      <McpSection
-        value={draft.mcp}
-        testing={mcpTesting}
-        tools={mcpTools}
-        resources={mcpResources}
-        prompts={mcpPrompts}
-        args={mcpArgs}
-        result={mcpResult}
-        onChange={(next) => updateMcp(next)}
-        onArgs={setMcpArgs}
-        onAddServer={addMcpServer}
-        onUpdateServer={(id, patch) => updateMcpServer(id, patch)}
-        onRemoveServer={removeMcpServer}
-        onTest={(server) => void testMcp(server)}
-        onCall={(server, tool) => void callMcp(server, tool)}
-        onReadResource={(server, uri) => void readMcpResource(server, uri)}
-        onGetPrompt={(server, name, args) => void getMcpPrompt(server, name, args)}
-        onTestAll={() => void testAllMcp()}
-        onOAuth={(server) => void oauthMcp(server)}
-        onWatchResource={(server, uri, watched) =>
-          void watchMcpResource(server, uri, watched)
-        }
-      />
-      )}
-
-
-      {show('search') && (
-      <SkillsSection
-        value={draft.skills}
-        onToggle={(enabled) => updateSkills({ enabled })}
-        onImport={() => void importSkill()}
-        onImportUrl={(url) => void importSkillUrl(url)}
-        onImportRepo={(url) => void importSkillRepo(url)}
-        onImportJson={(items) => importSkillsJson(items)}
-        onLoadIndex={(url) => loadSkillIndex(url)}
-        onInstallIndex={(entry) => void installIndexedSkill(entry)}
-        onIndexUrlChange={(url) => updateSkills({ indexUrl: url })}
-        onImportFolder={() => void importSkillFolder()}
-        onCreate={addSkill}
-        onUpdate={(id, patch) => updateSkill(id, patch)}
-        onRemove={removeSkill}
-        onRefresh={(id, url) => void refreshSkillUrl(id, url)}
-        onRefreshAll={() => void refreshAllSkills()}
-        onInstall={(template) => installSkillTemplate(template)}
-      />
-      )}
-
-
-      {show('data') && (
-      <DiagnosticsSection
-        diagnostics={diagnostics}
-        fallbackVersion={version}
-        fallbackDataDir={dataDir}
-        onRefresh={() => void refreshDiagnostics()}
-        onCopy={() => void copyDiagnostics()}
-        onExport={() => void exportDiag()}
-      />
-      )}
-
-
-      {show('data') && (
-      <SitePermissionsSection
-        items={sitePermissions}
-        onRevoke={(origin, permission) => void revokePermission(origin, permission)}
-        onRefresh={() => void refreshSitePermissions()}
-        onClear={() => void clearPermissions()}
-      />
-      )}
-
-
       {show('data') && (
       <DataBackupSection
         dataDir={dataDir}
@@ -1645,6 +1610,28 @@ export function SettingsPanel({
       />
       )}
 
+      {show('data') && (
+        <AdvancedSettings count={3}>
+          <UsageSection
+            value={draft.usage}
+            onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
+          />
+          <DiagnosticsSection
+            diagnostics={diagnostics}
+            fallbackVersion={version}
+            fallbackDataDir={dataDir}
+            onRefresh={() => void refreshDiagnostics()}
+            onCopy={() => void copyDiagnostics()}
+            onExport={() => void exportDiag()}
+          />
+          <SitePermissionsSection
+            items={sitePermissions}
+            onRevoke={(origin, permission) => void revokePermission(origin, permission)}
+            onRefresh={() => void refreshSitePermissions()}
+            onClear={() => void clearPermissions()}
+          />
+        </AdvancedSettings>
+      )}
 
       {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}
 

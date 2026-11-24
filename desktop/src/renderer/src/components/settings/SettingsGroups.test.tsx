@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AppSettings } from '../../../../shared/types';
 import { AddressSearchGroup } from './AddressSearchGroup';
 import { AppearanceGroup } from './AppearanceGroup';
-import { EfficiencyGroup } from './EfficiencyGroup';
 import { ReadingGroup } from './ReadingGroup';
 import { SessionsGroup } from './SessionsGroup';
 
@@ -42,7 +41,6 @@ function Groups({ value, onChange }: { value: AppSettings['general']; onChange: 
       <SessionsGroup value={value} onChange={onChange} />
       <AddressSearchGroup value={value} onChange={onChange} />
       <ReadingGroup value={value} onChange={onChange} />
-      <EfficiencyGroup value={value} onChange={onChange} />
     </>
   );
 }
@@ -70,15 +68,6 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ sidebarPosition: 'right' });
     fireEvent.click(screen.getByLabelText('关闭窗口时缩到托盘'));
     expect(p.onChange).toHaveBeenCalledWith({ closeToTray: false });
-  });
-
-  it('桌宠与悬浮球开关回传补丁', () => {
-    const p = props();
-    render(<Groups {...p} />);
-    fireEvent.click(screen.getByLabelText(/AI 悬浮球/));
-    expect(p.onChange).toHaveBeenCalledWith({ assistantEnabled: true });
-    fireEvent.click(screen.getByLabelText(/桌面宠物/));
-    expect(p.onChange).toHaveBeenCalledWith({ petEnabled: true });
   });
 
   it('垂直标签栏开关回传补丁', () => {

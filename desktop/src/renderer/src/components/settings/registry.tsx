@@ -4,7 +4,6 @@ import {
   Captions,
   DatabaseBackup,
   Globe,
-  Mic,
   Palette,
   Settings,
   Sparkles
@@ -27,7 +26,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'general',
     label: '通用',
-    description: '启动、关闭、代理、下载与快捷键',
+    description: '启动与主页、浏览器行为、代理',
     tips: [
       '第一次使用先到「AI 与模型」选平台、填 Key。',
       '开了系统加速器但 API 连不上时，到「网络代理」改成跟随系统。',
@@ -38,7 +37,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'appearance',
     label: '外观与浏览器',
-    description: '主题、侧栏、标签栏、地址栏与阅读',
+    description: '主题、侧栏、工具栏、页面与阅读',
     tips: [
       '想更紧凑：把「界面密度」改成紧凑，字号调到 90%。',
       '标签栏默认在左侧，可改回顶部或隐藏。',
@@ -49,7 +48,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'ai',
     label: 'AI 与模型',
-    description: '平台与模型、上下文、助手与提示词',
+    description: '平台与模型、上下文、提示词',
     tips: [
       '先选一个 OpenAI 兼容或 Anthropic 平台，填 Base URL、模型和 Key，点「测试连接」。',
       '想省钱：在对应功能的设置里给翻译/校对单独选便宜模型，其余任务继续跟随 AI 平台。',
@@ -58,31 +57,19 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     icon: Bot
   },
   {
-    id: 'voice',
-    label: '语音与识别',
-    description: '语音识别、本地模型、朗读、语音输入与 OCR',
+    id: 'media',
+    label: '语音与字幕',
+    description: '语音识别、字幕、翻译与成片样式',
     tips: [
       '没有官方字幕时，先到「语音识别」选在线接口或本地 whisper。',
-      '本地模型页可以下载 whisper 模型与运行组件，不用自己编译。',
-      '文字朗读和语音输入使用不同的系统能力，可分别关闭。'
-    ],
-    icon: Mic
-  },
-  {
-    id: 'subtitles',
-    label: '字幕与播放',
-    description: '字幕显示、倍速、翻译与成片样式',
-    tips: [
-      '字幕跟随默认开启，拖动进度条大跳转会重新定位。',
-      '倍速支持页内面板和快捷键，按站点记忆。',
-      '导出默认值只影响新导出，不影响已有文件。'
+      '字幕跟随与倍速在「字幕行为 / 播放速度」里；校对、导出、成片在「高级与维护」。'
     ],
     icon: Captions
   },
   {
     id: 'search',
     label: '检索与扩展',
-    description: '联网搜索、MCP、技能与插件桥',
+    description: '联网检索、MCP、技能与扩展',
     tips: [
       '总结前核对默认开启；没有检索 Key 也能用免费兜底。',
       'MCP 危险工具默认逐次确认，写入类操作不会静默执行。'
@@ -92,7 +79,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'desktop',
     label: '桌面助手',
-    description: '桌宠、悬浮球、快捷取词与快捷键',
+    description: '桌宠、悬浮球、取词与轮盘',
     tips: [
       '桌宠和悬浮球都使用「AI 与模型」里的当前平台。',
       '全局听写 / 快捷取词默认关闭，开启后记得确认热键不冲突。',
@@ -103,7 +90,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'data',
     label: '数据与关于',
-    description: '用量、备份、更新、诊断与站点权限',
+    description: '备份、更新、用量与诊断',
     tips: [
       '换电脑前用「备份数据」导出设置、字幕库、对话与用量。',
       '更新只走 GitHub Releases，不在本地 publish。',

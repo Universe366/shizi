@@ -46,6 +46,9 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
     );
     if (!section) return;
     (section as HTMLDetailsElement).open = true;
+    // 高级分区在「高级与维护」抽屉里：跳转时把外层抽屉一起展开。
+    const drawer = section.closest('.settings-advanced') as HTMLDetailsElement | null;
+    if (drawer) drawer.open = true;
     const sticky = host.querySelector<HTMLElement>('.settings-sticky');
     const offset = (sticky?.getBoundingClientRect().height || 0) + 10;
     const top =

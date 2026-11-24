@@ -131,6 +131,14 @@ export function GeneralGroup({ value, onChange }: Props) {
       <div className="settings-hint">
         主页按钮在地址栏右侧，可在「外观与浏览器 → 浏览器工具栏」里隐藏。
       </div>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.downloadNotify !== false}
+          onChange={(event) => onChange({ downloadNotify: event.target.checked })}
+        />
+        下载完成后弹系统通知
+      </label>
     </SettingsSection>
 
     <SettingsSection title="默认浏览器" defaultOpen>
@@ -161,20 +169,6 @@ export function GeneralGroup({ value, onChange }: Props) {
       {defaultNotice && <div className="settings-hint">{defaultNotice}</div>}
       <div className="settings-hint">
         从系统设置回来后状态会自动刷新；如果列表里没有「拾字」，再点一次「设为默认浏览器」重新登记。
-      </div>
-    </SettingsSection>
-
-    <SettingsSection title="下载" defaultOpen={false}>
-      <label className="settings-check">
-        <input
-          type="checkbox"
-          checked={value.downloadNotify !== false}
-          onChange={(event) => onChange({ downloadNotify: event.target.checked })}
-        />
-        下载完成后弹系统通知
-      </label>
-      <div className="settings-hint">
-        点击通知会在文件夹中显示文件；进行中的下载数量显示在地址栏的下载按钮上。
       </div>
     </SettingsSection>
 

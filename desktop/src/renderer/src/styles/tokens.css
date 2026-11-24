@@ -70,6 +70,14 @@
   --overlay-blur: blur(4px);
   --surface-hover: var(--surface-2);
 
+  /* 标签组配色：只用语义名，深浅色共用 */
+  --group-blue: #4c8dff;
+  --group-green: #35b57a;
+  --group-red: #e5544b;
+  --group-yellow: #d9a21b;
+  --group-purple: #9a6bff;
+  --group-gray: #8b93a1;
+
   --dur-fast: 120ms;
   --dur-base: 160ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -111,5 +119,11 @@
     --shadow-pop: 0 14px 36px rgba(0, 0, 0, 0.55);
     --overlay: rgba(0, 0, 0, 0.56);
     --surface-hover: var(--surface-3);
+    --group-blue: #6ea4ff;
+    --group-green: #4fc48f;
+    --group-red: #f06a61;
+    --group-yellow: #e5b53f;
+    --group-purple: #b18cff;
+    --group-gray: #a0a8b6;
   }
 }

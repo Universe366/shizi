@@ -23,7 +23,16 @@ export function PetSection({ value, onChange }: PetSectionProps) {
 
   return (
     <>
-      <SettingsSection title="桌面宠物" defaultOpen>
+      <SettingsSection title="桌面助手" defaultOpen>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={value.assistantEnabled === true}
+            onChange={(event) => onChange({ assistantEnabled: event.target.checked })}
+          />
+          显示 AI 悬浮球（右下角）
+        </label>
+
         <label className="settings-check">
           <input
             type="checkbox"

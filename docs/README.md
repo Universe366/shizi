@@ -1,6 +1,6 @@
 # 文档索引
 
-> 适用版本：桌面 0.167.0 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
+> 适用版本：桌面 0.168.0 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
 
 ## 当前文档
 
@@ -8,6 +8,7 @@
 |---|---|
 | [REPO-MAP.md](REPO-MAP.md) | 目录地图、文档选择、维护规则 |
 | [UI-SYSTEM.md](UI-SYSTEM.md) | UI 设计变量、统一规则与迁移范围 |
+| [SETTINGS-IA.md](SETTINGS-IA.md) | 设置页信息架构：常用项、高级抽屉与分组映射 |
 | [AI-NATIVE.md](AI-NATIVE.md) | AI 原生浏览路线图：三层 AI、浏览器差距矩阵、Phase 1–4 |
 | [BROWSER-FLOW.md](BROWSER-FLOW.md) | 浏览闭环规划与落地 |
 | [BROWSER-CLEANUP.md](BROWSER-CLEANUP.md) | 浏览器旧逻辑清理清单 |

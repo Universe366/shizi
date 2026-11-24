@@ -338,9 +338,9 @@ export function AppearanceGroup({ value, onChange }: Props) {
         </details>
       </SettingsSection>
 
-      <SettingsSection title="站点缩放" defaultOpen={false}>
+      <SettingsSection title="站点例外与清理" defaultOpen={false}>
         <div className="settings-group-desc">
-          各站点记住的缩放比例；清除后会回到 100%。
+          各站点记住的缩放比例，以及被排除在深色模式外的站点；清除后回到默认。
         </div>
         {Object.keys(value.siteZoom || {}).length === 0 ? (
           <div className="settings-hint">还没有记住任何站点。</div>
@@ -375,12 +375,8 @@ export function AppearanceGroup({ value, onChange }: Props) {
             清除全部站点缩放
           </button>
         )}
-      </SettingsSection>
 
-      <SettingsSection title="站点深色例外" defaultOpen={false}>
-        <div className="settings-group-desc">
-          这些站点不会跟随程序的网页深色模式；可随时恢复。
-        </div>
+        <div className="settings-group-title">不跟随深色的站点</div>
         {(value.siteDarkDisabled || []).length === 0 ? (
           <div className="settings-hint">所有站点都跟随程序深色模式。</div>
         ) : (
