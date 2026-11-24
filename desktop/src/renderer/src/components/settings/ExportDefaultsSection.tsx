@@ -22,7 +22,7 @@ export function ExportDefaultsSection({ value, onChange }: ExportDefaultsSection
   const patch = (partial: Partial<ExportSettings>) => onChange({ ...value, ...partial });
 
   return (
-    <SettingsSection title="导出默认值" defaultOpen={false}>
+    <SettingsSection title="导出默认" defaultOpen={false}>
       <div className="settings-label">默认格式</div>
       <select
         className="settings-input"

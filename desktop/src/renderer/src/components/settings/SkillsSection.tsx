@@ -65,7 +65,7 @@ export function SkillsSection({
   });
 
   return (
-    <SettingsSection title="Skills" defaultOpen={false}>
+    <SettingsSection title="技能（Skills）" defaultOpen={false}>
       <label className="settings-check">
         <input
           type="checkbox"

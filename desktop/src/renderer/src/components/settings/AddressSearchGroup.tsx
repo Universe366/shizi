@@ -12,7 +12,7 @@ interface Props {
 /** 地址栏与搜索：默认搜索引擎、自定义模板。 */
 export function AddressSearchGroup({ value, onChange }: Props) {
   return (
-    <SettingsSection title="地址栏与搜索" defaultOpen>
+    <SettingsSection title="地址栏与搜索引擎" defaultOpen>
       <div className="settings-label">地址栏搜索</div>
       <select
         className="settings-input"

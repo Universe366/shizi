@@ -140,7 +140,7 @@ export function LocalModelsSection({ activeAsr, updateAsrPlatform }: Props) {
   const installedBinaries = binaries.filter((row) => row.downloaded).length;
 
   return (
-    <SettingsSection title="本地 Whisper 模型" defaultOpen={false}>
+    <SettingsSection title="本地识别模型" defaultOpen={false}>
       <div className="settings-hint">
         语音识别的一键下载版：模型和 whisper.cpp 都存在用户数据目录，软件更新不会丢。
         下载会校验体积与 SHA-256，也可以删除不再用的模型腾空间。

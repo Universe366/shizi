@@ -65,7 +65,7 @@ export function AssistantSection({ value, skills, platforms, updateAi }: Props) 
   };
 
   return (
-    <SettingsSection title="助手档案" defaultOpen={false}>
+    <SettingsSection title="AI 助手" defaultOpen={false}>
       <div className="settings-hint">
         把「提示词 + 模型 + 技能 + 工具 + 联网」存成档案；在对话输入框的工具栏选择后一次生效。
       </div>

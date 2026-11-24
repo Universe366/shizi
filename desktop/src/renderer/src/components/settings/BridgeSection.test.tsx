@@ -18,23 +18,19 @@ function props(overrides: Record<string, unknown> = {}) {
 }
 
 describe('BridgeSection', () => {
-  const writeClipboard = vi.fn(async () => undefined);
   beforeEach(() => {
     localStorage.clear();
-    Object.defineProperty(window, 'bsub', {
-      configurable: true,
-      value: { writeClipboard }
-    });
   });
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
   });
 
-  it('显示端口、Token 与运行状态', () => {
+  it('只显示运行状态，不再暴露端口与 Token', () => {
     render(<BridgeSection {...props()} />);
-    expect(screen.getByText('token-123')).toBeTruthy();
     expect(screen.getByText(/运行中 · 127.0.0.1:47821/)).toBeTruthy();
+    expect(screen.queryByText('token-123')).toBeNull();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
   });
 
   it('未运行时显示原因', () => {
@@ -42,20 +38,20 @@ describe('BridgeSection', () => {
     expect(screen.getByText(/未启动：端口被占用/)).toBeTruthy();
   });
 
-  it('开关与端口变更会回调', () => {
+  it('开关回传补丁', () => {
     const p = props();
     render(<BridgeSection {...p} />);
     fireEvent.click(screen.getByLabelText('启用本机接收'));
     expect(p.onChange).toHaveBeenCalledWith({ ...value, enabled: false });
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '50000' } });
-    expect(p.onChange).toHaveBeenCalledWith({ ...value, port: 50000 });
   });
 
-  it('安装按钮回调、安装中禁用；复制写入剪贴板', () => {
-    const p = props({ installing: true });
-    render(<BridgeSection {...p} />);
+  it('安装按钮可点击，安装中禁用', () => {
+    const p = props();
+    const { rerender } = render(<BridgeSection {...p} />);
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    expect(p.onInstall).toHaveBeenCalled();
+
+    rerender(<BridgeSection {...props({ installing: true })} />);
     expect((screen.getAllByRole('button')[0] as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByText('复制'));
-    expect(writeClipboard).toHaveBeenCalledWith('token-123');
   });
 });

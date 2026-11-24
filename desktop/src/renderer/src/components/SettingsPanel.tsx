@@ -17,7 +17,6 @@ import { PanelLayoutSection } from './settings/PanelLayoutSection';
 import { AgentSection } from './settings/AgentSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
-import { AdvancedSettings } from './settings/AdvancedSettings';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
@@ -1329,14 +1328,12 @@ export function SettingsPanel({
       {show('general') && (
         <>
           <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <AdvancedSettings count={3}>
             <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
             <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
             <DownloadSection
               value={draft.general.download}
               onChange={(next) => updateGeneral({ download: next })}
             />
-          </AdvancedSettings>
         </>
       )}
       {show('appearance') && (
@@ -1344,12 +1341,10 @@ export function SettingsPanel({
           <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <AdvancedSettings count={1}>
             <PanelLayoutSection
               value={draft.general.panelLayout}
               onChange={(next) => updateGeneral({ panelLayout: next })}
             />
-          </AdvancedSettings>
         </>
       )}
       {show('media') && (
@@ -1370,7 +1365,6 @@ export function SettingsPanel({
             setEditingAsrId={setEditingAsrId}
             platformStatus={platformStatusNode}
           />
-          <AdvancedSettings count={5}>
           <LocalModelsSection
             activeAsr={activeAsr}
             updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
@@ -1391,7 +1385,6 @@ export function SettingsPanel({
             ai={draft.ai}
             onAiChange={(patch) => updateAi(patch)}
           />
-          </AdvancedSettings>
         </>
       )}
 
@@ -1403,7 +1396,6 @@ export function SettingsPanel({
             ai={draft.ai}
             onAiChange={(patch) => updateAi(patch)}
           />
-          <AdvancedSettings count={2}>
           <CorrectionSection
             value={draft.correction}
             ai={draft.ai}
@@ -1431,13 +1423,11 @@ export function SettingsPanel({
             value={draft.export}
             onChange={(next) => setDraft({ ...draft, export: next })}
           />
-          </AdvancedSettings>
         </>
       )}
       {show('desktop') && (
         <>
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <AdvancedSettings count={2}>
             <QuickAskSection
               value={draft.general.quickAsk}
               onChange={(patch) =>
@@ -1448,7 +1438,6 @@ export function SettingsPanel({
               value={draft.general.radial}
               onChange={(next) => updateGeneral({ radial: next })}
             />
-          </AdvancedSettings>
         </>
       )}
 
@@ -1489,7 +1478,7 @@ export function SettingsPanel({
       )}
 
       {show('ai') && (
-        <AdvancedSettings count={3}>
+        <>
           <ImageGenSection
             value={draft.image}
             onChange={(patch) => setDraft({ ...draft, image: { ...draft.image, ...patch } })}
@@ -1501,7 +1490,7 @@ export function SettingsPanel({
             skills={draft.skills.items}
             updateAi={(patch) => updateAi(patch)}
           />
-        </AdvancedSettings>
+        </>
       )}
 
       {show('search') && (
@@ -1524,7 +1513,7 @@ export function SettingsPanel({
       )}
 
       {show('search') && (
-        <AdvancedSettings count={6}>
+        <>
           <McpSection
             value={draft.mcp}
             testing={mcpTesting}
@@ -1576,7 +1565,7 @@ export function SettingsPanel({
             onInstall={installExtension}
           />
           <AgentSection />
-        </AdvancedSettings>
+        </>
       )}
 
 
@@ -1611,7 +1600,7 @@ export function SettingsPanel({
       )}
 
       {show('data') && (
-        <AdvancedSettings count={3}>
+        <>
           <UsageSection
             value={draft.usage}
             onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
@@ -1630,7 +1619,7 @@ export function SettingsPanel({
             onRefresh={() => void refreshSitePermissions()}
             onClear={() => void clearPermissions()}
           />
-        </AdvancedSettings>
+        </>
       )}
 
       {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}

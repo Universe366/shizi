@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { SECTION_DESCRIPTIONS } from './descriptions';
+import { sectionIcon } from './sectionIcons';
 
 interface SettingsSectionProps {
   title: string;
@@ -19,6 +20,7 @@ export function SettingsSection({
   const storageKey = `bsub.settings.section.${title}`;
   const ref = useRef<HTMLDetailsElement>(null);
   const text = description ?? SECTION_DESCRIPTIONS[title] ?? '';
+  const Icon = sectionIcon(title);
   useEffect(() => {
     if (!ref.current) return;
     const stored = localStorage.getItem(storageKey);
@@ -37,8 +39,13 @@ export function SettingsSection({
       }}
     >
       <summary className="settings-section-title">
-        <span className="settings-section-name">{title}</span>
-        {text && <span className="settings-section-desc">{text}</span>}
+        <span className="settings-section-icon" aria-hidden="true">
+          <Icon size={16} />
+        </span>
+        <span className="settings-section-text">
+          <span className="settings-section-name">{title}</span>
+          {text && <span className="settings-section-desc">{text}</span>}
+        </span>
       </summary>
       <div className="settings-section-body">{children}</div>
     </details>

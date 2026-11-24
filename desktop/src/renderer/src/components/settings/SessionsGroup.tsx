@@ -11,7 +11,7 @@ interface Props {
 /** 标签页与会话：恢复会话、后台休眠、关闭行为。 */
 export function SessionsGroup({ value, onChange }: Props) {
   return (
-    <SettingsSection title="标签页与会话" defaultOpen>
+    <SettingsSection title="窗口与标签" defaultOpen>
       <div className="settings-hint">
         启动行为（起始页 / 恢复上次会话 / 指定网页）已统一到「通用 → 启动与主页」。
       </div>

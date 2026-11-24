@@ -30,7 +30,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
 
   return (
     <>
-      <SettingsSection title="字幕行为" defaultOpen>
+      <SettingsSection title="字幕显示" defaultOpen>
         <label className="settings-check">
           <input
             type="checkbox"
@@ -210,7 +210,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="成片样式">
+      <SettingsSection title="视频成片">
         <div className="settings-hint">
           默认样式；成片弹窗里还能临时改，并「保存为预设」。
         </div>

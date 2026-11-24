@@ -102,7 +102,7 @@ export function AgentSection() {
 
   return (
     <SettingsSection
-      title="本地 Agent"
+      title="本地接口（Agent）"
       description="把拾字开放给外部 Agent：本地 HTTP + MCP，默认只读"
       defaultOpen={false}
     >

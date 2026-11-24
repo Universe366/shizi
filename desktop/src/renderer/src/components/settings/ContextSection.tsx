@@ -11,7 +11,7 @@ interface Props {
 export function ContextSection({ value, onChange }: Props) {
   const enabled = value.contextAutoCompress !== false;
   return (
-    <SettingsSection title="对话上下文" defaultOpen={false}>
+    <SettingsSection title="对话设置" defaultOpen={false}>
       <TaskModelField
         ai={value}
         onChange={onChange}

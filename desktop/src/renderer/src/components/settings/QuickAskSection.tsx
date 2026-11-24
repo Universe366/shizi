@@ -9,7 +9,7 @@ interface Props {
 /** 全局快捷取词：任意应用选中文字后热键唤起桌宠。 */
 export function QuickAskSection({ value, onChange }: Props) {
   return (
-    <SettingsSection title="快捷取词" defaultOpen={false}>
+    <SettingsSection title="全局取词" defaultOpen={false}>
       <div className="settings-hint">
         在任意应用里选中文字后按热键，桌宠会带上这段文字弹出，可继续解释、翻译或提问。
         原理是向当前应用发送一次 Ctrl+C，少数不支持复制的窗口会取不到。

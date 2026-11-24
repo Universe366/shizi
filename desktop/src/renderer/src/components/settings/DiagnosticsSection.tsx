@@ -22,7 +22,7 @@ export function DiagnosticsSection({
 }: DiagnosticsSectionProps) {
   const version = diagnostics?.version || fallbackVersion;
   return (
-    <SettingsSection title="诊断与关于" defaultOpen={false}>
+    <SettingsSection title="诊断与版本" defaultOpen={false}>
       <div className="settings-row">
         <span>桌面端版本</span>
         <code>{version || '读取中'}</code>

@@ -11,7 +11,7 @@ interface Props {
 /** 页面与阅读：目前只保留网页选区工具条；字幕/倍速/翻译在「字幕与播放」里。 */
 export function ReadingGroup({ value, onChange }: Props) {
   return (
-    <SettingsSection title="页面与阅读" defaultOpen>
+    <SettingsSection title="网页与阅读" defaultOpen>
       <label className="settings-check">
         <input
           type="checkbox"

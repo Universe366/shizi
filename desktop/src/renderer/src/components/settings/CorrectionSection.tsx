@@ -58,7 +58,7 @@ export function CorrectionSection({
   onPreview
 }: CorrectionSectionProps) {
   return (
-    <SettingsSection title="字幕校对与术语表" defaultOpen={false}>
+    <SettingsSection title="校对与术语表" defaultOpen={false}>
       <TaskModelField
         ai={ai}
         onChange={onAiChange}
