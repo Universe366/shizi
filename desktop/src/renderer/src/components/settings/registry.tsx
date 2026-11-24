@@ -3,7 +3,6 @@ import {
   Bot,
   Captions,
   DatabaseBackup,
-  Download,
   Globe,
   Keyboard,
   Palette,
@@ -93,14 +92,6 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     navGroup: '工具',
     tips: ['MCP 危险工具默认逐次确认，不会静默执行。', '插件 UI 运行在隔离 iframe 里，拿不到应用权限。'],
     icon: Puzzle
-  },
-  {
-    id: 'download',
-    label: '下载与导出',
-    description: '视频下载默认值与导出格式',
-    navGroup: '工具',
-    tips: ['这里的默认值只影响新任务，不改变已有文件。'],
-    icon: Download
   },
   {
     id: 'data',

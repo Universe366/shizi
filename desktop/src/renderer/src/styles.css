@@ -16745,6 +16745,12 @@ sup:has(> .cite-ref) {
   width: min(480px, 92vw);
 }
 
+.settings-dialog {
+  width: min(560px, 94vw);
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
+}
+
 .download-btn {
   position: relative;
 }

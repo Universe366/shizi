@@ -19,7 +19,6 @@ import { AppearanceGroup } from './settings/AppearanceGroup';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
-import { DownloadSection } from './settings/DownloadSection';
 import { RadialSection } from './settings/RadialSection';
 import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
@@ -28,10 +27,8 @@ import { OcrSection } from './settings/OcrSection';
 import { ImageGenSection } from './settings/ImageGenSection';
 import { QuickAskSection } from './settings/QuickAskSection';
 import { ReadingGroup } from './settings/ReadingGroup';
-import { SubtitleGroup } from './settings/SubtitleGroup';
 import { SessionsGroup } from './settings/SessionsGroup';
 import { McpSection } from './settings/McpSection';
-import { ExportDefaultsSection } from './settings/ExportDefaultsSection';
 import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
 import { TtsSection } from './settings/TtsSection';
@@ -1335,12 +1332,6 @@ export function SettingsPanel({
         <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
       )}
 
-      {show('download') && (
-        <DownloadSection
-          value={draft.general.download}
-          onChange={(next) => updateGeneral({ download: next })}
-        />
-      )}
       {show('appearance') && (
         <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
       )}
@@ -1399,12 +1390,6 @@ export function SettingsPanel({
 
       {show('voice') && (
         <>
-          <SubtitleGroup
-            value={draft.general}
-            onChange={(patch) => updateGeneral(patch)}
-            ai={draft.ai}
-            onAiChange={(patch) => updateAi(patch)}
-          />
           <CorrectionSection
             value={draft.correction}
             ai={draft.ai}
@@ -1429,13 +1414,6 @@ export function SettingsPanel({
             onPreview={() => void previewCorrection()}
           />
         </>
-      )}
-
-      {show('download') && (
-        <ExportDefaultsSection
-          value={draft.export}
-          onChange={(next) => setDraft({ ...draft, export: next })}
-        />
       )}
 
       {show('desktop') && (

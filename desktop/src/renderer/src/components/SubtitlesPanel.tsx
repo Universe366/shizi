@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { askConfirm } from './ui/confirm';
-import { AlertTriangle, Copy, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Copy, Loader2, RefreshCw, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import type {
   OptimizeSuggestion,
   PageInfo,
@@ -32,6 +32,8 @@ import {
   setTranslationResult
 } from '../lib/translationStore';
 import { ExportMenu } from './ExportMenu';
+import { SettingsDialog } from './SettingsDialog';
+import { SubtitleGroup } from './settings/SubtitleGroup';
 import { ResegmentDialog } from './ResegmentDialog';
 import { TimelineShiftDialog } from './TimelineShiftDialog';
 import { SynthesizeDialog } from './SynthesizeDialog';
@@ -135,6 +137,7 @@ export function SubtitlesPanel({
   const [resegmentOpen, setResegmentOpen] = useState(false);
   const [resegmentUndo, setResegmentUndo] = useState(false);
   const [timelineShiftOpen, setTimelineShiftOpen] = useState(false);
+  const [subtitleSettingsOpen, setSubtitleSettingsOpen] = useState(false);
   const [timelineShiftUndo, setTimelineShiftUndo] = useState(false);
   const timelineUndoRef = useRef<SubtitleLine[] | null>(null);
   const [synthesizeOpen, setSynthesizeOpen] = useState(false);
@@ -1211,6 +1214,13 @@ export function SubtitlesPanel({
         <div className="panel-title">字幕</div>
         <div className="toolbar-actions">
           <button
+            className="icon-btn"
+            title="字幕与播放设置"
+            onClick={() => setSubtitleSettingsOpen(true)}
+          >
+            <SlidersHorizontal size={14} />
+          </button>
+          <button
             className="mini-btn primary"
             style={{ display: show('ingest') ? undefined : 'none' }}
             disabled={!info || !track || !lines.length || saving}
@@ -1740,6 +1750,22 @@ export function SubtitlesPanel({
         lines={lines}
         onClose={() => setDubOpen(false)}
       />
+      {subtitleSettingsOpen && (
+        <SettingsDialog
+          title="字幕与播放"
+          description="字幕显示、跟随、翻译、倍速与成片样式；只影响这台电脑。"
+          onClose={() => setSubtitleSettingsOpen(false)}
+        >
+          {(draft, patch) => (
+            <SubtitleGroup
+              value={draft.general}
+              onChange={(next) => patch((d) => ({ ...d, general: { ...d.general, ...next } }))}
+              ai={draft.ai}
+              onAiChange={(next) => patch((d) => ({ ...d, ai: { ...d.ai, ...next } }))}
+            />
+          )}
+        </SettingsDialog>
+      )}
     </div>
   );
 }
