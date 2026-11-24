@@ -49,23 +49,21 @@ describe('GeneralSection', () => {
   beforeEach(() => localStorage.clear());
   afterEach(cleanup);
 
-  it('渲染主题与侧栏位置', () => {
+  it('渲染主题与界面密度', () => {
     render(<Groups {...props()} />);
     expect(
       screen.getByRole('button', { name: '主题：跟随系统' }).getAttribute('aria-pressed')
     ).toBe('true');
-    expect(
-      screen.getByRole('button', { name: '侧栏位置：左侧' }).getAttribute('aria-pressed')
-    ).toBe('true');
+    expect(screen.getByRole('button', { name: '舒适' }).getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('切换主题、侧栏位置与开关都回传局部补丁', () => {
+  it('切换主题、密度与开关都回传局部补丁', () => {
     const p = props();
     render(<Groups {...p} />);
     fireEvent.click(screen.getByRole('button', { name: '主题：深色' }));
     expect(p.onChange).toHaveBeenCalledWith({ theme: 'dark' });
-    fireEvent.click(screen.getByRole('button', { name: '侧栏位置：右侧' }));
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarPosition: 'right' });
+    fireEvent.click(screen.getByRole('button', { name: '紧凑' }));
+    expect(p.onChange).toHaveBeenCalledWith({ density: 'compact' });
     fireEvent.click(screen.getByLabelText('关闭窗口时缩到托盘'));
     expect(p.onChange).toHaveBeenCalledWith({ closeToTray: false });
   });
@@ -84,24 +82,16 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
   });
 
-  it('侧栏宽度滑杆范围 240–480', () => {
-    const p = props();
-    render(<Groups {...p} />);
-    const width = screen.getByLabelText('侧栏宽度') as HTMLInputElement;
-    fireEvent.change(width, { target: { value: '999' } });
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 480 });
-    fireEvent.change(width, { target: { value: '100' } });
-    expect(p.onChange).toHaveBeenCalledWith({ sidebarWidth: 240 });
-  });
-
   it('关闭字幕缓存后隐藏天数输入', () => {
     const p = props({ value: { ...value, cacheSubtitles: false } });
     render(<Groups {...p} />);
     expect(screen.queryByText(/字幕缓存天数/)).toBeNull();
   });
 
-  it('字号滑杆显示百分比', () => {
-    render(<Groups {...props({ value: { ...value, fontScale: 1.25 } })} />);
-    expect(screen.getByText(/界面字号（125%）/)).toBeTruthy();
+  it('外观只保留主题/配色/密度，不再暴露圆角与字号', () => {
+    render(<Groups {...props()} />);
+    expect(screen.queryByLabelText('界面圆角')).toBeNull();
+    expect(screen.queryByLabelText('界面字号')).toBeNull();
+    expect(screen.queryByLabelText('侧栏宽度')).toBeNull();
   });
 });
