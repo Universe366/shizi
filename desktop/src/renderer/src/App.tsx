@@ -658,12 +658,53 @@ export default function App() {
     );
   };
 
+  const groupTabsBySite = async () => {
+    const byHost = new Map<string, string[]>();
+    for (const tab of tabs) {
+      try {
+        const host = new URL(tab.url).hostname.replace(/^www\./, '');
+        if (!host || host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) continue;
+        byHost.set(host, [...(byHost.get(host) || []), tab.id]);
+      } catch {
+        // 起始页等非 http(s) 标签跳过
+      }
+    }
+    const colors = ['blue', 'green', 'red', 'yellow', 'purple', 'gray'] as const;
+    let index = 0;
+    for (const [host, ids] of byHost) {
+      if (ids.length < 2) continue;
+      const group = await window.bsub.createTabGroup(host, colors[index % colors.length]);
+      for (const id of ids) await window.bsub.assignTabGroup(id, group.id);
+      index += 1;
+    }
+  };
+
+  const closeDuplicateTabs = () => {
+    const seen = new Set<string>();
+    for (const tab of tabs) {
+      if (seen.has(tab.url)) void window.bsub.closeTab(tab.id);
+      else seen.add(tab.url);
+    }
+  };
+
   const commands: CommandItem[] = [
     ...aiActionsFor('page').map((action) => ({
       id: `ai-${action.id}`,
       label: `AI：${action.label}`,
       run: () => askAi(action.prompt({}))
     })),
+    {
+      id: 'group-tabs-by-site',
+      label: '按网站整理标签页',
+      hint: '自动分组',
+      run: () => void groupTabsBySite()
+    },
+    {
+      id: 'close-duplicate-tabs',
+      label: '关闭重复标签页',
+      hint: '按网址去重',
+      run: () => closeDuplicateTabs()
+    },
     {
       id: 'ai-tabs-overview',
       label: 'AI：总结打开的标签页',

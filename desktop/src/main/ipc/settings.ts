@@ -48,6 +48,7 @@ import {
   settingsForExport,
   settingsSnapshot
 } from '../settings';
+import { setTrackerBlockingEnabled } from '../trackerBlock';
 import { bridgeStatus, restartBridge } from '../bridge';
 import {
   checkForUpdates,
@@ -292,6 +293,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
             current.transport !== old.transport;
           if (changed) resetMcpSession(old);
         }
+        setTrackerBlockingEnabled(saved.general.blockTrackers);
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setWebDarkMode();
         ctx.sidebarWeb?.setWebDarkMode();
@@ -366,6 +368,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
         if (result.canceled || !file) return { ok: true, data: { canceled: true } };
         const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as AppSettings;
         const saved = saveSettings(raw);
+        setTrackerBlockingEnabled(saved.general.blockTrackers);
         nativeTheme.themeSource = saved.general.theme;
         ctx.tabs.setWebDarkMode();
         ctx.sidebarWeb?.setWebDarkMode();

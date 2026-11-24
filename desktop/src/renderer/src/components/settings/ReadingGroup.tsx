@@ -20,6 +20,14 @@ export function ReadingGroup({ value, onChange }: Props) {
         />
         选中网页文字时显示「解释 / 翻译 / 总结」工具条
       </label>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.blockTrackers === true}
+          onChange={(event) => onChange({ blockTrackers: event.target.checked })}
+        />
+        拦截常见统计与广告跟踪（可能影响站点统计，不影响播放）
+      </label>
       <div className="settings-hint">
         字幕跟随、缓存、倍速、翻译和成片样式已经统一放到「字幕与播放」。
       </div>

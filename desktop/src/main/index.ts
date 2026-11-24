@@ -29,6 +29,7 @@ import { installLogger } from './logger';
 import { fatal, writeLog } from './log';
 import { installPermissionGate } from './permissions';
 import { installCsp } from './csp';
+import { installTrackerBlocking } from './trackerBlock';
 import { startBridge, stopBridge } from './bridge';
 import { loadBrowserExtensions } from './extensions';
 import { installPluginProtocol, installPluginScheme } from './plugins';
@@ -451,6 +452,7 @@ app
     fullscreenTimer.unref?.();
     if (process.platform === 'win32') app.setAppUserModelId('com.shizi.desktop');
     session.defaultSession.setUserAgent(UA);
+    installTrackerBlocking(loadSettings().general.blockTrackers);
     installDownloadHook(() => mainWindow);
     initLibrary();
     writeLog('startup.log', 'library ready');

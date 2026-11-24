@@ -1362,6 +1362,8 @@ export interface AppSettings {
     homeUrl: string;
     /** 浏览器下载完成后弹系统通知 */
     downloadNotify: boolean;
+    /** 拦截常见统计/广告跟踪域名（默认关闭，可随时关掉） */
+    blockTrackers: boolean;
     /** 网页内选中文字时显示解释/翻译/总结工具条 */
     selectionToolbar: boolean;
     /** 桌面宠物悬浮窗 */
