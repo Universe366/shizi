@@ -16788,3 +16788,90 @@ sup:has(> .cite-ref) {
   gap: 6px 12px;
   margin: 4px 0 8px;
 }
+
+/* ---------- 现代外壳（0.181） ----------
+   目标：更松的间距、更轻的边界、真正能看见的玻璃与圆角。
+   设置里的圆角滑杆通过 --radius-lg/--radius-md 驱动这里。 */
+
+.app-shell {
+  background:
+    radial-gradient(1200px 600px at 12% -10%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(123, 211, 200, 0.16), transparent 55%),
+    var(--bg);
+}
+
+/* 侧栏：玻璃 + 圆角，取代整块灰底 */
+.sidebar {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  backdrop-filter: blur(20px) saturate(1.2);
+  box-shadow: var(--shadow-sm);
+  margin: 6px 0 6px 6px;
+}
+
+/* 地址栏：浮起来的一行，而不是压在顶部的灰条 */
+.address-bar {
+  margin: 6px 8px 4px;
+  min-height: 44px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-control) + 6px);
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(20px) saturate(1.2);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 标签：圆角胶囊，选中才有实底 */
+.tab-strip {
+  padding: 6px 8px 2px;
+  gap: 4px;
+}
+
+.tab {
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  padding: 3px 10px;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.tab:hover {
+  background: var(--surface-hover);
+}
+
+.tab.is-active {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 面板与控件跟随同一套圆角 */
+.panel {
+  border-radius: var(--radius-card);
+}
+
+.mini-btn,
+.settings-input,
+.settings-textarea,
+.settings-color {
+  border-radius: var(--radius-control);
+}
+
+/* 关闭玻璃时回退到实底，保证可读 */
+:root[data-ui-glass='off'] .sidebar,
+:root[data-ui-glass='off'] .address-bar {
+  background: var(--surface);
+  backdrop-filter: none;
+}
+
+/* 设置页：与外壳同一套背景与圆角 */
+.settings-page {
+  background:
+    radial-gradient(900px 480px at 0% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%),
+    var(--bg);
+}
+
+.settings-section {
+  border-radius: var(--radius-card);
+}
+
