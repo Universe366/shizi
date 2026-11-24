@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Globe,
   Home,
+  Lock,
   Library,
   Moon,
   MoreHorizontal,
@@ -397,6 +398,42 @@ export function AddressBar({
     else if (choice === 'start') onOpenStart();
   };
 
+  /** 站点信息：Chrome / Edge 的锁图标——连接状态 + 只清这个站点。 */
+  const openSiteMenu = async () => {
+    const raw = String(tab?.url || '');
+    if (!/^https?:\/\//i.test(raw)) return;
+    let host = raw;
+    let secure = false;
+    try {
+      const parsed = new URL(raw);
+      host = parsed.hostname;
+      secure = parsed.protocol === 'https:';
+    } catch {
+      return;
+    }
+    if (typeof window.bsub.popupMenu !== 'function') return;
+    const choice = await window.bsub.popupMenu([
+      { id: 'site-host', label: host, enabled: false },
+      {
+        id: 'site-security',
+        label: secure ? 'HTTPS · 连接已加密' : 'HTTP · 连接未加密',
+        enabled: false
+      },
+      { type: 'separator' },
+      { id: 'site-clear', label: '清除此站点数据（Cookie / 存储）' },
+      { id: 'site-permissions', label: '站点权限设置' }
+    ]);
+    if (choice === 'site-clear') {
+      const confirmed = window.confirm(`清除 ${host} 的 Cookie 与站点数据？会退出该站点登录。`);
+      if (!confirmed) return;
+      const response = await window.bsub.clearSiteData?.(raw);
+      if (response && !response.ok) window.alert(response.error);
+      else void window.bsub.reload();
+    } else if (choice === 'site-permissions') {
+      onOpenSettings();
+    }
+  };
+
   const openMenu = async () => {
     // 网页视图是原生层，HTML 菜单会被盖住；优先用系统菜单。
     if (typeof window.bsub.popupMenu !== 'function') {
@@ -503,7 +540,20 @@ export function AddressBar({
       )}
 
       <div className="address-field">
-        <Globe size={13} />
+        <button
+          type="button"
+          className="address-site-btn"
+          title={
+            tab?.url && /^https:/i.test(tab.url)
+              ? '站点信息 · 连接已加密'
+              : '站点信息 · 连接未加密'
+          }
+          disabled={!tab || !/^https?:/i.test(tab.url)}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => void openSiteMenu()}
+        >
+          {tab?.url && /^https:/i.test(tab.url) ? <Lock size={12} /> : <Globe size={13} />}
+        </button>
         <input
           ref={inputRef}
           value={displayValue}
@@ -666,7 +716,7 @@ export function AddressBar({
       {toolbar.bookmark && (
         <button
           className={`nav-btn${bookmarked ? ' is-active' : ''}`}
-          title={bookmarked ? '取消书签（Ctrl+D）' : '收藏此页（Ctrl+D）'}
+          title={bookmarked ? '编辑书签（Ctrl+D）' : '收藏此页（Ctrl+D）'}
           disabled={!tab}
           onClick={onToggleBookmark}
         >

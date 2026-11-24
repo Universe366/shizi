@@ -62,16 +62,25 @@ export {
 } from './library/search';
 export {
   clearBrowseHistory,
+  clearBrowseHistorySince,
   clearHistory,
+  createBookmarkFolder,
+  deleteBookmarkFolder,
+  deleteBrowseHistoryEntry,
+  deleteBrowseHistorySite,
   deleteHistoryItem,
   isBookmarked,
+  listBookmarkFolders,
   listBookmarks,
   listBrowseHistory,
   listHistory,
   listTranscriptions,
   recordHistory,
   removeBookmark,
-  toggleBookmark
+  renameBookmarkFolder,
+  saveBookmark,
+  toggleBookmark,
+  updateBookmark
 } from './library/history';
 
 export {

@@ -26,8 +26,12 @@ export type ShortcutActionId =
   | 'section-chat'
   | 'section-library'
   | 'tab-search'
+  | 'history'
+  | 'bookmarks'
+  | 'downloads'
   | 'ask-selection'
   | 'reload'
+  | 'print'
   | 'media-faster'
   | 'media-slower'
   | 'media-reset'
@@ -58,8 +62,12 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
   { id: 'reader', label: '阅读模式', defaultShortcut: 'Alt+KeyR', scope: 'both', group: '页面' },
   { id: 'bookmark', label: '收藏当前页', defaultShortcut: 'Ctrl+KeyD', scope: 'both', group: '页面' },
   { id: 'reload', label: '刷新页面', defaultShortcut: 'Ctrl+KeyR', scope: 'both', group: '页面' },
+  { id: 'print', label: '打印页面', defaultShortcut: 'Ctrl+KeyP', scope: 'both', group: '页面' },
   { id: 'ask-selection', label: '选中即问', defaultShortcut: 'Ctrl+Shift+KeyS', scope: 'page', group: '页面' },
-  { id: 'tab-search', label: '标签页 / 历史面板', defaultShortcut: 'Ctrl+Shift+KeyA', scope: 'both', group: '面板' },
+  { id: 'tab-search', label: '标签页面板', defaultShortcut: 'Ctrl+Shift+KeyA', scope: 'both', group: '面板' },
+  { id: 'history', label: '浏览历史', defaultShortcut: 'Ctrl+KeyH', scope: 'both', group: '面板' },
+  { id: 'bookmarks', label: '书签管理', defaultShortcut: 'Ctrl+Shift+KeyO', scope: 'both', group: '面板' },
+  { id: 'downloads', label: '下载记录', defaultShortcut: 'Ctrl+KeyJ', scope: 'both', group: '面板' },
   { id: 'section-subtitles', label: '打开面板：字幕', defaultShortcut: 'Ctrl+Shift+Digit1', scope: 'both', group: '面板' },
   { id: 'section-summary', label: '打开面板：总结', defaultShortcut: 'Ctrl+Shift+Digit2', scope: 'both', group: '面板' },
   { id: 'section-chat', label: '打开面板：对话', defaultShortcut: 'Ctrl+Shift+Digit3', scope: 'both', group: '面板' },

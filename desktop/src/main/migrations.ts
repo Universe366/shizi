@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * 现在用 `PRAGMA user_version` 记录版本，迁移只能顺序向前，每一步都必须幂等，
  * 这样「给 videos 加 kind/source」这类改动才有地方落。
  */
-export const LATEST_SCHEMA_VERSION = 8;
+export const LATEST_SCHEMA_VERSION = 9;
 
 interface Migration {
   version: number;
@@ -211,6 +211,24 @@ const MIGRATIONS: Migration[] = [
           updated_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS kb_cards_due ON kb_cards(due_at);
+      `);
+    }
+  },
+  {
+    version: 9,
+    name: 'bookmark-folders',
+    up: (db) => {
+      // 书签从「一条平铺列表」升级为「书签栏 + 文件夹」；folder = '' 表示书签栏。
+      const columns = db.prepare('PRAGMA table_info(bookmarks)').all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === 'folder')) {
+        db.exec("ALTER TABLE bookmarks ADD COLUMN folder TEXT NOT NULL DEFAULT ''");
+      }
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS bookmark_folders (
+          name TEXT PRIMARY KEY,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_bookmarks_folder ON bookmarks(folder);
       `);
     }
   }

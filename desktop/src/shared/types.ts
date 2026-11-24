@@ -456,7 +456,16 @@ export interface Bookmark {
   url: string;
   title: string;
   favicon: string | null;
+  /** 所属文件夹；'' 表示书签栏 */
+  folder: string;
   createdAt: number;
+}
+
+export interface BookmarkFolder {
+  name: string;
+  createdAt: number;
+  /** 文件夹内的书签数量 */
+  count: number;
 }
 
 export type DownloadState = 'progressing' | 'completed' | 'cancelled' | 'interrupted' | 'paused';

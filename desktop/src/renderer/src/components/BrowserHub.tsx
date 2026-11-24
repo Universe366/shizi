@@ -1,30 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bookmark,
   Clock,
   Download,
   ExternalLink,
   FolderOpen,
+  FolderPlus,
   Layers,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Search,
   Trash2,
   X
 } from 'lucide-react';
-import type { Bookmark as BookmarkItem, DownloadRecord, HistoryEntry, TabInfo } from '../../../shared/types';
+import type {
+  Bookmark as BookmarkItem,
+  BookmarkFolder,
+  DownloadRecord,
+  HistoryEntry,
+  TabInfo
+} from '../../../shared/types';
 import { formatDateTime } from '../lib/format';
 import { askConfirm } from './ui/confirm';
 
 export type HubSection = 'history' | 'bookmarks' | 'downloads' | 'tabs';
-
-function fmtBytes(bytes: number): string {
-  if (!bytes) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 const SECTIONS: Array<{ id: HubSection; label: string; icon: typeof Clock }> = [
   { id: 'history', label: '历史', icon: Clock },
@@ -33,13 +34,47 @@ const SECTIONS: Array<{ id: HubSection; label: string; icon: typeof Clock }> = [
   { id: 'tabs', label: '标签', icon: Layers }
 ];
 
+function fmtBytes(bytes: number): string {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function dayStart(ts: number): number {
+  const date = new Date(ts);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function dayLabel(ts: number): string {
+  const today = dayStart(Date.now());
+  const day = dayStart(ts);
+  if (day === today) return '今天';
+  if (day === today - 86_400_000) return '昨天';
+  return new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+/** 按天分组；同一天的行保持原有顺序。 */
+function groupByDay<T>(rows: T[], timeOf: (row: T) => number): Array<{ label: string; items: T[] }> {
+  const groups: Array<{ label: string; items: T[] }> = [];
+  for (const row of rows) {
+    const label = dayLabel(timeOf(row));
+    const last = groups.at(-1);
+    if (last && last.label === label) last.items.push(row);
+    else groups.push({ label, items: [row] });
+  }
+  return groups;
+}
+
 export function BrowserHub({
   open,
   initial,
   tabs,
   onClose,
   onOpenUrl,
-  onSelectTab
+  onSelectTab,
+  onEditBookmark
 }: {
   open: boolean;
   initial: HubSection;
@@ -47,11 +82,14 @@ export function BrowserHub({
   onClose: () => void;
   onOpenUrl: (url: string) => void;
   onSelectTab: (id: string) => void;
+  onEditBookmark?: (item: BookmarkItem) => void;
 }) {
   const [section, setSection] = useState<HubSection>(initial);
   const [query, setQuery] = useState('');
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [folders, setFolders] = useState<BookmarkFolder[]>([]);
+  const [activeFolder, setActiveFolder] = useState('');
   const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,8 +99,22 @@ export function BrowserHub({
       setSection(initial);
       setQuery('');
       setError('');
+      setActiveFolder('');
     }
   }, [open, initial]);
+
+  const loadBookmarks = useCallback(async () => {
+    const [bookmarkResponse, folderResponse] = await Promise.all([
+      window.bsub.listBookmarks(),
+      window.bsub.listBookmarkFolders?.()
+    ]);
+    if (bookmarkResponse.ok && Array.isArray(bookmarkResponse.data)) {
+      setBookmarks(bookmarkResponse.data);
+    } else if (!bookmarkResponse.ok) {
+      setError(bookmarkResponse.error);
+    }
+    if (folderResponse?.ok && Array.isArray(folderResponse.data)) setFolders(folderResponse.data);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -71,13 +123,11 @@ export function BrowserHub({
     const load = async () => {
       try {
         if (section === 'history') {
-          const response = await window.bsub.listBrowseHistory(query);
+          const response = await window.bsub.listBrowseHistory(query, 300);
           if (alive && response.ok) setHistory(response.data);
           else if (alive && !response.ok) setError(response.error);
         } else if (section === 'bookmarks') {
-          const response = await window.bsub.listBookmarks();
-          if (alive && response.ok) setBookmarks(response.data);
-          else if (alive && !response.ok) setError(response.error);
+          await loadBookmarks();
         } else if (section === 'downloads') {
           const response = await window.bsub.listDownloads();
           if (alive && response.ok) setDownloads(response.data);
@@ -92,7 +142,7 @@ export function BrowserHub({
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [open, section, query]);
+  }, [open, section, query, loadBookmarks]);
 
   useEffect(() => {
     if (!open || section !== 'downloads') return;
@@ -112,7 +162,40 @@ export function BrowserHub({
     );
   }, [tabs, query]);
 
+  const visibleBookmarks = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return bookmarks.filter((item) => {
+      if (activeFolder !== '' && item.folder !== activeFolder) return false;
+      if (!text) return true;
+      return item.title.toLowerCase().includes(text) || item.url.toLowerCase().includes(text);
+    });
+  }, [bookmarks, activeFolder, query]);
+
+  const visibleDownloads = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    if (!text) return downloads;
+    return downloads.filter(
+      (item) =>
+        (item.filename || '').toLowerCase().includes(text) ||
+        (item.url || '').toLowerCase().includes(text)
+    );
+  }, [downloads, query]);
+
+  const historyGroups = useMemo(
+    () => groupByDay(history, (item) => item.visitedAt),
+    [history]
+  );
+  const downloadGroups = useMemo(
+    () => groupByDay(visibleDownloads, (item) => item.finishedAt || item.startedAt || 0),
+    [visibleDownloads]
+  );
+
   if (!open) return null;
+
+  const refreshDownloads = async () => {
+    const response = await window.bsub.listDownloads();
+    if (response.ok) setDownloads(response.data);
+  };
 
   const clearHistory = async () => {
     if (!(await askConfirm('清空全部浏览历史？'))) return;
@@ -120,16 +203,115 @@ export function BrowserHub({
     if (response.ok) setHistory([]);
   };
 
+  const clearRange = async (scope: 'hour' | 'today' | 'all') => {
+    if (scope === 'all') {
+      await clearHistory();
+      return;
+    }
+    const since = scope === 'hour' ? Date.now() - 3_600_000 : dayStart(Date.now());
+    if (!(await askConfirm(scope === 'hour' ? '清除最近 1 小时的浏览历史？' : '清除今天的浏览历史？')))
+      return;
+    const response = await window.bsub.clearBrowseHistoryRange?.(since);
+    if (response?.ok) {
+      const list = await window.bsub.listBrowseHistory(query, 300);
+      if (list.ok) setHistory(list.data);
+    }
+  };
+
+  const removeHistory = async (item: HistoryEntry) => {
+    const response = await window.bsub.deleteBrowseHistory?.(item.id);
+    if (response?.ok) setHistory((rows) => rows.filter((row) => row.id !== item.id));
+  };
+
+  const removeHistorySite = async (item: HistoryEntry) => {
+    const host = (() => {
+      try {
+        return new URL(item.url).hostname.replace(/^www\./, '');
+      } catch {
+        return item.url;
+      }
+    })();
+    if (!(await askConfirm(`删除「${host}」的全部浏览记录？`))) return;
+    const response = await window.bsub.deleteBrowseHistorySite?.(item.url);
+    if (response?.ok) {
+      const list = await window.bsub.listBrowseHistory(query, 300);
+      if (list.ok) setHistory(list.data);
+    }
+  };
+
   const removeBookmark = async (url: string) => {
     const response = await window.bsub.removeBookmark(url);
     if (response.ok) setBookmarks((items) => items.filter((item) => item.url !== url));
   };
 
+  const createFolder = async () => {
+    const name = window.prompt('新建文件夹');
+    if (!name?.trim()) return;
+    const response = await window.bsub.createBookmarkFolder?.(name.trim());
+    if (response?.ok) {
+      setFolders(response.data);
+      setActiveFolder(name.trim());
+    } else if (response && !response.ok) setError(response.error);
+  };
+
+  const renameFolder = async () => {
+    if (!activeFolder) return;
+    const name = window.prompt('重命名文件夹', activeFolder);
+    if (!name?.trim() || name.trim() === activeFolder) return;
+    const response = await window.bsub.renameBookmarkFolder?.(activeFolder, name.trim());
+    if (response?.ok) {
+      setFolders(response.data);
+      setActiveFolder(name.trim());
+      await loadBookmarks();
+    }
+  };
+
+  const deleteFolder = async () => {
+    if (!activeFolder) return;
+    if (!(await askConfirm(`删除文件夹「${activeFolder}」？书签会回到书签栏。`))) return;
+    const response = await window.bsub.deleteBookmarkFolder?.(activeFolder);
+    if (response?.ok) {
+      setFolders(response.data);
+      setActiveFolder('');
+      await loadBookmarks();
+    }
+  };
+
+  const bulkDownloads = async (action: 'pause' | 'resume') => {
+    const response = await window.bsub.bulkDownloads?.(action);
+    if (response?.ok) await refreshDownloads();
+  };
+
   const clearDownloads = async () => {
-    if (!(await askConfirm({ title: '清空下载记录？', description: '不会删除已经下载的文件。' }))) return;
+    if (!(await askConfirm({ title: '清空下载记录？', description: '不会删除已经下载的文件。' })))
+      return;
     const response = await window.bsub.clearDownloads();
     if (response.ok) setDownloads([]);
   };
+
+  const renderHistoryRow = (item: HistoryEntry) => (
+    <div key={item.id} className="hub-row is-static">
+      <button
+        className="hub-main"
+        onClick={() => {
+          onOpenUrl(item.url);
+          onClose();
+        }}
+      >
+        <span className="hub-title">{item.title || item.url}</span>
+        <span className="hub-sub">{item.url}</span>
+      </button>
+      <span className="hub-time">{formatDateTime(item.visitedAt)}</span>
+      <span className="hub-actions">
+        <button className="icon-btn" title="删除此站点的历史" onClick={() => void removeHistorySite(item)}>
+          <Clock size={13} />
+        </button>
+        <button className="icon-btn" title="从历史中删除" onClick={() => void removeHistory(item)}>
+          <Trash2 size={13} />
+        </button>
+      </span>
+    </div>
+  );
 
   return (
     <div className="confirm-backdrop" onClick={onClose}>
@@ -163,15 +345,65 @@ export function BrowserHub({
           </button>
         </div>
 
-        {(section === 'history' || section === 'tabs') && (
+        {section !== 'tabs' && (
           <div className="hub-search">
             <Search size={13} />
             <input
               autoFocus
               value={query}
-              placeholder={section === 'history' ? '搜索历史记录…' : '搜索标签页标题或网址…'}
+              placeholder={
+                section === 'history'
+                  ? '搜索历史记录…'
+                  : section === 'bookmarks'
+                    ? '搜索书签…'
+                    : '搜索下载记录…'
+              }
               onChange={(event) => setQuery(event.target.value)}
             />
+          </div>
+        )}
+        {section === 'tabs' && (
+          <div className="hub-search">
+            <Search size={13} />
+            <input
+              autoFocus
+              value={query}
+              placeholder="搜索标签页标题或网址…"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        )}
+
+        {section === 'bookmarks' && (
+          <div className="hub-chips">
+            <button
+              className={`mini-btn${activeFolder === '' ? ' is-active' : ''}`}
+              onClick={() => setActiveFolder('')}
+            >
+              全部 {bookmarks.length}
+            </button>
+            {folders.map((folder) => (
+              <button
+                key={folder.name}
+                className={`mini-btn${activeFolder === folder.name ? ' is-active' : ''}`}
+                onClick={() => setActiveFolder(folder.name)}
+              >
+                {folder.name} {folder.count}
+              </button>
+            ))}
+            <button className="mini-btn" title="新建文件夹" onClick={() => void createFolder()}>
+              <FolderPlus size={12} />
+            </button>
+            {activeFolder && (
+              <>
+                <button className="mini-btn" title="重命名文件夹" onClick={() => void renameFolder()}>
+                  <Pencil size={12} />
+                </button>
+                <button className="mini-btn" title="删除文件夹" onClick={() => void deleteFolder()}>
+                  <Trash2 size={12} />
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -184,28 +416,18 @@ export function BrowserHub({
 
         <div className="hub-list">
           {section === 'history' &&
-            history.map((item) => (
-              <button
-                key={item.id}
-                className="hub-row"
-                onClick={() => {
-                  onOpenUrl(item.url);
-                  onClose();
-                }}
-              >
-                <span className="hub-main">
-                  <span className="hub-title">{item.title || item.url}</span>
-                  <span className="hub-sub">{item.url}</span>
-                </span>
-                <span className="hub-time">{formatDateTime(item.visitedAt)}</span>
-              </button>
+            historyGroups.map((group) => (
+              <div key={group.label} className="hub-group">
+                <div className="hub-group-title">{group.label}</div>
+                {group.items.map(renderHistoryRow)}
+              </div>
             ))}
           {section === 'history' && !loading && !history.length && (
             <div className="panel-empty">没有历史记录</div>
           )}
 
           {section === 'bookmarks' &&
-            bookmarks.map((item) => (
+            visibleBookmarks.map((item) => (
               <div key={item.id} className="hub-row is-static">
                 <button
                   className="hub-main"
@@ -215,117 +437,119 @@ export function BrowserHub({
                   }}
                 >
                   <span className="hub-title">{item.title || item.url}</span>
-                  <span className="hub-sub">{item.url}</span>
+                  <span className="hub-sub">
+                    {item.folder || '书签栏'} · {item.url}
+                  </span>
                 </button>
-                <button
-                  className="icon-btn"
-                  title="移除书签"
-                  onClick={() => void removeBookmark(item.url)}
-                >
+                {onEditBookmark && (
+                  <button className="icon-btn" title="编辑书签" onClick={() => onEditBookmark(item)}>
+                    <Pencil size={13} />
+                  </button>
+                )}
+                <button className="icon-btn" title="移除书签" onClick={() => void removeBookmark(item.url)}>
                   <Trash2 size={13} />
                 </button>
               </div>
             ))}
-          {section === 'bookmarks' && !loading && !bookmarks.length && (
+          {section === 'bookmarks' && !loading && !visibleBookmarks.length && (
             <div className="panel-empty">还没有书签，点地址栏右侧的星标收藏当前页面</div>
           )}
 
           {section === 'downloads' &&
-            downloads.map((item) => {
-              const percent = item.total > 0 ? Math.min(100, (item.received / item.total) * 100) : 0;
-              return (
-                <div key={item.id} className="hub-row is-static hub-download">
-                  <span className="hub-main">
-                    <span className="hub-title">{item.filename || item.url}</span>
-                    <span className="hub-sub">
-                      {item.state === 'progressing'
-                        ? `${fmtBytes(item.received)} / ${fmtBytes(item.total)}`
-                        : item.state === 'completed'
-                          ? `已完成 · ${fmtBytes(item.received)}`
-                          : item.state === 'cancelled'
-                            ? '已取消'
-                            : '已中断'}
-                      {item.finishedAt ? ` · ${formatDateTime(item.finishedAt)}` : ''}
-                    </span>
-                    {item.state === 'progressing' && (
-                      <span className="hub-progress">
-                        <span style={{ width: `${percent}%` }} />
+            downloadGroups.map((group) => (
+              <div key={group.label} className="hub-group">
+                <div className="hub-group-title">{group.label}</div>
+                {group.items.map((item) => {
+                  const percent = item.total > 0 ? Math.min(100, (item.received / item.total) * 100) : 0;
+                  return (
+                    <div key={item.id} className="hub-row is-static hub-download">
+                      <span className="hub-main">
+                        <span className="hub-title">{item.filename || item.url}</span>
+                        <span className="hub-sub">
+                          {item.state === 'progressing'
+                            ? `${fmtBytes(item.received)} / ${fmtBytes(item.total)}`
+                            : item.state === 'completed'
+                              ? `已完成 · ${fmtBytes(item.received)}`
+                              : item.state === 'paused'
+                                ? '已暂停'
+                                : item.state === 'cancelled'
+                                  ? '已取消'
+                                  : '已中断'}
+                          {item.finishedAt ? ` · ${formatDateTime(item.finishedAt)}` : ''}
+                        </span>
+                        {item.state === 'progressing' && (
+                          <span className="hub-progress">
+                            <span style={{ width: `${percent}%` }} />
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span className="hub-actions">
-                    {(item.state === 'progressing' || item.state === 'paused') && (
-                      <>
+                      <span className="hub-actions">
+                        {(item.state === 'progressing' || item.state === 'paused') && (
+                          <>
+                            <button
+                              className="icon-btn"
+                              title={item.state === 'paused' ? '继续下载' : '暂停下载'}
+                              onClick={() =>
+                                void window.bsub
+                                  .controlDownload(item.id, item.state === 'paused' ? 'resume' : 'pause')
+                                  .then((response) => {
+                                    if (response.ok) void refreshDownloads();
+                                  })
+                              }
+                            >
+                              {item.state === 'paused' ? <Play size={13} /> : <Pause size={13} />}
+                            </button>
+                            <button
+                              className="icon-btn"
+                              title="取消下载"
+                              onClick={() =>
+                                void window.bsub.controlDownload(item.id, 'cancel').then((response) => {
+                                  if (response.ok) void refreshDownloads();
+                                })
+                              }
+                            >
+                              <X size={13} />
+                            </button>
+                          </>
+                        )}
+                        {item.state === 'completed' && item.path && (
+                          <>
+                            <button
+                              className="icon-btn"
+                              title="打开文件"
+                              onClick={() => void window.bsub.openDownload(item.id)}
+                            >
+                              <ExternalLink size={13} />
+                            </button>
+                            <button
+                              className="icon-btn"
+                              title="在文件夹中显示"
+                              onClick={() => void window.bsub.revealDownload(item.id)}
+                            >
+                              <FolderOpen size={13} />
+                            </button>
+                          </>
+                        )}
                         <button
                           className="icon-btn"
-                          title={item.state === 'paused' ? '继续下载' : '暂停下载'}
+                          title="移除记录（不删除文件）"
                           onClick={() =>
-                            void window.bsub
-                              .controlDownload(item.id, item.state === 'paused' ? 'resume' : 'pause')
-                              .then((response) => {
-                                if (response.ok) {
-                                  void window.bsub.listDownloads().then((list) => {
-                                    if (list.ok) setDownloads(list.data);
-                                  });
-                                }
-                              })
-                          }
-                        >
-                          {item.state === 'paused' ? <Play size={13} /> : <Pause size={13} />}
-                        </button>
-                        <button
-                          className="icon-btn"
-                          title="取消下载"
-                          onClick={() =>
-                            void window.bsub.controlDownload(item.id, 'cancel').then((response) => {
+                            void window.bsub.deleteDownload(item.id).then((response) => {
                               if (response.ok) {
-                                void window.bsub.listDownloads().then((list) => {
-                                  if (list.ok) setDownloads(list.data);
-                                });
+                                setDownloads((items) => items.filter((row) => row.id !== item.id));
                               }
                             })
                           }
                         >
-                          <X size={13} />
+                          <Trash2 size={13} />
                         </button>
-                      </>
-                    )}
-                    {item.state === 'completed' && item.path && (
-                      <>
-                        <button
-                          className="icon-btn"
-                          title="打开文件"
-                          onClick={() => void window.bsub.openDownload(item.id)}
-                        >
-                          <ExternalLink size={13} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          title="在文件夹中显示"
-                          onClick={() => void window.bsub.revealDownload(item.id)}
-                        >
-                          <FolderOpen size={13} />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      className="icon-btn"
-                      title="移除记录（不删除文件）"
-                      onClick={() =>
-                        void window.bsub.deleteDownload(item.id).then((response) => {
-                          if (response.ok) {
-                            setDownloads((items) => items.filter((row) => row.id !== item.id));
-                          }
-                        })
-                      }
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </span>
-                </div>
-              );
-            })}
-          {section === 'downloads' && !loading && !downloads.length && (
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          {section === 'downloads' && !loading && !visibleDownloads.length && (
             <div className="panel-empty">还没有下载记录</div>
           )}
 
@@ -359,18 +583,44 @@ export function BrowserHub({
             关闭
           </button>
           {section === 'history' && (
-            <button className="mini-btn danger" disabled={!history.length} onClick={() => void clearHistory()}>
-              清空历史
-            </button>
+            <>
+              <button className="mini-btn" onClick={() => void clearRange('hour')}>
+                清除最近 1 小时
+              </button>
+              <button className="mini-btn" onClick={() => void clearRange('today')}>
+                清除今天
+              </button>
+              <button
+                className="mini-btn danger"
+                disabled={!history.length}
+                onClick={() => void clearRange('all')}
+              >
+                清空历史
+              </button>
+            </>
           )}
           {section === 'downloads' && (
-            <button
-              className="mini-btn danger"
-              disabled={!downloads.length}
-              onClick={() => void clearDownloads()}
-            >
-              清空记录
-            </button>
+            <>
+              <button className="mini-btn" onClick={() => void bulkDownloads('pause')}>
+                全部暂停
+              </button>
+              <button className="mini-btn" onClick={() => void bulkDownloads('resume')}>
+                全部继续
+              </button>
+              <button
+                className="mini-btn"
+                onClick={() => void window.bsub.revealDownloadsFolder?.()}
+              >
+                打开文件夹
+              </button>
+              <button
+                className="mini-btn danger"
+                disabled={!downloads.length}
+                onClick={() => void clearDownloads()}
+              >
+                清空记录
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { app, ipcMain, Menu, session, shell } from 'electron';
 import type {
   Bookmark,
+  BookmarkFolder,
   DownloadRecord,
   HistoryEntry,
   LayoutRect,
@@ -8,17 +9,26 @@ import type {
 } from '../../shared/types';
 import {
   clearBrowseHistory,
+  clearBrowseHistorySince,
   clearDownloads,
+  createBookmarkFolder,
+  deleteBookmarkFolder,
+  deleteBrowseHistoryEntry,
+  deleteBrowseHistorySite,
   deleteDownload,
   isBookmarked,
+  listBookmarkFolders,
   listBookmarks,
   listBrowseHistory,
   listDownloads,
   removeBookmark,
+  renameBookmarkFolder,
+  saveBookmark,
   toggleBookmark,
+  updateBookmark,
   updateDownload
 } from '../library';
-import { controlDownload } from '../downloads';
+import { activeDownloadIds, controlDownload } from '../downloads';
 import { seek } from '../page';
 import { loadSettings, saveSettings, settingsSnapshot } from '../settings';
 import { setZoomTarget } from '../zoomTarget';
@@ -277,6 +287,25 @@ export function registerBrowserIpc(ctx: IpcContext): void {
   ipcMain.handle('tab:stop-find', () => {
     control?.stopFind();
   });
+
+  ipcMain.handle('tab:print', (): Result<boolean> => {
+    try {
+      return { ok: true, data: ctx.tabs.printActive() };
+    } catch (error) {
+      return failure<boolean>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'tab:save-pdf',
+    async (): Promise<Result<{ canceled: boolean; path?: string }>> => {
+      try {
+        return { ok: true, data: await ctx.tabs.savePdfActive() };
+      } catch (error) {
+        return failure<{ canceled: boolean; path?: string }>(error);
+      }
+    }
+  );
   ipcMain.handle('tab:reopen-closed', async (): Promise<string | null> => ctx.tabs.reopenClosed());
 
   ipcMain.handle(
@@ -338,6 +367,94 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     }
   });
 
+  // 收藏弹窗：新增或更新（同一 URL 覆盖标题/文件夹）。
+  ipcMain.handle(
+    'bookmarks:save',
+    (
+      _event,
+      payload: { url: string; title?: string; favicon?: string | null; folder?: string }
+    ): Result<Bookmark> => {
+      try {
+        return { ok: true, data: saveBookmark(payload || { url: '' }) };
+      } catch (error) {
+        return failure<Bookmark>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'bookmarks:update',
+    (_event, payload: { url: string; title?: string; folder?: string }): Result<{ updated: boolean }> => {
+      try {
+        return { ok: true, data: { updated: updateBookmark(payload || { url: '' }) } };
+      } catch (error) {
+        return failure<{ updated: boolean }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('bookmark-folders:list', (): Result<BookmarkFolder[]> => {
+    try {
+      return { ok: true, data: listBookmarkFolders() };
+    } catch (error) {
+      return failure<BookmarkFolder[]>(error);
+    }
+  });
+
+  ipcMain.handle('bookmark-folders:create', (_event, name: string): Result<BookmarkFolder[]> => {
+    try {
+      return { ok: true, data: createBookmarkFolder(String(name || '')) };
+    } catch (error) {
+      return failure<BookmarkFolder[]>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'bookmark-folders:rename',
+    (_event, from: string, to: string): Result<BookmarkFolder[]> => {
+      try {
+        return { ok: true, data: renameBookmarkFolder(String(from || ''), String(to || '')) };
+      } catch (error) {
+        return failure<BookmarkFolder[]>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('bookmark-folders:delete', (_event, name: string): Result<BookmarkFolder[]> => {
+    try {
+      return { ok: true, data: deleteBookmarkFolder(String(name || '')) };
+    } catch (error) {
+      return failure<BookmarkFolder[]>(error);
+    }
+  });
+
+  ipcMain.handle('browse-history:delete', (_event, id: number): Result<{ removed: boolean }> => {
+    try {
+      return { ok: true, data: { removed: deleteBrowseHistoryEntry(Number(id)) } };
+    } catch (error) {
+      return failure<{ removed: boolean }>(error);
+    }
+  });
+
+  ipcMain.handle('browse-history:delete-site', (_event, url: string): Result<{ removed: number }> => {
+    try {
+      return { ok: true, data: { removed: deleteBrowseHistorySite(String(url || '')) } };
+    } catch (error) {
+      return failure<{ removed: number }>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'browse-history:clear-range',
+    (_event, since: number): Result<{ removed: number }> => {
+      try {
+        return { ok: true, data: { removed: clearBrowseHistorySince(Number(since) || 0) } };
+      } catch (error) {
+        return failure<{ removed: number }>(error);
+      }
+    }
+  );
+
   ipcMain.handle('downloads:list', (): Result<DownloadRecord[]> => {
     try {
       return { ok: true, data: listDownloads() };
@@ -379,6 +496,67 @@ export function registerBrowserIpc(ctx: IpcContext): void {
         return { ok: true, data: { state: result.state } };
       } catch (error) {
         return failure<{ state: string }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'downloads:bulk',
+    (_event, action: 'pause' | 'resume'): Result<{ changed: number }> => {
+      try {
+        const wanted = action === 'pause' ? 'pause' : 'resume';
+        let changed = 0;
+        for (const id of activeDownloadIds()) {
+          const result = controlDownload(id, wanted);
+          if (!result.ok) continue;
+          updateDownload(id, { state: result.state });
+          changed += 1;
+        }
+        if (changed) ctx.send('downloads:changed', null);
+        return { ok: true, data: { changed } };
+      } catch (error) {
+        return failure<{ changed: number }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('downloads:reveal-folder', async (): Promise<Result<boolean>> => {
+    try {
+      const withPath = listDownloads(300).find((row) => row.path);
+      if (withPath?.path) {
+        shell.showItemInFolder(withPath.path);
+        return { ok: true, data: true };
+      }
+      const error = await shell.openPath(app.getPath('downloads'));
+      return error ? { ok: false, error } : { ok: true, data: true };
+    } catch (error) {
+      return failure<boolean>(error);
+    }
+  });
+
+  // 只清一个站点：不清别的站点，也不动全局缓存/登录。
+  ipcMain.handle(
+    'page:clear-site-data',
+    async (_event, rawUrl: string): Promise<Result<{ origin: string }>> => {
+      try {
+        const url = new URL(String(rawUrl || ''));
+        if (!/^https?:$/.test(url.protocol)) return failure('只能清理网页站点');
+        const origin = url.origin;
+        await session.defaultSession.clearStorageData({
+          origin,
+          storages: [
+            'cookies',
+            'filesystem',
+            'indexdb',
+            'localstorage',
+            'cachestorage',
+            'serviceworkers',
+            'shadercache'
+          ]
+        });
+        return { ok: true, data: { origin } };
+      } catch (error) {
+        return failure<{ origin: string }>(error);
       }
     }
   );

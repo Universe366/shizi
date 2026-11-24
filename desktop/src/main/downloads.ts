@@ -14,6 +14,11 @@ export function unregisterDownloadItem(id: number): void {
   items.delete(id);
 }
 
+/** 仍在进行的下载 id（批量暂停/继续用）。 */
+export function activeDownloadIds(): number[] {
+  return [...items.keys()];
+}
+
 export function controlDownload(
   id: number,
   action: 'pause' | 'resume' | 'cancel'

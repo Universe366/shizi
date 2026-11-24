@@ -16460,3 +16460,48 @@ sup:has(> .cite-ref) {
   gap: 6px;
   margin-top: 6px;
 }
+
+/* 地址栏左端的站点信息按钮（锁 / 地球），对齐 Chrome 的站点信息入口。 */
+.address-site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  margin-right: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.address-site-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.address-site-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.bookmark-dialog {
+  width: min(520px, 92vw);
+}
+
+.bookmark-dialog-url {
+  word-break: break-all;
+}
+
+.hub-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.hub-group-title {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  opacity: 0.65;
+}

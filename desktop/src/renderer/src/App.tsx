@@ -18,6 +18,7 @@ import { SpeechBar } from './components/SpeechBar';
 import { FirstRunWizard } from './components/FirstRunWizard';
 import { GlobalSearch } from './components/GlobalSearch';
 import { BrowserHub, type HubSection } from './components/BrowserHub';
+import { BookmarkDialog } from './components/BookmarkDialog';
 import { ReaderMode } from './components/ReaderMode';
 import { StartPageClean } from './components/StartPageClean';
 import { RadialMenu } from './components/RadialMenu';
@@ -105,6 +106,7 @@ export default function App() {
   // 折叠标签栏悬停展开时通过主区 padding 让位，不再隐藏网页，
   // 否则展开期间会看到整片空白。
   const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkTarget, setBookmarkTarget] = useState<{ url: string; title: string } | null>(null);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
   // 插件列表是侧栏、命令面板和后续拆窗共用的数据源；安装/启停后由主进程广播刷新。
@@ -312,14 +314,11 @@ export default function App() {
     });
   }, []);
 
-  const toggleBookmark = async () => {
+  // 星标不再是「点一下直接切换」：和 Chrome / Edge 一样先打开收藏弹窗，
+  // 可以改名 / 选文件夹；已收藏时打开就是编辑。
+  const openBookmarkDialog = () => {
     if (!active || !/^https?:/i.test(active.url)) return;
-    const response = await window.bsub.toggleBookmark({
-      url: active.url,
-      title: active.title,
-      favicon: active.favicon
-    });
-    if (response.ok) setBookmarked(response.data.bookmarked);
+    setBookmarkTarget({ url: active.url, title: active.title || active.url });
   };
 
   useEffect(() => {
@@ -468,7 +467,7 @@ export default function App() {
   useEffect(
     () =>
       window.bsub.onBookmarkRequest(() => {
-        void toggleBookmark();
+        openBookmarkDialog();
       }),
     [active?.url]
   );
@@ -620,9 +619,13 @@ export default function App() {
     { id: 'section-settings', label: '打开设置', hint: 'Ctrl+,', run: () => setSettingsOpen(true) },
     { id: 'start-page', label: '打开起始页', run: () => setStartOpen(true) },
     { id: 'hub-tabs', label: '打开面板：标签页', hint: 'Ctrl+Shift+A', run: () => setHub('tabs') },
-    { id: 'hub-history', label: '打开面板：历史 / 书签 / 下载', run: () => setHub('history') },
+    { id: 'hub-history', label: '浏览历史', hint: 'Ctrl+H', run: () => setHub('history') },
+    { id: 'hub-bookmarks', label: '书签管理', hint: 'Ctrl+Shift+O', run: () => setHub('bookmarks') },
+    { id: 'hub-downloads', label: '下载记录', hint: 'Ctrl+J', run: () => setHub('downloads') },
     { id: 'reader', label: '打开阅读模式', hint: 'Alt+R', run: () => setReaderOpen(true) },
     { id: 'search', label: '全局搜索', hint: 'Ctrl+K', run: () => setSearchOpen(true) },
+    { id: 'print', label: '打印页面', hint: 'Ctrl+P', run: () => void window.bsub.printPage?.() },
+    { id: 'save-pdf', label: '另存为 PDF', run: () => void window.bsub.savePagePdf?.() },
     { id: 'new-tab', label: '新建标签页', hint: 'Ctrl+T', run: () => void window.bsub.newTab() },
     {
       id: 'reopen-tab',
@@ -751,10 +754,22 @@ export default function App() {
         setReaderOpen(true);
         break;
       case 'bookmark':
-        void toggleBookmark();
+        openBookmarkDialog();
+        break;
+      case 'history':
+        setHub('history');
+        break;
+      case 'bookmarks':
+        setHub('bookmarks');
+        break;
+      case 'downloads':
+        setHub('downloads');
         break;
       case 'reload':
         void window.bsub.reload();
+        break;
+      case 'print':
+        void window.bsub.printPage?.();
         break;
       case 'tab-search':
         setHub('tabs');
@@ -862,7 +877,7 @@ export default function App() {
         toolbar={browserToolbar}
         focusSignal={addressFocus}
         bookmarked={bookmarked}
-        onToggleBookmark={() => void toggleBookmark()}
+        onToggleBookmark={() => openBookmarkDialog()}
         onSelectionAction={handleSelectionAction}
         onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
@@ -986,7 +1001,16 @@ export default function App() {
         onClose={() => setHub(null)}
         onOpenUrl={(url) => void window.bsub.openUrl(url)}
         onSelectTab={(id) => void window.bsub.activateTab(id)}
+        onEditBookmark={(item) => setBookmarkTarget({ url: item.url, title: item.title })}
       />
+      {bookmarkTarget && (
+        <BookmarkDialog
+          url={bookmarkTarget.url}
+          initialTitle={bookmarkTarget.title}
+          onClose={() => setBookmarkTarget(null)}
+          onChanged={(saved) => setBookmarked(saved)}
+        />
+      )}
       <RadialMenu
         open={radialOpen}
         sectors={radialSectors}

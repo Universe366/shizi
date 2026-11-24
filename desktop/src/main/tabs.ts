@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   Menu,
   clipboard,
+  dialog,
   nativeTheme,
   session,
   WebContentsView
@@ -1380,6 +1381,34 @@ export class TabManager {
       forward: options.forward !== false,
       findNext: Boolean(options.findNext)
     });
+  }
+
+  /** 打印当前页：走系统打印对话框（Chrome 的 Ctrl+P）。 */
+  printActive(): boolean {
+    const wc = this.activeWebContents();
+    if (!wc || wc.isDestroyed()) return false;
+    wc.print({ printBackground: true });
+    return true;
+  }
+
+  /** 另存为 PDF：默认文件名取页面标题，避免一串 URL。 */
+  async savePdfActive(): Promise<{ canceled: boolean; path?: string }> {
+    const wc = this.activeWebContents();
+    if (!wc || wc.isDestroyed()) return { canceled: true };
+    const safe =
+      (wc.getTitle() || 'page')
+        .replace(/[\\/:*?"<>|]+/g, '_')
+        .trim()
+        .slice(0, 80) || 'page';
+    const result = await dialog.showSaveDialog(this.win, {
+      title: '另存为 PDF',
+      defaultPath: path.join(app.getPath('documents'), `${safe}.pdf`),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const data = await wc.printToPDF({ printBackground: true, pageSize: 'A4' });
+    await fs.promises.writeFile(result.filePath, data);
+    return { canceled: false, path: result.filePath };
   }
 
   stopFind(): void {

@@ -10,6 +10,7 @@ import type {
   AppSettings,
   BrowserExtensionStatus,
   BrowserExtensionsState,
+  BookmarkFolder,
   TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
@@ -313,7 +314,25 @@ export interface BsubApi {
 
   listBrowseHistory(query?: string, limit?: number): Promise<Result<HistoryEntry[]>>;
   clearBrowseHistory(): Promise<Result<{ removed: number }>>;
+  deleteBrowseHistory(id: number): Promise<Result<{ removed: boolean }>>;
+  deleteBrowseHistorySite(url: string): Promise<Result<{ removed: number }>>;
+  clearBrowseHistoryRange(since: number): Promise<Result<{ removed: number }>>;
   listBookmarks(): Promise<Result<Bookmark[]>>;
+  saveBookmark(payload: {
+    url: string;
+    title?: string;
+    favicon?: string | null;
+    folder?: string;
+  }): Promise<Result<Bookmark>>;
+  updateBookmark(payload: {
+    url: string;
+    title?: string;
+    folder?: string;
+  }): Promise<Result<{ updated: boolean }>>;
+  listBookmarkFolders(): Promise<Result<BookmarkFolder[]>>;
+  createBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
+  renameBookmarkFolder(from: string, to: string): Promise<Result<BookmarkFolder[]>>;
+  deleteBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
   isBookmarked(url: string): Promise<Result<{ bookmarked: boolean }>>;
   toggleBookmark(payload: {
     url: string;
@@ -327,7 +346,11 @@ export interface BsubApi {
   openDownload(id: number): Promise<Result<boolean>>;
   revealDownload(id: number): Promise<Result<boolean>>;
   controlDownload(id: number, action: 'pause' | 'resume' | 'cancel'): Promise<Result<{ state: string }>>;
+  bulkDownloads(action: 'pause' | 'resume'): Promise<Result<{ changed: number }>>;
+  revealDownloadsFolder(): Promise<Result<boolean>>;
   clearBrowsingData(): Promise<Result<{ cleared: boolean }>>;
+  /** 只清当前站点（origin）的 Cookie 与存储 */
+  clearSiteData(url: string): Promise<Result<{ origin: string }>>;
   onDownloadsChanged(cb: () => void): () => void;
 
   getPageInfo(tabId?: string): Promise<Result<PageInfo>>;
@@ -987,5 +1010,9 @@ export interface BsubApi {
   onPageZoomChanged(cb: (event: { target: 'tab' | 'sidebar'; zoom: number }) => void): () => void;
   findInPage(query: string, options?: { forward?: boolean; findNext?: boolean }): Promise<void>;
   stopFind(): Promise<void>;
+  /** 打印当前页（系统打印对话框） */
+  printPage(): Promise<Result<boolean>>;
+  /** 另存为 PDF；用户取消时 canceled=true */
+  savePagePdf(): Promise<Result<{ canceled: boolean; path?: string }>>;
   onFindResult(cb: (result: FindResult) => void): () => void;
 }

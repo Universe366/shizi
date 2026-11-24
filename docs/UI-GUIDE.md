@@ -378,6 +378,10 @@ start-footnote   操作提示、导入导出设置
 - 侧栏网页工具条：后退/前进/刷新/地址栏/缩小/比例/放大/查找/在标签页打开；地址栏回车跳转，导航/标题/缩放/查找与加载状态实时同步，加载失败显示原因和「重试」，原生视图从工具条下方开始量取。
 - 侧栏网页入口支持拖动排序（写入 `sidebarPages`）；侧栏网页里的 `target=_blank` / `window.open` 不再弹独立小窗，统一在主窗口新标签打开，右键链接也可选择「在标签页打开链接」。
 - 后退/前进只跳到 http(s) 历史条目，跳过起始页/空白页，避免白屏。
+- 浏览器中心（历史 / 书签 / 下载 / 标签）：历史按「今天 / 昨天 / 日期」分组，支持搜索、单条删除、按站点删除、清除最近 1 小时 / 今天 / 全部；书签支持文件夹（新建 / 重命名 / 删除）与按文件夹筛选；下载按日期分组，支持搜索、全部暂停 / 继续、打开所在文件夹。快捷键 Ctrl+H / Ctrl+Shift+O / Ctrl+J。
+- 收藏：星标（Ctrl+D）打开收藏弹窗，可改名称、选文件夹（可输入新文件夹），已收藏时是编辑并可删除；不再"点一下直接切换"。
+- 站点信息：地址栏左端锁 / 地球图标，显示 host 与 HTTPS / HTTP 状态，可只清除该站点的 Cookie 与存储，或跳到站点权限设置。
+- 页面输出：Ctrl+P 打印当前页；命令面板「另存为 PDF」把当前页存成 PDF（文件名默认取页面标题）。
 - 设置 → 通用 → 默认浏览器：先把拾字登记进系统「默认应用」（StartMenuInternet + Capabilities + RegisteredApplications + ProgId），再打开系统设置；Win11 直达拾字页面（`registeredAppUser`），Win10 打开总页面。
 - 默认状态读 `UrlAssociationshttp|httpsUserChoice`，显示系统当前默认浏览器（Edge / Chrome …），不再用会误报的 `isDefaultProtocolClient`；从系统设置回来后窗口获得焦点即自动刷新。
 - 设为默认浏览器后，冷启动（`process.argv`）与二次启动（`second-instance`）都会打开传入的链接；登记逻辑集中在 `main/defaultBrowser.ts`。

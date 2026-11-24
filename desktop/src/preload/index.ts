@@ -13,6 +13,7 @@ import type {
   AppSettings,
   BrowserExtensionStatus,
   BrowserExtensionsState,
+  BookmarkFolder,
   DiagnosticsInfo,
   CorrectionRuleGroup,
   DefaultBrowserStatus,
@@ -291,6 +292,9 @@ const api: BsubApi = {
   findInPage: (query: string, options?: { forward?: boolean; findNext?: boolean }) =>
     ipcRenderer.invoke('tab:find', query, options) as Promise<void>,
   stopFind: () => ipcRenderer.invoke('tab:stop-find') as Promise<void>,
+  printPage: () => ipcRenderer.invoke('tab:print') as Promise<Result<boolean>>,
+  savePagePdf: () =>
+    ipcRenderer.invoke('tab:save-pdf') as Promise<Result<{ canceled: boolean; path?: string }>>,
   onFindResult: (cb: (result: FindResult) => void) => on<FindResult>('find:result', cb),
   setLayout: (rect: LayoutRect) => ipcRenderer.send('layout:set', rect),
   openLocalVideo: (path?: string) =>
@@ -427,8 +431,28 @@ const api: BsubApi = {
     ipcRenderer.invoke('browse-history:list', query, limit) as Promise<Result<HistoryEntry[]>>,
   clearBrowseHistory: () =>
     ipcRenderer.invoke('browse-history:clear') as Promise<Result<{ removed: number }>>,
+  deleteBrowseHistory: (id: number) =>
+    ipcRenderer.invoke('browse-history:delete', id) as Promise<Result<{ removed: boolean }>>,
+  deleteBrowseHistorySite: (url: string) =>
+    ipcRenderer.invoke('browse-history:delete-site', url) as Promise<Result<{ removed: number }>>,
+  clearBrowseHistoryRange: (since: number) =>
+    ipcRenderer.invoke('browse-history:clear-range', since) as Promise<
+      Result<{ removed: number }>
+    >,
 
   listBookmarks: () => ipcRenderer.invoke('bookmarks:list') as Promise<Result<Bookmark[]>>,
+  saveBookmark: (payload: { url: string; title?: string; favicon?: string | null; folder?: string }) =>
+    ipcRenderer.invoke('bookmarks:save', payload) as Promise<Result<Bookmark>>,
+  updateBookmark: (payload: { url: string; title?: string; folder?: string }) =>
+    ipcRenderer.invoke('bookmarks:update', payload) as Promise<Result<{ updated: boolean }>>,
+  listBookmarkFolders: () =>
+    ipcRenderer.invoke('bookmark-folders:list') as Promise<Result<BookmarkFolder[]>>,
+  createBookmarkFolder: (name: string) =>
+    ipcRenderer.invoke('bookmark-folders:create', name) as Promise<Result<BookmarkFolder[]>>,
+  renameBookmarkFolder: (from: string, to: string) =>
+    ipcRenderer.invoke('bookmark-folders:rename', from, to) as Promise<Result<BookmarkFolder[]>>,
+  deleteBookmarkFolder: (name: string) =>
+    ipcRenderer.invoke('bookmark-folders:delete', name) as Promise<Result<BookmarkFolder[]>>,
   isBookmarked: (url: string) =>
     ipcRenderer.invoke('bookmarks:check', url) as Promise<Result<{ bookmarked: boolean }>>,
   toggleBookmark: (payload: { url: string; title?: string; favicon?: string | null }) =>
@@ -447,8 +471,14 @@ const api: BsubApi = {
     ipcRenderer.invoke('downloads:reveal', id) as Promise<Result<boolean>>,
   controlDownload: (id: number, action: 'pause' | 'resume' | 'cancel') =>
     ipcRenderer.invoke('downloads:control', { id, action }) as Promise<Result<{ state: string }>>,
+  bulkDownloads: (action: 'pause' | 'resume') =>
+    ipcRenderer.invoke('downloads:bulk', action) as Promise<Result<{ changed: number }>>,
+  revealDownloadsFolder: () =>
+    ipcRenderer.invoke('downloads:reveal-folder') as Promise<Result<boolean>>,
   clearBrowsingData: () =>
     ipcRenderer.invoke('browser:clear-data') as Promise<Result<{ cleared: boolean }>>,
+  clearSiteData: (url: string) =>
+    ipcRenderer.invoke('page:clear-site-data', url) as Promise<Result<{ origin: string }>>,
   onDownloadsChanged: (cb: () => void) => on<null>('downloads:changed', () => cb()),
 
   getPageInfo: (tabId?: string) =>
