@@ -139,6 +139,14 @@ export function GeneralGroup({ value, onChange }: Props) {
         />
         下载完成后弹系统通知
       </label>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.autoStart === true}
+          onChange={(event) => onChange({ autoStart: event.target.checked })}
+        />
+        开机自动启动拾字
+      </label>
     </SettingsSection>
 
     <SettingsSection title="默认浏览器" defaultOpen>

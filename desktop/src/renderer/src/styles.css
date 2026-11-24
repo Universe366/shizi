@@ -5616,16 +5616,6 @@ html[data-density='compact'] .chat-history-row {
 :root[data-ui-glass='on'] .chat-panel,
 :root[data-ui-glass='on'] .browser-hub,
 :root[data-ui-glass='on'] .settings-page-head,
-:root[data-ui-glass='on'] .settings-section,
-:root[data-ui-glass='on'] .settings-guide,
-:root[data-ui-glass='on'] .start-widget,
-:root[data-ui-glass='on'] .start-tile,
-:root[data-ui-glass='on'] .pipeline-step,
-:root[data-ui-glass='on'] .chat-menu,
-:root[data-ui-glass='on'] .download-library-row {
-  background-color: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(16px) saturate(1.12);
-}
 
 :root[data-ui-glass='on'] .start-tile,
 :root[data-ui-glass='on'] .start-widget {
@@ -16804,8 +16794,7 @@ sup:has(> .cite-ref) {
 .sidebar {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--surface) 76%, transparent);
-  backdrop-filter: blur(20px) saturate(1.2);
+  background: var(--surface);
   box-shadow: var(--shadow-sm);
   margin: 6px 0 6px 6px;
 }
@@ -16817,8 +16806,7 @@ sup:has(> .cite-ref) {
   padding: 3px 6px;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius-control) + 6px);
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  backdrop-filter: blur(20px) saturate(1.2);
+  background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
 
@@ -16857,12 +16845,7 @@ sup:has(> .cite-ref) {
   border-radius: var(--radius-control);
 }
 
-/* 关闭玻璃时回退到实底，保证可读 */
-:root[data-ui-glass='off'] .sidebar,
-:root[data-ui-glass='off'] .address-bar {
-  background: var(--surface);
-  backdrop-filter: none;
-}
+
 
 /* 设置页：与外壳同一套背景与圆角 */
 .settings-page {

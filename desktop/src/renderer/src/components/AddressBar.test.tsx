@@ -145,9 +145,10 @@ describe('AddressBar', () => {
     await vi.waitFor(() => {
       const items = api.popupMenu.mock.calls.at(-1)?.[0] || [];
       const labels = items.map((item) => String(item.label || ''));
-      expect(labels.some((label) => label.includes('浏览器中心'))).toBe(true);
-      // 历史、书签、下载、标签页不再各占一行。
-      expect(labels.filter((label) => /^(历史记录|书签|下载|标签页)$/.test(label))).toHaveLength(0);
+      // 历史、书签、下载、标签页直接作为一级菜单项，不再收进「浏览器中心」。
+      for (const label of ['历史记录', '书签', '下载', '标签页']) {
+        expect(labels).toContain(label);
+      }
     });
   });
 
@@ -322,11 +323,11 @@ describe('AddressBar 原生菜单', () => {
 
   it('有 popupMenu 时走系统菜单，选中后派发动作', async () => {
     const api = installBsub();
-    api.popupMenu.mockResolvedValue('history');
+    api.popupMenu.mockResolvedValue('bookmarks');
     const p = props();
     const { container } = render(<AddressBar {...p} />);
     fireEvent.click(container.querySelector('button[title="菜单"]') as HTMLElement);
     await vi.waitFor(() => expect(api.popupMenu).toHaveBeenCalled());
-    expect(p.onOpenHub).toHaveBeenCalledWith('history');
+    expect(p.onOpenHub).toHaveBeenCalledWith('bookmarks');
   });
 });

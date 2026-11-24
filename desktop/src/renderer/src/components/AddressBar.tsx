@@ -370,6 +370,9 @@ export function AddressBar({
   const runMenuChoice = (choice: string | null) => {
     if (!choice) return;
     if (choice === 'history') onOpenHub('history');
+    else if (choice === 'bookmarks') onOpenHub('bookmarks');
+    else if (choice === 'downloads') onOpenHub('downloads');
+    else if (choice === 'tabs') onOpenHub('tabs');
     else if (choice === 'clear-data') onOpenClearData?.();
     else if (choice === 'reader') onOpenReader();
     else if (choice === 'copy') void window.bsub.writeClipboard(canonicalUrl(tab?.url ?? ''));
@@ -454,9 +457,11 @@ export function AddressBar({
       readingResponse?.ok && tab?.url
         ? readingResponse.data.find((item) => item.url === tab.url)
         : undefined;
-    // 只放「这一行才有意义」的动作：历史/书签/下载/标签页已经在浏览器中心里，不再重复列出。
     const choice = await window.bsub.popupMenu([
-      { id: 'history', label: '浏览器中心（历史 / 书签 / 下载 / 标签页）' },
+      { id: 'history', label: '历史记录' },
+      { id: 'bookmarks', label: '书签' },
+      { id: 'downloads', label: '下载' },
+      { id: 'tabs', label: '标签页' },
       { id: 'clear-data', label: '清除浏览数据…' },
       { type: 'separator' },
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },

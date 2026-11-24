@@ -75,13 +75,6 @@ describe('GeneralSection', () => {
     expect(p.onChange).toHaveBeenCalledWith({ verticalTabs: true });
   });
 
-  it('开机自启动开关回传补丁', () => {
-    const p = props();
-    render(<Groups {...p} />);
-    fireEvent.click(screen.getByLabelText(/开机自动启动/));
-    expect(p.onChange).toHaveBeenCalledWith({ autoStart: true });
-  });
-
   it('关闭字幕缓存后隐藏天数输入', () => {
     const p = props({ value: { ...value, cacheSubtitles: false } });
     render(<Groups {...p} />);

@@ -1,7 +1,6 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
-import type { AppSettings, BrowserToolbarSettings, ThemeMode } from '../../../../shared/types';
+import type { AppSettings, ThemeMode } from '../../../../shared/types';
 import { COLOR_SCHEMES } from '../../../../shared/colorSchemes';
-import { DEFAULT_BROWSER_TOOLBAR } from '../../../../shared/browserToolbar';
 import { SettingsSection } from './SettingsSection';
 
 type General = AppSettings['general'];
@@ -17,12 +16,8 @@ const THEMES: Array<{ id: ThemeMode; label: string; desc: string; icon: typeof S
   { id: 'dark', label: '深色', desc: '低亮度、适合夜间', icon: Moon }
 ];
 
-/** 外观：主题、配色、布局与工具栏。默认只露出常用项，细节收进折叠区。 */
+/** 外观：只留主题、强调色、密度。 */
 export function AppearanceGroup({ value, onChange }: Props) {
-  const toolbar: BrowserToolbarSettings = { ...DEFAULT_BROWSER_TOOLBAR, ...(value.browserToolbar || {}) };
-  const toggleToolbar = (key: keyof BrowserToolbarSettings, checked: boolean) =>
-    onChange({ browserToolbar: { ...toolbar, [key]: checked } });
-
   return (
     <>
       <SettingsSection title="外观" defaultOpen>
@@ -113,117 +108,8 @@ export function AppearanceGroup({ value, onChange }: Props) {
         </label>
 
 
-        <details className="settings-advanced">
-          <summary>起始页外观</summary>
-          <div className="settings-label">起始页壁纸</div>
-          <select
-            className="settings-input"
-            value={value.startWallpaper || 'aurora'}
-            onChange={(event) =>
-              onChange({
-                startWallpaper: event.target.value as
-                  | 'aurora'
-                  | 'midnight'
-                  | 'paper'
-                  | 'mint'
-                  | 'peach'
-              })
-            }
-          >
-            <option value="aurora">极光</option>
-            <option value="midnight">夜空</option>
-            <option value="paper">纸白</option>
-            <option value="mint">薄荷</option>
-            <option value="peach">蜜桃</option>
-          </select>
-
-          <label className="settings-check">
-            <input
-              type="checkbox"
-              checked={value.startWeather !== false}
-              onChange={(event) => onChange({ startWeather: event.target.checked })}
-            />
-            起始页显示天气（Open-Meteo）
-          </label>
-          <input
-            className="settings-input"
-            value={value.startCity || '上海'}
-            maxLength={20}
-            placeholder="城市，例如 上海"
-            onChange={(event) => onChange({ startCity: event.target.value })}
-          />
-
-          <label className="settings-check">
-            <input
-              type="checkbox"
-              checked={value.startHotSearch !== false}
-              onChange={(event) => onChange({ startHotSearch: event.target.checked })}
-            />
-            起始页显示 B 站热搜
-          </label>
-
-          <label className="settings-check">
-            <input
-              type="checkbox"
-              checked={value.autoStart === true}
-              onChange={(event) => onChange({ autoStart: event.target.checked })}
-            />
-            开机自动启动拾字
-          </label>
-          <div className="settings-hint">使用系统登录项；关闭后下次启动不再自动运行。</div>
-        </details>
       </SettingsSection>
 
-      <SettingsSection title="浏览器工具栏" defaultOpen={false}>
-        <div className="settings-group-desc">
-          选择地址栏上显示的按钮；主菜单和设置至少保留一个入口。
-        </div>
-        <div className="settings-check-grid">
-          {([
-            ['back', '后退'],
-            ['forward', '前进'],
-            ['reload', '刷新'],
-            ['engine', '搜索引擎切换'],
-            ['speed', '播放倍速'],
-            ['zoom', '缩放百分比'],
-            ['bookmark', '收藏'],
-            ['startFavorite', '添加到起始页'],
-            ['library', '工作台'],
-            ['home', '主页'],
-            ['downloads', '下载'],
-            ['dark', '网页深色模式'],
-            ['settings', '设置'],
-            ['menu', '主菜单']
-          ] as Array<[keyof BrowserToolbarSettings, string]>).map(([key, label]) => (
-            <label className="settings-check" key={key}>
-              <input
-                type="checkbox"
-                checked={toolbar[key]}
-                onChange={(event) => toggleToolbar(key, event.target.checked)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        <div className="settings-inline">
-          <label className="settings-check">
-            <input
-              type="checkbox"
-              checked={value.bookmarkBar !== false}
-              onChange={(event) => onChange({ bookmarkBar: event.target.checked })}
-            />
-            显示书签栏（地址栏下方）
-          </label>
-        </div>
-        <div className="settings-inline">
-          <button
-            className="mini-btn"
-            onClick={() => onChange({ browserToolbar: { ...DEFAULT_BROWSER_TOOLBAR } })}
-          >
-            恢复默认工具栏
-          </button>
-        </div>
-      </SettingsSection>
     </>
   );
 }

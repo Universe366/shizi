@@ -16,6 +16,7 @@ import { PluginsSection } from './settings/PluginsSection';
 import { AgentSection } from './settings/AgentSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
+import { BrowserToolbarSection } from './settings/BrowserToolbarSection';
 import { PetSection } from './settings/PetSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { GeneralGroup } from './settings/GeneralGroup';
@@ -1352,6 +1353,7 @@ export function SettingsPanel({
 
       {show('browser') && (
         <>
+          <BrowserToolbarSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>

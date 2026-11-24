@@ -52,9 +52,6 @@ export function BookmarkBar({
   return (
     <div className="bookmark-bar" ref={rootRef}>
       <div className="bookmark-bar-scroll">
-        {!bar.length && !folders.length && (
-          <span className="bookmark-bar-empty">书签栏为空，点地址栏星标收藏当前页面</span>
-        )}
         {bar.map((item) => (
           <button
             key={item.id}
