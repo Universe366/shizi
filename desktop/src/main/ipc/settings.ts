@@ -440,7 +440,7 @@ export function registerSettingsIpc(ctx: IpcContext): void {
   });
 
   ipcMain.handle('update:open-releases', async () => {
-    await shell.openExternal('https://github.com/Universe366/shizi-extension/releases/latest');
+    await shell.openExternal('https://github.com/Universe366/shizi/releases/latest');
   });
 
   ipcMain.handle('update:install', () => {

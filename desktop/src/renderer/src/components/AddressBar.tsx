@@ -586,7 +586,7 @@ export function AddressBar({
           ref={inputRef}
           value={displayValue}
           title={tab?.url ?? ''}
-          placeholder={`在${engineLabel}搜索，或输入网址 / BV 号`}
+          placeholder={`在${engineLabel}搜索，或输入网址`}
           spellCheck={false}
           aria-autocomplete="list"
           aria-expanded={suggestOpen && suggestRows.length > 0}

@@ -840,9 +840,10 @@ export default function App() {
   runShortcutRef.current = (action) => {
     switch (action) {
       case 'new-tab':
-        // 当前模型里「新标签页」就是起始页；不再像旧版那样直接开 B 站。
+        // 新标签页：真的建一个标签，再在上面显示起始页。
         setSettingsOpen(false);
         setLibraryOpen(false);
+        void window.bsub.newTab('about:blank');
         setStartOpen(true);
         break;
       case 'close-tab':
@@ -1027,16 +1028,12 @@ export default function App() {
         }}
         onOpenHome={() => {
           const target = homeUrl.trim();
-          if (/^https?:\/\//i.test(target)) {
-            setStartOpen(false);
-            setSettingsOpen(false);
-            setLibraryOpen(false);
-            void window.bsub.newTab(target);
-            return;
-          }
+          // 主页始终开一个新标签页；没配主页时新标签里放起始页。
           setSettingsOpen(false);
           setLibraryOpen(false);
-          setStartOpen(true);
+          setStartOpen(false);
+          void window.bsub.newTab(/^https?:\/\//i.test(target) ? target : 'about:blank');
+          if (!/^https?:\/\//i.test(target)) setStartOpen(true);
         }}
         onOpenLibrary={() => handleSectionSelect('library')}
         onOpenSettings={() => {
