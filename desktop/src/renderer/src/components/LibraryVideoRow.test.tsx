@@ -35,7 +35,6 @@ function props(overrides: Partial<Parameters<typeof LibraryVideoRow>[0]> = {}) {
     selected: false,
     onToggleSelect: vi.fn(),
     onOpen: vi.fn(),
-    onDetail: vi.fn(),
     onDelete: vi.fn(),
     ...overrides
   };
@@ -72,12 +71,9 @@ describe('LibraryVideoRow', () => {
     expect(p.onOpen).not.toHaveBeenCalled();
   });
 
-  it('详情按钮打开二级页，不触发整行打开', () => {
-    const p = props();
-    render(<LibraryVideoRow {...p} />);
-    fireEvent.click(screen.getByTitle('查看字幕 / 总结 / 笔记'));
-    expect(p.onDetail).toHaveBeenCalledWith(video);
-    expect(p.onOpen).not.toHaveBeenCalled();
+  it('不再提供「查看字幕 / 总结 / 笔记」二级入口', () => {
+    render(<LibraryVideoRow {...props()} />);
+    expect(screen.queryByTitle('查看字幕 / 总结 / 笔记')).toBeNull();
   });
 
   it('选择模式下点击切换选中，不打开详情', () => {

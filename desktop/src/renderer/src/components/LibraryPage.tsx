@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Clapperboard, FileCog, Library, X } from 'lucide-react';
+import { useEffect } from 'react';
+import { Library, X } from 'lucide-react';
 import { LibraryPanel } from './LibraryPanel';
-import { StudioPanel } from './StudioPanel';
-import { FileConvertPanel } from './FileConvertPanel';
 
-/** 工作台：资料库 + 文件转换 + 成片与本地处理。 */
+/** 工作台：只剩资料库。文件转换与成片处理已移除（本地视频直接用侧栏打开）。 */
 export function LibraryPage({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'library' | 'convert' | 'studio'>('library');
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -27,7 +23,7 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
           <div>
             <div className="settings-page-name">工作台</div>
             <div className="settings-page-desc">
-              资料库、本地视频处理与成片；跨视频检索、字幕/总结/笔记、导出与合成都在这里
+              字幕、总结与视频资料库；跨视频检索、导出与清理都在这里。
             </div>
           </div>
         </div>
@@ -38,40 +34,9 @@ export function LibraryPage({ onClose }: { onClose: () => void }) {
         </div>
       </header>
 
-      <div className="workbench-tabs">
-        <button
-          className={`workbench-tab${tab === 'library' ? ' is-active' : ''}`}
-          onClick={() => setTab('library')}
-        >
-          <Library size={13} /> 资料库
-        </button>
-        <button
-          className={`workbench-tab${tab === 'convert' ? ' is-active' : ''}`}
-          onClick={() => setTab('convert')}
-        >
-          <FileCog size={13} /> 文件转换
-        </button>
-        <button
-          className={`workbench-tab${tab === 'studio' ? ' is-active' : ''}`}
-          onClick={() => setTab('studio')}
-        >
-          <Clapperboard size={13} /> 成片与处理
-        </button>
+      <div className="library-page-body">
+        <LibraryPanel />
       </div>
-
-      {tab === 'library' ? (
-        <div className="library-page-body">
-          <LibraryPanel />
-        </div>
-      ) : tab === 'convert' ? (
-        <div className="library-page-body">
-          <FileConvertPanel />
-        </div>
-      ) : (
-        <div className="studio-panel">
-          <StudioPanel />
-        </div>
-      )}
     </div>
   );
 }

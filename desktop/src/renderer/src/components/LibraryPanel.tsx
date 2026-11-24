@@ -1349,8 +1349,7 @@ export function LibraryPanel() {
               downloadProgress={activeDownloadFor(downloads, video.id)}
               onToggleSelect={toggleSelect}
               onOpen={openInBrowser}
-              onDetail={openDetail}
-              onDelete={(item) => setPendingDelete(item)}
+                      onDelete={(item) => setPendingDelete(item)}
               onDownload={(item) => {
                 void (async () => {
                   setDownloadBusyId(item.id);

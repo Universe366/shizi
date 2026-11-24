@@ -26,12 +26,6 @@ export function LibraryTabBar({ detail, active, onChange }: LibraryTabBarProps) 
       >
         总结{detail?.summary ? '' : ' —'}
       </button>
-      <button
-        className={`mini-btn${active === 'note' ? ' is-active' : ''}`}
-        onClick={() => onChange('note')}
-      >
-        笔记{detail?.note ? ' •' : ''}
-      </button>
     </div>
   );
 }

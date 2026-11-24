@@ -39,19 +39,17 @@ const detail = {
 describe('LibraryTabBar', () => {
   afterEach(cleanup);
 
-  it('显示字幕行数、总结与笔记状态', () => {
+  it('只显示字幕与总结，不再有笔记 tab', () => {
     render(<LibraryTabBar detail={detail} active="subtitles" onChange={() => {}} />);
     expect(screen.getByText(/字幕 1/)).toBeTruthy();
-    expect(screen.getByText(/笔记 •/)).toBeTruthy();
+    expect(screen.queryByText(/笔记/)).toBeNull();
   });
 
   it('切换 tab 触发回调', () => {
     const onChange = vi.fn();
     render(<LibraryTabBar detail={detail} active="subtitles" onChange={onChange} />);
     fireEvent.click(screen.getByText(/总结/));
-    fireEvent.click(screen.getByText(/笔记/));
-    expect(onChange).toHaveBeenNthCalledWith(1, 'summary');
-    expect(onChange).toHaveBeenNthCalledWith(2, 'note');
+    expect(onChange).toHaveBeenCalledWith('summary');
   });
 
   it('没有字幕时禁用字幕 tab', () => {

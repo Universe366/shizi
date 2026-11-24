@@ -122,12 +122,10 @@ describe('LibraryPanel', () => {
     expect(getLibraryItem).not.toHaveBeenCalled();
   });
 
-  it('详情按钮打开二级页并展示字幕', async () => {
-    const { getLibraryItem } = installBsub();
+  it('列表不再有「查看字幕 / 总结 / 笔记」二级入口', async () => {
+    installBsub();
     render(<LibraryPanel />);
-    fireEvent.click(await screen.findByTitle('查看字幕 / 总结 / 笔记'));
-
-    await waitFor(() => expect(getLibraryItem).toHaveBeenCalledWith(7));
-    expect(await screen.findByText(/第一句/)).toBeTruthy();
+    await screen.findByText('组件测试视频');
+    expect(screen.queryByTitle('查看字幕 / 总结 / 笔记')).toBeNull();
   });
 });
