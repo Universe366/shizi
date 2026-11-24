@@ -1331,23 +1331,27 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('advanced') && (
-        <>
-          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-          <DownloadSection
-            value={draft.general.download}
-            onChange={(next) => updateGeneral({ download: next })}
-          />
-        </>
+      {show('shortcuts') && (
+        <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+      )}
+
+      {show('download') && (
+        <DownloadSection
+          value={draft.general.download}
+          onChange={(next) => updateGeneral({ download: next })}
+        />
       )}
       {show('appearance') && (
+        <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+      )}
+
+      {show('browser') && (
         <>
-          <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
         </>
       )}
-      {show('media') && (
+      {show('voice') && (
         <>
           <AsrSection
             draft={draft}
@@ -1368,7 +1372,7 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('advanced') && (
+      {show('voice') && (
         <>
           <LocalModelsSection
             activeAsr={activeAsr}
@@ -1393,7 +1397,7 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('media') && (
+      {show('voice') && (
         <>
           <SubtitleGroup
             value={draft.general}
@@ -1427,7 +1431,7 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('advanced') && (
+      {show('download') && (
         <ExportDefaultsSection
           value={draft.export}
           onChange={(next) => setDraft({ ...draft, export: next })}
@@ -1446,7 +1450,7 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('advanced') && (
+      {show('desktop') && (
         <RadialSection
           value={draft.general.radial}
           onChange={(next) => updateGeneral({ radial: next })}
@@ -1489,7 +1493,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('advanced') && (
+      {show('ai') && (
         <>
           <ImageGenSection
             value={draft.image}
@@ -1524,7 +1528,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('advanced') && (
+      {show('extensions') && (
         <>
           <McpSection
             value={draft.mcp}
@@ -1611,7 +1615,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('advanced') && (
+      {show('data') && (
         <>
           <UsageSection
             value={draft.usage}

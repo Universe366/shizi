@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SETTINGS_GROUPS } from './components/settings/registry';
 import { askConfirm } from './components/ui/confirm';
@@ -127,21 +127,24 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 
       <div className="settings-page-body">
         <nav className="settings-nav">
-          {SETTINGS_GROUPS.map((item) => {
+          {SETTINGS_GROUPS.map((item, index) => {
             const ItemIcon = item.icon;
+            const startsGroup =
+              index === 0 || SETTINGS_GROUPS[index - 1].navGroup !== item.navGroup;
             return (
-              <button
-                key={item.id}
-                className={`settings-nav-item${group === item.id ? ' is-active' : ''}`}
-                title={item.description}
-                onClick={() => setGroup(item.id)}
-              >
-                <ItemIcon size={14} />
-                <span className="settings-nav-text">
-                  <span className="settings-nav-label">{item.label}</span>
-                  <span className="settings-nav-desc">{item.description}</span>
-                </span>
-              </button>
+              <Fragment key={item.id}>
+                {startsGroup && <div className="settings-nav-group">{item.navGroup}</div>}
+                <button
+                  className={`settings-nav-item${group === item.id ? ' is-active' : ''}`}
+                  title={item.description}
+                  onClick={() => setGroup(item.id)}
+                >
+                  <ItemIcon size={15} />
+                  <span className="settings-nav-text">
+                    <span className="settings-nav-label">{item.label}</span>
+                  </span>
+                </button>
+              </Fragment>
             );
           })}
         </nav>

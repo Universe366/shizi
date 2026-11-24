@@ -4311,26 +4311,20 @@ button:disabled {
 }
 
 .settings-section {
-  margin: 10px 0;
+  margin: 0;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
   scroll-margin-top: 112px;
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
 }
 
-.settings-section:hover {
-  border-color: var(--border-strong);
-}
-
+/* 借 Cherry Studio：设置页是「平铺的行」，不是一层层卡片 */
 .settings-section[open] {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-pop);
+  border-bottom-color: var(--border-strong);
 }
 
 .settings-section-title {
@@ -4393,10 +4387,10 @@ button:disabled {
 
 .settings-section-title {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 14px;
+  grid-template-columns: 24px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: var(--sp-3);
-  padding: 12px 14px;
+  gap: var(--sp-2);
+  padding: 12px 2px;
   cursor: pointer;
   list-style: none;
   color: var(--text);
@@ -4415,11 +4409,11 @@ button:disabled {
 .settings-section-icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--accent);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--faint);
 }
 
 .settings-section-text {
@@ -4468,7 +4462,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  padding: 12px 14px 14px;
+  padding: 2px 2px 16px 26px;
 }
 
 /* 一张大卡内部的子分组（bare）：用细分隔线，不再套一层卡片 */
@@ -9271,9 +9265,22 @@ html[data-density='compact'] .chat-history-row {
   flex: 0 0 196px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 4px 2px 16px;
   overflow-y: auto;
+}
+
+/* 分组标题：借 Cherry Studio 的导航节奏 */
+.settings-nav-group {
+  margin: 12px 10px 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--faint);
+}
+
+.settings-nav-group:first-child {
+  margin-top: 2px;
 }
 
 .settings-nav-item {
