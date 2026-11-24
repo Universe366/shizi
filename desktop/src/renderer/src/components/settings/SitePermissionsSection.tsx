@@ -24,6 +24,7 @@ interface SitePermissionsSectionProps {
   onRevoke: (origin: string, permission: string) => void;
   onRefresh: () => void;
   onClear: () => void;
+  bare?: boolean;
 }
 
 /** 站点权限：列出记住的允许/拒绝决定，支持逐条撤销与全部清除。 */
@@ -31,10 +32,11 @@ export function SitePermissionsSection({
   items,
   onRevoke,
   onRefresh,
-  onClear
+  onClear,
+  bare = false
 }: SitePermissionsSectionProps) {
   return (
-    <SettingsSection title="站点权限" defaultOpen={false}>
+    <SettingsSection title="站点权限" defaultOpen={false} bare={bare}>
       <div className="settings-hint">
         网站首次申请摄像头、麦克风、通知等权限时会弹窗；这里可以查看并撤销已记住的选择。
       </div>

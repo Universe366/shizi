@@ -155,10 +155,11 @@ function buildHeatCells(
 interface Props {
   value: AppSettings['usage'];
   onChange: (patch: Partial<AppSettings['usage']>) => void;
+  bare?: boolean;
 }
 
 /** 用量统计：概览、每日热力图、分布分析、分组明细与模型价格。 */
-export function UsageSection({ value, onChange }: Props) {
+export function UsageSection({ value, onChange, bare = false }: Props) {
   const [days, setDays] = useState(readStoredRange);
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [heatSummary, setHeatSummary] = useState<UsageSummary | null>(null);
@@ -271,7 +272,7 @@ export function UsageSection({ value, onChange }: Props) {
   };
 
   return (
-    <SettingsSection title="用量统计" defaultOpen>
+    <SettingsSection title="用量统计" defaultOpen bare={bare}>
       <div className="settings-hint">
         每次 AI 请求成功后记录 token 用量；成本按下方价格估算（缓存命中按半价），实际以服务商账单为准。
       </div>

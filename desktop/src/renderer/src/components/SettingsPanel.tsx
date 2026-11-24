@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { askConfirm } from './ui/confirm';
 import type { DiagnosticsInfo } from '../../../shared/types';
-import { AssistantSection } from './settings/AssistantSection';
 import { BridgeSection } from './settings/BridgeSection';
 import { DataBackupSection } from './settings/DataBackupSection';
 import { ClearBrowsingDataDialog } from './ClearBrowsingDataDialog';
@@ -22,7 +21,6 @@ import { GeneralGroup } from './settings/GeneralGroup';
 import { RadialSection } from './settings/RadialSection';
 import { LocalModelsSection } from './settings/LocalModelsSection';
 import { ContextSection } from './settings/ContextSection';
-import { ChatPromptsSection } from './settings/ChatPromptsSection';
 import { OcrSection } from './settings/OcrSection';
 import { ImageGenSection } from './settings/ImageGenSection';
 import { QuickAskSection } from './settings/QuickAskSection';
@@ -33,6 +31,7 @@ import { SitePermissionsSection } from './settings/SitePermissionsSection';
 import { SkillsSection } from './settings/SkillsSection';
 import { TtsSection } from './settings/TtsSection';
 import { VoiceInputSection } from './settings/VoiceInputSection';
+import { SettingsSection } from './settings/SettingsSection';
 import { UsageSection } from './settings/UsageSection';
 import { UpdateSection } from './settings/UpdateSection';
 import { Loader2, Save, Search } from 'lucide-react';
@@ -1477,13 +1476,6 @@ export function SettingsPanel({
             value={draft.image}
             onChange={(patch) => setDraft({ ...draft, image: { ...draft.image, ...patch } })}
           />
-          <ChatPromptsSection value={draft.ai} onChange={(patch) => updateAi(patch)} />
-          <AssistantSection
-            value={draft.ai}
-            platforms={draft.ai.platforms}
-            skills={draft.skills.items}
-            updateAi={(patch) => updateAi(patch)}
-          />
         </>
       )}
 
@@ -1594,10 +1586,11 @@ export function SettingsPanel({
       )}
 
       {show('data') && (
-        <>
+        <SettingsSection title="维护与诊断" defaultOpen={false}>
           <UsageSection
             value={draft.usage}
             onChange={(patch) => setDraft({ ...draft, usage: { ...draft.usage, ...patch } })}
+            bare
           />
           <DiagnosticsSection
             diagnostics={diagnostics}
@@ -1606,14 +1599,16 @@ export function SettingsPanel({
             onRefresh={() => void refreshDiagnostics()}
             onCopy={() => void copyDiagnostics()}
             onExport={() => void exportDiag()}
+            bare
           />
           <SitePermissionsSection
             items={sitePermissions}
             onRevoke={(origin, permission) => void revokePermission(origin, permission)}
             onRefresh={() => void refreshSitePermissions()}
             onClear={() => void clearPermissions()}
+            bare
           />
-        </>
+        </SettingsSection>
       )}
 
       {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}

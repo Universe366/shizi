@@ -6,6 +6,9 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatComparePanel } from './ChatComparePanel';
 import { ChatApprovals } from './ChatApprovals';
 import { ChatComposerMenuGrid } from './ChatComposerMenuGrid';
+import { SettingsDialog } from './SettingsDialog';
+import { AssistantSection } from './settings/AssistantSection';
+import { ChatPromptsSection } from './settings/ChatPromptsSection';
 import { ChatComposerRight } from './ChatComposerRight';
 import { ChatComposerChips } from './ChatComposerChips';
 import { ChatModelPicker } from './ChatModelPicker';
@@ -251,6 +254,7 @@ export function ChatPanel({
   const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [toolPanelOpen, setToolPanelOpen] = useState(false);
   const [toolOptions, setToolOptions] = useState<McpToolOption[]>([]);
   const [toolPanelMode, setToolPanelMode] = useState<'tools' | 'prompts' | 'resources'>(
@@ -2251,6 +2255,14 @@ export function ChatPanel({
             onFile={() => fileInputRef.current?.click()}
             onClear={clear}
           />
+          <button
+            type="button"
+            className="chat-menu-row"
+            onClick={() => setAiSettingsOpen(true)}
+          >
+            <span className="chat-menu-row-label">助手与快捷指令设置…</span>
+            <span className="chat-menu-row-desc">提示词、模型、技能、工具与 / 快捷指令</span>
+          </button>
           <div className="chat-menu-row">
             <span className="chat-menu-row-label">助手档案</span>
             <select
@@ -2681,6 +2693,29 @@ export function ChatPanel({
             </div>
           </div>
         </div>
+      )}
+
+      {aiSettingsOpen && (
+        <SettingsDialog
+          title="AI 助手与快捷指令"
+          description="助手档案打包提示词、模型、技能与工具；快捷指令是输入 / 时出现的常用提示。"
+          onClose={() => setAiSettingsOpen(false)}
+        >
+          {(draft, patch) => (
+            <>
+              <AssistantSection
+                value={draft.ai}
+                platforms={draft.ai.platforms}
+                skills={draft.skills.items}
+                updateAi={(next) => patch((d) => ({ ...d, ai: { ...d.ai, ...next } }))}
+              />
+              <ChatPromptsSection
+                value={draft.ai}
+                onChange={(next) => patch((d) => ({ ...d, ai: { ...d.ai, ...next } }))}
+              />
+            </>
+          )}
+        </SettingsDialog>
       )}
     </div>
   );

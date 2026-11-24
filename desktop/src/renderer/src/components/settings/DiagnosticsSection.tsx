@@ -9,6 +9,7 @@ interface DiagnosticsSectionProps {
   onRefresh: () => void;
   onCopy: () => void;
   onExport: () => void;
+  bare?: boolean;
 }
 
 /** 诊断与关于：运行环境、库体积、日志、诊断包导出。 */
@@ -18,11 +19,12 @@ export function DiagnosticsSection({
   fallbackDataDir,
   onRefresh,
   onCopy,
-  onExport
+  onExport,
+  bare = false
 }: DiagnosticsSectionProps) {
   const version = diagnostics?.version || fallbackVersion;
   return (
-    <SettingsSection title="诊断与版本" defaultOpen={false}>
+    <SettingsSection title="诊断与版本" defaultOpen={false} bare={bare}>
       <div className="settings-row">
         <span>桌面端版本</span>
         <code>{version || '读取中'}</code>
