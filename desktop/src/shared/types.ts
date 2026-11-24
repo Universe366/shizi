@@ -1287,6 +1287,8 @@ export interface BrowserToolbarSettings {
   startFavorite: boolean;
   library: boolean;
   home: boolean;
+  /** 下载按钮（带进行中数量角标） */
+  downloads: boolean;
   /** 网页深色模式按钮 */
   dark: boolean;
   settings: boolean;
@@ -1339,8 +1341,16 @@ export interface AppSettings {
     mediaWidget: boolean;
     /** 首次使用向导是否已完成 */
     wizardDone: boolean;
-    /** 退出时记住标签页，下次启动恢复 */
+    /** 退出时记住标签页，下次启动恢复（由 startupMode 派生，保留给旧代码） */
     restoreSession: boolean;
+    /** 启动行为：起始页 / 恢复上次会话 / 打开指定网页 */
+    startupMode: 'start' | 'restore' | 'url';
+    /** startupMode = 'url' 时启动打开的网址 */
+    startupUrl: string;
+    /** 主页按钮网址；留空表示起始页 */
+    homeUrl: string;
+    /** 浏览器下载完成后弹系统通知 */
+    downloadNotify: boolean;
     /** 网页内选中文字时显示解释/翻译/总结工具条 */
     selectionToolbar: boolean;
     /** 桌面宠物悬浮窗 */

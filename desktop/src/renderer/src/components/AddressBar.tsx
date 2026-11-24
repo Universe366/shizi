@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   ArrowRight,
+  Download,
   Globe,
   Home,
   Lock,
@@ -45,6 +46,9 @@ export function AddressBar({
   onOpenReader,
   onOpenFind,
   onOpenStart,
+  onOpenHome,
+  downloadsActive = 0,
+  onOpenDownloads,
   siteDarkDisabled = [],
   onOpenLibrary,
   onOpenSettings,
@@ -68,6 +72,11 @@ export function AddressBar({
   onOpenReader: () => void;
   onOpenFind?: () => void;
   onOpenStart: () => void;
+  /** 主页按钮；未提供时等同于起始页 */
+  onOpenHome?: () => void;
+  /** 进行中的下载数量（工具栏角标） */
+  downloadsActive?: number;
+  onOpenDownloads?: () => void;
   siteDarkDisabled?: string[];
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
@@ -766,6 +775,19 @@ export function AddressBar({
         </button>
       )}
 
+      {toolbar.downloads && (
+        <button
+          className="nav-btn download-btn"
+          title={downloadsActive > 0 ? `下载中 ${downloadsActive} 个` : '下载'}
+          onClick={onOpenDownloads}
+        >
+          <Download size={15} />
+          {downloadsActive > 0 && (
+            <span className="nav-badge">{downloadsActive > 9 ? '9+' : downloadsActive}</span>
+          )}
+        </button>
+      )}
+
       {toolbar.library && (
         <button className="nav-btn" title="工作台：资料库 / 成片" onClick={onOpenLibrary}>
           <Library size={15} />
@@ -773,7 +795,7 @@ export function AddressBar({
       )}
 
       {toolbar.home && (
-        <button className="nav-btn" title="起始页" onClick={onOpenStart}>
+        <button className="nav-btn" title="主页" onClick={onOpenHome || onOpenStart}>
           <Home size={15} />
         </button>
       )}

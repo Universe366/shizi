@@ -29,6 +29,7 @@
   "bookmark-folders:list",
   "bookmark-folders:rename",
   "bookmarks:check",
+  "bookmarks:export-html",
   "bookmarks:list",
   "bookmarks:remove",
   "bookmarks:save",

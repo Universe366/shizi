@@ -5,6 +5,7 @@ import {
   closeChoiceFromDialog,
   launchUrlFromArgv,
   resolveStartUrl,
+  startupTarget,
   shortcutAction,
   shouldRestoreSession,
   windowFrameOptions
@@ -91,6 +92,42 @@ describe('启动参数', () => {
     expect(shouldRestoreSession({ general: {} })).toBe(true);
     expect(shouldRestoreSession({ general: { restoreSession: true } })).toBe(true);
     expect(shouldRestoreSession({ general: { restoreSession: false } })).toBe(false);
+  });
+});
+
+describe('startupTarget', () => {
+  it('默认恢复上次会话', () => {
+    expect(startupTarget({ general: {} }, 'https://start')).toEqual({
+      restore: true,
+      startUrl: 'https://start'
+    });
+    expect(startupTarget(undefined, 'https://start')).toEqual({
+      restore: true,
+      startUrl: 'https://start'
+    });
+  });
+
+  it('start 直接进起始页，url 打开指定网址', () => {
+    expect(startupTarget({ general: { startupMode: 'start' } }, 'https://start')).toEqual({
+      restore: false,
+      startUrl: 'https://start'
+    });
+    expect(
+      startupTarget({ general: { startupMode: 'url', startupUrl: 'https://b.example' } }, 'https://start')
+    ).toEqual({ restore: false, startUrl: 'https://b.example' });
+  });
+
+  it('指定网址非法时退回恢复会话', () => {
+    expect(
+      startupTarget({ general: { startupMode: 'url', startupUrl: 'not-a-url' } }, 'https://start')
+    ).toEqual({ restore: true, startUrl: 'https://start' });
+  });
+
+  it('兼容只有 restoreSession 的老配置', () => {
+    expect(startupTarget({ general: { restoreSession: false } }, 'https://start')).toEqual({
+      restore: false,
+      startUrl: 'https://start'
+    });
   });
 });
 

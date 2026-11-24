@@ -174,7 +174,7 @@ describe('AddressBar', () => {
     fireEvent.click(screen.getByTitle(/编辑书签/));
     expect(p.onToggleBookmark).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTitle('起始页'));
+    fireEvent.click(screen.getByTitle('主页'));
     expect(p.onOpenStart).toHaveBeenCalled();
 
     fireEvent.click(screen.getByTitle(/^工作台：/));
@@ -216,7 +216,7 @@ describe('AddressBar', () => {
   it('没有标签页时阅读模式与书签禁用', () => {
     render(<AddressBar {...props({ tab: null, bookmarked: false })} />);
     expect((screen.getByTitle(/收藏此页/) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTitle('起始页')).toBeTruthy();
+    expect(screen.getByTitle('主页')).toBeTruthy();
   });
 
   it('聚焦后给出历史建议，方向键与回车打开', async () => {
@@ -284,6 +284,7 @@ describe('AddressBar 原生菜单', () => {
           startFavorite: false,
           library: false,
           home: false,
+          downloads: false,
           dark: false,
           settings: false,
           menu: false
@@ -297,7 +298,7 @@ describe('AddressBar 原生菜单', () => {
       '切换搜索引擎',
       '收藏到起始页',
       '工作台：资料库 / 成片',
-      '起始页',
+      '主页',
       '设置',
       '菜单'
     ]) {

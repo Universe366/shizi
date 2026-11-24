@@ -1,6 +1,6 @@
 # 拾字 · 桌面端
 
-Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/archive/REBRAND.md`](docs/archive/REBRAND.md)）。当前 **0.164.0**。
+Windows 桌面端，内置浏览器 + 本地字幕/总结库 + AI 工作台。对外显示名「拾字」；`appId` 为 `com.shizi.desktop`，userData 在 `%APPDATA%\shizi`（见 [`docs/archive/REBRAND.md`](docs/archive/REBRAND.md)）。当前 **0.165.0**。
 
 能力概览：
 
@@ -115,8 +115,8 @@ npm run dist
 
 | 文件 | 说明 |
 |---|---|
-| `release/shizi-setup-0.164.0.exe` | NSIS 安装包，可选安装目录 |
-| `release/shizi-0.164.0-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
+| `release/shizi-setup-0.165.0.exe` | NSIS 安装包，可选安装目录 |
+| `release/shizi-0.165.0-win-x64-green.zip` | 绿色版，解压后进入目录双击 `拾字.exe` |
 | `release/latest.yml` | 自动更新元数据 |
 | `release/shizi-extension-v2.20.16.zip` | 浏览器插件（由 CI 打包） |
 
@@ -124,7 +124,7 @@ npm run dist
 
 ### 发布
 
-发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.164.0`）同时提供插件 zip 和桌面端安装包/绿色包。
+发布使用**合并 Release**：一个 tag（**桌面版本号**，例如 `v0.165.0`）同时提供插件 zip 和桌面端安装包/绿色包。
 这样插件更新检查（读 `/releases/latest`）和桌面自动更新（读最新 Release 里的 `latest.yml`）都正常。
 
 > 不要再用插件版本 `v2.x` 打 tag：GitHub 按 semver 会把旧的高版本 Release 当成 Latest，桌面自动更新会读错。
@@ -136,9 +136,9 @@ npm run dist
 5. 打 tag 并推送：
 
 ```bash
-git tag -a v0.164.0 -m "桌面端 0.164.0 + 插件 2.20.16"
+git tag -a v0.165.0 -m "桌面端 0.165.0 + 插件 2.20.16"
 git push origin master
-git push origin master v0.164.0
+git push origin master v0.165.0
 ```
 
 GitHub Actions（`.github/workflows/desktop-release.yml`）会在 Windows runner 上重新构建，

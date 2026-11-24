@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
   Clock,
@@ -23,7 +23,9 @@ import type {
   TabInfo
 } from '../../../shared/types';
 import { formatDateTime } from '../lib/format';
+import { buildBookmarksHtml } from '../lib/bookmarksHtml';
 import { askConfirm } from './ui/confirm';
+import { parseBookmarksHtml } from './start/bookmarks';
 
 export type HubSection = 'history' | 'bookmarks' | 'downloads' | 'tabs';
 
@@ -94,6 +96,8 @@ export function BrowserHub({
   const [closed, setClosed] = useState<Array<{ url: string; title: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -281,6 +285,43 @@ export function BrowserHub({
     }
   };
 
+  const importBookmarks = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const parsed = parseBookmarksHtml(await file.text());
+    if (!parsed.shortcuts.length) {
+      setError('没有找到可导入的书签（只支持 http/https）');
+      return;
+    }
+    let imported = 0;
+    for (const item of parsed.shortcuts) {
+      const folder = item.folder
+        ? `${item.group} / ${item.folder}`
+        : item.group === '常用'
+          ? ''
+          : item.group;
+      const response = await window.bsub.saveBookmark?.({
+        url: item.url,
+        title: item.label,
+        folder
+      });
+      if (response?.ok) imported += 1;
+    }
+    await loadBookmarks();
+    setNotice(`已导入 ${imported} 条书签`);
+  };
+
+  const exportBookmarks = async () => {
+    const html = buildBookmarksHtml(bookmarks, folders);
+    const response = await window.bsub.exportBookmarksHtml?.(html);
+    if (!response?.ok) {
+      setError(response?.error || '导出失败');
+      return;
+    }
+    setNotice(response.data.canceled ? '已取消导出' : `已导出到 ${response.data.path}`);
+  };
+
   const bulkDownloads = async (action: 'pause' | 'resume') => {
     const response = await window.bsub.bulkDownloads?.(action);
     if (response?.ok) await refreshDownloads();
@@ -412,6 +453,7 @@ export function BrowserHub({
         )}
 
         {error && <div className="status-line">{error}</div>}
+        {notice && <div className="status-line">{notice}</div>}
         {loading && (
           <div className="status-line">
             <Loader2 size={13} className="spin" /> 读取中…
@@ -620,6 +662,23 @@ export function BrowserHub({
                 onClick={() => void clearRange('all')}
               >
                 清空历史
+              </button>
+            </>
+          )}
+          {section === 'bookmarks' && (
+            <>
+              <input
+                ref={importRef}
+                type="file"
+                accept=".html,.htm"
+                hidden
+                onChange={(event) => void importBookmarks(event)}
+              />
+              <button className="mini-btn" onClick={() => importRef.current?.click()}>
+                导入 HTML
+              </button>
+              <button className="mini-btn" onClick={() => void exportBookmarks()}>
+                导出 HTML
               </button>
             </>
           )}

@@ -1,4 +1,6 @@
-import { app, ipcMain, Menu, session, shell } from 'electron';
+import { app, dialog, ipcMain, Menu, session, shell } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   Bookmark,
   BookmarkFolder,
@@ -411,6 +413,28 @@ export function registerBrowserIpc(ctx: IpcContext): void {
         return { ok: true, data: { updated } };
       } catch (error) {
         return failure<{ updated: boolean }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'bookmarks:export-html',
+    async (_event, html: string): Promise<Result<{ canceled: boolean; path?: string }>> => {
+      try {
+        const options = {
+          title: '导出书签',
+          defaultPath: path.join(app.getPath('documents'), 'bookmarks.html'),
+          filters: [{ name: '书签 HTML', extensions: ['html', 'htm'] }]
+        };
+        const result =
+          ctx.win && !ctx.win.isDestroyed()
+            ? await dialog.showSaveDialog(ctx.win, options)
+            : await dialog.showSaveDialog(options);
+        if (result.canceled || !result.filePath) return { ok: true, data: { canceled: true } };
+        await fs.promises.writeFile(result.filePath, String(html || ''), 'utf8');
+        return { ok: true, data: { canceled: false, path: result.filePath } };
+      } catch (error) {
+        return failure<{ canceled: boolean; path?: string }>(error);
       }
     }
   );

@@ -1,4 +1,4 @@
-import { app, session } from 'electron';
+import { app, Notification, session, shell } from 'electron';
 import type { BrowserWindow, DownloadItem } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -82,8 +82,25 @@ export function installDownloadHook(getWindow: () => BrowserWindow | null): void
       sync(state === 'interrupted' ? 'interrupted' : 'progressing');
     });
     item.on('done', (_event, state) => {
-      if (state === 'completed') sync('completed', true);
-      else if (state === 'cancelled') sync('cancelled', true);
+      if (state === 'completed') {
+        sync('completed', true);
+        // 下载完成弹系统通知；点击通知在文件夹中显示。
+        try {
+          if (loadSettings().general.downloadNotify !== false) {
+            const savedPath = item.getSavePath();
+            const notification = new Notification({
+              title: '下载完成',
+              body: item.getFilename()
+            });
+            notification.on('click', () => {
+              if (savedPath) shell.showItemInFolder(savedPath);
+            });
+            notification.show();
+          }
+        } catch (error) {
+          console.warn('[download] 通知失败:', (error as Error).message);
+        }
+      } else if (state === 'cancelled') sync('cancelled', true);
       else sync('interrupted', true);
       unregisterDownloadItem(downloadId);
     });

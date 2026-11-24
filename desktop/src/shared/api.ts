@@ -338,6 +338,8 @@ export interface BsubApi {
   createBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
   renameBookmarkFolder(from: string, to: string): Promise<Result<BookmarkFolder[]>>;
   deleteBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
+  /** 把导出的 bookmarks.html 保存到磁盘 */
+  exportBookmarksHtml(html: string): Promise<Result<{ canceled: boolean; path?: string }>>;
   isBookmarked(url: string): Promise<Result<{ bookmarked: boolean }>>;
   toggleBookmark(payload: {
     url: string;

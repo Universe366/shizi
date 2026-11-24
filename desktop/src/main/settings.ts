@@ -166,6 +166,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     mediaWidget: true,
     wizardDone: false,
     restoreSession: true,
+    startupMode: 'restore',
+    startupUrl: '',
+    homeUrl: '',
+    downloadNotify: true,
     selectionToolbar: true,
     petEnabled: false,
     assistantEnabled: false,
@@ -961,7 +965,20 @@ function normalize(input: unknown): AppSettings {
       base.general.autoStart = raw.general.autoStart === true;
       base.general.autoFollow = raw.general.autoFollow !== false;
       base.general.wizardDone = raw.general.wizardDone === true;
-      base.general.restoreSession = raw.general.restoreSession !== false;
+      // 启动行为：老配置只有 restoreSession，按它推断；新配置以 startupMode 为准。
+    const startupMode = raw.general.startupMode;
+    base.general.startupMode =
+      startupMode === 'start' || startupMode === 'url'
+        ? startupMode
+        : startupMode === 'restore'
+          ? 'restore'
+          : raw.general.restoreSession === false
+            ? 'start'
+            : 'restore';
+    base.general.restoreSession = base.general.startupMode === 'restore';
+    base.general.startupUrl = String(raw.general.startupUrl || '').trim().slice(0, 2000);
+    base.general.homeUrl = String(raw.general.homeUrl || '').trim().slice(0, 2000);
+    base.general.downloadNotify = raw.general.downloadNotify !== false;
     // 书签栏默认开：老配置没这个字段也按开处理。
     base.general.bookmarkBar = raw.general.bookmarkBar !== false;
       base.general.selectionToolbar = raw.general.selectionToolbar !== false;

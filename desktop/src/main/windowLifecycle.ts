@@ -2,7 +2,7 @@
 // - 关闭窗口：最小化到托盘 / 退出 / 取消，以及「记住我的选择」；
 // - 渲染进程首帧：恢复会话 + 按需加载开发探针。
 
-import { closeAction, closeChoiceFromDialog, shouldRestoreSession } from './windowPolicy';
+import { closeAction, closeChoiceFromDialog, startupTarget, type StartupSettings } from './windowPolicy';
 import { restoreSession, type RestoreManager, type SavedSession } from './sessionRestore';
 
 export interface CloseState {
@@ -113,7 +113,7 @@ export function handleCloseRequest<S extends { general: { closeToTray?: boolean 
 }
 
 export interface BootstrapDeps {
-  loadSettings: () => { general?: { restoreSession?: boolean } } | null | undefined;
+  loadSettings: () => StartupSettings | null | undefined;
   loadSession: () => SavedSession | null;
   manager: RestoreManager | null;
   startUrl: string;
@@ -136,11 +136,12 @@ export async function bootstrapRenderer(deps: BootstrapDeps): Promise<BootstrapR
   let restored = 0;
 
   if (deps.manager) {
-    const saved = shouldRestoreSession(deps.loadSettings()) ? deps.loadSession() : null;
+    const startup = startupTarget(deps.loadSettings(), deps.startUrl);
+    const saved = startup.restore ? deps.loadSession() : null;
     const result = await restoreSession({
       manager: deps.manager,
       saved,
-      startUrl: deps.startUrl
+      startUrl: startup.startUrl
     });
     restored = result.restored;
     if (!result.usedStartUrl) log('[session] restored', result.restored, 'tabs');

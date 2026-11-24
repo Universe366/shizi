@@ -91,6 +91,48 @@ export function GeneralGroup({ value, onChange }: Props) {
 
   return (
     <>
+    <SettingsSection title="启动与主页" defaultOpen>
+      <div className="settings-group-desc">
+        启动拾字时打开什么，以及地址栏「起始页」按钮去哪里。启动行为下次启动生效。
+      </div>
+      <div className="settings-inline">
+        <select
+          className="settings-input"
+          value={value.startupMode || 'restore'}
+          onChange={(event) =>
+            onChange({ startupMode: event.target.value as 'start' | 'restore' | 'url' })
+          }
+        >
+          <option value="restore">恢复上次会话</option>
+          <option value="start">打开起始页</option>
+          <option value="url">打开指定网页</option>
+        </select>
+      </div>
+      {value.startupMode === 'url' && (
+        <>
+          <div className="settings-label">启动网址</div>
+          <input
+            className="settings-input"
+            value={value.startupUrl || ''}
+            placeholder="https://www.bilibili.com/"
+            spellCheck={false}
+            onChange={(event) => onChange({ startupUrl: event.target.value })}
+          />
+        </>
+      )}
+      <div className="settings-label">主页按钮网址</div>
+      <input
+        className="settings-input"
+        value={value.homeUrl || ''}
+        placeholder="留空 = 起始页"
+        spellCheck={false}
+        onChange={(event) => onChange({ homeUrl: event.target.value })}
+      />
+      <div className="settings-hint">
+        主页按钮在地址栏右侧，可在「外观与浏览器 → 浏览器工具栏」里隐藏。
+      </div>
+    </SettingsSection>
+
     <SettingsSection title="默认浏览器" defaultOpen>
       <div className="settings-group-desc">
         Windows 10/11 不允许程序直接修改默认浏览器，只能先把拾字登记到系统「默认应用」，
@@ -119,6 +161,20 @@ export function GeneralGroup({ value, onChange }: Props) {
       {defaultNotice && <div className="settings-hint">{defaultNotice}</div>}
       <div className="settings-hint">
         从系统设置回来后状态会自动刷新；如果列表里没有「拾字」，再点一次「设为默认浏览器」重新登记。
+      </div>
+    </SettingsSection>
+
+    <SettingsSection title="下载" defaultOpen={false}>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.downloadNotify !== false}
+          onChange={(event) => onChange({ downloadNotify: event.target.checked })}
+        />
+        下载完成后弹系统通知
+      </label>
+      <div className="settings-hint">
+        点击通知会在文件夹中显示文件；进行中的下载数量显示在地址栏的下载按钮上。
       </div>
     </SettingsSection>
 

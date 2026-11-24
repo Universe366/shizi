@@ -811,7 +811,7 @@ try {
       `(async () => {
         document.querySelector('.settings-page-head .mini-btn')?.click();
         await new Promise((r) => setTimeout(r, 250));
-        document.querySelector('button[title="起始页"]')?.click();
+        document.querySelector('button[title="主页"]')?.click();
         await new Promise((r) => setTimeout(r, 450));
         return 'ok';
       })()`
@@ -1233,7 +1233,7 @@ try {
         `(async () => {
           document.querySelector('.settings-entry')?.click();
           await new Promise((r) => setTimeout(r, 500));
-          document.querySelector('button[title="起始页"]')?.click();
+          document.querySelector('button[title="主页"]')?.click();
           await new Promise((r) => setTimeout(r, 450));
           const info = {
             start: Boolean(document.querySelector('.start-clean')),

@@ -432,6 +432,7 @@ export function AppearanceGroup({ value, onChange }: Props) {
             ['startFavorite', '收藏到起始页'],
             ['library', '工作台'],
             ['home', '起始页'],
+            ['downloads', '下载'],
             ['dark', '网页深色模式'],
             ['settings', '设置'],
             ['menu', '主菜单']

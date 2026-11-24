@@ -100,6 +100,38 @@ export function launchUrlFromArgv(argv: readonly string[]): string {
   return '';
 }
 
+export interface StartupSettings {
+  general?: {
+    startupMode?: 'start' | 'restore' | 'url';
+    startupUrl?: string;
+    restoreSession?: boolean;
+  };
+}
+
+/**
+ * 启动行为 → 是否恢复会话 + 起始页地址。
+ * - restore：恢复上次会话（旧默认），失败退回起始页；
+ * - start：直接起始页；
+ * - url：直接打开指定网页（非法地址按起始页处理）。
+ */
+export function startupTarget(
+  settings: StartupSettings | null | undefined,
+  defaultStartUrl: string
+): { restore: boolean; startUrl: string } {
+  const general = settings?.general;
+  const mode = general?.startupMode;
+  const customUrl = String(general?.startupUrl || '').trim();
+  if (mode === 'url' && /^https?:\/\//i.test(customUrl)) {
+    return { restore: false, startUrl: customUrl };
+  }
+  if (mode === 'start') return { restore: false, startUrl: defaultStartUrl };
+  // 兼容只有 restoreSession 的老配置。
+  if (mode === undefined && general?.restoreSession === false) {
+    return { restore: false, startUrl: defaultStartUrl };
+  }
+  return { restore: true, startUrl: defaultStartUrl };
+}
+
 /** 「恢复上次会话」开关；只有显式 false 才关闭。 */
 export function shouldRestoreSession(
   settings: { general?: { restoreSession?: boolean } } | null | undefined

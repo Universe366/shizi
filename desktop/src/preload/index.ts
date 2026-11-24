@@ -459,6 +459,10 @@ const api: BsubApi = {
     ipcRenderer.invoke('bookmark-folders:rename', from, to) as Promise<Result<BookmarkFolder[]>>,
   deleteBookmarkFolder: (name: string) =>
     ipcRenderer.invoke('bookmark-folders:delete', name) as Promise<Result<BookmarkFolder[]>>,
+  exportBookmarksHtml: (html: string) =>
+    ipcRenderer.invoke('bookmarks:export-html', html) as Promise<
+      Result<{ canceled: boolean; path?: string }>
+    >,
   isBookmarked: (url: string) =>
     ipcRenderer.invoke('bookmarks:check', url) as Promise<Result<{ bookmarked: boolean }>>,
   toggleBookmark: (payload: { url: string; title?: string; favicon?: string | null }) =>

@@ -110,6 +110,8 @@ export default function App() {
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState<{ url: string; title: string } | null>(null);
   const [bookmarkBar, setBookmarkBar] = useState(true);
+  const [homeUrl, setHomeUrl] = useState('');
+  const [activeDownloads, setActiveDownloads] = useState(0);
   const [clearDataOpen, setClearDataOpen] = useState(false);
   // 供全局键盘/主进程转发调用：避免把 handleSectionSelect 的依赖塞进每个 effect。
   const sectionHandlerRef = useRef<(next: Section) => void>(() => undefined);
@@ -477,12 +479,28 @@ export default function App() {
   );
 
   useEffect(() => {
+    const refresh = () => {
+      void window.bsub.listDownloads().then((response) => {
+        if (!response.ok) return;
+        setActiveDownloads(
+          response.data.filter(
+            (item) => item.state === 'progressing' || item.state === 'paused'
+          ).length
+        );
+      });
+    };
+    refresh();
+    return window.bsub.onDownloadsChanged(refresh);
+  }, []);
+
+  useEffect(() => {
     void window.bsub.getSettings().then((response) => {
       if (response.ok) {
         setFontScale(response.data.settings.general.fontScale || 1);
         setShortcutOverrides(response.data.settings.general.shortcuts || {});
         setRadialSectors(response.data.settings.general.radial?.sectors || []);
         setBookmarkBar(response.data.settings.general.bookmarkBar !== false);
+        setHomeUrl(response.data.settings.general.homeUrl || '');
         applyAppearance(response.data.settings.general);
         applyLayout(response.data);
         if (!response.data.settings.general.wizardDone) setWizard(response.data);
@@ -493,6 +511,7 @@ export default function App() {
       setShortcutOverrides(snapshot.settings.general.shortcuts || {});
       setRadialSectors(snapshot.settings.general.radial?.sectors || []);
       setBookmarkBar(snapshot.settings.general.bookmarkBar !== false);
+      setHomeUrl(snapshot.settings.general.homeUrl || '');
       applyAppearance(snapshot.settings.general);
       applyLayout(snapshot);
       if (snapshot.settings.general.wizardDone) setWizard(null);
@@ -889,11 +908,31 @@ export default function App() {
         onNavigate={navigateAddress}
         onOpenHub={(section) => setHub(section)}
         onOpenClearData={() => setClearDataOpen(true)}
+        downloadsActive={activeDownloads}
+        onOpenDownloads={() => {
+          setStartOpen(false);
+          setSettingsOpen(false);
+          setLibraryOpen(false);
+          setHub('downloads');
+        }}
         onOpenReader={() => setReaderOpen(true)}
         onOpenFind={() => void window.bsub.showFindOverlay()}
         siteDarkDisabled={siteDarkDisabled}
         onOpenStart={() => {
 
+          setSettingsOpen(false);
+          setLibraryOpen(false);
+          setStartOpen(true);
+        }}
+        onOpenHome={() => {
+          const target = homeUrl.trim();
+          if (/^https?:\/\//i.test(target)) {
+            setStartOpen(false);
+            setSettingsOpen(false);
+            setLibraryOpen(false);
+            void window.bsub.newTab(target);
+            return;
+          }
           setSettingsOpen(false);
           setLibraryOpen(false);
           setStartOpen(true);
