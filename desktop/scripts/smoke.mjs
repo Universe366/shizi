@@ -783,11 +783,17 @@ try {
       await evaluate(
         ws,
         `(async () => {
+          // 切到「通用」，改主页地址；起始页城市设置已经不存在了。
+          [...document.querySelectorAll('.settings-nav-item')]
+            .find((el) => el.textContent?.includes('通用'))
+            ?.click();
+          await new Promise((r) => setTimeout(r, 300));
           const input = [...document.querySelectorAll('.settings-input')].find(
-            (el) => el.placeholder === '城市，例如 上海'
+            (el) => el.placeholder === '留空 = 起始页'
           );
+          if (!(input instanceof HTMLInputElement)) throw new Error('没有找到主页地址输入框');
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-          setter.call(input, '北京');
+          setter.call(input, 'https://example.com');
           input.dispatchEvent(new Event('input', { bubbles: true }));
           await new Promise((r) => setTimeout(r, 250));
           const dirty = Boolean(document.querySelector('.settings-toolbar-hint.is-dirty'));
@@ -796,14 +802,15 @@ try {
           const snapshot = await window.bsub.getSettings();
           return JSON.stringify({
             dirty,
-            city: snapshot.data.settings.general.startCity,
+            city: snapshot.data.settings.general.homeUrl,
             hint: document.querySelector('.settings-toolbar-hint')?.textContent || ''
           });
         })()`
       )
     );
     if (!saved.dirty) throw new Error('修改后没有出现未保存状态');
-    if (saved.city !== '北京') throw new Error(`Ctrl+S 没有保存：${saved.city}`);
+    if (saved.city !== 'https://example.com')
+      throw new Error(`Ctrl+S 没有保存：${saved.city}`);
     if (!saved.hint.includes('已保存')) throw new Error(`保存后状态没更新：${saved.hint}`);
 
     await evaluate(
@@ -811,8 +818,12 @@ try {
       `(async () => {
         document.querySelector('.settings-page-head .mini-btn')?.click();
         await new Promise((r) => setTimeout(r, 250));
+        const snapshot = (await window.bsub.getSettings()).data.settings;
+        snapshot.general.homeUrl = '';
+        await window.bsub.saveSettings(snapshot);
+        await new Promise((r) => setTimeout(r, 300));
         document.querySelector('button[title="主页"]')?.click();
-        await new Promise((r) => setTimeout(r, 450));
+        await new Promise((r) => setTimeout(r, 1000));
         return 'ok';
       })()`
     );
@@ -820,7 +831,7 @@ try {
       await evaluate(
         ws,
         `JSON.stringify({
-          page: Boolean(document.querySelector('.start-clean')),
+          page: Boolean(document.querySelector('.start-page, .start-clean')),
           vertical: Boolean(document.querySelector('.tab-strip.is-vertical')),
           shortcuts: document.querySelectorAll('.sc-link').length,
           widgets: document.querySelectorAll('.sc-card').length
@@ -1236,7 +1247,7 @@ try {
           document.querySelector('button[title="主页"]')?.click();
           await new Promise((r) => setTimeout(r, 450));
           const info = {
-            start: Boolean(document.querySelector('.start-clean')),
+            start: Boolean(document.querySelector('.start-page, .start-clean')),
             settings: Boolean(document.querySelector('.settings-page'))
           };
           const input = document.querySelector('.sc-search-input');
