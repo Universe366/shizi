@@ -4,6 +4,28 @@
 
 /* 设计变量统一放在 styles/tokens.css；这里只留组件样式。 */
 
+/* ---------- 全局基线：焦点、过渡、选区 ----------
+   组件不要再各自写 outline / transition / 选中色。 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button,
+[role='button'],
+summary,
+select,
+input {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
 /* 基础重置：不依赖 Tailwind preflight，保持各端默认表现一致 */
 * {
   box-sizing: border-box;
@@ -304,17 +326,17 @@ button:disabled {
 
 .address-suggest {
   position: absolute;
-  z-index: 30;
+  z-index: var(--z-dropdown);
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  max-height: 260px;
+  max-height: 280px;
   overflow-y: auto;
-  padding: 4px;
+  padding: var(--sp-1);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background: var(--surface);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-pop);
   display: flex;
   flex-direction: column;
 }
@@ -323,9 +345,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 5px 8px;
+  padding: 6px var(--sp-2);
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -333,7 +355,7 @@ button:disabled {
 
 .address-suggest-item.is-active,
 .address-suggest-item:hover {
-  background: var(--surface-2);
+  background: var(--surface-hover);
 }
 
 .address-suggest-title {
@@ -360,14 +382,14 @@ button:disabled {
 .nav-btn {
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   display: grid;
   place-items: center;
   color: var(--muted);
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -388,30 +410,33 @@ button:disabled {
   align-items: center;
   gap: 8px;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   background: var(--surface-2);
   border: 1px solid transparent;
-  border-radius: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  border-radius: var(--radius-card);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .address-field:focus-within {
   background: var(--surface);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .address-selection-toolbar {
   position: fixed;
-  z-index: 3000;
+  z-index: var(--z-toast);
   display: flex;
   gap: 2px;
-  padding: 4px;
-  border-radius: 10px;
-  background: #1f1f22;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
-  font: 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #fff;
+  padding: var(--sp-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--text) 92%, transparent);
+  box-shadow: var(--shadow-pop);
+  color: var(--surface);
   user-select: none;
 }
 
@@ -419,14 +444,14 @@ button:disabled {
   all: unset;
   cursor: pointer;
   padding: 6px 9px;
-  border-radius: 7px;
-  color: #fff;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: var(--fs-xs);
   line-height: 1;
 }
 
 .address-selection-toolbar button:hover {
-  background: #3a3a40;
+  background: color-mix(in srgb, var(--surface) 16%, transparent);
 }
 
 .address-field svg {
@@ -818,8 +843,8 @@ button:disabled {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in srgb, var(--bg) 55%, transparent);
-  backdrop-filter: blur(2px);
+  background: var(--overlay);
+  backdrop-filter: var(--overlay-blur);
 }
 
 .sidebar-pages-card {
@@ -1076,7 +1101,7 @@ button:disabled {
   margin-top: 6px;
   height: 32px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--accent);
   color: var(--accent-ink);
   font-size: var(--fs-sm);
@@ -1124,7 +1149,7 @@ button:disabled {
 .icon-btn {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   color: var(--muted);
@@ -1146,9 +1171,9 @@ button:disabled {
   justify-content: center;
   gap: 4px;
   flex-shrink: 0;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: var(--fs-xs);
@@ -4289,7 +4314,7 @@ button:disabled {
   margin: 8px 0;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--surface) 86%, var(--surface-2));
   scroll-margin-top: 112px;
 }
@@ -5015,6 +5040,7 @@ html[data-density='compact'] .chat-history-row {
 .settings-input:focus {
   border-color: var(--accent);
   background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .settings-textarea {
@@ -5548,8 +5574,8 @@ html[data-density='compact'] .chat-history-row {
   z-index: 120;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, #0b0d12 38%, transparent);
-  backdrop-filter: blur(3px);
+  background: var(--overlay);
+  backdrop-filter: var(--overlay-blur);
 }
 
 .radial-wheel {
@@ -6052,20 +6078,20 @@ html[data-density='compact'] .chat-history-row {
   place-items: center;
   padding: 12px;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg) 60%, transparent);
-  backdrop-filter: blur(1.5px);
+  background: var(--overlay);
+  backdrop-filter: var(--overlay-blur);
 }
 
 .confirm-card {
   width: 100%;
-  padding: 14px;
+  padding: var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-overlay);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .download-dialog {
@@ -6264,12 +6290,12 @@ html[data-density='compact'] .chat-history-row {
 .mini-btn.danger {
   border-color: transparent;
   background: var(--danger);
-  color: #fff;
+  color: var(--surface);
   font-weight: 600;
 }
 
 .mini-btn.danger:hover {
-  background: #9c4434;
+  filter: brightness(0.94);
 }
 
 /* ---------- 任务中心 ---------- */
@@ -6694,8 +6720,8 @@ html[data-density='compact'] .chat-history-row {
   align-items: flex-start;
   justify-content: center;
   padding: 10vh 16px 16px;
-  background: rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(2px);
+  background: var(--overlay);
+  backdrop-filter: var(--overlay-blur);
 }
 
 .gs-panel {
@@ -7321,11 +7347,11 @@ html[data-density='compact'] .chat-history-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 10px 0 8px;
-  padding: 0 9px;
-  height: 30px;
+  margin: var(--sp-2) 0;
+  padding: 0 var(--sp-2);
+  height: 32px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--faint);
 }
@@ -7355,16 +7381,16 @@ html[data-density='compact'] .chat-history-row {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 7px 9px;
+  padding: var(--sp-2);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: inherit;
   text-align: left;
 }
 
 .hub-row:hover {
-  background: var(--surface-2);
+  background: var(--surface-hover);
   border-color: var(--border);
 }
 
@@ -7417,7 +7443,7 @@ html[data-density='compact'] .chat-history-row {
   display: block;
   height: 3px;
   margin-top: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -7837,8 +7863,9 @@ html[data-density='compact'] .chat-history-row {
 .palette-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
-  background: rgba(0, 0, 0, 0.28);
+  z-index: var(--z-overlay);
+  background: var(--overlay);
+  backdrop-filter: var(--overlay-blur);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -7850,10 +7877,10 @@ html[data-density='compact'] .chat-history-row {
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-overlay);
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
@@ -7878,9 +7905,9 @@ html[data-density='compact'] .chat-history-row {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 10px;
+  padding: var(--sp-2) 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   font-size: var(--fs-sm);
@@ -7889,7 +7916,17 @@ html[data-density='compact'] .chat-history-row {
 }
 
 .palette-item.is-active {
-  background: var(--surface-2);
+  background: var(--surface-hover);
+}
+
+/* 「问 AI」行：和普通命令区分开，但不抢视觉 */
+.palette-item.is-ai {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.palette-item.is-ai.is-active {
+  background: var(--accent-soft);
 }
 
 .palette-hint {
@@ -16467,9 +16504,9 @@ sup:has(> .cite-ref) {
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
-  height: 32px;
-  padding: 0 8px;
-  border-bottom: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.18));
+  height: 34px;
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--border);
 }
 
 .bookmark-bar-scroll {
@@ -16491,22 +16528,22 @@ sup:has(> .cite-ref) {
   align-items: center;
   gap: 5px;
   max-width: 180px;
-  height: 24px;
-  padding: 0 8px;
+  height: 26px;
+  padding: 0 var(--sp-2);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   cursor: pointer;
-  opacity: 0.85;
+  opacity: 0.88;
 }
 
 .bookmark-bar-item:hover,
 .bookmark-bar-item.is-active {
   opacity: 1;
-  background: var(--surface-3, rgba(127, 127, 127, 0.16));
+  background: var(--surface-hover);
 }
 
 .bookmark-bar-title {
@@ -16530,7 +16567,7 @@ sup:has(> .cite-ref) {
   position: absolute;
   top: 28px;
   left: 0;
-  z-index: 60;
+  z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -16538,20 +16575,20 @@ sup:has(> .cite-ref) {
   max-width: 340px;
   max-height: 60vh;
   overflow-y: auto;
-  padding: 6px;
-  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.25));
-  border-radius: 10px;
-  background: var(--surface, #fff);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+  padding: var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
 }
 
 .bookmark-bar-menu button {
-  padding: 6px 8px;
+  padding: 6px var(--sp-2);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -16560,13 +16597,13 @@ sup:has(> .cite-ref) {
 }
 
 .bookmark-bar-menu button:hover {
-  background: var(--surface-3, rgba(127, 127, 127, 0.16));
+  background: var(--surface-hover);
 }
 
 .bookmark-bar-menu-empty,
 .bookmark-bar-empty {
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 4px var(--sp-2);
+  font-size: var(--fs-xs);
   opacity: 0.6;
 }
 
@@ -16576,9 +16613,9 @@ sup:has(> .cite-ref) {
   justify-content: center;
   flex: 0 0 auto;
   width: 26px;
-  height: 24px;
+  height: 26px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   opacity: 0.7;
@@ -16587,7 +16624,7 @@ sup:has(> .cite-ref) {
 
 .bookmark-bar-manage:hover {
   opacity: 1;
-  background: var(--surface-3, rgba(127, 127, 127, 0.16));
+  background: var(--surface-hover);
 }
 
 .clear-data-dialog {
