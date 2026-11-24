@@ -4471,6 +4471,31 @@ button:disabled {
   padding: 12px 14px 14px;
 }
 
+/* 一张大卡内部的子分组（bare）：用细分隔线，不再套一层卡片 */
+.settings-bare {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 0 2px;
+  border-top: 1px dashed var(--border);
+}
+
+.settings-bare:first-of-type {
+  border-top: 0;
+  padding-top: 2px;
+}
+
+.settings-bare-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-bare-desc {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+}
+
 /* 设置分组：把「平台连接 / 什么时候联网 / 识别参数」这类相关内容框在一起，
    避免整页都是同权重的输入框和按钮，让人分不清主次。 */
 .settings-group {

@@ -7,6 +7,8 @@ interface SettingsSectionProps {
   /** 一句话解释；不传时按标题从描述表里取。 */
   description?: string;
   defaultOpen?: boolean;
+  /** 不带卡片外壳，作为一张大卡内部的子分组（标题仍显示）。 */
+  bare?: boolean;
   children: ReactNode;
 }
 
@@ -15,6 +17,7 @@ export function SettingsSection({
   title,
   description,
   defaultOpen = false,
+  bare = false,
   children
 }: SettingsSectionProps) {
   const storageKey = `bsub.settings.section.${title}`;
@@ -26,6 +29,16 @@ export function SettingsSection({
     const stored = localStorage.getItem(storageKey);
     ref.current.open = stored === null ? defaultOpen : stored === '1';
   }, [defaultOpen, storageKey]);
+
+  if (bare) {
+    return (
+      <div className="settings-bare">
+        <div className="settings-bare-title">{title}</div>
+        {text && <div className="settings-bare-desc">{text}</div>}
+        {children}
+      </div>
+    );
+  }
   return (
     <details
       ref={ref}

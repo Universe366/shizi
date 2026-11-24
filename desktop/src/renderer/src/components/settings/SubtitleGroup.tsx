@@ -29,8 +29,12 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
   const siteCount = Object.keys(value.mediaSiteRates || {}).length;
 
   return (
-    <>
-      <SettingsSection title="字幕显示" defaultOpen>
+    <SettingsSection
+      title="字幕与播放"
+      description="字幕显示、跟随、翻译、倍速与成片样式；按需展开下面的子项。"
+      defaultOpen
+    >
+      <SettingsSection bare title="字幕显示" defaultOpen>
         <label className="settings-check">
           <input
             type="checkbox"
@@ -63,7 +67,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
         )}
       </SettingsSection>
 
-      <SettingsSection title="播放速度">
+      <SettingsSection bare title="播放速度">
         <div className="settings-label">
           默认倍速：{formatMediaRate(rate)}（地址栏的倍速按钮可快速调整）
         </div>
@@ -136,7 +140,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="字幕与翻译">
+      <SettingsSection bare title="字幕与翻译">
         <div className="settings-hint">翻译默认行为；断句和成片参数在对应弹窗里单独调。</div>
         <TaskModelField
           ai={ai}
@@ -210,7 +214,7 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="视频成片">
+      <SettingsSection bare title="视频成片">
         <div className="settings-hint">
           默认样式；成片弹窗里还能临时改，并「保存为预设」。
         </div>
@@ -277,6 +281,6 @@ export function SubtitleGroup({ value, onChange, ai, onAiChange }: Props) {
           已保存 {value.subtitlePresets?.length || 0} 个预设（在成片弹窗里保存/套用）。
         </div>
       </SettingsSection>
-    </>
+    </SettingsSection>
   );
 }

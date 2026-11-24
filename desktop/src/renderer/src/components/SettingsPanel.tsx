@@ -13,7 +13,6 @@ import { PromptSection } from './settings/PromptSection';
 import { SearchSection } from './settings/SearchSection';
 import { BrowserExtensionsSection } from './settings/ExtensionsSection';
 import { PluginsSection } from './settings/PluginsSection';
-import { PanelLayoutSection } from './settings/PanelLayoutSection';
 import { AgentSection } from './settings/AgentSection';
 import { AddressSearchGroup } from './settings/AddressSearchGroup';
 import { AppearanceGroup } from './settings/AppearanceGroup';
@@ -1328,12 +1327,17 @@ export function SettingsPanel({
       {show('general') && (
         <>
           <GeneralGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-            <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-            <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-            <DownloadSection
-              value={draft.general.download}
-              onChange={(next) => updateGeneral({ download: next })}
-            />
+          <SessionsGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+        </>
+      )}
+
+      {show('advanced') && (
+        <>
+          <ShortcutsSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
+          <DownloadSection
+            value={draft.general.download}
+            onChange={(next) => updateGeneral({ download: next })}
+          />
         </>
       )}
       {show('appearance') && (
@@ -1341,10 +1345,6 @@ export function SettingsPanel({
           <AppearanceGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <AddressSearchGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
           <ReadingGroup value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-            <PanelLayoutSection
-              value={draft.general.panelLayout}
-              onChange={(next) => updateGeneral({ panelLayout: next })}
-            />
         </>
       )}
       {show('media') && (
@@ -1365,6 +1365,11 @@ export function SettingsPanel({
             setEditingAsrId={setEditingAsrId}
             platformStatus={platformStatusNode}
           />
+        </>
+      )}
+
+      {show('advanced') && (
+        <>
           <LocalModelsSection
             activeAsr={activeAsr}
             updateAsrPlatform={(patch) => updateAsrPlatform(patch)}
@@ -1419,26 +1424,33 @@ export function SettingsPanel({
             onTestText={setCorrectionTest}
             onPreview={() => void previewCorrection()}
           />
-          <ExportDefaultsSection
-            value={draft.export}
-            onChange={(next) => setDraft({ ...draft, export: next })}
-          />
         </>
       )}
+
+      {show('advanced') && (
+        <ExportDefaultsSection
+          value={draft.export}
+          onChange={(next) => setDraft({ ...draft, export: next })}
+        />
+      )}
+
       {show('desktop') && (
         <>
           <PetSection value={draft.general} onChange={(patch) => updateGeneral(patch)} />
-            <QuickAskSection
-              value={draft.general.quickAsk}
-              onChange={(patch) =>
-                updateGeneral({ quickAsk: { ...draft.general.quickAsk, ...patch } })
-              }
-            />
-            <RadialSection
-              value={draft.general.radial}
-              onChange={(next) => updateGeneral({ radial: next })}
-            />
+          <QuickAskSection
+            value={draft.general.quickAsk}
+            onChange={(patch) =>
+              updateGeneral({ quickAsk: { ...draft.general.quickAsk, ...patch } })
+            }
+          />
         </>
+      )}
+
+      {show('advanced') && (
+        <RadialSection
+          value={draft.general.radial}
+          onChange={(next) => updateGeneral({ radial: next })}
+        />
       )}
 
 
@@ -1477,7 +1489,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('ai') && (
+      {show('advanced') && (
         <>
           <ImageGenSection
             value={draft.image}
@@ -1493,7 +1505,7 @@ export function SettingsPanel({
         </>
       )}
 
-      {show('search') && (
+      {show('ai') && (
       <SearchSection
         draft={draft}
         activeSearch={activeSearch}
@@ -1512,7 +1524,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('search') && (
+      {show('advanced') && (
         <>
           <McpSection
             value={draft.mcp}
@@ -1599,7 +1611,7 @@ export function SettingsPanel({
       />
       )}
 
-      {show('data') && (
+      {show('advanced') && (
         <>
           <UsageSection
             value={draft.usage}

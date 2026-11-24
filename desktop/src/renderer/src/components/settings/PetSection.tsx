@@ -22,8 +22,12 @@ export function PetSection({ value, onChange }: PetSectionProps) {
   const sleepMinutes = value.petSleepMinutes ?? 5;
 
   return (
-    <>
-      <SettingsSection title="桌面助手" defaultOpen>
+    <SettingsSection
+      title="桌面助手"
+      description="AI 悬浮球与桌面宠物的开关、外观、交互和位置。"
+      defaultOpen
+    >
+      <SettingsSection bare title="悬浮球与桌宠" defaultOpen>
         <label className="settings-check">
           <input
             type="checkbox"
@@ -120,7 +124,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
         </label>
       </SettingsSection>
 
-      <SettingsSection title="桌宠交互">
+      <SettingsSection bare title="桌宠交互">
         <div className="settings-label">单击桌宠</div>
         <select
           className="settings-input"
@@ -268,7 +272,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="声音与状态">
+      <SettingsSection bare title="声音与状态">
         <label className="settings-check">
           <input
             type="checkbox"
@@ -338,7 +342,7 @@ export function PetSection({ value, onChange }: PetSectionProps) {
         </select>
       </SettingsSection>
 
-      <SettingsSection title="桌宠位置">
+      <SettingsSection bare title="桌宠位置">
         <div className="settings-label">启动时位置</div>
         <select
           className="settings-input"
@@ -416,6 +420,6 @@ export function PetSection({ value, onChange }: PetSectionProps) {
           关闭气泡后窗口会自动缩到桌宠大小，不会挡住桌面点击。修改后点「保存」生效。
         </div>
       </SettingsSection>
-    </>
+    </SettingsSection>
   );
 }
