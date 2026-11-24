@@ -1,12 +1,15 @@
 # 文档索引
 
-> 适用版本：桌面 0.165.1 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
+> 适用版本：桌面 0.166.0 / 插件 2.20.16。先读根目录 [AGENTS.md](../AGENTS.md) 与 [HANDOFF.md](../HANDOFF.md)。
 
 ## 当前文档
 
 | 文档 | 用途 |
 |---|---|
 | [REPO-MAP.md](REPO-MAP.md) | 目录地图、文档选择、维护规则 |
+| [AI-NATIVE.md](AI-NATIVE.md) | AI 原生浏览路线图：三层 AI、浏览器差距矩阵、Phase 1–4 |
+| [BROWSER-FLOW.md](BROWSER-FLOW.md) | 浏览闭环规划与落地 |
+| [BROWSER-CLEANUP.md](BROWSER-CLEANUP.md) | 浏览器旧逻辑清理清单 |
 | [UI-GUIDE.md](UI-GUIDE.md) | 起始页 / 设置 / 对话 / 成片 / 浏览器的界面结构与改动入口 |
 | [DATA-MODEL.md](DATA-MODEL.md) | SQLite 表、迁移、备份与恢复 |
 | [QUALITY.md](QUALITY.md) | 当前测试基线、技术债与拆分顺序 |

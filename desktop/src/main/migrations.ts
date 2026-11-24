@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite';
  * 现在用 `PRAGMA user_version` 记录版本，迁移只能顺序向前，每一步都必须幂等，
  * 这样「给 videos 加 kind/source」这类改动才有地方落。
  */
-export const LATEST_SCHEMA_VERSION = 9;
+export const LATEST_SCHEMA_VERSION = 10;
 
 interface Migration {
   version: number;
@@ -229,6 +229,24 @@ const MIGRATIONS: Migration[] = [
           created_at INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_bookmarks_folder ON bookmarks(folder);
+      `);
+    }
+  },
+  {
+    version: 10,
+    name: 'reading-list',
+    up: (db) => {
+      // 稍后阅读：保存网址和标题，read_at 为空表示未读。
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS reading_list (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          url TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL DEFAULT '',
+          favicon TEXT,
+          added_at INTEGER NOT NULL,
+          read_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_reading_added ON reading_list(added_at DESC);
       `);
     }
   }

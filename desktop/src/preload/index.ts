@@ -14,6 +14,7 @@ import type {
   BrowserExtensionStatus,
   BrowserExtensionsState,
   BookmarkFolder,
+  ReadingItem,
   DiagnosticsInfo,
   CorrectionRuleGroup,
   DefaultBrowserStatus,
@@ -459,6 +460,14 @@ const api: BsubApi = {
     ipcRenderer.invoke('bookmark-folders:rename', from, to) as Promise<Result<BookmarkFolder[]>>,
   deleteBookmarkFolder: (name: string) =>
     ipcRenderer.invoke('bookmark-folders:delete', name) as Promise<Result<BookmarkFolder[]>>,
+  listReadingList: () =>
+    ipcRenderer.invoke('reading-list:list') as Promise<Result<ReadingItem[]>>,
+  addToReadingList: (payload: { url: string; title?: string; favicon?: string | null }) =>
+    ipcRenderer.invoke('reading-list:add', payload) as Promise<Result<ReadingItem>>,
+  removeReadingItem: (id: number) =>
+    ipcRenderer.invoke('reading-list:remove', id) as Promise<Result<{ removed: boolean }>>,
+  markReadingRead: (id: number, read: boolean) =>
+    ipcRenderer.invoke('reading-list:mark', id, read) as Promise<Result<{ updated: boolean }>>,
   exportBookmarksHtml: (html: string) =>
     ipcRenderer.invoke('bookmarks:export-html', html) as Promise<
       Result<{ canceled: boolean; path?: string }>

@@ -51,6 +51,20 @@ describe('CommandPalette', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('输入问题后出现「问 AI」，回车提交', () => {
+    const onAskAi = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CommandPalette open commands={commands} onClose={onClose} onAskAi={onAskAi} />
+    );
+    const input = screen.getByPlaceholderText(/输入命令/);
+    fireEvent.change(input, { target: { value: '这页讲了什么' } });
+    expect(screen.getByText('问 AI：这页讲了什么')).toBeTruthy();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onAskAi).toHaveBeenCalledWith('这页讲了什么');
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('点击命令执行', () => {
     const run = vi.fn();
     render(

@@ -11,6 +11,7 @@ import type {
   BrowserExtensionStatus,
   BrowserExtensionsState,
   BookmarkFolder,
+  ReadingItem,
   TabGroup,
   DiagnosticsInfo,
   CorrectionRuleGroup,
@@ -338,6 +339,14 @@ export interface BsubApi {
   createBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
   renameBookmarkFolder(from: string, to: string): Promise<Result<BookmarkFolder[]>>;
   deleteBookmarkFolder(name: string): Promise<Result<BookmarkFolder[]>>;
+  listReadingList(): Promise<Result<ReadingItem[]>>;
+  addToReadingList(payload: {
+    url: string;
+    title?: string;
+    favicon?: string | null;
+  }): Promise<Result<ReadingItem>>;
+  removeReadingItem(id: number): Promise<Result<{ removed: boolean }>>;
+  markReadingRead(id: number, read: boolean): Promise<Result<{ updated: boolean }>>;
   /** 把导出的 bookmarks.html 保存到磁盘 */
   exportBookmarksHtml(html: string): Promise<Result<{ canceled: boolean; path?: string }>>;
   isBookmarked(url: string): Promise<Result<{ bookmarked: boolean }>>;

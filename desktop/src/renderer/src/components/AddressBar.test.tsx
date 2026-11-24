@@ -133,7 +133,7 @@ describe('AddressBar', () => {
     expect(screen.getByTitle('切换浅色模式')).toBeTruthy();
   });
 
-  it('展示紧凑 URL、缩放与书签状态', () => {
+  it('展示紧凑 URL、缩放与书签状态', async () => {
     render(<AddressBar {...props()} />);
     expect(screen.getByDisplayValue('bilibili.com/video/BV1')).toBeTruthy();
     fireEvent.focus(screen.getByDisplayValue('bilibili.com/video/BV1'));
@@ -142,8 +142,10 @@ describe('AddressBar', () => {
     const api = window.bsub as unknown as {
       popupMenu: { mock: { calls: Array<[Array<{ label?: string }>]> } };
     };
-    const items = api.popupMenu.mock.calls.at(-1)?.[0] || [];
-    expect(items.some((item) => /重置缩放（125%/.test(String(item.label || '')))).toBe(true);
+    await vi.waitFor(() => {
+      const items = api.popupMenu.mock.calls.at(-1)?.[0] || [];
+      expect(items.some((item) => /重置缩放（125%/.test(String(item.label || '')))).toBe(true);
+    });
   });
 
   it('按前后退/刷新调用 IPC，无历史时禁用', () => {

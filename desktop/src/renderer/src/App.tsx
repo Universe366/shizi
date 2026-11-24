@@ -46,6 +46,7 @@ import { ConfirmHost } from './components/ui/confirm';
 import { DictationListener } from './components/DictationListener';
 import { applyAppearance } from './lib/appearance';
 import { actionForStroke, effectiveShortcuts, type ShortcutActionId } from '../../shared/shortcuts';
+import { aiActionsFor } from '../../shared/aiActions';
 import { strokeFromEvent } from '../../shared/shortcutKeys';
 
 export default function App() {
@@ -642,7 +643,27 @@ export default function App() {
     setStartOpen(true);
   };
 
+  /** 统一的 AI 入口：切到对话、带上当前页面，把问题发过去。 */
+  const askAi = (prompt: string, forcePage = true) => {
+    setStartOpen(false);
+    setSettingsOpen(false);
+    setLibraryOpen(false);
+    setSection('chat');
+    window.setTimeout(
+      () =>
+        window.dispatchEvent(
+          new CustomEvent('bsub:chat-prefill', { detail: { prompt, forcePage } })
+        ),
+      160
+    );
+  };
+
   const commands: CommandItem[] = [
+    ...aiActionsFor('page').map((action) => ({
+      id: `ai-${action.id}`,
+      label: `AI：${action.label}`,
+      run: () => askAi(action.prompt({}))
+    })),
     { id: 'section-subtitles', label: '打开面板：字幕', hint: 'Ctrl+Shift+1', run: () => setSection('subtitles') },
     { id: 'section-summary', label: '打开面板：总结', run: () => setSection('summary') },
     { id: 'section-chat', label: '打开面板：对话', run: () => setSection('chat') },
@@ -1063,6 +1084,7 @@ export default function App() {
         onOpenUrl={(url) => void window.bsub.openUrl(url)}
         onSelectTab={(id) => void window.bsub.activateTab(id)}
         onEditBookmark={(item) => setBookmarkTarget({ url: item.url, title: item.title })}
+        onAskAi={(prompt, forcePage) => askAi(prompt, forcePage)}
       />
       {clearDataOpen && <ClearBrowsingDataDialog onClose={() => setClearDataOpen(false)} />}
       {bookmarkTarget && (
@@ -1141,6 +1163,7 @@ export default function App() {
         open={paletteOpen}
         commands={wrappedCommands}
         onClose={() => setPaletteOpen(false)}
+        onAskAi={(text) => askAi(text)}
       />
       <DictationListener />
       </div>

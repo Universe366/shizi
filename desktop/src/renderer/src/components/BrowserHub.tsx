@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BookOpen,
   Bookmark,
+  Check,
   Clock,
   Download,
   ExternalLink,
@@ -12,6 +14,7 @@ import {
   Pencil,
   Play,
   Search,
+  Sparkles,
   Trash2,
   X
 } from 'lucide-react';
@@ -20,6 +23,7 @@ import type {
   BookmarkFolder,
   DownloadRecord,
   HistoryEntry,
+  ReadingItem,
   TabInfo
 } from '../../../shared/types';
 import { formatDateTime } from '../lib/format';
@@ -27,11 +31,12 @@ import { buildBookmarksHtml } from '../lib/bookmarksHtml';
 import { askConfirm } from './ui/confirm';
 import { parseBookmarksHtml } from './start/bookmarks';
 
-export type HubSection = 'history' | 'bookmarks' | 'downloads' | 'tabs';
+export type HubSection = 'history' | 'bookmarks' | 'reading' | 'downloads' | 'tabs';
 
 const SECTIONS: Array<{ id: HubSection; label: string; icon: typeof Clock }> = [
   { id: 'history', label: '历史', icon: Clock },
   { id: 'bookmarks', label: '书签', icon: Bookmark },
+  { id: 'reading', label: '阅读', icon: BookOpen },
   { id: 'downloads', label: '下载', icon: Download },
   { id: 'tabs', label: '标签页', icon: Layers }
 ];
@@ -76,7 +81,8 @@ export function BrowserHub({
   onClose,
   onOpenUrl,
   onSelectTab,
-  onEditBookmark
+  onEditBookmark,
+  onAskAi
 }: {
   open: boolean;
   initial: HubSection;
@@ -85,6 +91,8 @@ export function BrowserHub({
   onOpenUrl: (url: string) => void;
   onSelectTab: (id: string) => void;
   onEditBookmark?: (item: BookmarkItem) => void;
+  /** 把问题交给对话（带不带当前页面由调用方决定） */
+  onAskAi?: (prompt: string, forcePage?: boolean) => void;
 }) {
   const [section, setSection] = useState<HubSection>(initial);
   const [query, setQuery] = useState('');
@@ -94,6 +102,7 @@ export function BrowserHub({
   const [activeFolder, setActiveFolder] = useState('');
   const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
   const [closed, setClosed] = useState<Array<{ url: string; title: string }>>([]);
+  const [reading, setReading] = useState<ReadingItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -137,6 +146,9 @@ export function BrowserHub({
           const response = await window.bsub.listDownloads();
           if (alive && response.ok) setDownloads(response.data);
           else if (alive && !response.ok) setError(response.error);
+        } else if (section === 'reading') {
+          const response = await window.bsub.listReadingList?.();
+          if (alive && response?.ok) setReading(response.data);
         } else if (section === 'tabs') {
           const response = await window.bsub.listClosedTabs?.();
           if (alive && Array.isArray(response)) setClosed(response);
@@ -322,6 +334,21 @@ export function BrowserHub({
     setNotice(response.data.canceled ? '已取消导出' : `已导出到 ${response.data.path}`);
   };
 
+  const refreshReading = async () => {
+    const response = await window.bsub.listReadingList?.();
+    if (response?.ok) setReading(response.data);
+  };
+
+  const toggleReadingRead = async (item: ReadingItem) => {
+    await window.bsub.markReadingRead?.(item.id, !item.readAt);
+    await refreshReading();
+  };
+
+  const removeReading = async (item: ReadingItem) => {
+    await window.bsub.removeReadingItem?.(item.id);
+    setReading((rows) => rows.filter((row) => row.id !== item.id));
+  };
+
   const bulkDownloads = async (action: 'pause' | 'resume') => {
     const response = await window.bsub.bulkDownloads?.(action);
     if (response?.ok) await refreshDownloads();
@@ -470,6 +497,55 @@ export function BrowserHub({
             ))}
           {section === 'history' && !loading && !history.length && (
             <div className="panel-empty">没有历史记录</div>
+          )}
+
+          {section === 'reading' &&
+            reading.map((item) => (
+              <div key={item.id} className="hub-row is-static">
+                <button
+                  className="hub-main"
+                  onClick={() => {
+                    onOpenUrl(item.url);
+                    onClose();
+                  }}
+                >
+                  <span className="hub-title">{item.title || item.url}</span>
+                  <span className="hub-sub">
+                    {item.readAt ? '已读' : '未读'} · {item.url}
+                  </span>
+                </button>
+                <span className="hub-actions">
+                  {onAskAi && (
+                    <button
+                      className="icon-btn"
+                      title="AI 摘要"
+                      onClick={() => {
+                        onClose();
+                        onAskAi(`请阅读并总结这个页面，给出 3 个关键点：${item.url}`, false);
+                      }}
+                    >
+                      <Sparkles size={13} />
+                    </button>
+                  )}
+                  <button
+                    className="icon-btn"
+                    title={item.readAt ? '标为未读' : '标为已读'}
+                    onClick={() => void toggleReadingRead(item)}
+                  >
+                    <Check size={13} />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    title="移出阅读清单"
+                    onClick={() => void removeReading(item)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </span>
+              </div>
+            ))}
+          {section === 'reading' && !loading && !reading.length && (
+            <div className="panel-empty">阅读清单为空，地址栏菜单可以「添加到阅读清单」</div>
           )}
 
           {section === 'bookmarks' &&

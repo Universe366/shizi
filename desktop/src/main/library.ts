@@ -85,6 +85,13 @@ export {
 } from './library/history';
 
 export {
+  addToReadingList,
+  listReadingList,
+  markReadingRead,
+  removeReadingItem
+} from './library/readingList';
+
+export {
   clearTrash,
   deleteTrash,
   listTrash,

@@ -1644,10 +1644,15 @@ export function ChatPanel({
   // 网页右键/选中文字触发的操作：直接带入对话并生成。
   useEffect(() => {
     const handler = (event: Event) => {
-      const prompt = String((event as CustomEvent).detail || '').trim();
+      const detail = (event as CustomEvent).detail;
+      const prompt = (
+        typeof detail === 'string' ? detail : String(detail?.prompt || '')
+      ).trim();
       if (!prompt) return;
+      const forcePage =
+        typeof detail === 'object' && detail !== null && detail.forcePage === true;
       setComposerOpen(false);
-      void send(prompt);
+      void send(prompt, forcePage);
     };
     window.addEventListener('bsub:chat-prefill', handler);
     return () => window.removeEventListener('bsub:chat-prefill', handler);

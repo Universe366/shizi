@@ -11,10 +11,12 @@ interface CommandPaletteProps {
   open: boolean;
   commands: CommandItem[];
   onClose: () => void;
+  /** 输入任意问题后出现「问 AI」一行；带上当前页面上下文 */
+  onAskAi?: (text: string) => void;
 }
 
 /** Ctrl+Shift+P：输入过滤 + ↑/↓ 选择 + Enter 执行。 */
-export function CommandPalette({ open, commands, onClose }: CommandPaletteProps) {
+export function CommandPalette({ open, commands, onClose, onAskAi }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,11 +28,26 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
     window.setTimeout(() => inputRef.current?.focus(), 20);
   }, [open]);
 
+  const question = query.trim();
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = question.toLowerCase();
     if (!text) return commands;
     return commands.filter((command) => command.label.toLowerCase().includes(text));
-  }, [commands, query]);
+  }, [commands, question]);
+
+  // 有输入且提供了 onAskAi 时，把「问 AI」作为第一行，Enter 可直接提交。
+  const rows = useMemo<CommandItem[]>(() => {
+    if (!onAskAi || !question) return filtered;
+    return [
+      {
+        id: '__ask-ai__',
+        label: `问 AI：${question}`,
+        hint: '带当前页面',
+        run: () => onAskAi(question)
+      },
+      ...filtered
+    ];
+  }, [filtered, onAskAi, question]);
 
   useEffect(() => {
     setIndex(0);
@@ -65,24 +82,22 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
               onClose();
             } else if (event.key === 'ArrowDown') {
               event.preventDefault();
-              setIndex((value) => (filtered.length ? (value + 1) % filtered.length : 0));
+              setIndex((value) => (rows.length ? (value + 1) % rows.length : 0));
             } else if (event.key === 'ArrowUp') {
               event.preventDefault();
-              setIndex((value) =>
-                filtered.length ? (value <= 0 ? filtered.length - 1 : value - 1) : 0
-              );
+              setIndex((value) => (rows.length ? (value <= 0 ? rows.length - 1 : value - 1) : 0));
             } else if (event.key === 'Enter') {
               event.preventDefault();
-              run(filtered[index]);
+              run(rows[index]);
             }
           }}
         />
         <div className="palette-list">
-          {filtered.length === 0 && <div className="palette-empty">没有匹配的命令</div>}
-          {filtered.map((command, itemIndex) => (
+          {rows.length === 0 && <div className="palette-empty">没有匹配的命令</div>}
+          {rows.map((command, itemIndex) => (
             <button
               key={command.id}
-              className={`palette-item${itemIndex === index ? ' is-active' : ''}`}
+              className={`palette-item${itemIndex === index ? ' is-active' : ''}${command.id === '__ask-ai__' ? ' is-ai' : ''}`}
               onMouseEnter={() => setIndex(itemIndex)}
               onClick={() => run(command)}
             >

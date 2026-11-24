@@ -7,6 +7,7 @@ import type {
   DownloadRecord,
   HistoryEntry,
   LayoutRect,
+  ReadingItem,
   Result
 } from '../../shared/types';
 import {
@@ -24,6 +25,10 @@ import {
   listBookmarks,
   listBrowseHistory,
   listDownloads,
+  addToReadingList,
+  listReadingList,
+  markReadingRead,
+  removeReadingItem,
   removeBookmark,
   renameBookmarkFolder,
   saveBookmark,
@@ -418,6 +423,47 @@ export function registerBrowserIpc(ctx: IpcContext): void {
         return { ok: true, data: { canceled: false, path: result.filePath } };
       } catch (error) {
         return failure<{ canceled: boolean; path?: string }>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('reading-list:list', (): Result<ReadingItem[]> => {
+    try {
+      return { ok: true, data: listReadingList() };
+    } catch (error) {
+      return failure<ReadingItem[]>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'reading-list:add',
+    (
+      _event,
+      payload: { url: string; title?: string; favicon?: string | null }
+    ): Result<ReadingItem> => {
+      try {
+        return { ok: true, data: addToReadingList(payload || { url: '' }) };
+      } catch (error) {
+        return failure<ReadingItem>(error);
+      }
+    }
+  );
+
+  ipcMain.handle('reading-list:remove', (_event, id: number): Result<{ removed: boolean }> => {
+    try {
+      return { ok: true, data: { removed: removeReadingItem(Number(id)) } };
+    } catch (error) {
+      return failure<{ removed: boolean }>(error);
+    }
+  });
+
+  ipcMain.handle(
+    'reading-list:mark',
+    (_event, id: number, read: boolean): Result<{ updated: boolean }> => {
+      try {
+        return { ok: true, data: { updated: markReadingRead(Number(id), read === true) } };
+      } catch (error) {
+        return failure<{ updated: boolean }>(error);
       }
     }
   );

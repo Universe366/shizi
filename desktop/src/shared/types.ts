@@ -461,6 +461,17 @@ export interface Bookmark {
   createdAt: number;
 }
 
+/** 稍后阅读（阅读清单）里的一条。 */
+export interface ReadingItem {
+  id: number;
+  url: string;
+  title: string;
+  favicon: string | null;
+  addedAt: number;
+  /** 为空表示未读 */
+  readAt: number | null;
+}
+
 export interface BookmarkFolder {
   name: string;
   createdAt: number;
