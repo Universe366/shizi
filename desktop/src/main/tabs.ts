@@ -22,7 +22,7 @@ import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { setZoomTarget } from './zoomTarget';
 import { applyPageDarkMode } from './pageTheme';
 import { normalizeSelectionAction } from './selectionAction';
-import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
+import { BILIBILI_SMOOTH_SCRIPT, MEDIA_CONTROL_SCRIPT } from './mediaControl';
 
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
@@ -356,13 +356,9 @@ export class TabManager {
           backgroundThrottling: false
         }
       });
-      // 与 renderer 里的圆角卡片对齐：外框 14、边框 1，内层页面的圆角用 13。
       view.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#15181e' : '#f7f6f3');
-      try {
-        view.setBorderRadius(13);
-      } catch {
-        // 个别平台不支持圆角，退化成直角页面。
-      }
+      // 不要给 WebContentsView 设圆角：圆角裁剪会让整页走遮罩合成，
+      // 视频页每帧都要过 mask，1080P 播放时会出现数秒级的合成停顿。
       view.webContents.setZoomFactor(record.zoom || 1);
       view.webContents.on('focus', () => setZoomTarget('tab'));
 
@@ -438,6 +434,9 @@ export class TabManager {
       });
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: MEDIA_CONTROL_SCRIPT
+      });
+      await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+        source: BILIBILI_SMOOTH_SCRIPT
       });
       // 页内倍速面板 / 快捷键通过 binding 把动作送回主进程。
       await wc.debugger.sendCommand('Runtime.enable');

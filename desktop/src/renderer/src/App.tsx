@@ -744,6 +744,14 @@ export default function App() {
     { id: 'reader', label: '打开阅读模式', hint: 'Alt+R', run: () => setReaderOpen(true) },
     { id: 'search', label: '全局搜索', hint: 'Ctrl+K', run: () => setSearchOpen(true) },
     { id: 'print', label: '打印页面', hint: 'Ctrl+P', run: () => void window.bsub.printPage?.() },
+    {
+      id: 'open-window',
+      label: '在独立窗口打开当前页面',
+      hint: '视频卡顿时可试',
+      run: () => {
+        if (active?.url) void window.bsub.openInWindow?.(active.url);
+      }
+    },
     { id: 'save-pdf', label: '另存为 PDF', run: () => void window.bsub.savePagePdf?.() },
     { id: 'new-tab', label: '新建标签页（起始页）', hint: 'Ctrl+T', run: () => openStartPage() },
     {

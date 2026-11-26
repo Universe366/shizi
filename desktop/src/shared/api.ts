@@ -722,6 +722,7 @@ export interface BsubApi {
     filters?: Array<{ name: string; extensions: string[] }>;
   }): Promise<Result<string | null>>;
   openExternal(url: string): Promise<void>;
+  openInWindow(url: string): Promise<import('./types').Result<boolean>>;
   backupData(): Promise<Result<{ canceled: boolean; path?: string }>>;
   restoreData(): Promise<Result<{ canceled: boolean; restored?: boolean }>>;
   changeDataDir(): Promise<

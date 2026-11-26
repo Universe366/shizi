@@ -391,6 +391,7 @@ export function AddressBar({
       });
     }
     else if (choice === 'external' && tab?.url) void window.bsub.openExternal(tab.url);
+    else if (choice === 'window' && tab?.url) void window.bsub.openInWindow?.(tab.url);
     else if (choice === 'find') onOpenFind?.();
     else if (choice === 'site-dark' && tab?.url) void window.bsub.setSiteDark(tab.url, !siteDarkOff);
   };
@@ -466,6 +467,11 @@ export function AddressBar({
       { type: 'separator' },
       { id: 'copy', label: '复制当前网址', enabled: Boolean(tab?.url) },
       { id: 'external', label: '在外部浏览器打开', enabled: Boolean(tab?.url) },
+      {
+        id: 'window',
+        label: '在独立窗口打开',
+        enabled: Boolean(tab?.url && /^https?:/i.test(tab.url))
+      },
       { type: 'separator' },
       {
         id: savedReading ? 'reading-remove' : 'reading-add',

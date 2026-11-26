@@ -405,6 +405,7 @@
   "window:foreground",
   "window:is-maximized",
   "window:minimize",
+  "window:open-url",
   "window:set-always-on-top",
   "window:toggle-maximize"
 ]

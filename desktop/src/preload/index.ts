@@ -892,6 +892,8 @@ const api: BsubApi = {
   pickFile: (options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) =>
     ipcRenderer.invoke('dialog:pick-file', options) as Promise<Result<string | null>>,
   openExternal: (url: string) => ipcRenderer.invoke('system:open-external', url) as Promise<void>,
+  openInWindow: (url: string) =>
+    ipcRenderer.invoke('window:open-url', url) as Promise<Result<boolean>>,
   backupData: () =>
     ipcRenderer.invoke('data:backup') as Promise<
       Result<{ canceled: boolean; path?: string }>

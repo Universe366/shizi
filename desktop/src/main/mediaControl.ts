@@ -885,4 +885,40 @@ export const CODEC_GUARD_SCRIPT = `(() => {
     };
   } catch {}
 })();`;
-
+export const BILIBILI_SMOOTH_SCRIPT = `(() => {
+  if (!/(^|[.])bilibili[.]com$/i.test(location.hostname)) return;
+  const css =
+    'html[data-shizi-smooth="1"] .bpx-player-control-wrap{visibility:hidden !important}' +
+    'html[data-shizi-smooth="1"] .bpx-player-control-bottom{visibility:hidden !important}' +
+    'html[data-shizi-smooth="1"] .bpx-player-control-top{visibility:hidden !important}';
+  // document-start 时 head 还没解析出来，插到 documentElement 会被解析器覆盖。
+  const install = () => {
+    if (!document.head || document.getElementById('shizi-smooth-style')) return Boolean(document.head);
+    const style = document.createElement('style');
+    style.id = 'shizi-smooth-style';
+    style.textContent = css;
+    document.head.appendChild(style);
+    return true;
+  };
+  if (!install()) document.addEventListener('DOMContentLoaded', install, { once: true });
+  let hideTimer = 0;
+  const sync = () => {
+    const root = document.documentElement;
+    const video = document.querySelector('video');
+    if (!root || !video) return;
+    if (video.paused) { root.removeAttribute('data-shizi-smooth'); return; }
+    root.setAttribute('data-shizi-smooth', '1');
+  };
+  const reveal = () => {
+    if (hideTimer) clearTimeout(hideTimer);
+    document.documentElement.removeAttribute('data-shizi-smooth');
+    hideTimer = setTimeout(sync, 2500);
+  };
+  document.addEventListener('play', sync, true);
+  document.addEventListener('pause', sync, true);
+  document.addEventListener('mousemove', (event) => {
+    const target = event.target;
+    if (target && target.closest && target.closest('.bpx-player')) reveal();
+  }, true);
+  setInterval(sync, 1000);
+})();`;

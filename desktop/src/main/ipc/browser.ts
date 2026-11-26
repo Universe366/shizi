@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, Menu, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
@@ -81,6 +81,33 @@ export function registerBrowserIpc(ctx: IpcContext): void {
     ctx.tabs.closeGroup(String(id));
   });
   ipcMain.handle('tab:new', (_event, url?: string) => ctx.tabs.create(url));
+
+  // 独立窗口：普通 BrowserWindow（不走 WebContentsView 合成路径），
+  // 用于绕开某些页面在视图里的合成卡顿。
+  const detachedWindows = new Set<BrowserWindow>();
+  ipcMain.handle('window:open-url', async (_event, url: string): Promise<Result<boolean>> => {
+    try {
+      const target = String(url || '');
+      if (!/^https?:/i.test(target)) return failure('只能打开 http(s) 页面');
+      const win = new BrowserWindow({
+        width: 1280,
+        height: 820,
+        title: '拾字 · 独立窗口',
+        webPreferences: {
+          session: session.defaultSession,
+          contextIsolation: true,
+          sandbox: true,
+          nodeIntegration: false
+        }
+      });
+      detachedWindows.add(win);
+      win.on('closed', () => detachedWindows.delete(win));
+      await win.loadURL(target);
+      return { ok: true, data: true };
+    } catch (error) {
+      return failure(error);
+    }
+  });
   ipcMain.handle('tab:set-muted', (_event, id: string, muted: boolean) => {
     ctx.tabs.setMuted(String(id), muted === true);
   });
