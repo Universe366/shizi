@@ -70,23 +70,8 @@ jobs:
           else
             npm ci --prefer-offline --no-audit --no-fund
           fi
-      - run: npm run typecheck
-      - run: npm run lint
-      - name: Run unit tests
-        shell: bash
-        run: |
-          set -o pipefail
-          npm test 2>&1 | tee test.log
-
-      - name: Upload test log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-test-log
-          path: desktop/test.log
-          if-no-files-found: ignore
-          retention-days: 7
-
+      # 质量门禁（typecheck / lint / 全量单测）在 Desktop checks 里对 PR 和 master 跑；
+      # 发布只做「构建 → 冒烟 → 打包 → 上传」，避免同一套检查重复两遍。
       - run: npm run build
 
       - name: Smoke (real Electron)
