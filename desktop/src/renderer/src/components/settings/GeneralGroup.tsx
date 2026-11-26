@@ -147,14 +147,7 @@ export function GeneralGroup({ value, onChange }: Props) {
         />
         开机自动启动拾字
       </label>
-      <label className="settings-check">
-        <input
-          type="checkbox"
-          checked={value.disableGpuCompositing === true}
-          onChange={(event) => onChange({ disableGpuCompositing: event.target.checked })}
-        />
-        关闭 GPU 合成（视频快进/暂停卡顿时尝试，重启生效）
-      </label>
+
     </SettingsSection>
 
     <SettingsSection title="默认浏览器" defaultOpen>
