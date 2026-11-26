@@ -888,9 +888,7 @@ export const CODEC_GUARD_SCRIPT = `(() => {
 export const BILIBILI_SMOOTH_SCRIPT = `(() => {
   if (!/(^|[.])bilibili[.]com$/i.test(location.hostname)) return;
   const css =
-    'html[data-shizi-smooth="1"] .bpx-player-control-wrap{visibility:hidden !important}' +
-    'html[data-shizi-smooth="1"] .bpx-player-control-bottom{visibility:hidden !important}' +
-    'html[data-shizi-smooth="1"] .bpx-player-control-top{visibility:hidden !important}';
+    'html[data-shizi-smooth="1"] .bpx-player-control-wrap{display:none !important}';
   // document-start 时 head 还没解析出来，插到 documentElement 会被解析器覆盖。
   const install = () => {
     if (!document.head || document.getElementById('shizi-smooth-style')) return Boolean(document.head);
