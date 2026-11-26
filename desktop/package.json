@@ -1,6 +1,6 @@
 {
   "name": "shizi",
-  "version": "0.196.0",
+  "version": "0.197.0",
   "private": true,
   "description": "B站字幕助手桌面端",
   "author": "bsub",
@@ -47,7 +47,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "electron": "^45.0.0",
+    "electron": "^45.5.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
     "eslint": "^10.13.0",

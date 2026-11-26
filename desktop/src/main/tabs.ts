@@ -423,6 +423,14 @@ export class TabManager {
       await wc.loadURL('about:blank');
       if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
       await wc.debugger.sendCommand('Page.enable');
+      // Chromium 会把“被遮挡”的视图标记为后台并节流渲染，表现为周期性主线程停顿。
+      // 逐视图强制回到 active（必须在页面加载完成后调用）。
+      wc.on('did-finish-load', () => {
+        if (wc.isDestroyed()) return;
+        wc.debugger
+          .sendCommand('Page.setWebLifecycleState', { state: 'active' })
+          .catch(() => undefined);
+      });
       await applyPageDarkMode(wc);
       if (suppressAutoplay) {
         await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
