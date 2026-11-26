@@ -57,9 +57,26 @@ let mediaSnifferInstalled = false;
 /** 全局只装一次：记录每个标签页最近一次音视频 CDN 请求，供抖音等 MSE 站点直链下载。 */
 function installMediaSniffer(): void {
   if (mediaSnifferInstalled) return;
+  // 诊断用：BSUB_NO_SNIFFER=1 时完全不拦请求，用来 A/B 定位卡顿。
+  if (process.env.BSUB_NO_SNIFFER === '1') return;
   mediaSnifferInstalled = true;
+  // 只拦「可能是音视频流」的请求：以前对全站 xhr 生效，B 站快进时分片/心跳
+  // 请求全都要等主进程回调，seek 中位耗时会被拖到 200ms+。
+  const mediaUrls = [
+    '*://*/*.m3u8*',
+    '*://*/*.mpd*',
+    '*://*/*.mp4*',
+    '*://*/*.m4a*',
+    '*://*/*.m4s*',
+    '*://*/*.flv*',
+    '*://*/*.webm*',
+    '*://*.douyinvod.com/*',
+    '*://*.bilivideo.com/*',
+    '*://*.akamaized.net/*',
+    '*://*.googlevideo.com/*'
+  ];
   session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['*://*/*'], types: ['media', 'xhr', 'object'] },
+    { urls: mediaUrls, types: ['media', 'xhr', 'object'] },
     (details, callback) => {
       // 连原始请求头一起记下来：CDN 有时只认页面发出的 Referer/Cookie 组合。
       if (details.webContentsId) {
