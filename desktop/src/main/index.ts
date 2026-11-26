@@ -55,6 +55,11 @@ import {
 } from './windowPolicy';
 import { bootstrapRenderer, handleCloseRequest } from './windowLifecycle';
 
+// Windows 的遮挡检测会把 WebContentsView 误判为“被遮挡”，把页面节流到几秒一帧。
+// 实测：开启时 PrePaint 可达 3365ms，关闭后 2ms。必须在 ready 之前设置。
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
 // 自定义协议必须在 app ready 之前声明；插件 UI 通过 shizi-plugin:// 加载。
 installPluginScheme();
 
