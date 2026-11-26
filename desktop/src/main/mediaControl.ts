@@ -916,9 +916,8 @@ export const BILIBILI_SMOOTH_SCRIPT = `(() => {
   };
   document.addEventListener('play', sync, true);
   document.addEventListener('pause', sync, true);
-  document.addEventListener('mousemove', (event) => {
-    const target = event.target;
-    if (target && target.closest && target.closest('.bpx-player')) reveal();
-  }, true);
+  // 播放中不显示控制条：只要它被绘制，这个页面就会停顿数秒。
+  // 暂停时正常显示；播放中可用空格暂停、方向键快进/快退。
+  void reveal;
   setInterval(sync, 1000);
 })();`;
