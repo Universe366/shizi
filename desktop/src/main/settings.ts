@@ -172,6 +172,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     downloadNotify: true,
     blockTrackers: false,
     disableGpuCompositing: false,
+    forceAvc: false,
     selectionToolbar: true,
     petEnabled: false,
     assistantEnabled: false,
@@ -983,6 +984,7 @@ function normalize(input: unknown): AppSettings {
     base.general.downloadNotify = raw.general.downloadNotify !== false;
     base.general.blockTrackers = raw.general.blockTrackers === true;
     base.general.disableGpuCompositing = raw.general.disableGpuCompositing === true;
+    base.general.forceAvc = raw.general.forceAvc === true;
     // 书签栏默认开：老配置没这个字段也按开处理。
     base.general.bookmarkBar = raw.general.bookmarkBar !== false;
       base.general.selectionToolbar = raw.general.selectionToolbar !== false;

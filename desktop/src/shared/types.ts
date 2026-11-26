@@ -1366,6 +1366,8 @@ export interface AppSettings {
     blockTrackers: boolean;
     /** 关闭 GPU 合成（播放视频卡顿时使用，重启生效） */
     disableGpuCompositing?: boolean;
+    /** 让网页优先使用 H.264，避开 AV1/HEVC 软解（重开标签生效） */
+    forceAvc?: boolean;
     /** 网页内选中文字时显示解释/翻译/总结工具条 */
     selectionToolbar: boolean;
     /** 桌面宠物悬浮窗 */

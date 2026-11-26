@@ -22,7 +22,7 @@ import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { setZoomTarget } from './zoomTarget';
 import { applyPageDarkMode } from './pageTheme';
 import { normalizeSelectionAction } from './selectionAction';
-import { MEDIA_CONTROL_SCRIPT } from './mediaControl';
+import { CODEC_GUARD_SCRIPT, MEDIA_CONTROL_SCRIPT } from './mediaControl';
 
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
@@ -447,6 +447,12 @@ export class TabManager {
       if (suppressAutoplay) {
         await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
           source: AUTOPLAY_GUARD_SCRIPT
+        });
+      }
+      // 用户开启「优先 H.264」时，让播放器认为 AV1/HEVC 不可用。
+      if (loadSettings().general.forceAvc === true) {
+        await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+          source: CODEC_GUARD_SCRIPT
         });
       }
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {

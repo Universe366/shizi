@@ -147,6 +147,14 @@ export function GeneralGroup({ value, onChange }: Props) {
         />
         开机自动启动拾字
       </label>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.forceAvc === true}
+          onChange={(event) => onChange({ forceAvc: event.target.checked })}
+        />
+        视频卡顿时优先使用 H.264（重开标签生效）
+      </label>
 
     </SettingsSection>
 

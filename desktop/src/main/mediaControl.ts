@@ -870,3 +870,19 @@ export const MEDIA_CONTROL_SCRIPT = String.raw`
   }
 })();
 `;
+
+/** 让页面认为 AV1/HEVC 不可用，播放器就会回退到 H.264（仅用户开启时注入）。 */
+export const CODEC_GUARD_SCRIPT = `(() => {
+  const reject = /av01|hev1|hvc1/i;
+  try {
+    const orig = MediaSource.isTypeSupported.bind(MediaSource);
+    MediaSource.isTypeSupported = (type) => (reject.test(String(type)) ? false : orig(type));
+  } catch {}
+  try {
+    const origCan = HTMLMediaElement.prototype.canPlayType;
+    HTMLMediaElement.prototype.canPlayType = function (type) {
+      return reject.test(String(type)) ? '' : origCan.call(this, type);
+    };
+  } catch {}
+})();`;
+
