@@ -90,6 +90,20 @@ if (process.env.BSUB_USER_DATA) {
     console.warn('[app] 无法设置 userData:', (error as Error).message);
   }
 }
+// GPU 合成在部分显卡上会让 B 站快进/暂停卡顿；这个开关必须在 ready 之前生效。
+// 直接读 JSON，避免在 ready 前调用 safeStorage 解密。
+try {
+  const rawSettings = JSON.parse(
+    fs.readFileSync(path.join(app.getPath('userData'), 'settings.json'), 'utf8')
+  );
+  if (rawSettings?.general?.disableGpuCompositing === true) {
+    app.commandLine.appendSwitch('disable-gpu-compositing');
+    writeLog('startup.log', 'gpu compositing disabled by setting');
+  }
+} catch {
+  // 首次启动/设置损坏时忽略
+}
+
 writeLog('startup.log', `boot packaged=${app.isPackaged} dataDir=${dataDirOverride || ''}`);
 
 let mainWindow: BrowserWindow | null = null;
