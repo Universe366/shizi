@@ -24,7 +24,7 @@ import {
   writeCookieFile,
   ytdlpDownloadAudio
 } from './ytdlpMedia';
-import { mediaCandidatesFor } from './mediaSniffer';
+import { mediaCandidatesFor, noteMediaRequest } from './mediaSniffer';
 
 const CHUNK_BYTES = 4 * 1024 * 1024;
 const AUDIO_CACHE_MAX_AGE = 7 * 24 * 3600 * 1000;
@@ -678,6 +678,40 @@ async function convertToWav(
   return output;
 }
 
+
+/** 只在转写抖音时临时开 Network 观察，平时完全不碰网络。 */
+async function captureMediaRequests(wc: Electron.WebContents, ms = 8000): Promise<void> {
+  try {
+    if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+    await wc.debugger.sendCommand('Network.enable', {
+      maxTotalBufferSize: 0,
+      maxResourceBufferSize: 0
+    });
+    const onMessage = (
+      _event: Electron.Event,
+      method: string,
+      params: { request?: { url?: string; headers?: Record<string, string> } }
+    ) => {
+      if (method !== 'Network.requestWillBeSent') return;
+      const request = params?.request;
+      const url = String(request?.url || '');
+      if (!/^https?:/i.test(url)) return;
+      if (
+        /\.(m4s|mp4|m4a|m3u8|mpd|flv|webm)(\?|#|$)/i.test(url) ||
+        /(bilivideo|douyinvod|googlevideo|akamaized)\./i.test(url)
+      ) {
+        noteMediaRequest(wc.id, url, request?.headers);
+      }
+    };
+    wc.debugger.on('message', onMessage as never);
+    await new Promise((resolve) => setTimeout(resolve, ms));
+    wc.debugger.removeListener('message', onMessage as never);
+    await wc.debugger.sendCommand('Network.disable').catch(() => undefined);
+  } catch {
+    // 捕获失败时按原逻辑回退
+  }
+}
+
 export async function transcribeFile(
   input: string,
   info: PageInfo,
@@ -841,6 +875,9 @@ export async function transcribe(
       }
       const isDouyin = /(^|\.)douyin\.com$/i.test(new URL(info.url).hostname);
       if (!candidates.length && isDouyin) {
+        // 临时开启 Network 观察，等分片请求出现；平时这段开销不存在。
+        await captureMediaRequests(wc, 6000);
+        candidates = mediaCandidatesFor(wc.id);
         // 用户可能刚点开视频：尝试让页面播放（不强制静音），并等音频请求出现。
         onProgress('download', 0, '等待视频音频加载…');
         await wc

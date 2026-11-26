@@ -52,26 +52,25 @@ import {
 // 后台标签闲置多久后释放渲染进程。环境变量用于测试覆盖。
 const ENV_SUSPEND_MS = Number(process.env.BSUB_SUSPEND_MS) || 0;
 
+const DEFAULT_SUSPEND_MS = 5 * 60 * 1000;
+
 let mediaSnifferInstalled = false;
 
-/** 全局只装一次：记录每个标签页最近一次音视频 CDN 请求，供抖音等 MSE 站点直链下载。 */
+/** 只监听、不拦截：onCompleted 没有回调，不会让请求等主进程。 */
 function installMediaSniffer(): void {
   if (mediaSnifferInstalled) return;
-  // 诊断用：BSUB_NO_SNIFFER=1 时完全不拦请求，用来 A/B 定位卡顿。
-  if (process.env.BSUB_NO_SNIFFER === '1') return;
   mediaSnifferInstalled = true;
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['*://*/*'], types: ['media', 'xhr', 'object'] },
-    (details, callback) => {
-      // 连原始请求头一起记下来：CDN 有时只认页面发出的 Referer/Cookie 组合。
-      if (details.webContentsId) {
-        noteMediaRequest(details.webContentsId, details.url, details.requestHeaders);
+  try {
+    session.defaultSession.webRequest.onCompleted(
+      { urls: ['*://*/*'], types: ['media'] },
+      (details) => {
+        if (details.webContentsId) noteMediaRequest(details.webContentsId, details.url);
       }
-      callback({ requestHeaders: details.requestHeaders });
-    }
-  );
+    );
+  } catch {
+    // 默认会话未就绪时忽略
+  }
 }
-const DEFAULT_SUSPEND_MS = 5 * 60 * 1000;
 
 const KEY_TO_CODE: Record<string, string> = {
   ',': 'Comma',
