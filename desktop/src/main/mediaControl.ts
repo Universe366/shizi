@@ -885,11 +885,11 @@ export const CODEC_GUARD_SCRIPT = `(() => {
     };
   } catch {}
 })();`;
+
+/** B 站兼容模式：控制条移出布局，避免该页 3.5 秒级的布局停顿。默认不启用。 */
 export const BILIBILI_SMOOTH_SCRIPT = `(() => {
   if (!/(^|[.])bilibili[.]com$/i.test(location.hostname)) return;
-  const css =
-    'html[data-shizi-smooth="1"] .bpx-player-control-wrap{display:none !important}';
-  // document-start 时 head 还没解析出来，插到 documentElement 会被解析器覆盖。
+  const css = 'html[data-shizi-smooth="1"] .bpx-player-control-wrap{display:none !important}';
   const install = () => {
     if (!document.head || document.getElementById('shizi-smooth-style')) return Boolean(document.head);
     const style = document.createElement('style');
@@ -899,7 +899,6 @@ export const BILIBILI_SMOOTH_SCRIPT = `(() => {
     return true;
   };
   if (!install()) document.addEventListener('DOMContentLoaded', install, { once: true });
-  let hideTimer = 0;
   const sync = () => {
     const root = document.documentElement;
     const video = document.querySelector('video');
@@ -907,15 +906,8 @@ export const BILIBILI_SMOOTH_SCRIPT = `(() => {
     if (video.paused) { root.removeAttribute('data-shizi-smooth'); return; }
     root.setAttribute('data-shizi-smooth', '1');
   };
-  const reveal = () => {
-    if (hideTimer) clearTimeout(hideTimer);
-    document.documentElement.removeAttribute('data-shizi-smooth');
-    hideTimer = setTimeout(sync, 2500);
-  };
   document.addEventListener('play', sync, true);
   document.addEventListener('pause', sync, true);
-  // 播放中不显示控制条：只要它被绘制，这个页面就会停顿数秒。
-  // 暂停时正常显示；播放中可用空格暂停、方向键快进/快退。
-  void reveal;
   setInterval(sync, 1000);
 })();`;
+

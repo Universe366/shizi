@@ -147,6 +147,14 @@ export function GeneralGroup({ value, onChange }: Props) {
         />
         开机自动启动拾字
       </label>
+      <label className="settings-check">
+        <input
+          type="checkbox"
+          checked={value.bilibiliCompat === true}
+          onChange={(event) => onChange({ bilibiliCompat: event.target.checked })}
+        />
+        B 站兼容模式：播放时隐藏控制条（缓解点击延迟，重开标签生效）
+      </label>
 
     </SettingsSection>
 

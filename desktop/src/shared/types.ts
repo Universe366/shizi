@@ -1368,6 +1368,8 @@ export interface AppSettings {
     disableGpuCompositing?: boolean;
     /** 让网页优先使用 H.264，避开 AV1/HEVC 软解（重开标签生效） */
     forceAvc?: boolean;
+    /** B 站兼容模式：播放时隐藏控制条，缓解该页的点击延迟（默认关） */
+    bilibiliCompat?: boolean;
     /** 网页内选中文字时显示解释/翻译/总结工具条 */
     selectionToolbar: boolean;
     /** 桌面宠物悬浮窗 */

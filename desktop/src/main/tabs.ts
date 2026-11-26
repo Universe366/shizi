@@ -435,9 +435,11 @@ export class TabManager {
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: MEDIA_CONTROL_SCRIPT
       });
-      await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
-        source: BILIBILI_SMOOTH_SCRIPT
-      });
+      if (loadSettings().general.bilibiliCompat === true) {
+        await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+          source: BILIBILI_SMOOTH_SCRIPT
+        });
+      }
       // 页内倍速面板 / 快捷键通过 binding 把动作送回主进程。
       await wc.debugger.sendCommand('Runtime.enable');
       await wc.debugger.sendCommand('Runtime.addBinding', {
