@@ -1,3 +1,12 @@
+## 0.198.0（2026-11-28）
+
+### 修复画中画变成 about:blank
+
+- 原因：setWindowOpenHandler 把所有 window.open 都建成标签页；Document PiP 的 about:blank 因此变成空白页；
+- 处理：空白弹窗改为 allow，创建独立小窗（同 session），其余 URL 仍开标签页；
+- 验证：最小 Electron 复现——deny 时 requestWindow 报 “no window”，allow 后返回 hasdoc:true；
+- 测试：199 文件 / 1173 用例（1 跳过）；冒烟 22/22。
+
 ## 0.197.0（2026-11-26）
 
 ### 逐视图强制 active 生命周期（尝试修复周期性停顿）
