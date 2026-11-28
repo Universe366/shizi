@@ -911,3 +911,30 @@ export const BILIBILI_SMOOTH_SCRIPT = `(() => {
   setInterval(sync, 1000);
 })();`;
 
+
+/** B 站画中画按钮：Electron 的 Document PiP 窗口会被立即关闭，改走原生 <video> PiP。 */
+export const BILIBILI_PIP_SCRIPT = `(() => {
+  if (!/(^|[.])bilibili[.]com$/i.test(location.hostname)) return;
+  const findButton = (event) => {
+    const path = event.composedPath ? event.composedPath() : [];
+    for (const node of path) {
+      if (node && node.classList && node.classList.contains('bpx-player-ctrl-pip')) return node;
+    }
+    const target = event.target;
+    return target && target.closest ? target.closest('.bpx-player-ctrl-pip') : null;
+  };
+  document.addEventListener('click', (event) => {
+    const button = findButton(event);
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const video = document.querySelector('video');
+    if (!video) return;
+    if (document.pictureInPictureElement) {
+      document.exitPictureInPicture().catch(() => undefined);
+    } else {
+      video.requestPictureInPicture().catch(() => undefined);
+    }
+  }, true);
+})();`;
+

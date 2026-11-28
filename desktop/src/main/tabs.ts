@@ -22,7 +22,11 @@ import { SELECTION_TOOLBAR_SCRIPT } from './selectionToolbar';
 import { setZoomTarget } from './zoomTarget';
 import { applyPageDarkMode } from './pageTheme';
 import { normalizeSelectionAction } from './selectionAction';
-import { BILIBILI_SMOOTH_SCRIPT, MEDIA_CONTROL_SCRIPT } from './mediaControl';
+import {
+  BILIBILI_PIP_SCRIPT,
+  BILIBILI_SMOOTH_SCRIPT,
+  MEDIA_CONTROL_SCRIPT
+} from './mediaControl';
 
 import { AUTOPLAY_GUARD_SCRIPT } from './autoplayGuard';
 import {
@@ -442,6 +446,9 @@ export class TabManager {
       });
       await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
         source: MEDIA_CONTROL_SCRIPT
+      });
+      await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+        source: BILIBILI_PIP_SCRIPT
       });
       if (loadSettings().general.bilibiliCompat === true) {
         await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {

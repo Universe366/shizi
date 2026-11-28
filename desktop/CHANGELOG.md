@@ -1,3 +1,12 @@
+## 0.199.0（2026-11-28）
+
+### 画中画改走原生 video PiP
+
+- 0.198 放行空白弹窗后，Electron 仍会立即关闭 Document PiP 窗口（实测 persist=false）；
+- 改为在 B 站页拦截画中画按钮，调用原生 video.requestPictureInPicture()；
+- 验证：点真实按钮后 pictureInPictureElement=true、documentPictureInPicture.window=false；
+- 测试：199 文件 / 1173 用例（1 跳过）；冒烟 22/22。
+
 ## 0.198.0（2026-11-28）
 
 ### 修复画中画变成 about:blank
