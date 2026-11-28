@@ -823,6 +823,26 @@ export class TabManager {
     });
 
     wc.setWindowOpenHandler(({ url }) => {
+      // 空白弹窗不是导航：画中画（Document PiP）等 API 会先开一个 about:blank 窗口
+      // 再由页面填充内容。把它当标签页会得到一个空白页。
+      if (!url || url === 'about:blank') {
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            width: 480,
+            height: 300,
+            frame: false,
+            alwaysOnTop: true,
+            skipTaskbar: false,
+            webPreferences: {
+              session: session.defaultSession,
+              contextIsolation: true,
+              sandbox: true,
+              nodeIntegration: false
+            }
+          }
+        };
+      }
       void this.create(url);
       return { action: 'deny' };
     });
